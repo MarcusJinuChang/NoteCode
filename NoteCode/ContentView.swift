@@ -69,7 +69,9 @@ fileprivate struct NavigationViewWrapper<Content: View>: View {
             Text("Select an item")
         }
 #else
-        content()
+        NavigationStack {
+            content()
+        }
 #endif
     }
 }
