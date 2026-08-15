@@ -2,30 +2,35 @@
 //  ContentView.swift
 //  NoteCode
 //
-//  Created by Marcus Chang on 7/25/26.
-//
 
 import SwiftUI
 import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+    @Query(sort: \Page.modifiedAt, order: .reverse) private var pages: [Page]
 
     var body: some View {
         NavigationViewWrapper {
             List {
-                ForEach(items) { item in
+                ForEach(pages) { page in
                     NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
+                        PageDetailView(page: page)
                     } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+                        VStack(alignment: .leading) {
+                            Text(page.title)
+                                .font(.headline)
+                            Text(page.modifiedAt, format: Date.FormatStyle(date: .abbreviated, time: .shortened))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
-                .onDelete(perform: deleteItems)
+                .onDelete(perform: deletePages)
             }
+            .navigationTitle("NoteCode")
 #if os(macOS)
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
+            .navigationSplitViewColumnWidth(min: 180, ideal: 220)
 #endif
             .toolbar {
 #if os(iOS)
@@ -34,25 +39,24 @@ struct ContentView: View {
                 }
 #endif
                 ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                    Button(action: addPage) {
+                        Label("Add Page", systemImage: "plus")
                     }
                 }
             }
         }
     }
 
-    private func addItem() {
+    private func addPage() {
         withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
+            modelContext.insert(Page())
         }
     }
 
-    private func deleteItems(offsets: IndexSet) {
+    private func deletePages(offsets: IndexSet) {
         withAnimation {
             for index in offsets {
-                modelContext.delete(items[index])
+                modelContext.delete(pages[index])
             }
         }
     }
@@ -66,7 +70,7 @@ fileprivate struct NavigationViewWrapper<Content: View>: View {
         NavigationSplitView {
             content()
         } detail: {
-            Text("Select an item")
+            Text("Select a page")
         }
 #else
         NavigationStack {
@@ -78,5 +82,5 @@ fileprivate struct NavigationViewWrapper<Content: View>: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
+        .modelContainer(for: Page.self, inMemory: true)
 }
