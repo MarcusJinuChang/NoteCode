@@ -56,6 +56,18 @@ struct DocumentTextView: UIViewRepresentable {
         var text: Binding<String>
         let regionCache = CodeRegionCache()
 
+        private let highlighter: SyntaxHighlighter = HighlightSwiftHighlighter()
+        private var highlightTask: Task<Void, Never>?
+
+        /// Bumped on every edit. A highlight result carrying an older number
+        /// describes a document that no longer exists, so it gets dropped.
+        private var highlightGeneration = 0
+
+        /// How long typing has to pause before the JS round trip is worth
+        /// starting. Short enough to feel immediate, long enough that holding
+        /// a key down doesn't queue a highlight per character.
+        private static let highlightDelay = Duration.milliseconds(200)
+
         init(text: Binding<String>) {
             self.text = text
         }
@@ -67,6 +79,62 @@ struct DocumentTextView: UIViewRepresentable {
             let regions = regionCache.regions(for: textView.text ?? "")
             DocumentStyler.applyStyling(to: textView, regions: regions)
             DocumentStyler.applyTypingAttributes(to: textView, regions: regions)
+            scheduleHighlighting(for: textView, regions: regions)
+        }
+
+        /// Kicks off syntax colouring after a pause in typing.
+        ///
+        /// The styling pass above has already reset every foreground to
+        /// `.label`, so if this never completes the code simply stays plain
+        /// monospace — a working fallback rather than a broken state.
+        func scheduleHighlighting(for textView: UITextView, regions: [Region]) {
+            highlightTask?.cancel()
+
+            highlightGeneration &+= 1
+            let generation = highlightGeneration
+            let source = textView.text ?? ""
+            let appearance = HighlightAppearance(textView.traitCollection)
+
+            let blocks: [(code: String, language: CodeLanguage, offset: Int)] = regions.compactMap { region in
+                guard let block = region.codeBlock, let language = block.language else { return nil }
+                return (
+                    String(source[block.contentRange]),
+                    language,
+                    NSRange(block.contentRange, in: source).location
+                )
+            }
+            guard !blocks.isEmpty else { return }
+
+            highlightTask = Task { [weak self, weak textView] in
+                try? await Task.sleep(for: Self.highlightDelay)
+                guard !Task.isCancelled, let self, let textView else { return }
+
+                var painted: [ColorRun] = []
+                for block in blocks {
+                    let runs = await highlighter.colorRuns(
+                        for: block.code,
+                        language: block.language,
+                        appearance: appearance
+                    )
+                    guard !Task.isCancelled else { return }
+
+                    painted += runs.map { run in
+                        ColorRun(
+                            range: NSRange(location: block.offset + run.range.location, length: run.range.length),
+                            color: run.color
+                        )
+                    }
+                }
+
+                // The document can move while the JS runs. Painting these runs
+                // now would colour text at offsets that have shifted underneath
+                // them, so both the generation and the text itself are checked.
+                guard generation == self.highlightGeneration,
+                      textView.text == source
+                else { return }
+
+                DocumentStyler.applyColors(painted, to: textView)
+            }
         }
 
         func textViewDidChange(_ textView: UITextView) {
