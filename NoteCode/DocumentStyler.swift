@@ -32,11 +32,13 @@ enum DocumentStyler {
         ]
     }
 
+    /// No `.backgroundColor` here on purpose. That attribute paints per glyph,
+    /// which leaves the ragged right edge this project started with;
+    /// CodeBlockLayoutFragment draws the panel at fragment level instead.
     static var codeAttributes: [NSAttributedString.Key: Any] {
         [
             .font: codeFont,
             .foregroundColor: UIColor.label,
-            .backgroundColor: UIColor.secondarySystemBackground,
         ]
     }
 

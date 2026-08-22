@@ -36,6 +36,30 @@ struct DocumentTextViewTests {
         #expect(textView.smartInsertDeleteType == .no)
     }
 
+    @Test("Styling does not downgrade the view to TextKit 1")
+    func stylingKeepsTextKit2() {
+        let textView = DocumentTextView.makeConfiguredTextView()
+        textView.text = "prose\n```cpp\nint x;\n```\n"
+        DocumentStyler.applyStyling(to: textView)
+
+        #expect(textView.textLayoutManager != nil)
+    }
+
+    /// The container reports a width of -16 (zero bounds minus two lots of
+    /// line-fragment padding) until the view has a frame. CodeBlockLayoutFragment
+    /// resolves its panel width at draw time for exactly this reason — reading
+    /// it when the fragment is created produced a negative-width panel.
+    @Test("The text container reports a usable width once laid out")
+    func containerReportsWidth() {
+        let textView = DocumentTextView.makeConfiguredTextView()
+        textView.frame = CGRect(x: 0, y: 0, width: 600, height: 400)
+        textView.layoutIfNeeded()
+
+        let width = textView.textLayoutManager?.textContainer?.size.width
+        #expect(width != nil)
+        #expect((width ?? 0) > 100)
+    }
+
     @Test("The editor is editable and scrolls")
     func editableAndScrollable() {
         let textView = DocumentTextView.makeConfiguredTextView()

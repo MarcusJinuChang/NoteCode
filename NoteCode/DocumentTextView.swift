@@ -20,6 +20,9 @@ struct DocumentTextView: UIViewRepresentable {
     func makeUIView(context: Context) -> UITextView {
         let textView = Self.makeConfiguredTextView()
         textView.delegate = context.coordinator
+        // Fragment selection happens through the layout manager, not the text
+        // view, so the coordinator has to be wired in as both delegates.
+        textView.textLayoutManager?.delegate = context.coordinator
         textView.text = text
         DocumentStyler.applyStyling(to: textView)
         return textView
@@ -51,6 +54,7 @@ struct DocumentTextView: UIViewRepresentable {
     /// Owns the UIKit delegate callbacks and forwards edits back into SwiftUI.
     final class Coordinator: NSObject, UITextViewDelegate {
         var text: Binding<String>
+        let regionCache = CodeRegionCache()
 
         init(text: Binding<String>) {
             self.text = text
@@ -100,6 +104,43 @@ struct DocumentTextView: UIViewRepresentable {
         TextRewritingPolicy.current.apply(to: textView)
 
         return textView
+    }
+}
+
+// MARK: - Fragment selection
+
+extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
+
+    /// Called for each paragraph as it enters the viewport. Returning a
+    /// CodeBlockLayoutFragment is what makes that paragraph draw a panel.
+    func textLayoutManager(
+        _ textLayoutManager: NSTextLayoutManager,
+        textLayoutFragmentFor location: NSTextLocation,
+        in textElement: NSTextElement
+    ) -> NSTextLayoutFragment {
+        let plain = NSTextLayoutFragment(textElement: textElement, range: textElement.elementRange)
+
+        guard let contentManager = textLayoutManager.textContentManager,
+              let storage = contentManager as? NSTextContentStorage,
+              let source = storage.textStorage?.string,
+              let elementRange = textElement.elementRange
+        else { return plain }
+
+        // NSTextLocation is opaque; offsets come from the content manager.
+        let start = contentManager.offset(from: contentManager.documentRange.location, to: elementRange.location)
+        let length = contentManager.offset(from: elementRange.location, to: elementRange.endLocation)
+        let element = NSRange(location: start, length: length)
+
+        for region in regionCache.regions(for: source) where region.isCode {
+            guard let position = CodeBlockPosition.of(element: element, in: NSRange(region.range, in: source)) else {
+                continue
+            }
+            let fragment = CodeBlockLayoutFragment(textElement: textElement, range: textElement.elementRange)
+            fragment.position = position
+            return fragment
+        }
+
+        return plain
     }
 }
 

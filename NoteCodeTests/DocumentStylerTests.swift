@@ -58,17 +58,18 @@ struct DocumentStylerTests {
         #expect(font(textView, at: offset) == DocumentStyler.proseFont)
     }
 
-    @Test("Only code carries a background colour")
-    func onlyCodeHasBackground() {
+    @Test("Nothing carries a glyph-level background colour")
+    func noGlyphBackgrounds() {
         let textView = styledTextView()
         let storage = textView.textStorage
 
-        let proseBackground = storage.attribute(.backgroundColor, at: 0, effectiveRange: nil)
+        // The code panel is drawn by CodeBlockLayoutFragment, not by a
+        // .backgroundColor attribute — that one paints per glyph and leaves a
+        // ragged right edge. If this starts failing, the two are fighting.
         let codeOffset = ("prose\n```cpp\n" as NSString).length
-        let codeBackground = storage.attribute(.backgroundColor, at: codeOffset, effectiveRange: nil)
 
-        #expect(proseBackground == nil)
-        #expect(codeBackground != nil)
+        #expect(storage.attribute(.backgroundColor, at: 0, effectiveRange: nil) == nil)
+        #expect(storage.attribute(.backgroundColor, at: codeOffset, effectiveRange: nil) == nil)
     }
 
     @Test("An unclosed fence styles everything after it as code")
