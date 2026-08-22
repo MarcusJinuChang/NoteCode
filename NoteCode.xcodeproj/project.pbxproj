@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		AA000000000000000000AA01 /* HighlightSwift in Frameworks */ = {isa = PBXBuildFile; productRef = AA000000000000000000AA02 /* HighlightSwift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		2CED7DDA30159629004AF5C1 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -65,6 +69,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA000000000000000000AA01 /* HighlightSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -125,6 +130,7 @@
 			);
 			name = NoteCode;
 			packageProductDependencies = (
+				AA000000000000000000AA02 /* HighlightSwift */,
 			);
 			productName = NoteCode;
 			productReference = 2CED7DC830159629004AF5C1 /* NoteCode.app */;
@@ -208,6 +214,9 @@
 			);
 			mainGroup = 2CED7DBF30159629004AF5C1;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				AA000000000000000000AA03 /* XCRemoteSwiftPackageReference "HighlightSwift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 2CED7DC930159629004AF5C1 /* Products */;
 			projectDirPath = "";
@@ -624,6 +633,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		AA000000000000000000AA03 /* XCRemoteSwiftPackageReference "HighlightSwift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/appstefan/HighlightSwift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AA000000000000000000AA02 /* HighlightSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA000000000000000000AA03 /* XCRemoteSwiftPackageReference "HighlightSwift" */;
+			productName = HighlightSwift;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 2CED7DC030159629004AF5C1 /* Project object */;
 }

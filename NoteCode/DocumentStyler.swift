@@ -78,6 +78,32 @@ enum DocumentStyler {
         storage.endEditing()
     }
 
+    /// Paints syntax colours over already-styled text.
+    ///
+    /// Uses `addAttribute` rather than `setAttributes` so the monospace font
+    /// and everything else the styling pass established survive. Colours are
+    /// always additive and always land after a full restyle has reset
+    /// foregrounds back to `.label`.
+    static func applyColors(_ runs: [ColorRun], to textView: UITextView) {
+        guard textView.markedTextRange == nil else { return }
+
+        let storage = textView.textStorage
+        let length = storage.length
+
+        storage.beginEditing()
+        for run in runs {
+            // Defensive: an off-by-one here would trap, and the ranges came
+            // from a snapshot of the document taken before an await.
+            guard run.range.location >= 0,
+                  run.range.length >= 0,
+                  run.range.location + run.range.length <= length
+            else { continue }
+
+            storage.addAttribute(.foregroundColor, value: run.color, range: run.range)
+        }
+        storage.endEditing()
+    }
+
     /// Sets the attributes newly typed characters will take on.
     ///
     /// Without this, UIKit inherits typing attributes from the character to the
