@@ -24,7 +24,7 @@ struct DocumentTextView: UIViewRepresentable {
         // view, so the coordinator has to be wired in as both delegates.
         textView.textLayoutManager?.delegate = context.coordinator
         textView.text = text
-        DocumentStyler.applyStyling(to: textView)
+        context.coordinator.restyle(textView)
         return textView
     }
 
@@ -41,7 +41,7 @@ struct DocumentTextView: UIViewRepresentable {
             // Assigning `.text` resets the storage to plain attributes, so the
             // styling has to be reapplied every time text arrives from outside.
             textView.text = text
-            DocumentStyler.applyStyling(to: textView)
+            context.coordinator.restyle(textView)
         }
     }
 
@@ -60,16 +60,26 @@ struct DocumentTextView: UIViewRepresentable {
             self.text = text
         }
 
-        func textViewDidChange(_ textView: UITextView) {
-            let regions = DocumentStyler.applyStyling(to: textView)
+        /// Re-parses and re-applies styling. Everything goes through the shared
+        /// cache, so an edit parses the document exactly once no matter how many
+        /// delegate callbacks it triggers.
+        func restyle(_ textView: UITextView) {
+            let regions = regionCache.regions(for: textView.text ?? "")
+            DocumentStyler.applyStyling(to: textView, regions: regions)
             DocumentStyler.applyTypingAttributes(to: textView, regions: regions)
+        }
+
+        func textViewDidChange(_ textView: UITextView) {
+            restyle(textView)
             text.wrappedValue = textView.text
         }
 
         func textViewDidChangeSelection(_ textView: UITextView) {
             // Moving the caret across a fence boundary changes what the next
-            // character should look like, even though no text changed.
-            let regions = FenceParser.parse(textView.text ?? "")
+            // character should look like, even though no text changed. This
+            // fires on every keystroke too, so it reads through the cache
+            // rather than re-parsing.
+            let regions = regionCache.regions(for: textView.text ?? "")
             DocumentStyler.applyTypingAttributes(to: textView, regions: regions)
         }
     }
@@ -89,6 +99,9 @@ struct DocumentTextView: UIViewRepresentable {
 
         textView.isEditable = true
         textView.isScrollEnabled = true
+        // Pasting rich text would drop foreign fonts and colours into the
+        // storage that fight the styling pass. Off means paste arrives plain.
+        textView.allowsEditingTextAttributes = false
         textView.alwaysBounceVertical = true
         textView.backgroundColor = .clear
         textView.textContainerInset = UIEdgeInsets(top: 12, left: 8, bottom: 12, right: 8)

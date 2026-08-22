@@ -135,10 +135,15 @@ final class CodeRegionCache {
     private var cachedSource: String?
     private var cachedRegions: [Region] = []
 
+    /// How many times the parser actually ran. Exists so tests can prove the
+    /// cache is doing its job — a keystroke should cost one parse, not several.
+    private(set) var parseCount = 0
+
     func regions(for source: String) -> [Region] {
         if cachedSource != source {
             cachedSource = source
             cachedRegions = FenceParser.parse(source)
+            parseCount += 1
         }
         return cachedRegions
     }

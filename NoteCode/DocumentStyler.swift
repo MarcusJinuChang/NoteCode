@@ -52,15 +52,22 @@ enum DocumentStyler {
     /// of editor usually goes to die. Revisit only if Instruments says to.
     ///
     /// Returns the regions it used, so callers don't have to parse twice.
+    /// Convenience for callers without a cache of their own (tests, previews).
+    /// The editor goes through the `regions:` variant so it parses once per edit.
     @discardableResult
     static func applyStyling(to textView: UITextView) -> [Region] {
+        let regions = FenceParser.parse(textView.text ?? "")
+        applyStyling(to: textView, regions: regions)
+        return regions
+    }
+
+    static func applyStyling(to textView: UITextView, regions: [Region]) {
         let source = textView.text ?? ""
-        let regions = FenceParser.parse(source)
 
         // Rewriting attributes mid-composition destroys the marked-text
         // underline and can drop the in-progress character entirely, which
         // breaks Pinyin, Kana, and accent input.
-        guard textView.markedTextRange == nil else { return regions }
+        guard textView.markedTextRange == nil else { return }
 
         let storage = textView.textStorage
         storage.beginEditing()
@@ -69,8 +76,6 @@ enum DocumentStyler {
             storage.setAttributes(codeAttributes, range: NSRange(region.range, in: source))
         }
         storage.endEditing()
-
-        return regions
     }
 
     /// Sets the attributes newly typed characters will take on.
