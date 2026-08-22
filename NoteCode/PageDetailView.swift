@@ -5,8 +5,8 @@
 
 import SwiftUI
 
-// Placeholder editor — Phase 1 replaces the TextEditor below with a
-// TextKit 2 (NSTextLayoutManager) view that detects code fences.
+// The iOS editor is DocumentTextView (TextKit 2). Fence detection lands on
+// top of it next; macOS keeps the plain TextEditor for now.
 struct PageDetailView: View {
     @Bindable var page: Page
 
@@ -19,9 +19,13 @@ struct PageDetailView: View {
 
             Divider()
 
+#if canImport(UIKit)
+            DocumentTextView(text: $page.content)
+#else
             TextEditor(text: $page.content)
-                .font(.body.monospaced())
+                .font(.body)
                 .padding(.horizontal, 8)
+#endif
         }
         .onChange(of: page.title) { page.modifiedAt = .now }
         .onChange(of: page.content) { page.modifiedAt = .now }
