@@ -58,10 +58,9 @@ code blocks need to support at least C++, Java, and Python.
 - No CI/build commands defined yet — update this section once a scheme and
   test target exist.
 
-## Known tricky areas (flag before touching)
+## Implementation requirements
 
-- TextKit 2 fence-to-code-region conversion — this is the hardest and most
-  failure-prone part of the app. Changes here need manual testing against
-  fast typing, pasting, and mid-fence edits.
-- Overlay touch handoff between `PKCanvasView` and the text view — easy to
-  accidentally let both layers capture touches at once.
+- TextKit 2 fence-to-code-region conversion — changes here need manual testing
+  against fast typing, pasting, and mid-fence edits.
+- Overlay touch handoff between `PKCanvasView` and the text view — exactly one
+  layer accepts touches at any moment.
