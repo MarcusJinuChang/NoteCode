@@ -21,6 +21,7 @@ struct DocumentTextView: UIViewRepresentable {
         let textView = Self.makeConfiguredTextView()
         textView.delegate = context.coordinator
         textView.text = text
+        DocumentStyler.applyStyling(to: textView)
         return textView
     }
 
@@ -34,7 +35,10 @@ struct DocumentTextView: UIViewRepresentable {
         // unconditionally would reset the selection on every render and fight
         // the user for control of the caret while they type.
         if textView.text != text {
+            // Assigning `.text` resets the storage to plain attributes, so the
+            // styling has to be reapplied every time text arrives from outside.
             textView.text = text
+            DocumentStyler.applyStyling(to: textView)
         }
     }
 
@@ -53,7 +57,16 @@ struct DocumentTextView: UIViewRepresentable {
         }
 
         func textViewDidChange(_ textView: UITextView) {
+            let regions = DocumentStyler.applyStyling(to: textView)
+            DocumentStyler.applyTypingAttributes(to: textView, regions: regions)
             text.wrappedValue = textView.text
+        }
+
+        func textViewDidChangeSelection(_ textView: UITextView) {
+            // Moving the caret across a fence boundary changes what the next
+            // character should look like, even though no text changed.
+            let regions = FenceParser.parse(textView.text ?? "")
+            DocumentStyler.applyTypingAttributes(to: textView, regions: regions)
         }
     }
 
