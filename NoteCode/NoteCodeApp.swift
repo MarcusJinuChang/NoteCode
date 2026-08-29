@@ -2,31 +2,44 @@
 //  NoteCodeApp.swift
 //  NoteCode
 //
-//  Created by Marcus Chang on 7/25/26.
-//
 
 import SwiftUI
 import SwiftData
 
 @main
 struct NoteCodeApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Page.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
+    private let storage = Storage.open()
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            if let container = storage.container {
+                ContentView(storageIsEphemeral: storage.isEphemeral)
+                    .modelContainer(container)
+            } else {
+                StorageUnavailableView(reason: storage.reason)
+            }
         }
-        .modelContainer(sharedModelContainer)
+    }
+}
+
+/// Shown when no store could be opened at all.
+///
+/// Rare, but the alternative is a launch crash that tells the user nothing.
+struct StorageUnavailableView: View {
+    let reason: String?
+
+    var body: some View {
+        ContentUnavailableView {
+            Label("Notes Unavailable", systemImage: "externaldrive.badge.xmark")
+        } description: {
+            Text("NoteCode couldn't open its storage, so your notes can't be loaded. Restarting may help; if it doesn't, freeing up space on the device usually does.")
+        } actions: {
+            if let reason {
+                Text(reason)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
     }
 }

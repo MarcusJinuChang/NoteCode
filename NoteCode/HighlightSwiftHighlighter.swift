@@ -19,19 +19,22 @@ struct HighlightSwiftHighlighter: SyntaxHighlighter {
 
     func colorRuns(
         for code: String,
-        language: CodeLanguage,
+        languageTag: String,
         appearance: HighlightAppearance
     ) async -> [ColorRun] {
-        guard !code.isEmpty else { return [] }
+        guard !code.isEmpty, !languageTag.isEmpty else { return [] }
 
         let colors: HighlightColors = switch appearance {
         case .light: .light(.xcode)
         case .dark:  .dark(.xcode)
         }
 
+        // The String overload resolves highlight.js's own aliases, so any of
+        // its ~56 languages works without NoteCode enumerating them. An
+        // unrecognized tag throws, and the block simply stays plain.
         guard let highlighted = try? await highlight.attributedText(
             code,
-            language: language.highlightLanguage,
+            language: languageTag.lowercased(),
             colors: colors
         ) else {
             // A highlight failure is not an error worth surfacing — the code
@@ -58,17 +61,6 @@ struct HighlightSwiftHighlighter: SyntaxHighlighter {
 
             guard let color else { return nil }
             return ColorRun(range: NSRange(run.range, in: highlighted), color: color)
-        }
-    }
-}
-
-private extension CodeLanguage {
-    /// Our three languages onto highlight.js's names.
-    var highlightLanguage: HighlightLanguage {
-        switch self {
-        case .cpp:    .cPlusPlus
-        case .java:   .java
-        case .python: .python
         }
     }
 }

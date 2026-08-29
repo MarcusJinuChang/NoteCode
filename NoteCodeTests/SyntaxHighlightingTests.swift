@@ -28,14 +28,14 @@ struct HighlightAppearanceTests {
 @Suite("HighlightSwift adapter")
 struct HighlightSwiftHighlighterTests {
 
-    @Test("Every supported language produces colours", arguments: [
-        (CodeLanguage.cpp, "int x = 0;"),
-        (CodeLanguage.java, "class A { int x = 0; }"),
-        (CodeLanguage.python, "print(\"hi\")"),
+    @Test("The runnable languages produce colours", arguments: [
+        ("cpp", "int x = 0;"),
+        ("java", "class A { int x = 0; }"),
+        ("python", "print(\"hi\")"),
     ])
-    func producesColors(language: CodeLanguage, code: String) async {
+    func producesColors(tag: String, code: String) async {
         let runs = await HighlightSwiftHighlighter()
-            .colorRuns(for: code, language: language, appearance: .dark)
+            .colorRuns(for: code, languageTag: tag, appearance: .dark)
 
         // Guards the scope bug this was written after: HighlightSwift populates
         // the UIKit attribute scope, and reading the SwiftUI one returned no
@@ -46,7 +46,32 @@ struct HighlightSwiftHighlighterTests {
     @Test("Empty code produces no runs")
     func emptyCode() async {
         let runs = await HighlightSwiftHighlighter()
-            .colorRuns(for: "", language: .cpp, appearance: .dark)
+            .colorRuns(for: "", languageTag: "cpp", appearance: .dark)
+
+        #expect(runs.isEmpty)
+    }
+
+    @Test("Languages NoteCode can't run are still coloured", arguments: [
+        ("rust", "fn main() { let y = 1; }"),
+        ("swift", "let x = 0"),
+        ("javascript", "const x = 0;"),
+        ("sql", "SELECT * FROM t;"),
+        ("go", "func main() {}"),
+    ])
+    func colorsBeyondTheRunnableLanguages(tag: String, code: String) async {
+        // Highlighting used to be gated on CodeLanguage, which lists only what
+        // Piston can execute — so every other language silently rendered plain
+        // with nothing to indicate why.
+        let runs = await HighlightSwiftHighlighter()
+            .colorRuns(for: code, languageTag: tag, appearance: .dark)
+
+        #expect(!runs.isEmpty)
+    }
+
+    @Test("An untagged or unrecognized fence stays plain", arguments: ["", "notalanguage"])
+    func unknownTagsStayPlain(tag: String) async {
+        let runs = await HighlightSwiftHighlighter()
+            .colorRuns(for: "int x = 0;", languageTag: tag, appearance: .dark)
 
         #expect(runs.isEmpty)
     }
@@ -55,7 +80,7 @@ struct HighlightSwiftHighlighterTests {
     func runsStayInBounds() async {
         let code = "int lo = 0;\nint hi = n - 1;"
         let runs = await HighlightSwiftHighlighter()
-            .colorRuns(for: code, language: .cpp, appearance: .dark)
+            .colorRuns(for: code, languageTag: "cpp", appearance: .dark)
         let length = (code as NSString).length
 
         #expect(!runs.isEmpty)
@@ -70,8 +95,8 @@ struct HighlightSwiftHighlighterTests {
         let highlighter = HighlightSwiftHighlighter()
         let code = "int x = 0;"
 
-        let light = await highlighter.colorRuns(for: code, language: .cpp, appearance: .light)
-        let dark = await highlighter.colorRuns(for: code, language: .cpp, appearance: .dark)
+        let light = await highlighter.colorRuns(for: code, languageTag: "cpp", appearance: .light)
+        let dark = await highlighter.colorRuns(for: code, languageTag: "cpp", appearance: .dark)
 
         #expect(!light.isEmpty)
         #expect(!dark.isEmpty)
