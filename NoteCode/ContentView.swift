@@ -7,12 +7,24 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
+    /// True when the on-disk store failed and edits live only in memory.
+    var storageIsEphemeral = false
+
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Page.modifiedAt, order: .reverse) private var pages: [Page]
 
     var body: some View {
         NavigationViewWrapper {
             List {
+                if storageIsEphemeral {
+                    Label(
+                        "Storage is unavailable, so changes made now won't be saved.",
+                        systemImage: "exclamationmark.triangle.fill"
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+                }
+
                 ForEach(pages) { page in
                     NavigationLink {
                         PageDetailView(page: page)
