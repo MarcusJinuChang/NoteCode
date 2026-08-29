@@ -1,103 +1,25 @@
 //
-//  FenceParser.swift
+//  DocumentParser.swift
 //  NoteCode
 //
-//  Pure fence detection. No UIKit, no SwiftUI, no TextKit — this file turns a
-//  document string into a list of regions and nothing else, so it stays cheap
-//  to unit-test (see AGENTS.md, "Conventions").
+//  Pure document parsing. No UIKit, no SwiftUI, no TextKit — this file turns a
+//  string into a list of block nodes and nothing else, so it stays cheap to
+//  unit-test (see AGENTS.md, "Conventions").
 //
 
 import Foundation
 
-// MARK: - Language
+enum DocumentParser {
 
-/// A language a fenced code block can be tagged with.
-///
-/// Only the three languages the app actually needs (CS133 C++, plus Java and
-/// Python for algorithm practice). An unrecognized tag isn't an error — the
-/// block still renders as code, it just has no language.
-enum CodeLanguage: String, CaseIterable, Sendable {
-    case cpp
-    case java
-    case python
-
-    /// Maps what the user typed after the fence onto a known language.
-    /// People write `c++`, `py`, `python3` — all of them should work.
-    init?(tag: String) {
-        switch tag.lowercased() {
-        case "cpp", "c++", "cc", "cxx":       self = .cpp
-        case "java":                          self = .java
-        case "py", "python", "python3":       self = .python
-        default:                              return nil
-        }
-    }
-
-    /// The name the Piston API expects when Phase 3 sends this block off to run.
-    var pistonName: String {
-        switch self {
-        case .cpp:    "c++"
-        case .java:   "java"
-        case .python: "python"
-        }
-    }
-}
-
-// MARK: - Regions
-
-/// A fenced code block's metadata.
-struct CodeBlock: Equatable, Sendable {
-    /// Survives edits elsewhere in the document — see `CodeBlockID`.
-    var id: CodeBlockID
-    /// Recognized language, or `nil` if the fence had no tag or an unknown one.
-    var language: CodeLanguage?
-    /// The raw text after the opening backticks, exactly as typed.
-    var infoString: String
-    /// `false` while the user is still typing and no closing fence exists yet.
-    var isClosed: Bool
-    /// Just the code between the fences — excludes both fence lines.
-    /// This is what gets sent to Piston; `Region.range` is what gets styled.
-    var contentRange: Range<String.Index>
-}
-
-/// One contiguous span of the document.
-///
-/// Regions are always returned in document order, are non-overlapping, and
-/// together cover the entire string — so rendering can walk them start to
-/// finish without worrying about gaps.
-struct Region: Equatable, Sendable {
-    enum Kind: Equatable, Sendable {
-        case text
-        case code(CodeBlock)
-    }
-
-    var kind: Kind
-    /// The whole span, fence lines included. Line-aligned: a region always
-    /// starts at the beginning of a line and ends at the start of the next
-    /// one, which is what makes drawing a block background straightforward.
-    var range: Range<String.Index>
-
-    var isCode: Bool {
-        if case .code = kind { return true }
-        return false
-    }
-
-    var codeBlock: CodeBlock? {
-        if case .code(let block) = kind { return block }
-        return nil
-    }
-}
-
-// MARK: - Parser
-
-enum FenceParser {
-
-    /// Splits `text` into alternating prose and code regions.
+    /// Splits `text` into block nodes.
     ///
-    /// An unterminated fence deliberately produces a code region running to the
-    /// end of the document — otherwise nothing would highlight until the user
-    /// typed the closing fence, which AGENTS.md rules out.
-    static func parse(_ text: String) -> [Region] {
-        var regions: [Region] = []
+    /// Prose becomes one paragraph block per source line; a fenced region
+    /// becomes a single code block spanning all of its lines. An unterminated
+    /// fence deliberately produces a code block running to the end of the
+    /// document — otherwise nothing would highlight until the user typed the
+    /// closing fence, which AGENTS.md rules out.
+    static func parse(_ text: String) -> [BlockNode] {
+        var blocks: [BlockNode] = []
 
         // `split` hands back Substrings whose indices point back into `text`,
         // so line boundaries double as document offsets for free.
@@ -108,8 +30,6 @@ enum FenceParser {
         // and the whole file parses as one line.
         let lines = text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
 
-        // Start of the prose run we haven't emitted yet.
-        var pendingTextStart = text.startIndex
         // Set while we're inside a code block.
         var openFence: (start: String.Index, contentStart: String.Index, info: String, backticks: Int)?
         // Position of the next code block among code blocks, in document order.
@@ -128,8 +48,8 @@ enum FenceParser {
                 guard let fence, fence.info.isEmpty, fence.backticks >= open.backticks else { continue }
 
                 let contentRange = open.contentStart..<lineStart
-                regions.append(
-                    Region(
+                blocks.append(
+                    BlockNode(
                         kind: .code(
                             CodeBlock(
                                 id: CodeBlockID(ordinal: ordinal, code: String(text[contentRange])),
@@ -143,22 +63,22 @@ enum FenceParser {
                     )
                 )
                 ordinal += 1
-                pendingTextStart = lineEnd
                 openFence = nil
             } else if let fence {
-                // Opening fence: flush whatever prose came before it.
-                if pendingTextStart < lineStart {
-                    regions.append(Region(kind: .text, range: pendingTextStart..<lineStart))
-                }
                 openFence = (start: lineStart, contentStart: lineEnd, info: fence.info, backticks: fence.backticks)
+            } else {
+                // A trailing empty line sits at the very end of the string and
+                // spans nothing. Emitting it would add a zero-length block.
+                guard lineStart < lineEnd else { continue }
+                blocks.append(paragraph(from: lineStart, to: lineEnd))
             }
         }
 
-        // Whatever is left over when we run out of lines.
+        // An unterminated fence runs to the end of the document.
         if let open = openFence {
             let contentRange = open.contentStart..<text.endIndex
-            regions.append(
-                Region(
+            blocks.append(
+                BlockNode(
                     kind: .code(
                         CodeBlock(
                             id: CodeBlockID(ordinal: ordinal, code: String(text[contentRange])),
@@ -171,14 +91,24 @@ enum FenceParser {
                     range: open.start..<text.endIndex
                 )
             )
-        } else if pendingTextStart < text.endIndex {
-            regions.append(Region(kind: .text, range: pendingTextStart..<text.endIndex))
         }
 
-        return regions
+        return blocks
     }
 
     // MARK: Private
+
+    /// A paragraph covering one source line.
+    ///
+    /// Its inline content is a single `.text` span for now. Splitting that into
+    /// bold, emphasis and inline-code spans is the next step, and is confined
+    /// to this function plus `InlineNode`.
+    private static func paragraph(from start: String.Index, to end: String.Index) -> BlockNode {
+        BlockNode(
+            kind: .paragraph(inlines: [InlineNode(kind: .text, range: start..<end)]),
+            range: start..<end
+        )
+    }
 
     private struct Fence {
         var backticks: Int

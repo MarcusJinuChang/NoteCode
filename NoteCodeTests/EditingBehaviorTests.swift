@@ -15,15 +15,15 @@ import UIKit
 // MARK: - Re-parse cost
 
 @Suite("Re-parse cost")
-struct RegionCacheTests {
+struct DocumentCacheTests {
 
     @Test("Repeated reads of the same document parse once")
     func repeatedReadsParseOnce() {
-        let cache = CodeRegionCache()
+        let cache = DocumentCache()
         let source = "prose\n```cpp\nint x;\n```\n"
 
         for _ in 0..<10 {
-            _ = cache.regions(for: source)
+            _ = cache.blocks(for: source)
         }
 
         #expect(cache.parseCount == 1)
@@ -31,12 +31,12 @@ struct RegionCacheTests {
 
     @Test("Each distinct edit costs exactly one parse")
     func eachEditParsesOnce() {
-        let cache = CodeRegionCache()
+        let cache = DocumentCache()
 
         // Simulates a keystroke: didChange and didChangeSelection both read.
         for text in ["a", "ab", "abc"] {
-            _ = cache.regions(for: text)   // textViewDidChange
-            _ = cache.regions(for: text)   // textViewDidChangeSelection
+            _ = cache.blocks(for: text)   // textViewDidChange
+            _ = cache.blocks(for: text)   // textViewDidChangeSelection
         }
 
         #expect(cache.parseCount == 3)
@@ -44,11 +44,11 @@ struct RegionCacheTests {
 
     @Test("Returning to a previous document re-parses rather than going stale")
     func revertingReparses() {
-        let cache = CodeRegionCache()
+        let cache = DocumentCache()
 
-        _ = cache.regions(for: "a")
-        _ = cache.regions(for: "b")
-        let back = cache.regions(for: "a")
+        _ = cache.blocks(for: "a")
+        _ = cache.blocks(for: "b")
+        let back = cache.blocks(for: "a")
 
         #expect(cache.parseCount == 3)
         #expect(back.count == 1)
@@ -100,8 +100,8 @@ struct MidFenceEditTests {
 
     @Test("Deleting the closing fence reopens the block to end of document")
     func deletingClosingFence() {
-        let closed = FenceParser.parse("```cpp\nx\n```\nafter")
-        let reopened = FenceParser.parse("```cpp\nx\n\nafter")
+        let closed = DocumentParser.parse("```cpp\nx\n```\nafter")
+        let reopened = DocumentParser.parse("```cpp\nx\n\nafter")
 
         #expect(closed.first?.codeBlock?.isClosed == true)
         #expect(closed.count == 2)
@@ -112,26 +112,26 @@ struct MidFenceEditTests {
 
     @Test("The third backtick is what turns prose into a code block")
     func thirdBacktickOpensBlock() {
-        #expect(FenceParser.parse("``").allSatisfy { !$0.isCode })
-        #expect(FenceParser.parse("```").contains { $0.isCode })
+        #expect(DocumentParser.parse("``").allSatisfy { !$0.isCode })
+        #expect(DocumentParser.parse("```").contains { $0.isCode })
     }
 
     @Test("Typing a language tag onto an open fence keeps the block open")
     func taggingAnOpenFence() {
         for source in ["```", "```c", "```cp", "```cpp"] {
-            let regions = FenceParser.parse(source)
-            #expect(regions.first?.isCode == true)
-            #expect(regions.first?.codeBlock?.isClosed == false)
+            let blocks = DocumentParser.parse(source)
+            #expect(blocks.first?.isCode == true)
+            #expect(blocks.first?.codeBlock?.isClosed == false)
         }
 
-        #expect(FenceParser.parse("```cpp").first?.codeBlock?.language == .cpp)
-        #expect(FenceParser.parse("```cp").first?.codeBlock?.language == nil)
+        #expect(DocumentParser.parse("```cpp").first?.codeBlock?.language == .cpp)
+        #expect(DocumentParser.parse("```cp").first?.codeBlock?.language == nil)
     }
 
     @Test("Removing the language tag leaves the block intact, without a language")
     func untagging() {
-        let tagged = FenceParser.parse("```cpp\nx\n```")
-        let untagged = FenceParser.parse("```\nx\n```")
+        let tagged = DocumentParser.parse("```cpp\nx\n```")
+        let untagged = DocumentParser.parse("```\nx\n```")
 
         #expect(tagged.first?.codeBlock?.language == .cpp)
         #expect(untagged.first?.isCode == true)
@@ -150,11 +150,11 @@ struct CaretBoundaryTests {
     private func typingFont(caretAt offset: Int, in source: String = CaretBoundaryTests.source) -> UIFont? {
         let textView = DocumentTextView.makeConfiguredTextView()
         textView.text = source
-        let regions = FenceParser.parse(source)
-        DocumentStyler.applyStyling(to: textView, regions: regions)
+        let blocks = DocumentParser.parse(source)
+        DocumentStyler.applyStyling(to: textView, blocks: blocks)
 
         textView.selectedRange = NSRange(location: offset, length: 0)
-        DocumentStyler.applyTypingAttributes(to: textView, regions: regions)
+        DocumentStyler.applyTypingAttributes(to: textView, blocks: blocks)
 
         return textView.typingAttributes[.font] as? UIFont
     }
@@ -237,14 +237,14 @@ struct UndoTests {
         textView.insertText("```")
 
         DocumentStyler.applyStyling(to: textView)
-        #expect(FenceParser.parse(textView.text).first(where: \.isCode)?.codeBlock?.isClosed == true)
+        #expect(DocumentParser.parse(textView.text).first(where: \.isCode)?.codeBlock?.isClosed == true)
 
         let undoManager = try #require(textView.undoManager)
         try #require(undoManager.canUndo)
         undoManager.undo()
 
         DocumentStyler.applyStyling(to: textView)
-        #expect(FenceParser.parse(textView.text).first(where: \.isCode)?.codeBlock?.isClosed == false)
+        #expect(DocumentParser.parse(textView.text).first(where: \.isCode)?.codeBlock?.isClosed == false)
     }
 }
 

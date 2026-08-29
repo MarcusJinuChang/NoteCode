@@ -8,7 +8,7 @@ import Testing
 @testable import NoteCode
 
 private func codeIDs(_ source: String) -> [CodeBlockID] {
-    FenceParser.parse(source).compactMap(\.codeBlock?.id)
+    DocumentParser.parse(source).compactMap(\.codeBlock?.id)
 }
 
 @Suite("Code block identity")
@@ -82,8 +82,8 @@ struct CodeBlockIdentityTests {
     func hashCoversContentOnly() {
         // Same code, different tag: the tag is not part of the content hash, so
         // only the language differs.
-        let cpp = FenceParser.parse("```cpp\nx\n```")[0].codeBlock
-        let untagged = FenceParser.parse("```\nx\n```")[0].codeBlock
+        let cpp = DocumentParser.parse("```cpp\nx\n```")[0].codeBlock
+        let untagged = DocumentParser.parse("```\nx\n```")[0].codeBlock
 
         #expect(cpp?.id == untagged?.id)
         #expect(cpp?.language != untagged?.language)
@@ -104,19 +104,19 @@ struct BlockResultStoreTests {
 
     private static let document = "```cpp\nint x;\n```\ntext\n```py\nprint(1)\n```"
 
-    private func storeWithResults(_ source: String) -> (BlockResultStore<String>, [Region]) {
-        let regions = FenceParser.parse(source)
+    private func storeWithResults(_ source: String) -> (BlockResultStore<String>, [BlockNode]) {
+        let blocks = DocumentParser.parse(source)
         var store = BlockResultStore<String>()
-        for (index, region) in regions.compactMap(\.codeBlock).enumerated() {
-            store[region.id] = "output \(index)"
+        for (index, block) in blocks.compactMap(\.codeBlock).enumerated() {
+            store[block.id] = "output \(index)"
         }
-        return (store, regions)
+        return (store, blocks)
     }
 
     @Test("Results survive a re-parse of an unchanged document")
     func resultsSurviveReparse() {
         var (store, _) = storeWithResults(Self.document)
-        store.prune(keeping: FenceParser.parse(Self.document))
+        store.prune(keeping: DocumentParser.parse(Self.document))
 
         #expect(store.count == 2)
     }
@@ -126,7 +126,7 @@ struct BlockResultStoreTests {
         var (store, _) = storeWithResults(Self.document)
         let edited = Self.document.replacingOccurrences(of: "text", with: "text, expanded")
 
-        store.prune(keeping: FenceParser.parse(edited))
+        store.prune(keeping: DocumentParser.parse(edited))
 
         #expect(store.count == 2)
     }
@@ -135,20 +135,20 @@ struct BlockResultStoreTests {
     func editingBlockDiscardsItsResult() {
         var (store, _) = storeWithResults(Self.document)
         let edited = Self.document.replacingOccurrences(of: "int x;", with: "int y;")
-        let editedRegions = FenceParser.parse(edited)
+        let editedBlocks = DocumentParser.parse(edited)
 
-        store.prune(keeping: editedRegions)
+        store.prune(keeping: editedBlocks)
 
         #expect(store.count == 1)
         // The untouched python block keeps its output.
-        let survivor = editedRegions.compactMap(\.codeBlock).first { $0.language == .python }
+        let survivor = editedBlocks.compactMap(\.codeBlock).first { $0.language == .python }
         #expect(store[survivor!.id] == "output 1")
     }
 
     @Test("Deleting a block discards its result")
     func deletingBlockDiscardsResult() {
         var (store, _) = storeWithResults(Self.document)
-        store.prune(keeping: FenceParser.parse("just prose now"))
+        store.prune(keeping: DocumentParser.parse("just prose now"))
 
         #expect(store.count == 0)
     }
@@ -158,7 +158,7 @@ struct BlockResultStoreTests {
         var (store, _) = storeWithResults(Self.document)
         let edited = "```java\nclass A {}\n```\n" + Self.document
 
-        store.prune(keeping: FenceParser.parse(edited))
+        store.prune(keeping: DocumentParser.parse(edited))
 
         // Both original blocks shifted ordinal, so neither result still applies.
         #expect(store.count == 0)

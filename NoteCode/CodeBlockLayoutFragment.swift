@@ -131,21 +131,21 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
 /// TextKit 2 lays out lazily, so the fragment delegate is called for every
 /// paragraph entering the viewport. Parsing each time would be O(document) per
 /// fragment; caching against the source string makes it O(document) per edit.
-final class CodeRegionCache {
+final class DocumentCache {
     private var cachedSource: String?
-    private var cachedRegions: [Region] = []
+    private var cachedBlocks: [BlockNode] = []
 
     /// How many times the parser actually ran. Exists so tests can prove the
     /// cache is doing its job — a keystroke should cost one parse, not several.
     private(set) var parseCount = 0
 
-    func regions(for source: String) -> [Region] {
+    func blocks(for source: String) -> [BlockNode] {
         if cachedSource != source {
             cachedSource = source
-            cachedRegions = FenceParser.parse(source)
+            cachedBlocks = DocumentParser.parse(source)
             parseCount += 1
         }
-        return cachedRegions
+        return cachedBlocks
     }
 }
 

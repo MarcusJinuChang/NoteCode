@@ -54,7 +54,7 @@ struct DocumentTextView: UIViewRepresentable {
     /// Owns the UIKit delegate callbacks and forwards edits back into SwiftUI.
     final class Coordinator: NSObject, UITextViewDelegate {
         var text: Binding<String>
-        let regionCache = CodeRegionCache()
+        let documentCache = DocumentCache()
 
         private let highlighter: SyntaxHighlighter = HighlightSwiftHighlighter()
         private var highlightTask: Task<Void, Never>?
@@ -76,10 +76,10 @@ struct DocumentTextView: UIViewRepresentable {
         /// cache, so an edit parses the document exactly once no matter how many
         /// delegate callbacks it triggers.
         func restyle(_ textView: UITextView) {
-            let regions = regionCache.regions(for: textView.text ?? "")
-            DocumentStyler.applyStyling(to: textView, regions: regions)
-            DocumentStyler.applyTypingAttributes(to: textView, regions: regions)
-            scheduleHighlighting(for: textView, regions: regions)
+            let blocks = documentCache.blocks(for: textView.text ?? "")
+            DocumentStyler.applyStyling(to: textView, blocks: blocks)
+            DocumentStyler.applyTypingAttributes(to: textView, blocks: blocks)
+            scheduleHighlighting(for: textView, blocks: blocks)
         }
 
         /// Kicks off syntax colouring after a pause in typing.
@@ -87,7 +87,7 @@ struct DocumentTextView: UIViewRepresentable {
         /// The styling pass above has already reset every foreground to
         /// `.label`, so if this never completes the code simply stays plain
         /// monospace — a working fallback rather than a broken state.
-        func scheduleHighlighting(for textView: UITextView, regions: [Region]) {
+        func scheduleHighlighting(for textView: UITextView, blocks: [BlockNode]) {
             highlightTask?.cancel()
 
             highlightGeneration &+= 1
@@ -95,32 +95,33 @@ struct DocumentTextView: UIViewRepresentable {
             let source = textView.text ?? ""
             let appearance = HighlightAppearance(textView.traitCollection)
 
-            let blocks: [(code: String, language: CodeLanguage, offset: Int)] = regions.compactMap { region in
-                guard let block = region.codeBlock, let language = block.language else { return nil }
+            // Snapshot of what to send, taken before any await.
+            let jobs: [(code: String, language: CodeLanguage, offset: Int)] = blocks.compactMap { node in
+                guard let code = node.codeBlock, let language = code.language else { return nil }
                 return (
-                    String(source[block.contentRange]),
+                    String(source[code.contentRange]),
                     language,
-                    NSRange(block.contentRange, in: source).location
+                    NSRange(code.contentRange, in: source).location
                 )
             }
-            guard !blocks.isEmpty else { return }
+            guard !jobs.isEmpty else { return }
 
             highlightTask = Task { [weak self, weak textView] in
                 try? await Task.sleep(for: Self.highlightDelay)
                 guard !Task.isCancelled, let self, let textView else { return }
 
                 var painted: [ColorRun] = []
-                for block in blocks {
+                for job in jobs {
                     let runs = await highlighter.colorRuns(
-                        for: block.code,
-                        language: block.language,
+                        for: job.code,
+                        language: job.language,
                         appearance: appearance
                     )
                     guard !Task.isCancelled else { return }
 
                     painted += runs.map { run in
                         ColorRun(
-                            range: NSRange(location: block.offset + run.range.location, length: run.range.length),
+                            range: NSRange(location: job.offset + run.range.location, length: run.range.length),
                             color: run.color
                         )
                     }
@@ -147,8 +148,8 @@ struct DocumentTextView: UIViewRepresentable {
             // character should look like, even though no text changed. This
             // fires on every keystroke too, so it reads through the cache
             // rather than re-parsing.
-            let regions = regionCache.regions(for: textView.text ?? "")
-            DocumentStyler.applyTypingAttributes(to: textView, regions: regions)
+            let blocks = documentCache.blocks(for: textView.text ?? "")
+            DocumentStyler.applyTypingAttributes(to: textView, blocks: blocks)
         }
     }
 
@@ -212,8 +213,8 @@ extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
         let length = contentManager.offset(from: elementRange.location, to: elementRange.endLocation)
         let element = NSRange(location: start, length: length)
 
-        for region in regionCache.regions(for: source) where region.isCode {
-            guard let position = CodeBlockPosition.of(element: element, in: NSRange(region.range, in: source)) else {
+        for block in documentCache.blocks(for: source) where block.isCode {
+            guard let position = CodeBlockPosition.of(element: element, in: NSRange(block.range, in: source)) else {
                 continue
             }
             let fragment = CodeBlockLayoutFragment(textElement: textElement, range: textElement.elementRange)

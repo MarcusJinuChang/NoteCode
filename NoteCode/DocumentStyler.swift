@@ -55,13 +55,13 @@ enum DocumentStyler {
     /// Convenience for callers without a cache of their own (tests, previews).
     /// The editor goes through the `regions:` variant so it parses once per edit.
     @discardableResult
-    static func applyStyling(to textView: UITextView) -> [Region] {
-        let regions = FenceParser.parse(textView.text ?? "")
-        applyStyling(to: textView, regions: regions)
-        return regions
+    static func applyStyling(to textView: UITextView) -> [BlockNode] {
+        let blocks = DocumentParser.parse(textView.text ?? "")
+        applyStyling(to: textView, blocks: blocks)
+        return blocks
     }
 
-    static func applyStyling(to textView: UITextView, regions: [Region]) {
+    static func applyStyling(to textView: UITextView, blocks: [BlockNode]) {
         let source = textView.text ?? ""
 
         // Rewriting attributes mid-composition destroys the marked-text
@@ -72,8 +72,8 @@ enum DocumentStyler {
         let storage = textView.textStorage
         storage.beginEditing()
         storage.setAttributes(proseAttributes, range: NSRange(location: 0, length: storage.length))
-        for region in regions where region.isCode {
-            storage.setAttributes(codeAttributes, range: NSRange(region.range, in: source))
+        for block in blocks where block.isCode {
+            storage.setAttributes(codeAttributes, range: NSRange(block.range, in: source))
         }
         storage.endEditing()
     }
@@ -111,27 +111,27 @@ enum DocumentStyler {
     /// monospaced on a grey background. This is the "attribute bleed" problem;
     /// setting typing attributes from the *parsed* region under the caret is the
     /// fix, rather than letting the text system guess.
-    static func applyTypingAttributes(to textView: UITextView, regions: [Region]) {
+    static func applyTypingAttributes(to textView: UITextView, blocks: [BlockNode]) {
         let source = textView.text ?? ""
         let caret = textView.selectedRange.location
-        let inCode = region(at: caret, in: source, regions: regions)?.isCode ?? false
+        let inCode = block(at: caret, in: source, blocks: blocks)?.isCode ?? false
 
         textView.typingAttributes = inCode ? codeAttributes : proseAttributes
     }
 
-    /// The region containing a UTF-16 offset, if any.
+    /// The block containing a UTF-16 offset, if any.
     ///
     /// Ranges are half-open, so a caret sitting exactly on the boundary between
     /// a code block and the prose after it belongs to the prose — which is what
     /// you want when typing just past a closing fence.
-    static func region(at utf16Offset: Int, in source: String, regions: [Region]) -> Region? {
+    static func block(at utf16Offset: Int, in source: String, blocks: [BlockNode]) -> BlockNode? {
         guard let index = Range(NSRange(location: utf16Offset, length: 0), in: source)?.lowerBound else {
             return nil
         }
         if index == source.endIndex {
-            return regions.last
+            return blocks.last
         }
-        return regions.first { $0.range.contains(index) }
+        return blocks.first { $0.range.contains(index) }
     }
 }
 

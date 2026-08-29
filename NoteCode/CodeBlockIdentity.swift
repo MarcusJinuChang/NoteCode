@@ -64,13 +64,13 @@ struct BlockResultStore<Value> {
         set { values[id] = newValue }
     }
 
-    /// Discards everything that doesn't correspond to a code block in `regions`.
+    /// Discards everything that doesn't correspond to a code block in `blocks`.
     ///
     /// Call after each re-parse. An edited block has a new `contentHash` and a
     /// moved one has a new `ordinal`, so either way its old entry no longer
     /// matches and is removed.
-    mutating func prune(keeping regions: [Region]) {
-        let live = Set(regions.compactMap(\.codeBlock?.id))
+    mutating func prune(keeping blocks: [BlockNode]) {
+        let live = Set(blocks.compactMap(\.codeBlock?.id))
         values = values.filter { live.contains($0.key) }
     }
 
