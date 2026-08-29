@@ -100,12 +100,12 @@ struct DocumentStylerTests {
 
         // Caret inside the code block.
         textView.selectedRange = NSRange(location: ("prose\n```cpp\n" as NSString).length, length: 0)
-        DocumentStyler.applyTypingAttributes(to: textView, blocks: blocks)
+        DocumentStyler.applyTypingAttributes(to: textView, source: textView.text, blocks: blocks)
         #expect(textView.typingAttributes[.font] as? UIFont == DocumentStyler.codeFont)
 
         // Caret back in the prose above it.
         textView.selectedRange = NSRange(location: 0, length: 0)
-        DocumentStyler.applyTypingAttributes(to: textView, blocks: blocks)
+        DocumentStyler.applyTypingAttributes(to: textView, source: textView.text, blocks: blocks)
         #expect(textView.typingAttributes[.font] as? UIFont == DocumentStyler.proseFont)
     }
 
@@ -115,7 +115,7 @@ struct DocumentStylerTests {
         let blocks = DocumentParser.parse(Self.source)
 
         textView.selectedRange = NSRange(location: ("prose\n```cpp\nint x;\n```\n" as NSString).length, length: 0)
-        DocumentStyler.applyTypingAttributes(to: textView, blocks: blocks)
+        DocumentStyler.applyTypingAttributes(to: textView, source: textView.text, blocks: blocks)
 
         #expect(textView.typingAttributes[.font] as? UIFont == DocumentStyler.proseFont)
     }

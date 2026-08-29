@@ -125,7 +125,7 @@ struct ApplyColorsTests {
         let textView = styledTextView()
         let range = NSRange(location: Self.codeOffset, length: 3)
 
-        DocumentStyler.applyColors([ColorRun(range: range, color: .systemRed)], to: textView)
+        DocumentStyler.applyColors([ColorRun(range: range, color: .systemRed)], clearing: [], to: textView)
 
         let storage = textView.textStorage
         #expect(storage.attribute(.font, at: Self.codeOffset, effectiveRange: nil) as? UIFont == DocumentStyler.codeFont)
@@ -144,6 +144,7 @@ struct ApplyColorsTests {
                 ColorRun(range: NSRange(location: length - 1, length: 99), color: .systemRed),
                 ColorRun(range: NSRange(location: -1, length: 3), color: .systemRed),
             ],
+            clearing: [NSRange(location: length + 500, length: 5)],
             to: textView
         )
 
@@ -151,17 +152,43 @@ struct ApplyColorsTests {
         #expect(textView.textStorage.length == length)
     }
 
-    @Test("A restyle clears previously applied colours")
-    func restyleResetsColors() {
+    @Test("A restyle keeps colours already applied to code")
+    func restyleKeepsCodeColors() {
         let textView = styledTextView()
         let range = NSRange(location: Self.codeOffset, length: 3)
 
-        DocumentStyler.applyColors([ColorRun(range: range, color: .systemRed)], to: textView)
+        DocumentStyler.applyColors([ColorRun(range: range, color: .systemRed)], clearing: [], to: textView)
         #expect(textView.textStorage.attribute(.foregroundColor, at: Self.codeOffset, effectiveRange: nil) as? UIColor == .systemRed)
 
-        // Styling resets foregrounds to .label, which is what lets stale colours
-        // disappear when the document changes.
+        // This assertion used to be the opposite. Restyling runs on every
+        // keystroke and highlighting is async, so wiping colours here left the
+        // whole document uncoloured for as long as the user kept typing.
         DocumentStyler.applyStyling(to: textView)
+        #expect(textView.textStorage.attribute(.foregroundColor, at: Self.codeOffset, effectiveRange: nil) as? UIColor == .systemRed)
+    }
+
+    @Test("Colours outside a code block are not carried over")
+    func proseColoursAreNotPreserved() {
+        let textView = styledTextView()
+
+        // Prose has no business holding syntax colours; only code blocks do.
+        textView.textStorage.addAttribute(.foregroundColor, value: UIColor.systemRed, range: NSRange(location: 0, length: 3))
+        DocumentStyler.applyStyling(to: textView)
+
+        #expect(textView.textStorage.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor == .label)
+    }
+
+    @Test("A fresh highlight pass clears the block before painting")
+    func newPassClearsStaleColours() {
+        let textView = styledTextView()
+        let codeRange = NSRange(location: Self.codeOffset, length: 6)
+
+        DocumentStyler.applyColors([ColorRun(range: codeRange, color: .systemRed)], clearing: [], to: textView)
+
+        // A later pass covering the same block with no runs — what a changed
+        // language tag produces — must not leave the old colours behind.
+        DocumentStyler.applyColors([], clearing: [codeRange], to: textView)
+
         #expect(textView.textStorage.attribute(.foregroundColor, at: Self.codeOffset, effectiveRange: nil) as? UIColor == .label)
     }
 }

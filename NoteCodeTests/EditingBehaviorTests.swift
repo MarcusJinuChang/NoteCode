@@ -151,10 +151,10 @@ struct CaretBoundaryTests {
         let textView = DocumentTextView.makeConfiguredTextView()
         textView.text = source
         let blocks = DocumentParser.parse(source)
-        DocumentStyler.applyStyling(to: textView, blocks: blocks)
+        DocumentStyler.applyStyling(to: textView, source: textView.text, blocks: blocks)
 
         textView.selectedRange = NSRange(location: offset, length: 0)
-        DocumentStyler.applyTypingAttributes(to: textView, blocks: blocks)
+        DocumentStyler.applyTypingAttributes(to: textView, source: textView.text, blocks: blocks)
 
         return textView.typingAttributes[.font] as? UIFont
     }
