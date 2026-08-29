@@ -9,7 +9,7 @@
 
 import Foundation
 
-enum DocumentParser {
+nonisolated enum DocumentParser {
 
     /// Splits `text` into block nodes.
     ///
@@ -59,7 +59,8 @@ enum DocumentParser {
                                 contentRange: contentRange
                             )
                         ),
-                        range: open.start..<lineEnd
+                        range: open.start..<lineEnd,
+                        contentRange: contentRange
                     )
                 )
                 ordinal += 1
@@ -70,7 +71,7 @@ enum DocumentParser {
                 // A trailing empty line sits at the very end of the string and
                 // spans nothing. Emitting it would add a zero-length block.
                 guard lineStart < lineEnd else { continue }
-                blocks.append(paragraph(from: lineStart, to: lineEnd))
+                blocks.append(proseBlock(text, line: line, from: lineStart, to: lineEnd))
             }
         }
 
@@ -88,7 +89,8 @@ enum DocumentParser {
                             contentRange: contentRange
                         )
                     ),
-                    range: open.start..<text.endIndex
+                    range: open.start..<text.endIndex,
+                    contentRange: contentRange
                 )
             )
         }
@@ -98,16 +100,46 @@ enum DocumentParser {
 
     // MARK: Private
 
-    /// A paragraph covering one source line.
-    ///
-    /// Its inline content is a single `.text` span for now. Splitting that into
-    /// bold, emphasis and inline-code spans is the next step, and is confined
-    /// to this function plus `InlineNode`.
-    private static func paragraph(from start: String.Index, to end: String.Index) -> BlockNode {
-        BlockNode(
-            kind: .paragraph(inlines: [InlineNode(kind: .text, range: start..<end)]),
-            range: start..<end
+    /// One source line of prose: a heading if it starts with `#`, otherwise a
+    /// paragraph. Either way its content is scanned for inline spans.
+    private static func proseBlock(
+        _ text: String,
+        line: Substring,
+        from start: String.Index,
+        to end: String.Index
+    ) -> BlockNode {
+        if let heading = headingInfo(line) {
+            let contentRange = heading.contentStart..<end
+            return BlockNode(
+                kind: .heading(level: heading.level, inlines: InlineParser.parse(text, in: contentRange)),
+                range: start..<end,
+                contentRange: contentRange
+            )
+        }
+
+        let contentRange = start..<end
+        return BlockNode(
+            kind: .paragraph(inlines: InlineParser.parse(text, in: contentRange)),
+            range: contentRange,
+            contentRange: contentRange
         )
+    }
+
+    /// Recognizes `#` through `######` followed by a space.
+    ///
+    /// The space is required, so a C preprocessor line like `#include` inside
+    /// prose isn't mistaken for a heading.
+    private static func headingInfo(_ line: Substring) -> (level: Int, contentStart: String.Index)? {
+        var cursor = line.startIndex
+        var hashes = 0
+
+        while cursor < line.endIndex, line[cursor] == "#", hashes < 7 {
+            hashes += 1
+            cursor = line.index(after: cursor)
+        }
+
+        guard (1...6).contains(hashes), cursor < line.endIndex, line[cursor] == " " else { return nil }
+        return (hashes, line.index(after: cursor))
     }
 
     private struct Fence {

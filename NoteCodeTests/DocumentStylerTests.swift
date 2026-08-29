@@ -72,6 +72,19 @@ struct DocumentStylerTests {
         #expect(storage.attribute(.backgroundColor, at: codeOffset, effectiveRange: nil) == nil)
     }
 
+    @Test("Fence lines are dimmed like other markdown markers")
+    func fenceLinesAreDimmed() {
+        let textView = styledTextView()
+        let storage = textView.textStorage
+
+        // Opening fence, then the code itself.
+        let fenceOffset = ("prose\n" as NSString).length
+        let codeOffset = ("prose\n```cpp\n" as NSString).length
+
+        #expect(storage.attribute(.foregroundColor, at: fenceOffset, effectiveRange: nil) as? UIColor == DocumentStyler.markerColor)
+        #expect(storage.attribute(.foregroundColor, at: codeOffset, effectiveRange: nil) as? UIColor == .label)
+    }
+
     @Test("An unclosed fence styles everything after it as code")
     func unclosedFenceStylesToEnd() {
         let textView = styledTextView("notes\n```py\nprint(1)")

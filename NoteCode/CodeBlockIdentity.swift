@@ -23,7 +23,7 @@ import Foundation
 ///
 /// Together: a result survives typing anywhere that doesn't touch its block, and
 /// is dropped as soon as the block itself changes or moves.
-struct CodeBlockID: Hashable, Sendable {
+nonisolated struct CodeBlockID: Hashable, Sendable {
     var ordinal: Int
     var contentHash: UInt64
 
@@ -54,7 +54,7 @@ struct CodeBlockID: Hashable, Sendable {
 /// defines a page as text plus drawing strokes, "not a list of discrete
 /// blocks", so run output has no home in the persisted model and shouldn't
 /// invent one.
-struct BlockResultStore<Value> {
+nonisolated struct BlockResultStore<Value> {
     private var values: [CodeBlockID: Value] = [:]
 
     var count: Int { values.count }

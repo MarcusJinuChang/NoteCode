@@ -42,6 +42,32 @@ enum DocumentStyler {
         ]
     }
 
+    /// Headings scale with Dynamic Type by mapping onto real text styles
+    /// rather than hardcoded sizes.
+    static func headingFont(level: Int) -> UIFont {
+        let style: UIFont.TextStyle = switch level {
+        case 1:  .largeTitle
+        case 2:  .title1
+        case 3:  .title2
+        case 4:  .title3
+        case 5:  .headline
+        default: .subheadline
+        }
+        return UIFont.preferredFont(forTextStyle: style).withTraits(.traitBold)
+    }
+
+    static func headingAttributes(level: Int) -> [NSAttributedString.Key: Any] {
+        [
+            .font: headingFont(level: level),
+            .foregroundColor: UIColor.label,
+        ]
+    }
+
+    /// Markdown markers stay visible but recede, so the text reads as formatted
+    /// without hiding what you'd need to edit. Hiding them only when the caret
+    /// is elsewhere is a later refinement.
+    static let markerColor = UIColor.tertiaryLabel
+
     // MARK: Applying
 
     /// Re-styles the whole document from scratch.
@@ -72,10 +98,70 @@ enum DocumentStyler {
         let storage = textView.textStorage
         storage.beginEditing()
         storage.setAttributes(proseAttributes, range: NSRange(location: 0, length: storage.length))
-        for block in blocks where block.isCode {
-            storage.setAttributes(codeAttributes, range: NSRange(block.range, in: source))
+
+        for block in blocks {
+            switch block.kind {
+            case .code(let code):
+                storage.setAttributes(codeAttributes, range: NSRange(block.range, in: source))
+                // The fence lines are markers like any other, so they recede
+                // too — the code inside is what should carry the eye.
+                for marker in [
+                    block.range.lowerBound..<code.contentRange.lowerBound,
+                    code.contentRange.upperBound..<block.range.upperBound,
+                ] where !marker.isEmpty {
+                    storage.addAttribute(.foregroundColor, value: markerColor, range: NSRange(marker, in: source))
+                }
+
+            case .paragraph(let inlines):
+                apply(inlines, over: proseFont, to: storage, in: source)
+
+            case .heading(let level, let inlines):
+                storage.setAttributes(headingAttributes(level: level), range: NSRange(block.range, in: source))
+                apply(inlines, over: headingFont(level: level), to: storage, in: source)
+                if let marker = block.markerRange {
+                    storage.addAttribute(.foregroundColor, value: markerColor, range: NSRange(marker, in: source))
+                }
+            }
         }
+
         storage.endEditing()
+    }
+
+    /// Applies inline spans over a block whose base font is already set.
+    ///
+    /// Traits are derived from the block's own font rather than a fixed one, so
+    /// bold inside a heading is a bold heading, not bold body text.
+    private static func apply(
+        _ inlines: [InlineNode],
+        over baseFont: UIFont,
+        to storage: NSTextStorage,
+        in source: String
+    ) {
+        for inline in inlines where inline.kind != .text {
+            let content = NSRange(inline.contentRange, in: source)
+
+            switch inline.kind {
+            case .strong:
+                storage.addAttribute(.font, value: baseFont.withTraits(.traitBold), range: content)
+            case .emphasis:
+                storage.addAttribute(.font, value: baseFont.withTraits(.traitItalic), range: content)
+            case .inlineCode:
+                storage.addAttribute(
+                    .font,
+                    value: UIFont.monospacedSystemFont(ofSize: baseFont.pointSize, weight: .regular),
+                    range: content
+                )
+                // A per-glyph background is right here, unlike a code block —
+                // an inline span is short and doesn't need to square off.
+                storage.addAttribute(.backgroundColor, value: UIColor.secondarySystemFill, range: content)
+            case .text:
+                break
+            }
+
+            for marker in inline.markerRanges {
+                storage.addAttribute(.foregroundColor, value: markerColor, range: NSRange(marker, in: source))
+            }
+        }
     }
 
     /// Paints syntax colours over already-styled text.
@@ -114,9 +200,12 @@ enum DocumentStyler {
     static func applyTypingAttributes(to textView: UITextView, blocks: [BlockNode]) {
         let source = textView.text ?? ""
         let caret = textView.selectedRange.location
-        let inCode = block(at: caret, in: source, blocks: blocks)?.isCode ?? false
 
-        textView.typingAttributes = inCode ? codeAttributes : proseAttributes
+        textView.typingAttributes = switch block(at: caret, in: source, blocks: blocks)?.kind {
+        case .code:                  codeAttributes
+        case .heading(let level, _): headingAttributes(level: level)
+        default:                     proseAttributes
+        }
     }
 
     /// The block containing a UTF-16 offset, if any.
@@ -132,6 +221,17 @@ enum DocumentStyler {
             return blocks.last
         }
         return blocks.first { $0.range.contains(index) }
+    }
+}
+
+private extension UIFont {
+    /// Adds symbolic traits while keeping everything else about the font,
+    /// including the Dynamic Type size it was resolved at.
+    func withTraits(_ traits: UIFontDescriptor.SymbolicTraits) -> UIFont {
+        guard let descriptor = fontDescriptor.withSymbolicTraits(fontDescriptor.symbolicTraits.union(traits)) else {
+            return self
+        }
+        return UIFont(descriptor: descriptor, size: 0)
     }
 }
 

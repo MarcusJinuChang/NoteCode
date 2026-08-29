@@ -17,7 +17,7 @@ import UIKit
 /// separate fragments that each draw independently. Knowing which end of the
 /// block a fragment is at is what lets them round only the outer corners and
 /// join into a single panel rather than five stacked boxes.
-enum CodeBlockPosition: Equatable {
+nonisolated enum CodeBlockPosition: Equatable {
     /// The whole block is one paragraph.
     case only
     case first

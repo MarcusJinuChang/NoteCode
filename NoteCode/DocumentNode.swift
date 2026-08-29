@@ -16,7 +16,7 @@ import Foundation
 // MARK: - Language
 
 /// A language a fenced code block can be tagged with.
-enum CodeLanguage: String, CaseIterable, Sendable {
+nonisolated enum CodeLanguage: String, CaseIterable, Sendable {
     case cpp
     case java
     case python
@@ -45,7 +45,7 @@ enum CodeLanguage: String, CaseIterable, Sendable {
 // MARK: - Code
 
 /// A fenced code block's metadata.
-struct CodeBlock: Equatable, Sendable {
+nonisolated struct CodeBlock: Equatable, Sendable {
     /// Survives edits elsewhere in the document — see `CodeBlockID`.
     var id: CodeBlockID
     /// Recognized language, or `nil` if the fence had no tag or an unknown one.
@@ -62,16 +62,34 @@ struct CodeBlock: Equatable, Sendable {
 // MARK: - Inline
 
 /// A span *within* a block.
-///
-/// Only `.text` for now. Bold, emphasis, inline code, and math arrive as
-/// further cases; the shape exists so adding them doesn't change every caller.
-struct InlineNode: Equatable, Sendable {
+nonisolated struct InlineNode: Equatable, Sendable {
     enum Kind: Equatable, Sendable {
         case text
+        /// `**bold**` or `__bold__`
+        case strong
+        /// `*italic*` or `_italic_`
+        case emphasis
+        /// `` `code` ``
+        case inlineCode
+        // .math arrives with a later step.
     }
 
     var kind: Kind
+    /// The whole span, markers included — what gets dimmed.
     var range: Range<String.Index>
+    /// Just the text between the markers — what gets bolded, italicised or
+    /// monospaced. Equal to `range` for `.text`.
+    ///
+    /// Two ranges for the same reason `CodeBlock` has them: the markers are
+    /// part of the document and stay visible, but they aren't the content.
+    var contentRange: Range<String.Index>
+
+    /// The marker characters, as the ranges either side of the content.
+    var markerRanges: [Range<String.Index>] {
+        guard kind != .text else { return [] }
+        return [range.lowerBound..<contentRange.lowerBound, contentRange.upperBound..<range.upperBound]
+            .filter { !$0.isEmpty }
+    }
 }
 
 // MARK: - Block
@@ -88,18 +106,24 @@ struct InlineNode: Equatable, Sendable {
 /// line-based too, which makes them a natural fit for the same granularity.
 /// A code block is the exception — it spans several lines as a single node,
 /// which is why `CodeBlockPosition` exists to tell its fragments apart.
-struct BlockNode: Equatable, Sendable {
+nonisolated struct BlockNode: Equatable, Sendable {
     enum Kind: Equatable, Sendable {
         case paragraph(inlines: [InlineNode])
+        /// `# Heading` through `###### Heading`.
+        case heading(level: Int, inlines: [InlineNode])
         case code(CodeBlock)
-        // .heading, .listItem, .blockQuote and .math arrive with later steps.
+        // .listItem, .blockQuote and .math arrive with later steps.
     }
 
     var kind: Kind
-    /// The whole block, fence lines included. Line-aligned: a block starts at
-    /// the beginning of a line and ends at the start of the next one, which is
-    /// what makes drawing a block background straightforward.
+    /// The whole block, markers and fence lines included. Line-aligned: a block
+    /// starts at the beginning of a line and ends at the start of the next one,
+    /// which is what makes drawing a block background straightforward.
     var range: Range<String.Index>
+    /// The block minus its block-level marker — a heading's `#`s and the space
+    /// after them. Equal to `range` for a paragraph. Inline spans cover exactly
+    /// this, not `range`.
+    var contentRange: Range<String.Index>
 
     var isCode: Bool {
         if case .code = kind { return true }
@@ -112,7 +136,21 @@ struct BlockNode: Equatable, Sendable {
     }
 
     var inlines: [InlineNode] {
-        if case .paragraph(let inlines) = kind { return inlines }
-        return []
+        switch kind {
+        case .paragraph(let inlines):    inlines
+        case .heading(_, let inlines):   inlines
+        case .code:                      []
+        }
+    }
+
+    var headingLevel: Int? {
+        if case .heading(let level, _) = kind { return level }
+        return nil
+    }
+
+    /// The block-level marker, if any — a heading's `#`s and trailing space.
+    var markerRange: Range<String.Index>? {
+        guard headingLevel != nil, range.lowerBound < contentRange.lowerBound else { return nil }
+        return range.lowerBound..<contentRange.lowerBound
     }
 }
