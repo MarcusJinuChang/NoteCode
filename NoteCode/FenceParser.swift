@@ -46,6 +46,8 @@ enum CodeLanguage: String, CaseIterable, Sendable {
 
 /// A fenced code block's metadata.
 struct CodeBlock: Equatable, Sendable {
+    /// Survives edits elsewhere in the document — see `CodeBlockID`.
+    var id: CodeBlockID
     /// Recognized language, or `nil` if the fence had no tag or an unknown one.
     var language: CodeLanguage?
     /// The raw text after the opening backticks, exactly as typed.
@@ -110,6 +112,8 @@ enum FenceParser {
         var pendingTextStart = text.startIndex
         // Set while we're inside a code block.
         var openFence: (start: String.Index, contentStart: String.Index, info: String, backticks: Int)?
+        // Position of the next code block among code blocks, in document order.
+        var ordinal = 0
 
         for (offset, line) in lines.enumerated() {
             let lineStart = line.startIndex
@@ -123,19 +127,22 @@ enum FenceParser {
                 // width closes it. A tagged fence is just code content.
                 guard let fence, fence.info.isEmpty, fence.backticks >= open.backticks else { continue }
 
+                let contentRange = open.contentStart..<lineStart
                 regions.append(
                     Region(
                         kind: .code(
                             CodeBlock(
+                                id: CodeBlockID(ordinal: ordinal, code: String(text[contentRange])),
                                 language: language(from: open.info),
                                 infoString: open.info,
                                 isClosed: true,
-                                contentRange: open.contentStart..<lineStart
+                                contentRange: contentRange
                             )
                         ),
                         range: open.start..<lineEnd
                     )
                 )
+                ordinal += 1
                 pendingTextStart = lineEnd
                 openFence = nil
             } else if let fence {
@@ -149,14 +156,16 @@ enum FenceParser {
 
         // Whatever is left over when we run out of lines.
         if let open = openFence {
+            let contentRange = open.contentStart..<text.endIndex
             regions.append(
                 Region(
                     kind: .code(
                         CodeBlock(
+                            id: CodeBlockID(ordinal: ordinal, code: String(text[contentRange])),
                             language: language(from: open.info),
                             infoString: open.info,
                             isClosed: false,
-                            contentRange: open.contentStart..<text.endIndex
+                            contentRange: contentRange
                         )
                     ),
                     range: open.start..<text.endIndex
