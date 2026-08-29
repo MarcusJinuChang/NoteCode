@@ -6,14 +6,21 @@ An iPad note-taking app for computer science coursework. A single continuous,
 scrollable document (Obsidian-style) where:
 
 - Regular text is typed and formatted like a normal markdown note.
-- Triple-backtick fences (` ``` `) anywhere in the flow become syntax-highlighted,
-  runnable code blocks — not separate files, just inline sections of the same page.
+- Triple-backtick fences (` ``` `) anywhere in the flow become syntax-highlighted
+  code blocks — not separate files, just inline sections of the same page. A block
+  can be copied or shared out to wherever the user actually runs code.
 - A drawing layer (Notability-style) sits over the same page and can be toggled on
   to draw handwritten notes/diagrams with Apple Pencil, then toggled back to
   text/code editing without losing scroll position or leaving the page.
 
 Primary use case: CS133 (C++) and general algorithm practice (Java/Python), so
 code blocks need to support at least C++, Java, and Python.
+
+Running code in-app is deliberately out of scope. Every option needed either a
+paid API, a self-hosted sandbox on a VPS, or a multi-megabyte WebAssembly
+runtime with a four-second cold start — all for a feature whose value is lowest
+exactly when the app is being used, since nobody runs code during a lecture.
+Copy and share hand the block to a real toolchain instead.
 
 ## Tech stack
 
@@ -23,9 +30,6 @@ code blocks need to support at least C++, Java, and Python.
 - **PencilKit** (`PKCanvasView`) — transparent overlay canvas for ink, sharing
   scroll position with the text layer. Only one of (text layer, drawing layer)
   should own touch input at a time, controlled by the toggle.
-- **Piston API** (https://github.com/engineer-man/piston) — remote code
-  execution for the "run" action on a code block. No local interpreters —
-  send code + language, get stdout/stderr back.
 - **SwiftData** — persistence for documents (text content + serialized
   `PKDrawing` data per page). iCloud sync is a later-stage concern, not MVP.
 
@@ -36,8 +40,6 @@ code blocks need to support at least C++, Java, and Python.
 - Keep the text/code parsing logic (fence detection, language tagging)
   separate from rendering — parsing should be pure and testable without
   SwiftUI in the loop.
-- Never block the main thread on a Piston API call — always async/await,
-  and show a loading state on the code block while a run is in flight.
 - Drawing data (`PKDrawing`) is serialized independently per page and should
   never be re-encoded on every keystroke of the text layer — only on drawing
   layer changes.

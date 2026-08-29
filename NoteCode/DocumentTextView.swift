@@ -169,6 +169,52 @@ struct DocumentTextView: UIViewRepresentable {
             text.wrappedValue = textView.text
         }
 
+        /// Adds copy and share for the code block under the caret.
+        ///
+        /// The edit menu is the right home for this: no new chrome, no overlay
+        /// to position, and it appears exactly where a selection already is.
+        func textView(
+            _ textView: UITextView,
+            editMenuForTextIn range: NSRange,
+            suggestedActions: [UIMenuElement]
+        ) -> UIMenu? {
+            let source = textView.text ?? ""
+            let blocks = documentCache.blocks(for: source)
+
+            guard let code = CodeBlockAction.code(atCaret: range.location, in: source, blocks: blocks),
+                  !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else {
+                return UIMenu(children: suggestedActions)
+            }
+
+            let copy = UIAction(title: "Copy Code Block", image: UIImage(systemName: "doc.on.doc")) { _ in
+                UIPasteboard.general.string = code
+            }
+
+            let share = UIAction(title: "Share Code Block", image: UIImage(systemName: "square.and.arrow.up")) { [weak textView] _ in
+                guard let textView else { return }
+                Self.share(code, from: textView)
+            }
+
+            return UIMenu(children: [UIMenu(options: .displayInline, children: [copy, share])] + suggestedActions)
+        }
+
+        private static func share(_ code: String, from textView: UITextView) {
+            guard let presenter = textView.window?.rootViewController else { return }
+
+            let activity = UIActivityViewController(activityItems: [code], applicationActivities: nil)
+
+            // iPad presents this as a popover and needs an anchor, so point it
+            // at the caret rather than an arbitrary corner.
+            if let popover = activity.popoverPresentationController {
+                popover.sourceView = textView
+                popover.sourceRect = textView.selectedTextRange.map { textView.firstRect(for: $0) }
+                    ?? CGRect(x: textView.bounds.midX, y: textView.bounds.midY, width: 1, height: 1)
+            }
+
+            presenter.present(activity, animated: true)
+        }
+
         func textViewDidChangeSelection(_ textView: UITextView) {
             // Moving the caret across a fence boundary changes what the next
             // character should look like, even though no text changed. This
