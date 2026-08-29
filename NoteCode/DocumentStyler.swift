@@ -42,6 +42,56 @@ enum DocumentStyler {
         ]
     }
 
+    /// Headings scale with Dynamic Type by mapping onto real text styles
+    /// rather than hardcoded sizes.
+    static func headingFont(level: Int) -> UIFont {
+        let style: UIFont.TextStyle = switch level {
+        case 1:  .largeTitle
+        case 2:  .title1
+        case 3:  .title2
+        case 4:  .title3
+        case 5:  .headline
+        default: .subheadline
+        }
+        return UIFont.preferredFont(forTextStyle: style).withTraits(.traitBold)
+    }
+
+    static func headingAttributes(level: Int) -> [NSAttributedString.Key: Any] {
+        [
+            .font: headingFont(level: level),
+            .foregroundColor: UIColor.label,
+        ]
+    }
+
+    /// Markdown markers stay visible but recede, so the text reads as formatted
+    /// without hiding what you'd need to edit. Hiding them only when the caret
+    /// is elsewhere is a later refinement.
+    static let markerColor = UIColor.tertiaryLabel
+
+    /// How far each nesting level indents, on top of the whitespace the user
+    /// actually typed.
+    static let listIndentPerLevel: CGFloat = 16
+
+    /// Indents a list item and, more importantly, aligns its wrapped lines
+    /// under the content rather than under the bullet.
+    static func listParagraphStyle(for block: BlockNode, in source: String) -> NSParagraphStyle {
+        let style = NSMutableParagraphStyle()
+        let depth = block.listDepth ?? 0
+        let levelIndent = CGFloat(depth) * listIndentPerLevel
+
+        // Width of the literal marker text, indentation included, so a wrapped
+        // line starts exactly where the item's text does.
+        let markerWidth: CGFloat = if let marker = block.markerRange {
+            (String(source[marker]) as NSString).size(withAttributes: [.font: proseFont]).width
+        } else {
+            0
+        }
+
+        style.firstLineHeadIndent = levelIndent
+        style.headIndent = levelIndent + markerWidth
+        return style
+    }
+
     // MARK: Applying
 
     /// Re-styles the whole document from scratch.
@@ -55,13 +105,13 @@ enum DocumentStyler {
     /// Convenience for callers without a cache of their own (tests, previews).
     /// The editor goes through the `regions:` variant so it parses once per edit.
     @discardableResult
-    static func applyStyling(to textView: UITextView) -> [Region] {
-        let regions = FenceParser.parse(textView.text ?? "")
-        applyStyling(to: textView, regions: regions)
-        return regions
+    static func applyStyling(to textView: UITextView) -> [BlockNode] {
+        let blocks = DocumentParser.parse(textView.text ?? "")
+        applyStyling(to: textView, blocks: blocks)
+        return blocks
     }
 
-    static func applyStyling(to textView: UITextView, regions: [Region]) {
+    static func applyStyling(to textView: UITextView, blocks: [BlockNode]) {
         let source = textView.text ?? ""
 
         // Rewriting attributes mid-composition destroys the marked-text
@@ -72,10 +122,81 @@ enum DocumentStyler {
         let storage = textView.textStorage
         storage.beginEditing()
         storage.setAttributes(proseAttributes, range: NSRange(location: 0, length: storage.length))
-        for region in regions where region.isCode {
-            storage.setAttributes(codeAttributes, range: NSRange(region.range, in: source))
+
+        for block in blocks {
+            switch block.kind {
+            case .code(let code):
+                storage.setAttributes(codeAttributes, range: NSRange(block.range, in: source))
+                // The fence lines are markers like any other, so they recede
+                // too — the code inside is what should carry the eye.
+                for marker in [
+                    block.range.lowerBound..<code.contentRange.lowerBound,
+                    code.contentRange.upperBound..<block.range.upperBound,
+                ] where !marker.isEmpty {
+                    storage.addAttribute(.foregroundColor, value: markerColor, range: NSRange(marker, in: source))
+                }
+
+            case .paragraph(let inlines):
+                apply(inlines, over: proseFont, to: storage, in: source)
+
+            case .listItem(_, _, let inlines):
+                storage.addAttribute(
+                    .paragraphStyle,
+                    value: listParagraphStyle(for: block, in: source),
+                    range: NSRange(block.range, in: source)
+                )
+                apply(inlines, over: proseFont, to: storage, in: source)
+                if let marker = block.markerRange {
+                    storage.addAttribute(.foregroundColor, value: markerColor, range: NSRange(marker, in: source))
+                }
+
+            case .heading(let level, let inlines):
+                storage.setAttributes(headingAttributes(level: level), range: NSRange(block.range, in: source))
+                apply(inlines, over: headingFont(level: level), to: storage, in: source)
+                if let marker = block.markerRange {
+                    storage.addAttribute(.foregroundColor, value: markerColor, range: NSRange(marker, in: source))
+                }
+            }
         }
+
         storage.endEditing()
+    }
+
+    /// Applies inline spans over a block whose base font is already set.
+    ///
+    /// Traits are derived from the block's own font rather than a fixed one, so
+    /// bold inside a heading is a bold heading, not bold body text.
+    private static func apply(
+        _ inlines: [InlineNode],
+        over baseFont: UIFont,
+        to storage: NSTextStorage,
+        in source: String
+    ) {
+        for inline in inlines where inline.kind != .text {
+            let content = NSRange(inline.contentRange, in: source)
+
+            switch inline.kind {
+            case .strong:
+                storage.addAttribute(.font, value: baseFont.withTraits(.traitBold), range: content)
+            case .emphasis:
+                storage.addAttribute(.font, value: baseFont.withTraits(.traitItalic), range: content)
+            case .inlineCode:
+                storage.addAttribute(
+                    .font,
+                    value: UIFont.monospacedSystemFont(ofSize: baseFont.pointSize, weight: .regular),
+                    range: content
+                )
+                // A per-glyph background is right here, unlike a code block —
+                // an inline span is short and doesn't need to square off.
+                storage.addAttribute(.backgroundColor, value: UIColor.secondarySystemFill, range: content)
+            case .text:
+                break
+            }
+
+            for marker in inline.markerRanges {
+                storage.addAttribute(.foregroundColor, value: markerColor, range: NSRange(marker, in: source))
+            }
+        }
     }
 
     /// Paints syntax colours over already-styled text.
@@ -111,27 +232,52 @@ enum DocumentStyler {
     /// monospaced on a grey background. This is the "attribute bleed" problem;
     /// setting typing attributes from the *parsed* region under the caret is the
     /// fix, rather than letting the text system guess.
-    static func applyTypingAttributes(to textView: UITextView, regions: [Region]) {
+    static func applyTypingAttributes(to textView: UITextView, blocks: [BlockNode]) {
         let source = textView.text ?? ""
         let caret = textView.selectedRange.location
-        let inCode = region(at: caret, in: source, regions: regions)?.isCode ?? false
 
-        textView.typingAttributes = inCode ? codeAttributes : proseAttributes
+        let current = block(at: caret, in: source, blocks: blocks)
+
+        switch current?.kind {
+        case .code:
+            textView.typingAttributes = codeAttributes
+        case .heading(let level, _):
+            textView.typingAttributes = headingAttributes(level: level)
+        case .listItem:
+            // Carry the indent, or text typed into a wrapped list line jumps
+            // back to the margin.
+            var attributes = proseAttributes
+            attributes[.paragraphStyle] = listParagraphStyle(for: current!, in: source)
+            textView.typingAttributes = attributes
+        default:
+            textView.typingAttributes = proseAttributes
+        }
     }
 
-    /// The region containing a UTF-16 offset, if any.
+    /// The block containing a UTF-16 offset, if any.
     ///
     /// Ranges are half-open, so a caret sitting exactly on the boundary between
     /// a code block and the prose after it belongs to the prose — which is what
     /// you want when typing just past a closing fence.
-    static func region(at utf16Offset: Int, in source: String, regions: [Region]) -> Region? {
+    static func block(at utf16Offset: Int, in source: String, blocks: [BlockNode]) -> BlockNode? {
         guard let index = Range(NSRange(location: utf16Offset, length: 0), in: source)?.lowerBound else {
             return nil
         }
         if index == source.endIndex {
-            return regions.last
+            return blocks.last
         }
-        return regions.first { $0.range.contains(index) }
+        return blocks.first { $0.range.contains(index) }
+    }
+}
+
+private extension UIFont {
+    /// Adds symbolic traits while keeping everything else about the font,
+    /// including the Dynamic Type size it was resolved at.
+    func withTraits(_ traits: UIFontDescriptor.SymbolicTraits) -> UIFont {
+        guard let descriptor = fontDescriptor.withSymbolicTraits(fontDescriptor.symbolicTraits.union(traits)) else {
+            return self
+        }
+        return UIFont(descriptor: descriptor, size: 0)
     }
 }
 
