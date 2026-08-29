@@ -36,9 +36,14 @@ struct ColorRun: Equatable {
 /// object gets constructed — the editor keeps working either way, falling back
 /// to the plain monospace styling that DocumentStyler already applies.
 protocol SyntaxHighlighter {
+    /// - Parameter languageTag: the fence's tag exactly as typed — `cpp`,
+    ///   `rust`, `sql`. Deliberately a String rather than `CodeLanguage`:
+    ///   that enum lists the languages NoteCode can *run*, which is a much
+    ///   shorter list than the ones it can sensibly colour. Gating
+    ///   highlighting on it left every other language silently plain.
     func colorRuns(
         for code: String,
-        language: CodeLanguage,
+        languageTag: String,
         appearance: HighlightAppearance
     ) async -> [ColorRun]
 }

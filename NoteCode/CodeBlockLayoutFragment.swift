@@ -82,6 +82,13 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
     }
 
     private let cornerRadius: CGFloat = 6
+
+    /// Vertical breathing room at each end of a block.
+    ///
+    /// Without it, two code blocks on consecutive lines draw panels that touch,
+    /// and three in a row read as a single block — you can't see where one ends
+    /// and the next begins.
+    private let endInset: CGFloat = 2
     private let fillColor = UIColor.secondarySystemBackground
 
     override func draw(at point: CGPoint, in context: CGContext) {
@@ -93,11 +100,15 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
         // Span the container, not the text. `layoutFragmentFrame.width` stops at
         // the last glyph, which is precisely the ragged edge being fixed here.
         let width = panelWidth
+        // Only the outer fragments inset, so a block's interior stays solid.
+        let topInset = position.roundsTop ? endInset : 0
+        let bottomInset = position.roundsBottom ? endInset : 0
+
         let rect = CGRect(
             x: point.x,
-            y: point.y,
+            y: point.y + topInset,
             width: width,
-            height: layoutFragmentFrame.height
+            height: layoutFragmentFrame.height - topInset - bottomInset
         )
 
         var corners: UIRectCorner = []

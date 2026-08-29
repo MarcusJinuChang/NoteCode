@@ -96,11 +96,13 @@ struct DocumentTextView: UIViewRepresentable {
             let appearance = HighlightAppearance(textView.traitCollection)
 
             // Snapshot of what to send, taken before any await.
-            let jobs: [(code: String, language: CodeLanguage, offset: Int)] = blocks.compactMap { node in
-                guard let code = node.codeBlock, let language = code.language else { return nil }
+            let jobs: [(code: String, tag: String, offset: Int)] = blocks.compactMap { node in
+                guard let code = node.codeBlock,
+                      let tag = code.infoString.split(separator: " ").first
+                else { return nil }
                 return (
                     String(source[code.contentRange]),
-                    language,
+                    String(tag),
                     NSRange(code.contentRange, in: source).location
                 )
             }
@@ -114,7 +116,7 @@ struct DocumentTextView: UIViewRepresentable {
                 for job in jobs {
                     let runs = await highlighter.colorRuns(
                         for: job.code,
-                        language: job.language,
+                        languageTag: job.tag,
                         appearance: appearance
                     )
                     guard !Task.isCancelled else { return }
