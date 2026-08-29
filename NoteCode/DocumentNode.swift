@@ -59,6 +59,16 @@ nonisolated struct CodeBlock: Equatable, Sendable {
     var contentRange: Range<String.Index>
 }
 
+// MARK: - Lists
+
+/// What introduces a list item.
+nonisolated enum ListMarker: Equatable, Sendable {
+    /// `-`, `*` or `+`
+    case bullet
+    /// `1.` or `1)`, carrying the number the user actually typed.
+    case ordered(Int)
+}
+
 // MARK: - Inline
 
 /// A span *within* a block.
@@ -111,8 +121,11 @@ nonisolated struct BlockNode: Equatable, Sendable {
         case paragraph(inlines: [InlineNode])
         /// `# Heading` through `###### Heading`.
         case heading(level: Int, inlines: [InlineNode])
+        /// `- item`, `* item`, `+ item`, `1. item`, `1) item`.
+        /// `depth` is the nesting level, counted from the line's indentation.
+        case listItem(depth: Int, marker: ListMarker, inlines: [InlineNode])
         case code(CodeBlock)
-        // .listItem, .blockQuote and .math arrive with later steps.
+        // .blockQuote and .math arrive with later steps.
     }
 
     var kind: Kind
@@ -137,9 +150,10 @@ nonisolated struct BlockNode: Equatable, Sendable {
 
     var inlines: [InlineNode] {
         switch kind {
-        case .paragraph(let inlines):    inlines
-        case .heading(_, let inlines):   inlines
-        case .code:                      []
+        case .paragraph(let inlines):     inlines
+        case .heading(_, let inlines):    inlines
+        case .listItem(_, _, let inlines): inlines
+        case .code:                       []
         }
     }
 
@@ -148,9 +162,23 @@ nonisolated struct BlockNode: Equatable, Sendable {
         return nil
     }
 
-    /// The block-level marker, if any — a heading's `#`s and trailing space.
+    /// The block-level marker, if any — a heading's `#`s or a list item's
+    /// bullet, each including the space after it.
+    ///
+    /// `nil` for a paragraph, whose content is the whole block. Code blocks
+    /// handle their fence lines separately, since they have one at each end.
     var markerRange: Range<String.Index>? {
-        guard headingLevel != nil, range.lowerBound < contentRange.lowerBound else { return nil }
+        guard !isCode, range.lowerBound < contentRange.lowerBound else { return nil }
         return range.lowerBound..<contentRange.lowerBound
+    }
+
+    var listDepth: Int? {
+        if case .listItem(let depth, _, _) = kind { return depth }
+        return nil
+    }
+
+    var listMarker: ListMarker? {
+        if case .listItem(_, let marker, _) = kind { return marker }
+        return nil
     }
 }

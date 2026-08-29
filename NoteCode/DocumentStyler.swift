@@ -68,6 +68,30 @@ enum DocumentStyler {
     /// is elsewhere is a later refinement.
     static let markerColor = UIColor.tertiaryLabel
 
+    /// How far each nesting level indents, on top of the whitespace the user
+    /// actually typed.
+    static let listIndentPerLevel: CGFloat = 16
+
+    /// Indents a list item and, more importantly, aligns its wrapped lines
+    /// under the content rather than under the bullet.
+    static func listParagraphStyle(for block: BlockNode, in source: String) -> NSParagraphStyle {
+        let style = NSMutableParagraphStyle()
+        let depth = block.listDepth ?? 0
+        let levelIndent = CGFloat(depth) * listIndentPerLevel
+
+        // Width of the literal marker text, indentation included, so a wrapped
+        // line starts exactly where the item's text does.
+        let markerWidth: CGFloat = if let marker = block.markerRange {
+            (String(source[marker]) as NSString).size(withAttributes: [.font: proseFont]).width
+        } else {
+            0
+        }
+
+        style.firstLineHeadIndent = levelIndent
+        style.headIndent = levelIndent + markerWidth
+        return style
+    }
+
     // MARK: Applying
 
     /// Re-styles the whole document from scratch.
@@ -114,6 +138,17 @@ enum DocumentStyler {
 
             case .paragraph(let inlines):
                 apply(inlines, over: proseFont, to: storage, in: source)
+
+            case .listItem(_, _, let inlines):
+                storage.addAttribute(
+                    .paragraphStyle,
+                    value: listParagraphStyle(for: block, in: source),
+                    range: NSRange(block.range, in: source)
+                )
+                apply(inlines, over: proseFont, to: storage, in: source)
+                if let marker = block.markerRange {
+                    storage.addAttribute(.foregroundColor, value: markerColor, range: NSRange(marker, in: source))
+                }
 
             case .heading(let level, let inlines):
                 storage.setAttributes(headingAttributes(level: level), range: NSRange(block.range, in: source))
@@ -201,10 +236,21 @@ enum DocumentStyler {
         let source = textView.text ?? ""
         let caret = textView.selectedRange.location
 
-        textView.typingAttributes = switch block(at: caret, in: source, blocks: blocks)?.kind {
-        case .code:                  codeAttributes
-        case .heading(let level, _): headingAttributes(level: level)
-        default:                     proseAttributes
+        let current = block(at: caret, in: source, blocks: blocks)
+
+        switch current?.kind {
+        case .code:
+            textView.typingAttributes = codeAttributes
+        case .heading(let level, _):
+            textView.typingAttributes = headingAttributes(level: level)
+        case .listItem:
+            // Carry the indent, or text typed into a wrapped list line jumps
+            // back to the margin.
+            var attributes = proseAttributes
+            attributes[.paragraphStyle] = listParagraphStyle(for: current!, in: source)
+            textView.typingAttributes = attributes
+        default:
+            textView.typingAttributes = proseAttributes
         }
     }
 

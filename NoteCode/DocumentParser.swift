@@ -108,6 +108,19 @@ nonisolated enum DocumentParser {
         from start: String.Index,
         to end: String.Index
     ) -> BlockNode {
+        if let list = listInfo(line) {
+            let contentRange = list.contentStart..<end
+            return BlockNode(
+                kind: .listItem(
+                    depth: list.depth,
+                    marker: list.marker,
+                    inlines: InlineParser.parse(text, in: contentRange)
+                ),
+                range: start..<end,
+                contentRange: contentRange
+            )
+        }
+
         if let heading = headingInfo(line) {
             let contentRange = heading.contentStart..<end
             return BlockNode(
@@ -123,6 +136,48 @@ nonisolated enum DocumentParser {
             range: contentRange,
             contentRange: contentRange
         )
+    }
+
+    /// Recognizes a list item: optional indentation, a marker, then a space.
+    ///
+    /// The space is what separates `- item` from `-1`, and `* item` from the
+    /// `*emphasis*` that would otherwise start a line.
+    ///
+    /// Depth is indentation columns / 2, with a tab counting as two columns —
+    /// so both the two-space and four-space nesting conventions work, the
+    /// latter simply advancing two levels at a time.
+    private static func listInfo(_ line: Substring) -> (depth: Int, marker: ListMarker, contentStart: String.Index)? {
+        var cursor = line.startIndex
+        var columns = 0
+
+        while cursor < line.endIndex, line[cursor] == " " || line[cursor] == "\t" {
+            columns += line[cursor] == "\t" ? 2 : 1
+            cursor = line.index(after: cursor)
+        }
+        guard cursor < line.endIndex else { return nil }
+
+        let depth = columns / 2
+
+        if line[cursor] == "-" || line[cursor] == "*" || line[cursor] == "+" {
+            let afterMarker = line.index(after: cursor)
+            guard afterMarker < line.endIndex, line[afterMarker] == " " else { return nil }
+            return (depth, .bullet, line.index(after: afterMarker))
+        }
+
+        if line[cursor].isNumber {
+            var digits = cursor
+            var value = 0
+            while digits < line.endIndex, let digit = line[digits].wholeNumberValue, line[digits].isNumber {
+                value = value * 10 + digit
+                digits = line.index(after: digits)
+            }
+            guard digits < line.endIndex, line[digits] == "." || line[digits] == ")" else { return nil }
+            let afterPunctuation = line.index(after: digits)
+            guard afterPunctuation < line.endIndex, line[afterPunctuation] == " " else { return nil }
+            return (depth, .ordered(value), line.index(after: afterPunctuation))
+        }
+
+        return nil
     }
 
     /// Recognizes `#` through `######` followed by a space.
