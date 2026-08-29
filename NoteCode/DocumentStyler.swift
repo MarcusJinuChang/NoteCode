@@ -471,7 +471,19 @@ enum DocumentStyler {
 
         switch current?.kind {
         case .code:
-            textView.typingAttributes = codeAttributes
+            // Carry the neighbouring syntax colour onto whatever is typed next.
+            //
+            // Highlighting is debounced, so without this the character just
+            // typed sits uncoloured for as long as the debounce — you type the
+            // `n` of `return` and watch it stay black next to five pink
+            // letters. A briefly stale colour reads as stable; a black gap at
+            // the caret reads as broken, and the next highlight pass corrects
+            // either one.
+            var attributes = codeAttributes
+            if let inherited = inheritedCodeColor(at: caret, in: textView.textStorage) {
+                attributes[.foregroundColor] = inherited
+            }
+            textView.typingAttributes = attributes
         case .heading(let level, _):
             textView.typingAttributes = headingAttributes(level: level)
         case .listItem:
@@ -483,6 +495,24 @@ enum DocumentStyler {
         default:
             textView.typingAttributes = proseAttributes
         }
+    }
+
+    /// The colour of the character before the caret, when it makes sense to
+    /// extend it onto the next one.
+    ///
+    /// Reads the storage directly rather than converting a `Range<String.Index>`
+    /// — this runs on every caret move, and that conversion costs O(offset).
+    private static func inheritedCodeColor(at caret: Int, in storage: NSTextStorage) -> UIColor? {
+        guard caret > 0, caret - 1 < storage.length else { return nil }
+
+        // A colour shouldn't carry onto a new line.
+        guard storage.mutableString.character(at: caret - 1) != 0x0A else { return nil }
+
+        guard let color = storage.attribute(.foregroundColor, at: caret - 1, effectiveRange: nil) as? UIColor,
+              color != markerColor   // don't pick up a dimmed fence line
+        else { return nil }
+
+        return color
     }
 
     /// The block containing a UTF-16 offset, if any.
