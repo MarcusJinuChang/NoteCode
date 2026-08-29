@@ -24,6 +24,7 @@ struct DocumentTextView: UIViewRepresentable {
         // view, so the coordinator has to be wired in as both delegates.
         textView.textLayoutManager?.delegate = context.coordinator
         textView.text = text
+        context.coordinator.invalidateStyling()
         context.coordinator.restyle(textView)
         return textView
     }
@@ -40,7 +41,10 @@ struct DocumentTextView: UIViewRepresentable {
         if textView.text != text {
             // Assigning `.text` resets the storage to plain attributes, so the
             // styling has to be reapplied every time text arrives from outside.
+            // Assigning `.text` resets the storage to plain attributes, so
+            // nothing on screen can be reused.
             textView.text = text
+            context.coordinator.invalidateStyling()
             context.coordinator.restyle(textView)
         }
     }
@@ -55,6 +59,10 @@ struct DocumentTextView: UIViewRepresentable {
     final class Coordinator: NSObject, UITextViewDelegate {
         var text: Binding<String>
         let documentCache = DocumentCache()
+
+        /// What the document looked like at the last styling pass, so only the
+        /// blocks that actually changed get restyled.
+        private var styleSignatures: [DocumentStyler.BlockSignature] = []
 
         private let highlighter: SyntaxHighlighter = HighlightSwiftHighlighter()
         private var highlightTask: Task<Void, Never>?
@@ -76,10 +84,20 @@ struct DocumentTextView: UIViewRepresentable {
         /// cache, so an edit parses the document exactly once no matter how many
         /// delegate callbacks it triggers.
         func restyle(_ textView: UITextView) {
-            let blocks = documentCache.blocks(for: textView.text ?? "")
-            DocumentStyler.applyStyling(to: textView, blocks: blocks)
-            DocumentStyler.applyTypingAttributes(to: textView, blocks: blocks)
-            scheduleHighlighting(for: textView, blocks: blocks)
+            // Read the text exactly once. Every range below indexes into this
+            // instance, and mixing instances is ruinously slow — see the note
+            // on DocumentStyler.applyStyling(to:source:blocks:previousSignatures:).
+            let source = textView.text ?? ""
+            let blocks = documentCache.blocks(for: source)
+
+            styleSignatures = DocumentStyler.applyStyling(
+                to: textView,
+                source: source,
+                blocks: blocks,
+                previousSignatures: styleSignatures
+            )
+            DocumentStyler.applyTypingAttributes(to: textView, source: source, blocks: blocks)
+            scheduleHighlighting(for: textView, source: source, blocks: blocks)
         }
 
         /// Kicks off syntax colouring after a pause in typing.
@@ -87,12 +105,11 @@ struct DocumentTextView: UIViewRepresentable {
         /// The styling pass above has already reset every foreground to
         /// `.label`, so if this never completes the code simply stays plain
         /// monospace — a working fallback rather than a broken state.
-        func scheduleHighlighting(for textView: UITextView, blocks: [BlockNode]) {
+        func scheduleHighlighting(for textView: UITextView, source: String, blocks: [BlockNode]) {
             highlightTask?.cancel()
 
             highlightGeneration &+= 1
             let generation = highlightGeneration
-            let source = textView.text ?? ""
             let appearance = HighlightAppearance(textView.traitCollection)
 
             // Snapshot of what to send, taken before any await.
@@ -136,8 +153,15 @@ struct DocumentTextView: UIViewRepresentable {
                       textView.text == source
                 else { return }
 
-                DocumentStyler.applyColors(painted, to: textView)
+                let covered = jobs.map { NSRange(location: $0.offset, length: ($0.code as NSString).length) }
+                DocumentStyler.applyColors(painted, clearing: covered, to: textView)
             }
+        }
+
+        /// Forgets what's on screen, forcing the next restyle to do everything.
+        /// Needed whenever the storage is replaced wholesale.
+        func invalidateStyling() {
+            styleSignatures = []
         }
 
         func textViewDidChange(_ textView: UITextView) {
@@ -150,8 +174,9 @@ struct DocumentTextView: UIViewRepresentable {
             // character should look like, even though no text changed. This
             // fires on every keystroke too, so it reads through the cache
             // rather than re-parsing.
-            let blocks = documentCache.blocks(for: textView.text ?? "")
-            DocumentStyler.applyTypingAttributes(to: textView, blocks: blocks)
+            let source = textView.text ?? ""
+            let blocks = documentCache.blocks(for: source)
+            DocumentStyler.applyTypingAttributes(to: textView, source: source, blocks: blocks)
         }
     }
 

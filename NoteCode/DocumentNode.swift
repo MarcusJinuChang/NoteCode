@@ -82,6 +82,15 @@ nonisolated struct InlineNode: Equatable, Sendable {
         /// `` `code` ``
         case inlineCode
         // .math arrives with a later step.
+
+        var discriminant: Int {
+            switch self {
+            case .text:       0
+            case .strong:     1
+            case .emphasis:   2
+            case .inlineCode: 3
+            }
+        }
     }
 
     var kind: Kind
@@ -154,6 +163,27 @@ nonisolated struct BlockNode: Equatable, Sendable {
         case .heading(_, let inlines):    inlines
         case .listItem(_, _, let inlines): inlines
         case .code:                       []
+        }
+    }
+
+    /// Cheap identity of the case, for change detection.
+    var kindDiscriminant: Int {
+        switch kind {
+        case .paragraph: 0
+        case .heading:   1
+        case .listItem:  2
+        case .code:      3
+        }
+    }
+
+    /// The part of a block's identity that changes how it is drawn, beyond its
+    /// kind and length: heading level, list depth, or the code's content hash.
+    var styleDetail: Int {
+        switch kind {
+        case .paragraph:                 0
+        case .heading(let level, _):     level
+        case .listItem(let depth, _, _): depth
+        case .code(let code):            Int(truncatingIfNeeded: code.id.contentHash)
         }
     }
 

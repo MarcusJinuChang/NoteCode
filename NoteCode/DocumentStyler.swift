@@ -74,6 +74,10 @@ enum DocumentStyler {
 
     /// Indents a list item and, more importantly, aligns its wrapped lines
     /// under the content rather than under the bullet.
+    /// Measuring text is not cheap and list markers repeat constantly — a
+    /// document of bullets asks for the width of "- " hundreds of times.
+    private static var markerWidths: [String: CGFloat] = [:]
+
     static func listParagraphStyle(for block: BlockNode, in source: String) -> NSParagraphStyle {
         let style = NSMutableParagraphStyle()
         let depth = block.listDepth ?? 0
@@ -82,7 +86,7 @@ enum DocumentStyler {
         // Width of the literal marker text, indentation included, so a wrapped
         // line starts exactly where the item's text does.
         let markerWidth: CGFloat = if let marker = block.markerRange {
-            (String(source[marker]) as NSString).size(withAttributes: [.font: proseFont]).width
+            width(ofMarker: String(source[marker]))
         } else {
             0
         }
@@ -90,6 +94,13 @@ enum DocumentStyler {
         style.firstLineHeadIndent = levelIndent
         style.headIndent = levelIndent + markerWidth
         return style
+    }
+
+    private static func width(ofMarker marker: String) -> CGFloat {
+        if let cached = markerWidths[marker] { return cached }
+        let width = (marker as NSString).size(withAttributes: [.font: proseFont]).width
+        markerWidths[marker] = width
+        return width
     }
 
     // MARK: Applying
@@ -106,98 +117,310 @@ enum DocumentStyler {
     /// The editor goes through the `regions:` variant so it parses once per edit.
     @discardableResult
     static func applyStyling(to textView: UITextView) -> [BlockNode] {
-        let blocks = DocumentParser.parse(textView.text ?? "")
-        applyStyling(to: textView, blocks: blocks)
+        let source = textView.text ?? ""
+        let blocks = DocumentParser.parse(source)
+        applyStyling(to: textView, source: source, blocks: blocks, previousSignatures: [])
         return blocks
     }
 
-    static func applyStyling(to textView: UITextView, blocks: [BlockNode]) {
-        let source = textView.text ?? ""
-
+    /// - Parameter previousSignatures: what the document looked like last time
+    ///   this ran. Only the blocks that differ get restyled; pass an empty array
+    ///   to restyle everything.
+    /// - Returns: signatures to hand back on the next call.
+    @discardableResult
+    /// - Parameter source: the exact string `blocks` were parsed from.
+    ///
+    ///   It must be the same String *instance*, not merely an equal one.
+    ///   `UITextView.text` hands back a freshly bridged NSString-backed String
+    ///   on every access, and using `String.Index` values across instances with
+    ///   different backing storage forces index reconciliation on each use —
+    ///   which turned a single restyle of a 500-line note into 600ms.
+    static func applyStyling(
+        to textView: UITextView,
+        source: String,
+        blocks: [BlockNode],
+        previousSignatures: [BlockSignature] = []
+    ) -> [BlockSignature] {
         // Rewriting attributes mid-composition destroys the marked-text
         // underline and can drop the in-progress character entirely, which
         // breaks Pinyin, Kana, and accent input.
-        guard textView.markedTextRange == nil else { return }
+        guard textView.markedTextRange == nil else { return previousSignatures }
 
         let storage = textView.textStorage
-        storage.beginEditing()
-        storage.setAttributes(proseAttributes, range: NSRange(location: 0, length: storage.length))
+        let layouts = layouts(for: blocks, in: source)
+        let signatures = layouts.map(\.signature)
 
-        for block in blocks {
-            switch block.kind {
-            case .code(let code):
-                storage.setAttributes(codeAttributes, range: NSRange(block.range, in: source))
+        guard let changed = changedIndices(from: previousSignatures, to: signatures) else {
+            return signatures
+        }
+
+        let touched = Array(layouts[changed])
+        guard let first = touched.first, let last = touched.last else { return signatures }
+        let span = NSRange(
+            location: first.range.location,
+            length: last.range.location + last.range.length - first.range.location
+        )
+
+        // Syntax colours already on screen, captured before the wipe below.
+        //
+        // `setAttributes` replaces rather than merges, so restyling blanks every
+        // colour in the document. Highlighting is async and debounced, so that
+        // left code with no colour at all for as long as the user kept typing —
+        // in every block, not just the one being edited. NSTextStorage has
+        // already migrated these ranges across the edit, so they are still
+        // correct where the text didn't change.
+        let existingColors = codeColors(in: storage, layouts: touched)
+
+        storage.beginEditing()
+        storage.setAttributes(proseAttributes, range: span)
+
+        for layout in touched {
+            switch layout.block.kind {
+            case .code:
+                storage.setAttributes(codeAttributes, range: layout.range)
                 // The fence lines are markers like any other, so they recede
                 // too — the code inside is what should carry the eye.
-                for marker in [
-                    block.range.lowerBound..<code.contentRange.lowerBound,
-                    code.contentRange.upperBound..<block.range.upperBound,
-                ] where !marker.isEmpty {
-                    storage.addAttribute(.foregroundColor, value: markerColor, range: NSRange(marker, in: source))
+                for marker in layout.blockMarkers {
+                    storage.addAttribute(.foregroundColor, value: markerColor, range: marker)
                 }
 
-            case .paragraph(let inlines):
-                apply(inlines, over: proseFont, to: storage, in: source)
+            case .paragraph:
+                apply(layout.inlines, over: proseFont, to: storage)
 
-            case .listItem(_, _, let inlines):
+            case .listItem:
                 storage.addAttribute(
                     .paragraphStyle,
-                    value: listParagraphStyle(for: block, in: source),
-                    range: NSRange(block.range, in: source)
+                    value: listParagraphStyle(for: layout.block, in: source),
+                    range: layout.range
                 )
-                apply(inlines, over: proseFont, to: storage, in: source)
-                if let marker = block.markerRange {
-                    storage.addAttribute(.foregroundColor, value: markerColor, range: NSRange(marker, in: source))
+                apply(layout.inlines, over: proseFont, to: storage)
+                for marker in layout.blockMarkers {
+                    storage.addAttribute(.foregroundColor, value: markerColor, range: marker)
                 }
 
-            case .heading(let level, let inlines):
-                storage.setAttributes(headingAttributes(level: level), range: NSRange(block.range, in: source))
-                apply(inlines, over: headingFont(level: level), to: storage, in: source)
-                if let marker = block.markerRange {
-                    storage.addAttribute(.foregroundColor, value: markerColor, range: NSRange(marker, in: source))
+            case .heading(let level, _):
+                storage.setAttributes(headingAttributes(level: level), range: layout.range)
+                apply(layout.inlines, over: headingFont(level: level), to: storage)
+                for marker in layout.blockMarkers {
+                    storage.addAttribute(.foregroundColor, value: markerColor, range: marker)
                 }
             }
         }
 
+        // Put the colours back. Newly typed characters aren't covered by any of
+        // them and take the block's plain typing attributes, so they show up
+        // uncoloured until the next highlight pass rather than inheriting the
+        // colour of whatever they were typed after.
+        for run in existingColors {
+            storage.addAttribute(.foregroundColor, value: run.color, range: run.range)
+        }
+
         storage.endEditing()
+
+        return signatures
+    }
+
+    // MARK: Incremental restyling
+
+    /// A cheap summary of a block — enough to tell whether its existing styling
+    /// can be left alone.
+    ///
+    /// Length and kind catch most edits. `inlineHash` catches the ones they
+    /// miss: replacing `xxbolxx` with `**bold**` keeps the block's kind and
+    /// length identical while completely changing what it should look like.
+    struct BlockSignature: Equatable {
+        var kind: Int
+        var length: Int
+        var detail: Int
+        var inlineHash: Int
+    }
+
+    /// Which blocks need restyling, as indices into the new list.
+    ///
+    /// Blocks are compared from both ends, so an edit in the middle of a
+    /// document leaves the untouched blocks at either side alone. `nil` means
+    /// nothing changed. NSTextStorage migrates attributes across text edits on
+    /// its own, so blocks outside this range are already correct even though
+    /// their offsets have moved.
+    static func changedIndices(from old: [BlockSignature], to new: [BlockSignature]) -> Range<Int>? {
+        guard !old.isEmpty else { return new.isEmpty ? nil : 0..<new.count }
+
+        let overlap = min(old.count, new.count)
+
+        var prefix = 0
+        while prefix < overlap, old[prefix] == new[prefix] {
+            prefix += 1
+        }
+
+        var suffix = 0
+        while suffix < overlap - prefix, old[old.count - 1 - suffix] == new[new.count - 1 - suffix] {
+            suffix += 1
+        }
+
+        let lower = prefix
+        let upper = new.count - suffix
+        return lower < upper ? lower..<upper : nil
+    }
+
+    // MARK: Offsets
+
+    /// A block and its spans, as UTF-16 ranges ready to hand to NSTextStorage.
+    private struct BlockLayout {
+        var block: BlockNode
+        var range: NSRange
+        var contentRange: NSRange
+        var inlines: [InlineLayout]
+        var signature: BlockSignature
+
+        /// The block-level markers: a heading's hashes, a list bullet, or a
+        /// code block's two fence lines.
+        var blockMarkers: [NSRange] {
+            var markers: [NSRange] = []
+
+            let leadingLength = contentRange.location - range.location
+            if leadingLength > 0 {
+                markers.append(NSRange(location: range.location, length: leadingLength))
+            }
+
+            let trailingStart = contentRange.location + contentRange.length
+            let trailingLength = range.location + range.length - trailingStart
+            if trailingLength > 0 {
+                markers.append(NSRange(location: trailingStart, length: trailingLength))
+            }
+
+            return markers
+        }
+    }
+
+    private struct InlineLayout {
+        var kind: InlineNode.Kind
+        var contentRange: NSRange
+        var markers: [NSRange]
+    }
+
+    /// Converts every range in the document to UTF-16 offsets in one forward pass.
+    ///
+    /// `NSRange(someRange, in: source)` measures the distance from the string's
+    /// start index, so it costs O(offset) per call. Calling it once per block
+    /// and once per inline span made styling quadratic in document length —
+    /// 184ms for a 500-line note, on every keystroke. Blocks are contiguous and
+    /// in order, and so are the inline spans inside them, so their lengths can
+    /// simply be accumulated instead.
+    private static func layouts(for blocks: [BlockNode], in source: String) -> [BlockLayout] {
+        var layouts: [BlockLayout] = []
+        layouts.reserveCapacity(blocks.count)
+
+        var offset = 0
+
+        for block in blocks {
+            let blockLength = source[block.range].utf16.count
+            let leadingLength = source[block.range.lowerBound..<block.contentRange.lowerBound].utf16.count
+            let contentLength = source[block.contentRange].utf16.count
+
+            let contentStart = offset + leadingLength
+            var inlineOffset = contentStart
+            var inlines: [InlineLayout] = []
+            inlines.reserveCapacity(block.inlines.count)
+
+            for inline in block.inlines {
+                let inlineLength = source[inline.range].utf16.count
+                let inlineLeading = source[inline.range.lowerBound..<inline.contentRange.lowerBound].utf16.count
+                let inlineContent = source[inline.contentRange].utf16.count
+
+                let content = NSRange(location: inlineOffset + inlineLeading, length: inlineContent)
+                var markers: [NSRange] = []
+                if inlineLeading > 0 {
+                    markers.append(NSRange(location: inlineOffset, length: inlineLeading))
+                }
+                let trailingStart = content.location + content.length
+                let trailingLength = inlineOffset + inlineLength - trailingStart
+                if trailingLength > 0 {
+                    markers.append(NSRange(location: trailingStart, length: trailingLength))
+                }
+
+                inlines.append(InlineLayout(kind: inline.kind, contentRange: content, markers: markers))
+                inlineOffset += inlineLength
+            }
+
+            var inlineHash = 17
+            for inline in inlines {
+                inlineHash = inlineHash &* 31 &+ inline.kind.discriminant
+                inlineHash = inlineHash &* 31 &+ inline.contentRange.length
+            }
+
+            layouts.append(
+                BlockLayout(
+                    block: block,
+                    range: NSRange(location: offset, length: blockLength),
+                    contentRange: NSRange(location: contentStart, length: contentLength),
+                    inlines: inlines,
+                    signature: BlockSignature(
+                        kind: block.kindDiscriminant,
+                        length: blockLength,
+                        detail: block.styleDetail,
+                        inlineHash: inlineHash
+                    )
+                )
+            )
+
+            offset += blockLength
+        }
+
+        return layouts
+    }
+
+    /// Snapshots the syntax colours currently inside code blocks.
+    ///
+    /// Only colours that differ from the default are worth carrying over, and
+    /// only inside a code block's content — the dimmed fence lines are markers
+    /// and get reapplied from scratch.
+    private static func codeColors(in storage: NSTextStorage, layouts: [BlockLayout]) -> [ColorRun] {
+        var preserved: [ColorRun] = []
+        let defaultColor = UIColor.label
+
+        for layout in layouts where layout.block.isCode {
+            let range = layout.contentRange
+            guard range.location >= 0, range.location + range.length <= storage.length else { continue }
+
+            storage.enumerateAttribute(.foregroundColor, in: range) { value, subrange, _ in
+                guard let color = value as? UIColor, color != defaultColor else { return }
+                preserved.append(ColorRun(range: subrange, color: color))
+            }
+        }
+
+        return preserved
     }
 
     /// Applies inline spans over a block whose base font is already set.
     ///
     /// Traits are derived from the block's own font rather than a fixed one, so
     /// bold inside a heading is a bold heading, not bold body text.
-    private static func apply(
-        _ inlines: [InlineNode],
-        over baseFont: UIFont,
-        to storage: NSTextStorage,
-        in source: String
-    ) {
+    private static func apply(_ inlines: [InlineLayout], over baseFont: UIFont, to storage: NSTextStorage) {
         for inline in inlines where inline.kind != .text {
-            let content = NSRange(inline.contentRange, in: source)
-
             switch inline.kind {
             case .strong:
-                storage.addAttribute(.font, value: baseFont.withTraits(.traitBold), range: content)
+                storage.addAttribute(.font, value: baseFont.withTraits(.traitBold), range: inline.contentRange)
             case .emphasis:
-                storage.addAttribute(.font, value: baseFont.withTraits(.traitItalic), range: content)
+                storage.addAttribute(.font, value: baseFont.withTraits(.traitItalic), range: inline.contentRange)
             case .inlineCode:
                 storage.addAttribute(
                     .font,
                     value: UIFont.monospacedSystemFont(ofSize: baseFont.pointSize, weight: .regular),
-                    range: content
+                    range: inline.contentRange
                 )
                 // A per-glyph background is right here, unlike a code block —
                 // an inline span is short and doesn't need to square off.
-                storage.addAttribute(.backgroundColor, value: UIColor.secondarySystemFill, range: content)
+                storage.addAttribute(.backgroundColor, value: UIColor.secondarySystemFill, range: inline.contentRange)
             case .text:
                 break
             }
 
-            for marker in inline.markerRanges {
-                storage.addAttribute(.foregroundColor, value: markerColor, range: NSRange(marker, in: source))
+            for marker in inline.markers {
+                storage.addAttribute(.foregroundColor, value: markerColor, range: marker)
             }
         }
     }
+
 
     /// Paints syntax colours over already-styled text.
     ///
@@ -205,13 +428,22 @@ enum DocumentStyler {
     /// and everything else the styling pass established survive. Colours are
     /// always additive and always land after a full restyle has reset
     /// foregrounds back to `.label`.
-    static func applyColors(_ runs: [ColorRun], to textView: UITextView) {
+    /// - Parameter clearing: the code ranges these runs describe. Reset first,
+    ///   in the same transaction, so a block that now produces fewer runs than
+    ///   before — a changed language tag, say — doesn't keep stale colours on
+    ///   the characters the new pass didn't cover.
+    static func applyColors(_ runs: [ColorRun], clearing ranges: [NSRange], to textView: UITextView) {
         guard textView.markedTextRange == nil else { return }
 
         let storage = textView.textStorage
         let length = storage.length
 
         storage.beginEditing()
+
+        for range in ranges where range.location >= 0 && range.location + range.length <= length {
+            storage.addAttribute(.foregroundColor, value: UIColor.label, range: range)
+        }
+
         for run in runs {
             // Defensive: an off-by-one here would trap, and the ranges came
             // from a snapshot of the document taken before an await.
@@ -232,8 +464,7 @@ enum DocumentStyler {
     /// monospaced on a grey background. This is the "attribute bleed" problem;
     /// setting typing attributes from the *parsed* region under the caret is the
     /// fix, rather than letting the text system guess.
-    static func applyTypingAttributes(to textView: UITextView, blocks: [BlockNode]) {
-        let source = textView.text ?? ""
+    static func applyTypingAttributes(to textView: UITextView, source: String, blocks: [BlockNode]) {
         let caret = textView.selectedRange.location
 
         let current = block(at: caret, in: source, blocks: blocks)
