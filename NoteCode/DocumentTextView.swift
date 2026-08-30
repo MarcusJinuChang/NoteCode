@@ -71,10 +71,18 @@ struct DocumentTextView: UIViewRepresentable {
         /// describes a document that no longer exists, so it gets dropped.
         private var highlightGeneration = 0
 
-        /// How long typing has to pause before the JS round trip is worth
-        /// starting. Short enough to feel immediate, long enough that holding
-        /// a key down doesn't queue a highlight per character.
-        private static let highlightDelay = Duration.milliseconds(200)
+        /// Blocks already coloured, keyed by content. A block whose code hasn't
+        /// changed keeps the colours already in the text storage, so only the
+        /// block being edited needs re-highlighting.
+        private var highlightedBlocks: Set<CodeBlockID> = []
+
+        /// Just enough to coalesce a fast burst of keystrokes.
+        ///
+        /// This was 200ms, chosen before measuring. Highlighting one block
+        /// takes 3.6–5.2ms, so 200ms was roughly forty times more caution than
+        /// the work needed — and it was long enough that a word stayed
+        /// uncoloured while being typed.
+        private static let highlightDelay = Duration.milliseconds(20)
 
         init(text: Binding<String>) {
             self.text = text
@@ -112,12 +120,19 @@ struct DocumentTextView: UIViewRepresentable {
             let generation = highlightGeneration
             let appearance = HighlightAppearance(textView.traitCollection)
 
-            // Snapshot of what to send, taken before any await.
-            let jobs: [(code: String, tag: String, offset: Int)] = blocks.compactMap { node in
+            // Forget blocks that no longer exist, so the set can't grow forever.
+            highlightedBlocks.formIntersection(Set(blocks.compactMap(\.codeBlock?.id)))
+
+            // Snapshot of what to send, taken before any await. Only blocks
+            // whose code changed since the last pass — everything else still
+            // holds the right colours, which applyStyling carries across.
+            let jobs: [(id: CodeBlockID, code: String, tag: String, offset: Int)] = blocks.compactMap { node in
                 guard let code = node.codeBlock,
-                      let tag = code.infoString.split(separator: " ").first
+                      let tag = code.infoString.split(separator: " ").first,
+                      !highlightedBlocks.contains(code.id)
                 else { return nil }
                 return (
+                    code.id,
                     String(source[code.contentRange]),
                     String(tag),
                     NSRange(code.contentRange, in: source).location
@@ -155,6 +170,7 @@ struct DocumentTextView: UIViewRepresentable {
 
                 let covered = jobs.map { NSRange(location: $0.offset, length: ($0.code as NSString).length) }
                 DocumentStyler.applyColors(painted, clearing: covered, to: textView)
+                self.highlightedBlocks.formUnion(jobs.map(\.id))
             }
         }
 
@@ -162,6 +178,8 @@ struct DocumentTextView: UIViewRepresentable {
         /// Needed whenever the storage is replaced wholesale.
         func invalidateStyling() {
             styleSignatures = []
+            // Replacing the storage wipes the colours too.
+            highlightedBlocks = []
         }
 
         func textViewDidChange(_ textView: UITextView) {
@@ -173,15 +191,36 @@ struct DocumentTextView: UIViewRepresentable {
         ///
         /// The edit menu is the right home for this: no new chrome, no overlay
         /// to position, and it appears exactly where a selection already is.
+        ///
+        /// Two methods because UIKit changed the shape in iOS 26 — the plural
+        /// one is preferred and the singular is its deprecated predecessor.
+        /// Implementing only the deprecated one silently never gets called.
+        func textView(
+            _ textView: UITextView,
+            editMenuForTextIn ranges: [NSValue],
+            suggestedActions: [UIMenuElement]
+        ) -> UIMenu? {
+            let caret = ranges.first?.rangeValue.location ?? textView.selectedRange.location
+            return menu(for: textView, at: caret, suggestedActions: suggestedActions)
+        }
+
         func textView(
             _ textView: UITextView,
             editMenuForTextIn range: NSRange,
             suggestedActions: [UIMenuElement]
         ) -> UIMenu? {
+            menu(for: textView, at: range.location, suggestedActions: suggestedActions)
+        }
+
+        private func menu(
+            for textView: UITextView,
+            at caret: Int,
+            suggestedActions: [UIMenuElement]
+        ) -> UIMenu? {
             let source = textView.text ?? ""
             let blocks = documentCache.blocks(for: source)
 
-            guard let code = CodeBlockAction.code(atCaret: range.location, in: source, blocks: blocks),
+            guard let code = CodeBlockAction.code(atCaret: caret, in: source, blocks: blocks),
                   !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             else {
                 return UIMenu(children: suggestedActions)

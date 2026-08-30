@@ -10,6 +10,40 @@ import Testing
 import UIKit
 @testable import NoteCode
 
+@Suite("Highlighter cost")
+@MainActor
+struct HighlighterCostTests {
+
+    @Test("Highlighting one block is fast enough to not need much debounce")
+    func singleBlockCost() async {
+        let code = """
+        def compute_average(values):
+            total = 0
+            for value in values:
+                total += value
+            return total / len(values)
+        """
+        let highlighter = HighlightSwiftHighlighter()
+
+        // Warm the JS context; the first call pays for setup.
+        _ = await highlighter.colorRuns(for: code, languageTag: "python", appearance: .light)
+
+        var times: [TimeInterval] = []
+        for _ in 0..<10 {
+            let start = Date()
+            _ = await highlighter.colorRuns(for: code, languageTag: "python", appearance: .light)
+            times.append(Date().timeIntervalSince(start))
+        }
+
+        let worst = times.max() ?? 0
+
+        // The debounce is derived from this number. If highlighting ever gets
+        // meaningfully slower, the debounce needs revisiting rather than the
+        // symptom being papered over.
+        #expect(worst < 0.05, "highlighting one block took \(worst)s")
+    }
+}
+
 @Suite("Token edges")
 @MainActor
 struct TokenEdgeTests {
