@@ -11,6 +11,8 @@ struct ContentView: View {
     var storageIsEphemeral = false
 
     @Environment(\.modelContext) private var modelContext
+    /// Spike branch only — a demo of the page-geometry decision.
+    @State private var showingGeometrySpike = false
     @Query(sort: \Page.modifiedAt, order: .reverse) private var pages: [Page]
 
     var body: some View {
@@ -55,7 +57,17 @@ struct ContentView: View {
                         Label("Add Page", systemImage: "plus")
                     }
                 }
+#if os(iOS)
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Geometry") { showingGeometrySpike = true }
+                }
+#endif
             }
+#if os(iOS)
+            .fullScreenCover(isPresented: $showingGeometrySpike) {
+                GeometrySpike()
+            }
+#endif
         }
     }
 
