@@ -48,15 +48,16 @@ struct HighlighterCostTests {
         let sorted = times.sorted()
         let median = (sorted[sorted.count / 2 - 1] + sorted[sorted.count / 2]) / 2
 
-        // Ceiling picked from a measurement, not from feel: the median on an
-        // iPad Pro 13-inch simulator is ~13ms, so 30ms leaves a bit over 2x of
-        // headroom — loose enough to survive a busy machine, tight enough that
-        // a genuine slowdown trips it. If highlighting gets meaningfully
-        // slower the debounce needs revisiting rather than this number.
+        // Ceiling picked from a measurement, not from feel: across twenty
+        // samples on an iPad Pro 13-inch simulator every one fell between 8.6ms
+        // and 14.8ms, median ~12.5ms. 30ms leaves a bit over 2x of headroom —
+        // loose enough to survive a busy machine, tight enough that a genuine
+        // slowdown trips it.
         //
-        // Worth noting that ~13ms is already well above the 3.6-5.2ms recorded
-        // in DocumentTextView's debounce comment. Different measurement, so not
-        // necessarily a regression, but the two should be reconciled.
+        // A slowdown here does not threaten the debounce; the JavaScript runs
+        // off the main actor, so this cost is latency before colour appears,
+        // not time stolen from typing. What it would threaten is that latency
+        // staying imperceptible.
         #expect(median < 0.03, "highlighting one block took \(median)s (median of \(times.count))")
     }
 }

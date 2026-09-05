@@ -78,10 +78,23 @@ struct DocumentTextView: UIViewRepresentable {
 
         /// Just enough to coalesce a fast burst of keystrokes.
         ///
-        /// This was 200ms, chosen before measuring. Highlighting one block
-        /// takes 3.6–5.2ms, so 200ms was roughly forty times more caution than
-        /// the work needed — and it was long enough that a word stayed
-        /// uncoloured while being typed.
+        /// This was 200ms, chosen before measuring, which was long enough that
+        /// a word stayed uncoloured while it was being typed.
+        ///
+        /// Colouring one block measures at a ~12.5ms median on an iPad Pro
+        /// 13-inch simulator — see HighlighterCostTests. An earlier note here
+        /// claimed 3.6–5.2ms; that is not reproducible, and since neither this
+        /// file nor HighlightSwift has changed since it was written, it was
+        /// most likely measured somewhere other than that test.
+        ///
+        /// The delay and the work do not compete for the same time. HighlightSwift's
+        /// `Highlight` is a non-isolated Sendable class, so awaiting it from the
+        /// main actor runs the JavaScript off-main; this delay only decides when
+        /// that work starts. They add: colour lands roughly 32ms after typing
+        /// stops, which is imperceptible. The one main-actor step is
+        /// DocumentStyler.applyColors at the end, and it is small — that is the
+        /// part to watch when the drawing layer starts competing for the main
+        /// actor.
         private static let highlightDelay = Duration.milliseconds(20)
 
         init(text: Binding<String>) {
