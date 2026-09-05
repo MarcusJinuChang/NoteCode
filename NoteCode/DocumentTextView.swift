@@ -71,10 +71,31 @@ struct DocumentTextView: UIViewRepresentable {
         /// describes a document that no longer exists, so it gets dropped.
         private var highlightGeneration = 0
 
-        /// How long typing has to pause before the JS round trip is worth
-        /// starting. Short enough to feel immediate, long enough that holding
-        /// a key down doesn't queue a highlight per character.
-        private static let highlightDelay = Duration.milliseconds(200)
+        /// Blocks already coloured, keyed by content. A block whose code hasn't
+        /// changed keeps the colours already in the text storage, so only the
+        /// block being edited needs re-highlighting.
+        private var highlightedBlocks: Set<CodeBlockID> = []
+
+        /// Just enough to coalesce a fast burst of keystrokes.
+        ///
+        /// This was 200ms, chosen before measuring, which was long enough that
+        /// a word stayed uncoloured while it was being typed.
+        ///
+        /// Colouring one block measures at a ~12.5ms median on an iPad Pro
+        /// 13-inch simulator — see HighlighterCostTests. An earlier note here
+        /// claimed 3.6–5.2ms; that is not reproducible, and since neither this
+        /// file nor HighlightSwift has changed since it was written, it was
+        /// most likely measured somewhere other than that test.
+        ///
+        /// The delay and the work do not compete for the same time. HighlightSwift's
+        /// `Highlight` is a non-isolated Sendable class, so awaiting it from the
+        /// main actor runs the JavaScript off-main; this delay only decides when
+        /// that work starts. They add: colour lands roughly 32ms after typing
+        /// stops, which is imperceptible. The one main-actor step is
+        /// DocumentStyler.applyColors at the end, and it is small — that is the
+        /// part to watch when the drawing layer starts competing for the main
+        /// actor.
+        private static let highlightDelay = Duration.milliseconds(20)
 
         init(text: Binding<String>) {
             self.text = text
@@ -112,12 +133,19 @@ struct DocumentTextView: UIViewRepresentable {
             let generation = highlightGeneration
             let appearance = HighlightAppearance(textView.traitCollection)
 
-            // Snapshot of what to send, taken before any await.
-            let jobs: [(code: String, tag: String, offset: Int)] = blocks.compactMap { node in
+            // Forget blocks that no longer exist, so the set can't grow forever.
+            highlightedBlocks.formIntersection(Set(blocks.compactMap(\.codeBlock?.id)))
+
+            // Snapshot of what to send, taken before any await. Only blocks
+            // whose code changed since the last pass — everything else still
+            // holds the right colours, which applyStyling carries across.
+            let jobs: [(id: CodeBlockID, code: String, tag: String, offset: Int)] = blocks.compactMap { node in
                 guard let code = node.codeBlock,
-                      let tag = code.infoString.split(separator: " ").first
+                      let tag = code.infoString.split(separator: " ").first,
+                      !highlightedBlocks.contains(code.id)
                 else { return nil }
                 return (
+                    code.id,
                     String(source[code.contentRange]),
                     String(tag),
                     NSRange(code.contentRange, in: source).location
@@ -155,6 +183,7 @@ struct DocumentTextView: UIViewRepresentable {
 
                 let covered = jobs.map { NSRange(location: $0.offset, length: ($0.code as NSString).length) }
                 DocumentStyler.applyColors(painted, clearing: covered, to: textView)
+                self.highlightedBlocks.formUnion(jobs.map(\.id))
             }
         }
 
@@ -162,11 +191,80 @@ struct DocumentTextView: UIViewRepresentable {
         /// Needed whenever the storage is replaced wholesale.
         func invalidateStyling() {
             styleSignatures = []
+            // Replacing the storage wipes the colours too.
+            highlightedBlocks = []
         }
 
         func textViewDidChange(_ textView: UITextView) {
             restyle(textView)
             text.wrappedValue = textView.text
+        }
+
+        /// Adds copy and share for the code block under the caret.
+        ///
+        /// The edit menu is the right home for this: no new chrome, no overlay
+        /// to position, and it appears exactly where a selection already is.
+        ///
+        /// Two methods because UIKit changed the shape in iOS 26 — the plural
+        /// one is preferred and the singular is its deprecated predecessor.
+        /// Implementing only the deprecated one silently never gets called.
+        func textView(
+            _ textView: UITextView,
+            editMenuForTextIn ranges: [NSValue],
+            suggestedActions: [UIMenuElement]
+        ) -> UIMenu? {
+            let caret = ranges.first?.rangeValue.location ?? textView.selectedRange.location
+            return menu(for: textView, at: caret, suggestedActions: suggestedActions)
+        }
+
+        func textView(
+            _ textView: UITextView,
+            editMenuForTextIn range: NSRange,
+            suggestedActions: [UIMenuElement]
+        ) -> UIMenu? {
+            menu(for: textView, at: range.location, suggestedActions: suggestedActions)
+        }
+
+        private func menu(
+            for textView: UITextView,
+            at caret: Int,
+            suggestedActions: [UIMenuElement]
+        ) -> UIMenu? {
+            let source = textView.text ?? ""
+            let blocks = documentCache.blocks(for: source)
+
+            guard let code = CodeBlockAction.code(atCaret: caret, in: source, blocks: blocks),
+                  !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else {
+                return UIMenu(children: suggestedActions)
+            }
+
+            let copy = UIAction(title: "Copy Code Block", image: UIImage(systemName: "doc.on.doc")) { _ in
+                UIPasteboard.general.string = code
+            }
+
+            let share = UIAction(title: "Share Code Block", image: UIImage(systemName: "square.and.arrow.up")) { [weak textView] _ in
+                guard let textView else { return }
+                Self.share(code, from: textView)
+            }
+
+            return UIMenu(children: [UIMenu(options: .displayInline, children: [copy, share])] + suggestedActions)
+        }
+
+        private static func share(_ code: String, from textView: UITextView) {
+            guard let presenter = textView.window?.rootViewController else { return }
+
+            let activity = UIActivityViewController(activityItems: [code], applicationActivities: nil)
+
+            // iPad presents this as a popover and needs an anchor, so point it
+            // at the caret rather than an arbitrary corner.
+            if let popover = activity.popoverPresentationController {
+                popover.sourceView = textView
+                popover.sourceRect = textView.selectedTextRange.map { textView.firstRect(for: $0) }
+                    ?? CGRect(x: textView.bounds.midX, y: textView.bounds.midY, width: 1, height: 1)
+            }
+
+            presenter.present(activity, animated: true)
         }
 
         func textViewDidChangeSelection(_ textView: UITextView) {

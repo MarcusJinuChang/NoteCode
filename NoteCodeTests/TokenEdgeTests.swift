@@ -10,6 +10,58 @@ import Testing
 import UIKit
 @testable import NoteCode
 
+@Suite("Highlighter cost")
+@MainActor
+struct HighlighterCostTests {
+
+    @Test("Highlighting one block is fast enough to not need much debounce")
+    func singleBlockCost() async {
+        let code = """
+        def compute_average(values):
+            total = 0
+            for value in values:
+                total += value
+            return total / len(values)
+        """
+        let highlighter = HighlightSwiftHighlighter()
+
+        // Warm the JS context; the first call pays for setup.
+        _ = await highlighter.colorRuns(for: code, languageTag: "python", appearance: .light)
+
+        var times: [TimeInterval] = []
+        for _ in 0..<10 {
+            let start = Date()
+            _ = await highlighter.colorRuns(for: code, languageTag: "python", appearance: .light)
+            times.append(Date().timeIntervalSince(start))
+        }
+
+        // Median, not max.
+        //
+        // This asserts on wall-clock time, and the whole test suite runs on a
+        // machine that is also booting simulator clones for the UI target. One
+        // scheduler stall lands in a max-of-ten every so often and fails a
+        // build for a reason that has nothing to do with the highlighter —
+        // observed at 65ms against a 50ms ceiling while the UI runner started.
+        //
+        // A median still moves if the highlighter genuinely gets slower, which
+        // is the only thing this test is here to notice.
+        let sorted = times.sorted()
+        let median = (sorted[sorted.count / 2 - 1] + sorted[sorted.count / 2]) / 2
+
+        // Ceiling picked from a measurement, not from feel: across twenty
+        // samples on an iPad Pro 13-inch simulator every one fell between 8.6ms
+        // and 14.8ms, median ~12.5ms. 30ms leaves a bit over 2x of headroom —
+        // loose enough to survive a busy machine, tight enough that a genuine
+        // slowdown trips it.
+        //
+        // A slowdown here does not threaten the debounce; the JavaScript runs
+        // off the main actor, so this cost is latency before colour appears,
+        // not time stolen from typing. What it would threaten is that latency
+        // staying imperceptible.
+        #expect(median < 0.03, "highlighting one block took \(median)s (median of \(times.count))")
+    }
+}
+
 @Suite("Token edges")
 @MainActor
 struct TokenEdgeTests {

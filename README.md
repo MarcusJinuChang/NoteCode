@@ -1,16 +1,18 @@
 # NoteCode
 
 An iPad note-taking app for CS coursework — a single continuous, markdown-style
-document where regular notes, syntax-highlighted runnable code blocks, and
-Apple Pencil drawings all live on the same page.
+document where regular notes, syntax-highlighted code blocks, and Apple Pencil
+drawings all live on the same page.
 
 ## What it does (planned)
 
 - Continuous, scrollable notes with Obsidian-style markdown formatting
-- Triple-backtick code fences become syntax-highlighted, runnable code blocks
-  (C++, Java, Python) via the [Piston API](https://github.com/engineer-man/piston)
+- Triple-backtick code fences become syntax-highlighted code blocks, with any
+  language highlight.js recognises — and copy or share to run them elsewhere
 - A PencilKit drawing layer toggles on and off without losing scroll position
   or leaving the page
+- A fixed page width with its own base scale per orientation, and pinch to zoom
+  in and out, so the page reads the same whichever way the iPad is held
 
 ## Stack
 
@@ -18,4 +20,11 @@ Swift, SwiftUI, TextKit 2, PencilKit, SwiftData
 
 ## Status
 
-Early development.
+In development. The text engine is working — fence detection, syntax
+highlighting, and copy/share on a code block. The drawing layer is next; see
+AGENTS.md for the geometry and scrolling decisions it depends on.
+
+## Planning docs
+
+The roadmap and phase plans live in [docs/](docs/) as markdown — that is the
+source of truth. The published artifact versions are renderings of those files.
