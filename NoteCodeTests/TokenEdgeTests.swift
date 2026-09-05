@@ -35,12 +35,29 @@ struct HighlighterCostTests {
             times.append(Date().timeIntervalSince(start))
         }
 
-        let worst = times.max() ?? 0
+        // Median, not max.
+        //
+        // This asserts on wall-clock time, and the whole test suite runs on a
+        // machine that is also booting simulator clones for the UI target. One
+        // scheduler stall lands in a max-of-ten every so often and fails a
+        // build for a reason that has nothing to do with the highlighter —
+        // observed at 65ms against a 50ms ceiling while the UI runner started.
+        //
+        // A median still moves if the highlighter genuinely gets slower, which
+        // is the only thing this test is here to notice.
+        let sorted = times.sorted()
+        let median = (sorted[sorted.count / 2 - 1] + sorted[sorted.count / 2]) / 2
 
-        // The debounce is derived from this number. If highlighting ever gets
-        // meaningfully slower, the debounce needs revisiting rather than the
-        // symptom being papered over.
-        #expect(worst < 0.05, "highlighting one block took \(worst)s")
+        // Ceiling picked from a measurement, not from feel: the median on an
+        // iPad Pro 13-inch simulator is ~13ms, so 30ms leaves a bit over 2x of
+        // headroom — loose enough to survive a busy machine, tight enough that
+        // a genuine slowdown trips it. If highlighting gets meaningfully
+        // slower the debounce needs revisiting rather than this number.
+        //
+        // Worth noting that ~13ms is already well above the 3.6-5.2ms recorded
+        // in DocumentTextView's debounce comment. Different measurement, so not
+        // necessarily a regression, but the two should be reconciled.
+        #expect(median < 0.03, "highlighting one block took \(median)s (median of \(times.count))")
     }
 }
 
