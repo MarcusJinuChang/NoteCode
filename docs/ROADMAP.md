@@ -9,8 +9,8 @@ Revised 5 September 2026.
 | | |
 |---|---|
 | Drawing layer due | **10 Oct 2026** (hard stop) |
-| Berkeley target | App Store, Nov 2026 |
-| Other privates target | AI + feedback, Mar 2027 |
+| App Store submission | Nov 2026 |
+| Second version | AI + feedback, Mar 2027 |
 
 ## What changed since July
 
