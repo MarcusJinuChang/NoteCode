@@ -1,0 +1,101 @@
+# NoteCode roadmap
+
+Source of truth. The published version at
+<https://claude.ai/code/artifact/2490317a-7eaf-44ae-9389-f0fb92d7471a>
+is a rendering of this file — edit here, ask for the artifact to be regenerated.
+
+Revised 5 September 2026.
+
+| | |
+|---|---|
+| Drawing layer due | **10 Oct 2026** (hard stop) |
+| Berkeley target | App Store, Nov 2026 |
+| Other privates target | AI + feedback, Mar 2027 |
+
+## What changed since July
+
+Two things went differently from the original plan, and both were right.
+The custom text engine got built *before* the drawing layer — TextKit 2, fence
+detection, syntax highlighting, copy/share on a code block are all working.
+And in-app code execution was dropped: every option needed a paid API, a VPS
+sandbox, or a multi-megabyte WASM runtime with a four-second cold start, for a
+feature nobody uses during a lecture.
+
+The consequence: the hardest remaining feature is also the last one.
+
+## Phases
+
+### Done — Foundations (Jul–Aug)
+Swift and SwiftUI basics before touching NoteCode itself.
+
+### Done — Walking skeleton (Aug)
+The `Page` model with `content` and a `drawingData` placeholder. A page list, a
+page editor, and `Storage` — which degrades to an in-memory store and says so,
+rather than crashing on launch when the disk store fails.
+
+### Done — Custom text engine (Aug–early Sep)
+Built early, out of the original order. This was the phase most likely to sink
+the schedule, so taking it first was the right instinct.
+
+- A real `UITextView` on TextKit 2 (`DocumentTextView`)
+- Pure, unit-tested fence parsing (`DocumentParser`)
+- Fragment-level code panels (`CodeBlockLayoutFragment`) — `.backgroundColor`
+  paints per glyph and leaves a ragged right edge
+- Async syntax colouring via HighlightSwift, restyling only the changed block
+- Debounce went from a guessed 200ms to a measured 20ms
+
+### Cut — Run button
+Replaced by Copy and Share on a code block. This freed the two weeks the
+drawing layer is now spending.
+
+### Now — Drawing layer (6 Sep – 10 Oct) — flagged risk
+See [phase-drawing-layer.md](phase-drawing-layer.md) for the build plan.
+
+The canvas goes inside the text view's content, not beside it, so both layers
+share one `contentOffset` with no sync code. An `EditorMode` enum owns all six
+settings the toggle moves at once. The zoom container gets built in the
+geometry step rather than retrofitted later.
+
+**Fallback if it runs long:** drop `PKToolPicker` for a fixed pen/eraser/colour
+toolbar. That removes the keyboard-versus-picker fight and keeps the feature.
+
+### Next — Sign in and ship (10 Oct – Nov)
+Sign in with Apple (no backend; as the only login option it sidesteps Apple's
+rule requiring it alongside third-party sign-in). Apple Developer Program
+enrolment, TestFlight beta, privacy manifest, submission.
+
+This date is what the drawing layer's hard stop exists to protect. First
+submissions bounce on formality — you want review-cycle buffer, not zero margin.
+
+### Later — AI and feedback (Dec – Mar 2027)
+One or two AI features tied to the actual use case — explain this code block,
+summarise this page — rather than AI for its own sake, built on real TestFlight
+usage. Most of the deferred list below is fair game here too.
+
+## Deferred work
+
+Referenced by name from `TextRewritingPolicy.swift` and `DocumentTextView.swift`.
+
+| Where | What |
+|---|---|
+| `TextRewritingPolicy.swift` | **Per-region text rewriting.** All five keyboard traits are `.code` everywhere, so prose loses autocorrect. Plan: `.prose` outside a fence, `.code` inside, with `reloadInputViews()`. |
+| `DocumentStyler.swift` | **Markers that recede.** Markdown markers stay visible in `tertiaryLabel`. Hiding them when the caret is elsewhere is the Obsidian behaviour. |
+| Page geometry | **Zoom + a base width per orientation.** Zoom is now scheduled into the drawing layer. The orientation reading is still open — run `GeometrySpike`. |
+| `Page.swift` | **Text-anchored ink.** Wanted for its own sake, not just as a drift fix. Anchor each stroke to an `NSTextLocation` plus an offset, translate the group on relayout. Its own phase. |
+| `ContentView.swift` | **Folders.** A flat date-sorted list does not survive a semester. Touches the model, so settle it before more migrations pile up. |
+| Responder chain | **One undo stack, or two.** The canvas's chain runs through the text view, which vends its own undo manager — verify on device. |
+| `PageDetailView.swift` | **The macOS editor.** Still a plain `TextEditor` — no fences, no highlighting, no ink. |
+| `Storage.swift` | **iCloud sync.** CloudKit via SwiftData, deferred past MVP by design. |
+
+## Habits that are paying off
+
+- **Measure first.** The highlight debounce was guessed at 200ms and measured
+  at 20ms. Do the same before choosing how often ink gets serialised.
+- **Isolate risk.** Spike the hard part standalone. A failed spike costs an
+  afternoon; a failed integration costs a week.
+- **Settings travel together.** `TextRewritingPolicy` groups five traits into
+  one type with one `apply(to:)` so they cannot drift. The drawing toggle has
+  six and should use the same shape.
+- **Degrade, don't crash.** `Storage` falls back to an in-memory store and says
+  so. Corrupt drawing data should give an empty canvas and a warning, and must
+  never overwrite what's on disk.

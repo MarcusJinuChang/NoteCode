@@ -11,6 +11,8 @@ drawings all live on the same page.
   language highlight.js recognises — and copy or share to run them elsewhere
 - A PencilKit drawing layer toggles on and off without losing scroll position
   or leaving the page
+- A fixed page width with its own base scale per orientation, and pinch to zoom
+  in and out, so the page reads the same whichever way the iPad is held
 
 ## Stack
 
@@ -18,4 +20,11 @@ Swift, SwiftUI, TextKit 2, PencilKit, SwiftData
 
 ## Status
 
-Early development.
+In development. The text engine is working — fence detection, syntax
+highlighting, and copy/share on a code block. The drawing layer is next; see
+AGENTS.md for the geometry and scrolling decisions it depends on.
+
+## Planning docs
+
+The roadmap and phase plans live in [docs/](docs/) as markdown — that is the
+source of truth. The published artifact versions are renderings of those files.
