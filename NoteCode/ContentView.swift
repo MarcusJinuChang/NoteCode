@@ -13,9 +13,22 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Page.modifiedAt, order: .reverse) private var pages: [Page]
 
+    /// The open note. Held as the model object rather than its
+    /// `persistentModelID`, which changes from a temporary ID to a permanent
+    /// one on first save — a new note would close itself a moment after
+    /// opening.
+    @State private var selection: Page?
+
+    /// Starts with the list showing, since there's no note open yet.
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+
+#if os(iOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+#endif
+
     var body: some View {
-        NavigationViewWrapper {
-            List {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            List(selection: $selection) {
                 if storageIsEphemeral {
                     Label(
                         "Storage is unavailable, so changes made now won't be saved.",
@@ -26,17 +39,14 @@ struct ContentView: View {
                 }
 
                 ForEach(pages) { page in
-                    NavigationLink {
-                        PageDetailView(page: page)
-                    } label: {
-                        VStack(alignment: .leading) {
-                            Text(page.title)
-                                .font(.headline)
-                            Text(page.modifiedAt, format: Date.FormatStyle(date: .abbreviated, time: .shortened))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
+                    VStack(alignment: .leading) {
+                        Text(page.title)
+                            .font(.headline)
+                        Text(page.modifiedAt, format: Date.FormatStyle(date: .abbreviated, time: .shortened))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
+                    .tag(page)
                 }
                 .onDelete(perform: deletePages)
             }
@@ -56,39 +66,61 @@ struct ContentView: View {
                     }
                 }
             }
+        } detail: {
+            if let page = selection {
+                PageDetailView(page: page, toggleSidebar: sidebarToggle)
+                    // A fresh editor per note. Reusing one would carry the last
+                    // note's undo stack across, and undo would type it back in.
+                    .id(ObjectIdentifier(page))
+            } else {
+                ContentUnavailableView(
+                    "No Note Open",
+                    systemImage: "note.text",
+                    description: Text("Choose a note from the list, or start a new one.")
+                )
+            }
+        }
+        // The list slides over the page instead of pushing it narrower, so
+        // opening it never re-wraps the note underneath.
+        .navigationSplitViewStyle(.prominentDetail)
+        .onChange(of: selection) {
+            if selection != nil {
+                withAnimation { columnVisibility = .detailOnly }
+            }
         }
     }
 
-    private func addPage() {
-        withAnimation {
-            modelContext.insert(Page())
+    /// The note page's ☰ button, where there is a sidebar for it to show.
+    private var sidebarToggle: (() -> Void)? {
+#if os(iOS)
+        guard horizontalSizeClass != .compact else { return nil }
+        return {
+            withAnimation {
+                columnVisibility = columnVisibility == .detailOnly ? .all : .detailOnly
+            }
         }
+#else
+        return nil
+#endif
+    }
+
+    private func addPage() {
+        let page = Page()
+        withAnimation {
+            modelContext.insert(page)
+        }
+        selection = page
     }
 
     private func deletePages(offsets: IndexSet) {
         withAnimation {
             for index in offsets {
+                if pages[index] == selection {
+                    selection = nil
+                }
                 modelContext.delete(pages[index])
             }
         }
-    }
-}
-
-fileprivate struct NavigationViewWrapper<Content: View>: View {
-    let content: () -> Content
-
-    var body: some View {
-#if os(macOS)
-        NavigationSplitView {
-            content()
-        } detail: {
-            Text("Select a page")
-        }
-#else
-        NavigationStack {
-            content()
-        }
-#endif
     }
 }
 

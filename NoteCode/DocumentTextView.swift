@@ -20,6 +20,10 @@ struct DocumentTextView: UIViewRepresentable {
     /// `RunDestinationPreference`.
     var runDestination: CodeDestination = .default
 
+    /// The page's hotbar state. Optional so the editor still stands alone in
+    /// tests and previews.
+    var editor: NoteEditor? = nil
+
     // MARK: UIViewRepresentable
 
     func makeUIView(context: Context) -> DocumentUITextView {
@@ -32,6 +36,8 @@ struct DocumentTextView: UIViewRepresentable {
         textView.text = text
         context.coordinator.invalidateStyling()
         context.coordinator.restyle(textView)
+        context.coordinator.editor = editor
+        editor?.attach(textView)
         return textView
     }
 
@@ -41,6 +47,7 @@ struct DocumentTextView: UIViewRepresentable {
         // through a stale one.
         context.coordinator.text = $text
         context.coordinator.runDestination = runDestination
+        context.coordinator.editor = editor
 
         // Only push text down when it actually differs. Assigning `.text`
         // unconditionally would reset the selection on every render and fight
@@ -66,6 +73,7 @@ struct DocumentTextView: UIViewRepresentable {
     final class Coordinator: NSObject, UITextViewDelegate {
         var text: Binding<String>
         var runDestination: CodeDestination = .default
+        var editor: NoteEditor?
         let documentCache = DocumentCache()
 
         /// The run and copy buttons floating over each code block.
@@ -257,6 +265,7 @@ struct DocumentTextView: UIViewRepresentable {
         func textViewDidChange(_ textView: UITextView) {
             restyle(textView)
             text.wrappedValue = textView.text
+            editor?.refreshUndoState()
         }
 
         /// Adds copy and share for the code block under the caret.
