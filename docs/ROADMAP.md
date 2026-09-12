@@ -80,7 +80,7 @@ Referenced by name from `TextRewritingPolicy.swift` and `DocumentTextView.swift`
 |---|---|
 | `TextRewritingPolicy.swift` | **Per-region text rewriting.** All five keyboard traits are `.code` everywhere, so prose loses autocorrect. Plan: `.prose` outside a fence, `.code` inside, with `reloadInputViews()`. |
 | `DocumentStyler.swift` | **Markers that recede.** Markdown markers stay visible in `tertiaryLabel`. Hiding them when the caret is elsewhere is the Obsidian behaviour. |
-| Page geometry | **Zoom + a base width per orientation.** Zoom is now scheduled into the drawing layer. The orientation reading is still open — run `GeometrySpike`. |
+| Page geometry | **Zoom + a base width per orientation.** Zoom is now scheduled into the drawing layer. Settled 2026-09-11: per-orientation width means two *display scales* over one canonical layout width, not two layout widths — line breaks never change, so rotation cannot drift ink. |
 | `Page.swift` | **Text-anchored ink.** Wanted for its own sake, not just as a drift fix. Anchor each stroke to an `NSTextLocation` plus an offset, translate the group on relayout. Its own phase. |
 | `ContentView.swift` | **Folders.** A flat date-sorted list does not survive a semester. Touches the model, so settle it before more migrations pile up. |
 | Responder chain | **One undo stack, or two.** The canvas's chain runs through the text view, which vends its own undo manager — verify on device. |

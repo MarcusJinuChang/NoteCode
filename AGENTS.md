@@ -83,8 +83,26 @@ the difference decides how much work they are:
   on relayout (`PKDrawing.strokes` is mutable and `PKStroke` has a `transform`).
 
 **Decided:** the zoom container gets built before the drawing layer, not
-retrofitted under it. The orientation reading is still open pending a look at
-`GeometrySpike` (branch `spike/page-geometry`), which shows both side by side.
+retrofitted under it.
+
+**Decided 2026-09-11:** "a base width per orientation" means two *display
+scales* over one canonical layout width — not two layout widths. Line breaks
+are a function of that one width, so every iPad size, both orientations, Split
+View and Stage Manager all wrap identically, a note authored on one device
+opens the same on another, and ink stays on the words it was drawn over. It is
+also the same mechanism as pinch zoom, so it costs almost nothing once the zoom
+container exists.
+
+What that buys is paid for in one place: landscape shows the same text larger
+rather than showing more of it. Filling the extra width is then a choice
+between raising the display scale and letting the margins grow, and both are
+safe for ink, so "neither orientation wastes the screen" becomes a preference
+rather than a risk. Below some width — a narrow Split View — scaling down to
+fit stops being readable, so the scale wants a floor with horizontal scrolling
+past it rather than shrinking indefinitely.
+
+`GeometrySpike` (branch `spike/page-geometry`) answered this and the question is
+now closed. Keep the branch for the drift demonstration it also gives.
 
 **Also decided:** text-anchored ink is wanted for its own sake, not only as a
 mitigation. That changes the calculus — once strokes are anchored to text, two
