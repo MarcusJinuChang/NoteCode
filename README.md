@@ -20,11 +20,11 @@ Swift, SwiftUI, TextKit 2, PencilKit, SwiftData
 
 ## Status
 
-In development. The text engine is working — fence detection, syntax
+In development. The text engine works: fence detection, syntax
 highlighting, and copy/share on a code block. The drawing layer is next; see
 AGENTS.md for the geometry and scrolling decisions it depends on.
 
 ## Planning docs
 
-The roadmap and phase plans live in [docs/](docs/) as markdown — that is the
-source of truth. The published artifact versions are renderings of those files.
+The roadmap and phase plans live in [docs/](docs/) as markdown. 
+The published artifact versions are renderings of those files.
