@@ -62,9 +62,20 @@ final class CodeBlockOverlay {
             bar.isHidden = true
         }
 
-        guard !targets.isEmpty,
-              let viewport = layoutManager.textViewportLayoutController.viewportRange
-        else { return }
+        guard !targets.isEmpty else { return }
+
+        // The text view's own layout pass can reach this before TextKit has
+        // laid out the viewport, and then no bar gets a position until some
+        // later pass happens along. Inside PageView none reliably does, so a
+        // freshly opened note showed no run or copy buttons at all. Laying the
+        // viewport out here, only when it isn't ready, keeps this independent
+        // of how many passes the host happens to run.
+        let viewportController = layoutManager.textViewportLayoutController
+        if viewportController.viewportRange == nil {
+            viewportController.layoutViewport()
+        }
+
+        guard let viewport = viewportController.viewportRange else { return }
 
         // A code block's first layout fragment starts exactly where the block
         // does, so an offset match is enough to recognise one.
