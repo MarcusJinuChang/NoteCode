@@ -7,8 +7,9 @@ scrollable document (Obsidian-style) where:
 
 - Regular text is typed and formatted like a normal markdown note.
 - Triple-backtick fences (` ``` `) anywhere in the flow become syntax-highlighted
-  code blocks — not separate files, just inline sections of the same page. A block
-  can be copied or shared out to wherever the user actually runs code.
+  code blocks — not separate files, just inline sections of the same page. Each
+  block carries a run and a copy button in its top-right corner, and run hands
+  the block to a free online compiler rather than executing anything locally.
 - A drawing layer (Notability-style) sits over the same page and can be toggled on
   to draw handwritten notes/diagrams with Apple Pencil, then toggled back to
   text/code editing without losing scroll position or leaving the page.
@@ -20,7 +21,28 @@ Running code in-app is deliberately out of scope. Every option needed either a
 paid API, a self-hosted sandbox on a VPS, or a multi-megabyte WebAssembly
 runtime with a four-second cold start — all for a feature whose value is lowest
 exactly when the app is being used, since nobody runs code during a lecture.
-Copy and share hand the block to a real toolchain instead.
+
+The run button is a redirect, not an execution: `CodeDestination` opens a free
+online compiler, and nothing in the app ever runs a program. Two ways the code
+gets there, and the difference decides how the button behaves:
+
+- **In the link.** Compiler Explorer encodes a whole session in the URL path, so
+  the student lands on a finished run. Verified against the live site; the
+  compiler ids are pinned and are a maintenance item, since the site has no
+  "latest" alias and 1,197 compilers.
+- **On the pasteboard.** Programiz and OnlineGDB keep the editor's contents in
+  the browser, with no way to be handed a program, so the code is copied and the
+  student pastes on arrival. This is the fallback for every other site, which is
+  what makes an arbitrary custom URL a usable destination.
+
+Compiler Explorer does not get Java: its executor compiles into a fixed
+filename, so `public class Main` fails there with an error about the file name.
+A destination that can't take a language hands the block to one that can rather
+than failing, which is why `RunRequest` reports where it actually went.
+
+The destination resolves through levels, most specific first — page, then
+app-wide. Folders slot in between as one more element of the array `resolve`
+walks, not another branch.
 
 ## Tech stack
 
@@ -167,6 +189,14 @@ and palm rejection in the simulator are not representative.
   layer accepts touches at any moment.
 - Reading `.layoutManager` anywhere on the text view silently downgrades it to
   TextKit 1 and leaves `textLayoutManager` nil, with no error to say why.
+- A button inside a `UITextView` is not simply a button. When one of the text
+  view's own recognisers claims the touch, UIKit cancels the one the button was
+  tracking and it never fires, so `DocumentUITextView` refuses to let those
+  recognisers begin on an action bar. Changes near this need a real tap test —
+  `sendActions` in a unit test cannot see the conflict.
+- The action bars are positioned from TextKit 2's *viewport*, never from the
+  whole document. Asking for a fragment further down forces layout all the way
+  to it, which is the lazy layout the editor is built on.
 
 ## Open questions
 

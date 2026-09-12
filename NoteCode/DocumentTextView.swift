@@ -15,25 +15,32 @@ import UIKit
 struct DocumentTextView: UIViewRepresentable {
     @Binding var text: String
 
+    /// Where this page's run buttons send a code block. Resolved by the caller
+    /// from the page's own setting and the app-wide default — see
+    /// `RunDestinationPreference`.
+    var runDestination: CodeDestination = .default
+
     // MARK: UIViewRepresentable
 
-    func makeUIView(context: Context) -> UITextView {
+    func makeUIView(context: Context) -> DocumentUITextView {
         let textView = Self.makeConfiguredTextView()
         textView.delegate = context.coordinator
         // Fragment selection happens through the layout manager, not the text
         // view, so the coordinator has to be wired in as both delegates.
         textView.textLayoutManager?.delegate = context.coordinator
+        context.coordinator.attachOverlay(to: textView)
         textView.text = text
         context.coordinator.invalidateStyling()
         context.coordinator.restyle(textView)
         return textView
     }
 
-    func updateUIView(_ textView: UITextView, context: Context) {
+    func updateUIView(_ textView: DocumentUITextView, context: Context) {
         // The struct is recreated on every SwiftUI render but the Coordinator
         // persists, so hand it the current binding or it will keep writing
         // through a stale one.
         context.coordinator.text = $text
+        context.coordinator.runDestination = runDestination
 
         // Only push text down when it actually differs. Assigning `.text`
         // unconditionally would reset the selection on every render and fight
@@ -58,7 +65,11 @@ struct DocumentTextView: UIViewRepresentable {
     /// Owns the UIKit delegate callbacks and forwards edits back into SwiftUI.
     final class Coordinator: NSObject, UITextViewDelegate {
         var text: Binding<String>
+        var runDestination: CodeDestination = .default
         let documentCache = DocumentCache()
+
+        /// The run and copy buttons floating over each code block.
+        private var overlay: CodeBlockOverlay?
 
         /// What the document looked like at the last styling pass, so only the
         /// blocks that actually changed get restyled.
@@ -101,6 +112,53 @@ struct DocumentTextView: UIViewRepresentable {
             self.text = text
         }
 
+        /// Builds the action bars and connects them to the text view's layout.
+        ///
+        /// `layoutSubviews` is the one hook that covers everything that can
+        /// move a block: scrolling (a scroll view lays out on every offset
+        /// change), typing, rotation, and Split View. Subscribing to it means
+        /// no separate scroll or bounds observers to keep in step.
+        func attachOverlay(to textView: DocumentUITextView) {
+            let overlay = CodeBlockOverlay(textView: textView)
+
+            overlay.onCopy = { target in
+                UIPasteboard.general.string = target.code
+            }
+
+            overlay.onRun = { [weak textView] target in
+                guard let textView else { return }
+                self.run(target, from: textView)
+            }
+
+            self.overlay = overlay
+            textView.overlay = overlay
+            textView.onLayout = { [weak overlay] in overlay?.reposition() }
+        }
+
+        /// Hands a block to whichever site the page is pointed at.
+        ///
+        /// Nothing is executed here or anywhere else in the app. Where the code
+        /// travels in the link the student lands on a finished run; where it
+        /// can't, it goes on the pasteboard and they paste it on arrival.
+        private func run(_ target: CodeBlockTarget, from textView: UITextView) {
+            guard let language = target.language else { return }
+
+            let request = CodeDestination.request(
+                for: target.code,
+                language: language,
+                preferring: runDestination
+            )
+
+            if let code = request.pasteboardCode {
+                UIPasteboard.general.string = code
+            }
+
+            // Dismiss the keyboard first. Leaving for Safari with it up means
+            // coming back to a view that has to re-lay-out under it.
+            textView.resignFirstResponder()
+            UIApplication.shared.open(request.url)
+        }
+
         /// Re-parses and re-applies styling. Everything goes through the shared
         /// cache, so an edit parses the document exactly once no matter how many
         /// delegate callbacks it triggers.
@@ -118,6 +176,7 @@ struct DocumentTextView: UIViewRepresentable {
                 previousSignatures: styleSignatures
             )
             DocumentStyler.applyTypingAttributes(to: textView, source: source, blocks: blocks)
+            overlay?.update(targets: CodeBlockAction.targets(in: source, blocks: blocks))
             scheduleHighlighting(for: textView, source: source, blocks: blocks)
         }
 
@@ -282,14 +341,14 @@ struct DocumentTextView: UIViewRepresentable {
 
     /// Builds the text view. Kept separate from `makeUIView` so tests can
     /// inspect the configuration without standing up a SwiftUI hierarchy.
-    static func makeConfiguredTextView() -> UITextView {
+    static func makeConfiguredTextView() -> DocumentUITextView {
         // Opt into TextKit 2 explicitly.
         //
         // Careful: reading the legacy `.layoutManager` property anywhere on this
         // view silently downgrades it to TextKit 1 and leaves `textLayoutManager`
         // nil — at which point none of the code-region rendering will run and
         // there is no error to tell you why.
-        let textView = UITextView(usingTextLayoutManager: true)
+        let textView = DocumentUITextView(usingTextLayoutManager: true)
 
         textView.isEditable = true
         textView.isScrollEnabled = true

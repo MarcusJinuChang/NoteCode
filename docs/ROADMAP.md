@@ -4,7 +4,7 @@ Source of truth. The published version at
 <https://claude.ai/code/artifact/2490317a-7eaf-44ae-9389-f0fb92d7471a>
 is a rendering of this file — edit here, ask for the artifact to be regenerated.
 
-Revised 5 September 2026.
+Revised 11 September 2026.
 
 | | |
 |---|---|
@@ -16,10 +16,12 @@ Revised 5 September 2026.
 
 Two things went differently from the original plan, and both were right.
 The custom text engine got built *before* the drawing layer — TextKit 2, fence
-detection, syntax highlighting, copy/share on a code block are all working.
-And in-app code execution was dropped: every option needed a paid API, a VPS
-sandbox, or a multi-megabyte WASM runtime with a four-second cold start, for a
-feature nobody uses during a lecture.
+detection, syntax highlighting, and per-block run and copy buttons are all
+working. And in-app code execution was dropped: every option needed a paid API,
+a VPS sandbox, or a multi-megabyte WASM runtime with a four-second cold start,
+for a feature nobody uses during a lecture. Running a block is now a redirect to
+a free online compiler, which cost days rather than weeks and needs no backend
+at all.
 
 The consequence: the hardest remaining feature is also the last one.
 
@@ -44,9 +46,21 @@ the schedule, so taking it first was the right instinct.
 - Async syntax colouring via HighlightSwift, restyling only the changed block
 - Debounce went from a guessed 200ms to a measured 20ms
 
-### Cut — Run button
-Replaced by Copy and Share on a code block. This freed the two weeks the
-drawing layer is now spending.
+### Cut, then partly back — Run button
+Cut as *execution*, which is what freed the two weeks the drawing layer is now
+spending. It returned as a redirect, at a fraction of the cost: every code block
+carries run and copy in its top-right corner, and run opens a free online
+compiler instead of running anything.
+
+- `CodeDestination` — where a block goes, and how it gets there. Compiler
+  Explorer takes the whole program in the URL, so the student lands on a
+  finished run; Programiz and OnlineGDB can't be prefilled, so the code goes on
+  the pasteboard and they paste on arrival.
+- Per-note choice today, app-wide default behind it. Folders slot in between
+  when they exist — `RunDestinationPreference.resolve` walks the levels in
+  order, so that is one more array element rather than another branch.
+- The buttons are TextKit 2 viewport-positioned overlays (`CodeBlockOverlay`),
+  not attachments, and the text view has to be stopped from eating their taps.
 
 ### Now — Drawing layer (6 Sep – 10 Oct) — flagged risk
 See [phase-drawing-layer.md](phase-drawing-layer.md) for the build plan.
@@ -82,7 +96,8 @@ Referenced by name from `TextRewritingPolicy.swift` and `DocumentTextView.swift`
 | `DocumentStyler.swift` | **Markers that recede.** Markdown markers stay visible in `tertiaryLabel`. Hiding them when the caret is elsewhere is the Obsidian behaviour. |
 | Page geometry | **Zoom + a base width per orientation.** Zoom is now scheduled into the drawing layer. Settled 2026-09-11: per-orientation width means two *display scales* over one canonical layout width, not two layout widths — line breaks never change, so rotation cannot drift ink. |
 | `Page.swift` | **Text-anchored ink.** Wanted for its own sake, not just as a drift fix. Anchor each stroke to an `NSTextLocation` plus an offset, translate the group on relayout. Its own phase. |
-| `ContentView.swift` | **Folders.** A flat date-sorted list does not survive a semester. Touches the model, so settle it before more migrations pile up. |
+| `ContentView.swift` | **Folders.** A flat date-sorted list does not survive a semester. Touches the model, so settle it before more migrations pile up. Brings a folder-level run destination with it. |
+| `CodeDestination.swift` | **Pinned Compiler Explorer compilers.** `g142` and `python313`, chosen because the site has 1,197 compilers and no "latest" alias. A retired id still shows the code with the compiler pane complaining, so this is a maintenance item, not a risk. |
 | Responder chain | **One undo stack, or two.** The canvas's chain runs through the text view, which vends its own undo manager — verify on device. |
 | `PageDetailView.swift` | **The macOS editor.** Still a plain `TextEditor` — no fences, no highlighting, no ink. |
 | `Storage.swift` | **iCloud sync.** CloudKit via SwiftData, deferred past MVP by design. |
