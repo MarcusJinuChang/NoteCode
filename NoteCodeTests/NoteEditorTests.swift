@@ -16,6 +16,7 @@ struct NoteEditorTests {
 
     /// A text view wired the way `DocumentTextView` wires it, with the page's
     /// stored text behind a binding the test can read.
+    @MainActor
     private final class Harness {
         var stored: String
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 600))

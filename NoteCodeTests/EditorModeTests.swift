@@ -16,6 +16,7 @@ struct EditorModeTests {
 
     /// A text view in a window, so it can take the keyboard the way it does on
     /// the page. Off-window, first-responder changes don't happen at all.
+    @MainActor
     private final class Harness {
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
         let textView = DocumentTextView.makeConfiguredTextView()
