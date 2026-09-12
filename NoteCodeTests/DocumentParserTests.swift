@@ -181,11 +181,11 @@ struct LanguageTagTests {
         #expect(block.infoString == "rust")
     }
 
-    @Test("Piston names match what the API expects")
-    func pistonNames() {
-        #expect(CodeLanguage.cpp.pistonName == "c++")
-        #expect(CodeLanguage.java.pistonName == "java")
-        #expect(CodeLanguage.python.pistonName == "python")
+    @Test("Canonical names match what online compilers spell")
+    func canonicalNames() {
+        #expect(CodeLanguage.cpp.canonicalName == "c++")
+        #expect(CodeLanguage.java.canonicalName == "java")
+        #expect(CodeLanguage.python.canonicalName == "python")
     }
 }
 

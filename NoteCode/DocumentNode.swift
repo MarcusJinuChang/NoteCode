@@ -32,8 +32,12 @@ nonisolated enum CodeLanguage: String, CaseIterable, Sendable {
         }
     }
 
-    /// The name the Piston API expects when Phase 3 sends this block off to run.
-    var pistonName: String {
+    /// The language's canonical lowercase name, as online compilers spell it.
+    ///
+    /// Named after the Piston API originally, which the cut run phase was going
+    /// to post to. The strings outlived it: `CodeDestination` hands exactly
+    /// these to Compiler Explorer.
+    var canonicalName: String {
         switch self {
         case .cpp:    "c++"
         case .java:   "java"
@@ -55,7 +59,8 @@ nonisolated struct CodeBlock: Equatable, Sendable {
     /// `false` while the user is still typing and no closing fence exists yet.
     var isClosed: Bool
     /// Just the code between the fences — excludes both fence lines.
-    /// This is what gets sent to Piston; the block's `range` is what gets styled.
+    /// This is what gets copied or sent to a compiler; the block's `range` is
+    /// what gets styled.
     var contentRange: Range<String.Index>
 }
 
