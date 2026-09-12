@@ -48,14 +48,42 @@ still scroll, or you toggle modes every few lines during a lecture.
 | `canvas.isUserInteractionEnabled` | `false` | `true` | The hit-testing switch. Not `isHidden` — both layers stay visible. |
 | `canvas.drawingPolicy` | — | `.pencilOnly` | `.default` changes behaviour depending on whether a Pencil ever paired. |
 | `textView.isEditable` | `true` | `false` | Stops a stray tap re-summoning the keyboard mid-stroke. |
-| first responder | textView | canvas | The tool picker only appears for a first responder; claiming it dismisses the keyboard. |
-| `toolPicker.setVisible` | `false` | `true` | Paired with the responder change so they cannot disagree. |
-| saved `selectedRange` | restored | captured | Without it the caret snaps to offset 0 on every return from drawing. |
+| `textView.isSelectable` | `true` | `false` | A resting finger or a long press would otherwise start a text selection under the pen. |
+| first responder | textView, if it was | nobody | Resigning puts the keyboard away. With no tool picker, the canvas has no reason to claim it. |
+| saved keyboard state | restored | captured | The keyboard comes back only if it was up. Reading isn't typing. |
 
 Six settings that must move together, in one `EditorMode` enum with one
-`apply(to:canvas:toolPicker:)` — the same argument `TextRewritingPolicy` makes
-for its five keyboard traits. Test: a round trip through `.ink` and back leaves
-all six as they started.
+`apply` — the same argument `TextRewritingPolicy` makes for its five keyboard
+traits. The four text-side ones are built (`EditorMode.apply(to:saved:)`); the
+two canvas ones join with the canvas. Test: a round trip through `.ink` and back
+leaves all of them as they started.
+
+A saved `selectedRange` used to be in this table, on the expectation that the
+caret would snap to offset 0 on every return from drawing. Measured on 12 Sep
+with the text view in a window and mid-edit, it doesn't: UIKit keeps the
+selection through everything above. Nothing saves it, and
+`EditorModeTests.roundTrip` holds UIKit to that. If the canvas changes it, that
+test fails and the restore goes back in.
+
+### Amendment: one hotbar instead of the tool picker (12 Sep)
+
+The note-page mockup puts every tool in one bar that docks to the page's left,
+bottom or right edge. Undo, redo and the text/draw toggle sit in a section that
+never moves. After it come heading, bold, italic, strikethrough, inline code,
+bullets and code block in text mode, or pen, highlighter, eraser, lasso and five
+colours in ink mode.
+
+That is the old cut-list item 1, adopted as the plan. With no `PKToolPicker`,
+the canvas never has to become first responder, so the keyboard and the picker
+have nothing to argue about. Two things follow:
+
+- Tools reach the canvas as `InkToolState.pencilKitTool`, set directly, rather
+  than through the picker's observer.
+- Undo is routed by `NoteEditor`, not found by the responder chain, so "one
+  stack or two" becomes a choice to make rather than something UIKit decides.
+
+The docked edge takes width from the page. Today that re-wraps the text. After
+step 2 it is one more input to the display scale, the same as rotation.
 
 ## Build order
 
@@ -87,8 +115,13 @@ both orientations yields identical line breaks; applying twice changes nothing.
 **Gate:** reach a stroke at y = 3000; rotate and confirm identical line breaks.
 
 ### 3. The toggle (Sep 15–21) — flagged risk
-`EditorMode`, a toolbar button in `PageDetailView`, and the first-responder
-handoff. This is where the keyboard and the tool picker argue.
+`EditorMode`, the hotbar's text/draw toggle, and the first-responder handoff.
+The keyboard-versus-picker argument left with the picker; what remains is the
+keyboard leaving and coming back cleanly.
+
+Built early, on 12 Sep, because it doesn't depend on geometry: the text side
+of `EditorMode`, `NoteEditor`, the hotbar, and the page header. The canvas
+knobs are what's left.
 
 Two surprises to expect:
 
@@ -98,7 +131,7 @@ Two surprises to expect:
 - **Scroll position is safe, content insets are not.** Dismissing the keyboard
   changes `adjustedContentInset`, which can shift visible content anyway.
 
-**Files:** `+EditorMode.swift`, `+DrawingCanvas.swift`, `DocumentTextView.swift`, `PageDetailView.swift`
+**Files:** `EditorMode.swift`, `NoteEditor.swift`, `Hotbar.swift`, `+DrawingCanvas.swift`, `DocumentTextView.swift`, `PageDetailView.swift`
 **Gate:** toggle mid-document — scroll offset unchanged, caret where you left it.
 
 ### 4. Persistence (Sep 22–28)
@@ -161,11 +194,12 @@ Hardware only:
 
 ## Cut list, in order
 
-1. **Drop `PKToolPicker`** for a fixed pen/eraser/colour/undo toolbar. Removes
-   the keyboard-versus-picker fight entirely; keeps the whole feature.
-2. **Drop the bottom-growth inset.** Ink confined to the text's own height.
-3. **Drop the Pencil/finger split.** `.anyInput` with an explicit scroll-lock
+1. **Drop the bottom-growth inset.** Ink confined to the text's own height.
+2. **Drop the Pencil/finger split.** `.anyInput` with an explicit scroll-lock
    button. Cruder, but removes any dependence on gesture resolution.
+
+Dropping `PKToolPicker` used to be first on this list. The hotbar adopted it
+as the plan — see the amendment under "Who owns the touch".
 
 Not cut under any circumstance: persistence. A drawing layer that loses ink is
 worse than no drawing layer.

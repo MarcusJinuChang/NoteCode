@@ -156,6 +156,29 @@ days, taken out of the device-pass buffer rather than off the end of the phase.
 The alternative was re-doing touch routing, geometry, and save timing together
 in December.
 
+## The note page
+
+Laid out from the 12 September mockup.
+
+- **Header.** ☰ opens the note list, which slides over the page
+  (`.prominentDetail`) instead of narrowing it, so opening the list never
+  re-wraps the note. The title sits below; the run destination and account
+  icons sit on the right. Account is a placeholder until Sign in with Apple.
+- **Hotbar.** One bar, dragged by its grip to the left, bottom or right edge,
+  snapping to whichever is nearest (`HotbarDock.nearest`). Undo, redo and the
+  text/draw toggle never move; after the divider come the current mode's tools.
+  The page keeps the docked edge clear rather than letting the bar cover text.
+  It replaces `PKToolPicker` — see docs/phase-drawing-layer.md.
+- **Formatting is markdown in the source.** A button computes a `TextEdit` in
+  `MarkdownFormatting`, which is pure and defers to the parsers, so a button
+  never writes markers the styler won't draw. `NoteEditor` applies the edit
+  with `replace(_:withText:)`, the path typing takes, so it is undoable and
+  restyles like typed text. Assigning `.text` loses undo, the selection, and
+  the delegate callback that writes the change back to the page.
+- **`NoteEditor` is the bridge.** SwiftUI owns the hotbar and UIKit owns the
+  text view, and neither can reach the other. The hotbar talks to `NoteEditor`,
+  and the text view registers with it.
+
 ## Organising notes
 
 A flat, date-sorted list of pages does not survive a semester of coursework.
@@ -210,7 +233,9 @@ into a section above once they are settled.
 - Folders: does a page live in exactly one folder, or can it be in several?
   One-to-many is far simpler and probably right for coursework.
 - Undo: text and ink in one shared undo stack, or two separate ones? The
-  responder chain runs the canvas through the text view, so this may already
-  be decided by UIKit — verify on device.
+  hotbar's arrows go through `NoteEditor`, which picks the stack, so this is a
+  choice rather than something the responder chain settles. PencilKit may
+  still register ink on the text view's stack through that chain — verify on
+  device before choosing.
 - Per-region text rewriting: `TextRewritingPolicy` is `.code` everywhere today,
   costing prose its autocorrect. Switching per region is designed but unbuilt.
