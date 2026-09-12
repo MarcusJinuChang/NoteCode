@@ -104,8 +104,9 @@ the difference decides how much work they are:
   offset from that paragraph's fragment origin, then translate the stroke group
   on relayout (`PKDrawing.strokes` is mutable and `PKStroke` has a `transform`).
 
-**Decided:** the zoom container gets built before the drawing layer, not
-retrofitted under it.
+**Decided, then reversed on measurement:** the zoom container was to be built
+before the drawing layer. Measured first, on 12 Sep, it cost TextKit 2 its lazy
+layout — see "Who owns scrolling".
 
 **Decided 2026-09-11:** "a base width per orientation" means two *display
 scales* over one canonical layout width — not two layout widths. Line breaks
@@ -123,6 +124,12 @@ rather than a risk. Below some width — a narrow Split View — scaling down to
 fit stops being readable, so the scale wants a floor with horizontal scrolling
 past it rather than shrinking indefinitely.
 
+**Built 12 Sep** (`CanvasGeometry`, `PageView`): the page lays out at 700pt and
+is drawn at the page area's width over 700, held between 0.75 and 1.25 — margins
+grow past the ceiling, and the page scrolls sideways below the floor. The hotbar
+reserves room on both sides whichever edge it is on, so the scale is a function
+of the window alone and moving the bar never resizes the text.
+
 `GeometrySpike` (branch `spike/page-geometry`) answered this and the question is
 now closed. Keep the branch for the drift demonstration it also gives.
 
@@ -134,27 +141,25 @@ phase and does not fit before the App Store submission.
 
 ## Who owns scrolling
 
-Currently the `UITextView` scrolls itself (`isScrollEnabled = true`), and the
-drawing layer is planned as a subview of its content, so both layers share one
-`contentOffset` with no synchronisation code at all.
+The `UITextView` scrolls itself, and the canvas is a subview of its content, so
+both layers share one `contentOffset` with no synchronisation code at all.
 
-Pinch zoom does not fit that shape. A `UIScrollView` zooms a subview it owns,
-and a `UITextView` will not zoom its own text. Zoom therefore means an outer
-scroll view owning both scrolling and zooming, with a non-scrolling text view
-and the canvas inside one shared container that scales as a unit. Scaling both
-layers together is what keeps ink aligned at any zoom level.
+That was going to change for pinch zoom: an outer scroll view owning scroll and
+zoom, with a non-scrolling text view and the canvas in one shared container.
+Measured on 12 Sep before building it, a text view with scrolling disabled has
+the whole document as its TextKit 2 viewport — 477ms per keystroke on a 500-line
+note against 11ms scrolling, and 5.5 seconds at 2000 lines. So instead:
 
-What that costs:
-
-- TextKit 2's viewport-based lazy layout. A text view with scrolling disabled
-  lays out the whole document in order to report its height. Measure against
-  `StylingPerformanceTests` on a long note before committing to it.
-- Free keyboard avoidance and scroll-to-caret, which come back as work.
-
-**Decided:** build it now, in the drawing layer's geometry step. Roughly three
-days, taken out of the device-pass buffer rather than off the end of the phase.
-The alternative was re-doing touch routing, geometry, and save timing together
-in December.
+- The display scale is a transform on the scrolling text view, which leaves the
+  viewport alone (9ms per keystroke on the same note).
+- `PageView`, around it, scrolls only sideways, when the page is wider than its
+  area.
+- The text container's width is pinned, never tracked. A text view first sized
+  while scaled below 1x takes its line width from the shrunken frame, and
+  portrait and landscape then break lines differently.
+- Text is drawn at the density it is shown at, by raising `contentScaleFactor`
+  through the text view's subviews after each layout pass.
+- Pinch zoom, when it is built, is a user factor on the same transform.
 
 ## The note page
 
@@ -167,7 +172,8 @@ Laid out from the 12 September mockup.
 - **Hotbar.** One bar, dragged by its grip to the left, bottom or right edge,
   snapping to whichever is nearest (`HotbarDock.nearest`). Undo, redo and the
   text/draw toggle never move; after the divider come the current mode's tools.
-  The page keeps the docked edge clear rather than letting the bar cover text.
+  The page keeps both side edges clear, whichever one the bar is on, so moving
+  it never resizes or shifts the page.
   It replaces `PKToolPicker` — see docs/phase-drawing-layer.md.
 - **Formatting is markdown in the source.** A button computes a `TextEdit` in
   `MarkdownFormatting`, which is pure and defers to the parsers, so a button

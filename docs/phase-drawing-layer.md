@@ -23,20 +23,33 @@ Catches:
 - `canvas.backgroundColor = .clear` and `canvas.isOpaque = false`, or the
   canvas paints opaque white over every word underneath.
 
-### Amendment: zoom moves the scroll view
+### Amendment: zoom moves the scroll view — measured, and reversed (12 Sep)
 
-The principle survives — one scroll view, both layers inside, no sync. What
-changes is *which* view that is. A `UIScrollView` zooms a subview it owns, and
-a `UITextView` will not zoom its own text. So pinch zoom means an **outer**
-scroll view owning scroll and zoom, with a non-scrolling text view and the
-canvas in one container that scales as a unit. Scaling both layers together is
-exactly what keeps ink aligned at any zoom.
+This amendment put a non-scrolling text view inside an outer zoom scroll view.
+Measured before building it, that doesn't survive TextKit 2: a text view that
+doesn't scroll has the whole document as its viewport, however little of it is
+on screen.
 
-Costs: TextKit 2's viewport-based lazy layout (a non-scrolling text view lays
-out the whole document to report its height — measure against
-`StylingPerformanceTests`), plus keyboard avoidance and scroll-to-caret.
+| 500-line note | Scrolling text view | Non-scrolling, in a container |
+|---|---|---|
+| Open | 137ms | 883ms |
+| Keystroke | 11ms | 477ms |
+| Memory | +8MB | +72MB |
 
-**Decided:** build it now, in step 2. ~3 days out of step 5's buffer.
+At 2000 lines the container took 11.6s to open and 5.5s per keystroke.
+
+What replaced it keeps the original decision above, literally: the text view
+scrolls, the canvas is a subview of its content, and the display scale is a
+**transform** on the text view. A transform leaves the viewport alone — the
+same note measured 99ms to open and 9ms a keystroke. `PageView`, around it,
+scrolls only sideways, for a page wider than its area.
+
+A 700 × 30,000pt `PKCanvasView` holding 100 strokes cost 3MB, so a canvas as
+tall as the note is not a concern.
+
+Pinch zoom isn't built. In this shape it is a user factor on the same
+transform, with `PageView`'s sideways scroll taking the overflow past the page
+area — no new scroll view.
 
 ## Who owns the touch
 
@@ -82,8 +95,9 @@ have nothing to argue about. Two things follow:
 - Undo is routed by `NoteEditor`, not found by the responder chain, so "one
   stack or two" becomes a choice to make rather than something UIKit decides.
 
-The docked edge takes width from the page. Today that re-wraps the text. After
-step 2 it is one more input to the display scale, the same as rotation.
+The bar reserves room on both sides of the page, whichever edge it is docked
+to, so moving it never changes the page's scale or position. The bottom is
+reserved only while the bar is there, since height doesn't affect the scale.
 
 ## Build order
 
@@ -98,9 +112,12 @@ canvas is `becomeFirstResponder()`.
 **Gate:** strokes survive a force-quit.
 
 ### 2. Geometry (Sep 8–14)
-One canonical layout width (~700pt), centred by adjusting
-`textContainerInset.left/right` on bounds change, plus a base display scale per
-orientation. Then the outer zoom container. Then the canvas.
+One layout width, `CanvasGeometry.pageWidth` = 700pt, pinned on the text
+container rather than inferred from the view. The display scale is the page
+area's width over 700, held between 0.75 and 1.25: past the ceiling the margins
+grow instead of the text, and below the floor the page scrolls sideways. The
+hotbar reserves both sides always, so the scale depends on the window alone.
+Then the canvas, as a subview of the text view's content.
 
 Ink drawn *below* the last line has nothing to scroll to, because content
 height comes from the text. Lever: `textContainerInset.bottom`, grown until
@@ -108,10 +125,17 @@ content covers `drawing.bounds.maxY`. Compute it as a pure function of (text
 height, ink bounds, column width, scale) so it is idempotent — deriving it from
 current content height sets up a layout feedback loop.
 
-**Files:** `+CanvasGeometry.swift`, `+PageContainerView.swift`, `DocumentTextView.swift`
-**Tests:** `CanvasGeometryTests` — canvas covers the text; ink below the last
-line extends the bottom inset; deleting text never clips ink; same scale in
-both orientations yields identical line breaks; applying twice changes nothing.
+Built 12 Sep. Found on the way: a text view first sized while scaled below 1x
+takes its line width from the shrunken frame, so its container width is pinned
+rather than tracked. Left for later steps: pinch zoom, and checking PencilKit
+renders sharply under the transform, which needs ink on screen.
+
+**Files:** `CanvasGeometry.swift`, `PageView.swift`, `DocumentTextView.swift`
+**Tests:** `CanvasGeometryTests` (scale, reserve, frame, bottom inset) and
+`PageViewTests` — canvas covers the text; ink at y = 3000 is reachable; deleting
+text never clips ink; portrait and landscape scales give identical line breaks;
+laying out again changes nothing. The last three were each shown to fail with
+their fix reverted.
 **Gate:** reach a stroke at y = 3000; rotate and confirm identical line breaks.
 
 ### 3. The toggle (Sep 15–21) — flagged risk

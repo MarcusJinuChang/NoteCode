@@ -26,7 +26,7 @@ struct DocumentTextView: UIViewRepresentable {
 
     // MARK: UIViewRepresentable
 
-    func makeUIView(context: Context) -> DocumentUITextView {
+    func makeUIView(context: Context) -> PageView {
         let textView = Self.makeConfiguredTextView()
         textView.delegate = context.coordinator
         // Fragment selection happens through the layout manager, not the text
@@ -38,10 +38,12 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.restyle(textView)
         context.coordinator.editor = editor
         editor?.attach(textView)
-        return textView
+        return PageView(textView: textView)
     }
 
-    func updateUIView(_ textView: DocumentUITextView, context: Context) {
+    func updateUIView(_ page: PageView, context: Context) {
+        let textView = page.textView
+
         // The struct is recreated on every SwiftUI render but the Coordinator
         // persists, so hand it the current binding or it will keep writing
         // through a stale one.
@@ -140,7 +142,7 @@ struct DocumentTextView: UIViewRepresentable {
 
             self.overlay = overlay
             textView.overlay = overlay
-            textView.onLayout = { [weak overlay] in overlay?.reposition() }
+            textView.addLayoutObserver { [weak overlay] in overlay?.reposition() }
         }
 
         /// Hands a block to whichever site the page is pointed at.
@@ -366,7 +368,9 @@ struct DocumentTextView: UIViewRepresentable {
         textView.allowsEditingTextAttributes = false
         textView.alwaysBounceVertical = true
         textView.backgroundColor = .clear
-        textView.textContainerInset = UIEdgeInsets(top: 12, left: 8, bottom: 12, right: 8)
+        // Page points. The sides are the page's own margin inside its outline;
+        // the bottom is managed by PageView so the page can run on below ink.
+        textView.textContainerInset = UIEdgeInsets(top: 12, left: 24, bottom: PageView.minimumBottomInset, right: 24)
 
         // Prose is the document's default; code styling arrives with fence
         // rendering. Dynamic Type so the editor respects the reader's text size.

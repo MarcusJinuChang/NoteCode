@@ -133,19 +133,16 @@ struct PageDetailView: View {
         }
     }
 
-    /// Room kept clear along the docked edge, so the bar never covers text.
+    /// Room kept clear for the hotbar, so it never covers the page.
     ///
-    /// Moving the bar changes the page's width, and today that re-wraps the
-    /// text. Once the page lays out at one canonical width with a display
-    /// scale, this becomes a scale change instead, like rotation.
+    /// Both sides, wherever the bar is — see `CanvasGeometry.hotbarReserve`.
+    /// Moving the bar leaves the page exactly where and how large it was.
     private var reservedForHotbar: EdgeInsets {
-        let reserve = Hotbar.thickness + Self.hotbarMargin * 2
-        return EdgeInsets(
-            top: 0,
-            leading: dock == .left ? reserve : 0,
-            bottom: dock == .bottom ? reserve : 0,
-            trailing: dock == .right ? reserve : 0
+        let reserve = CanvasGeometry.hotbarReserve(
+            dock: dock,
+            thickness: Hotbar.thickness + Self.hotbarMargin * 2
         )
+        return EdgeInsets(top: 0, leading: reserve.left, bottom: reserve.bottom, trailing: reserve.right)
     }
 #else
     private var content: some View {
