@@ -411,6 +411,8 @@ enum DocumentStyler {
                 // A per-glyph background is right here, unlike a code block —
                 // an inline span is short and doesn't need to square off.
                 storage.addAttribute(.backgroundColor, value: UIColor.secondarySystemFill, range: inline.contentRange)
+            case .strikethrough:
+                storage.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: inline.contentRange)
             case .text:
                 break
             }

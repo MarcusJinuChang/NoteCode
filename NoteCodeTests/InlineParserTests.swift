@@ -33,6 +33,7 @@ struct InlineParserTests {
         ("*italic*", .emphasis, "italic"),
         ("_italic_", .emphasis, "italic"),
         ("`code`", .inlineCode, "code"),
+        ("~~struck~~", .strikethrough, "struck"),
     ])
     func recognizesMarkup(source: String, kind: InlineNode.Kind, content: String) {
         let parsed = spans(source)
@@ -75,12 +76,16 @@ struct InlineParserTests {
         "trailing `code",
         "_",
         "**",
+        "unclosed ~~strike",
+        // One tilde is prose — an approximation, a home directory.
+        "~5ms and ~/Developer",
+        "~single~",
     ])
     func unmatchedMarkersAreText(source: String) {
         #expect(kinds(source).allSatisfy { $0 == .text })
     }
 
-    @Test("Empty markup is not a span", arguments: ["****", "``", "__"])
+    @Test("Empty markup is not a span", arguments: ["****", "``", "__", "~~~~"])
     func emptyMarkupIsText(source: String) {
         #expect(kinds(source).allSatisfy { $0 == .text })
     }
