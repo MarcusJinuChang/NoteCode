@@ -1,0 +1,159 @@
+//
+//  CodeBlockOverlay.swift
+//  NoteCode
+//
+//  Keeps one action bar pinned to each code block as the document changes.
+//
+
+#if canImport(UIKit)
+
+import UIKit
+
+/// Positions a `CodeBlockActionBar` over every code block on screen.
+///
+/// The bars are subviews of the text view itself, which is a scroll view — so
+/// they are placed once in content coordinates and scroll with the text for
+/// free, rather than being chased on every frame.
+///
+/// Only blocks inside TextKit 2's laid-out viewport get a position. Asking for
+/// the frame of a block further down the document would force layout all the
+/// way to it, which is exactly the lazy layout the editor is built on.
+@MainActor
+final class CodeBlockOverlay {
+
+    /// Called when the student taps run. The overlay decides nothing about
+    /// where the code goes — see `CodeDestination`.
+    var onRun: ((CodeBlockTarget) -> Void)?
+    var onCopy: ((CodeBlockTarget) -> Void)?
+
+    private weak var textView: UITextView?
+
+    /// One bar per code block, in document order.
+    ///
+    /// Positional rather than keyed by `CodeBlockID`, and that matters: an ID
+    /// carries a hash of the code, so it changes on every keystroke inside a
+    /// block. Keying by it would tear down and rebuild a view per character.
+    private var bars: [CodeBlockActionBar] = []
+
+    private var targets: [CodeBlockTarget] = []
+
+    init(textView: UITextView) {
+        self.textView = textView
+    }
+
+    // MARK: Updating
+
+    /// Takes a new set of code blocks, after an edit.
+    func update(targets: [CodeBlockTarget]) {
+        self.targets = targets
+        matchBarCount(to: targets.count)
+        reposition()
+    }
+
+    /// Recomputes every visible bar's frame. Cheap enough for `layoutSubviews`:
+    /// it walks the viewport's fragments, not the document's.
+    func reposition() {
+        guard let textView,
+              let layoutManager = textView.textLayoutManager,
+              let contentManager = layoutManager.textContentManager
+        else { return }
+
+        for bar in bars {
+            bar.isHidden = true
+        }
+
+        guard !targets.isEmpty,
+              let viewport = layoutManager.textViewportLayoutController.viewportRange
+        else { return }
+
+        // A code block's first layout fragment starts exactly where the block
+        // does, so an offset match is enough to recognise one.
+        var indexByOffset: [Int: Int] = [:]
+        for (index, target) in targets.enumerated() {
+            indexByOffset[target.range.location] = index
+        }
+
+        let inset = textView.textContainerInset
+        // The panel spans the text container rather than the glyphs, so its
+        // right edge comes from the view, not from the fragment.
+        let panelRight = textView.bounds.width - inset.right
+        let documentStart = contentManager.documentRange.location
+
+        layoutManager.enumerateTextLayoutFragments(
+            from: viewport.location,
+            options: [.ensuresLayout]
+        ) { fragment in
+            let start = fragment.rangeInElement.location
+            guard start.compare(viewport.endLocation) != .orderedDescending else { return false }
+
+            let offset = contentManager.offset(from: documentStart, to: start)
+            if let index = indexByOffset[offset], index < bars.count {
+                place(
+                    bars[index],
+                    target: targets[index],
+                    lineFrame: fragment.layoutFragmentFrame.offsetBy(dx: inset.left, dy: inset.top),
+                    panelRight: panelRight
+                )
+            }
+            return true
+        }
+    }
+
+    private func place(
+        _ bar: CodeBlockActionBar,
+        target: CodeBlockTarget,
+        lineFrame: CGRect,
+        panelRight: CGFloat
+    ) {
+        let showsRun = target.language != nil
+        bar.configure(showsRun: showsRun)
+
+        let size = showsRun ? CodeBlockActionBar.size : CodeBlockActionBar.copyOnlySize
+        bar.frame = CodeBlockActionBar.frame(size: size, panelRight: panelRight, lineFrame: lineFrame)
+        bar.isHidden = false
+    }
+
+    // MARK: The pool
+
+    private func matchBarCount(to count: Int) {
+        guard let textView else { return }
+
+        while bars.count < count {
+            let index = bars.count
+            let bar = CodeBlockActionBar(frame: .zero)
+            // The index is stable for the life of the bar because `targets` is
+            // rebuilt in document order on every edit, so bar *i* is always
+            // block *i*. The target itself is read at tap time, not captured,
+            // since the code may have changed since the bar was made.
+            bar.onRun = { [weak self] in self?.run(at: index) }
+            bar.onCopy = { [weak self] in self?.copy(at: index) }
+            textView.addSubview(bar)
+            bars.append(bar)
+        }
+
+        while bars.count > count {
+            bars.removeLast().removeFromSuperview()
+        }
+    }
+
+    private func run(at index: Int) {
+        guard targets.indices.contains(index) else { return }
+        onRun?(targets[index])
+    }
+
+    private func copy(at index: Int) {
+        guard targets.indices.contains(index) else { return }
+        onCopy?(targets[index])
+        bars[index].acknowledgeCopy()
+    }
+
+    /// True when the point, in the text view's coordinates, lands on a bar.
+    ///
+    /// The text view's own gesture recognisers would otherwise claim the touch
+    /// and cancel the button's — see `DocumentUITextView`.
+    func containsInteractiveElement(at point: CGPoint) -> Bool {
+        bars.contains { !$0.isHidden && $0.frame.contains(point) }
+    }
+}
+
+#endif

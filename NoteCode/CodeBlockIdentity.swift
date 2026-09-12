@@ -50,10 +50,11 @@ nonisolated struct CodeBlockID: Hashable, Sendable {
 /// Holds a value per code block — a run result, an error, an in-flight flag —
 /// and drops it when the block it belongs to changes or goes away.
 ///
-/// Phase 3 stores Piston output here. Deliberately in memory only: the spec
-/// defines a page as text plus drawing strokes, "not a list of discrete
-/// blocks", so run output has no home in the persisted model and shouldn't
-/// invent one.
+/// Nothing keeps run output now — the code runs on someone else's site, and
+/// the result never comes back. Anything per-block and transient belongs here
+/// rather than in the model: the spec defines a page as text plus drawing
+/// strokes, "not a list of discrete blocks", so state like that has no home in
+/// what gets persisted and shouldn't invent one.
 nonisolated struct BlockResultStore<Value> {
     private var values: [CodeBlockID: Value] = [:]
 
