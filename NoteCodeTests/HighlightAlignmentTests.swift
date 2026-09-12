@@ -75,6 +75,51 @@ struct HighlightAlignmentTests {
         let coloured = await colouredText("x = \"héllo wörld\"\nprint(x)", "python")
         #expect(coloured.contains { $0.contains("héllo") } || coloured.contains("print"))
     }
+
+    // MARK: Whitespace at the edges of a block
+
+    // highlight.js trims whitespace off both ends of what it is given and
+    // reports offsets into the trimmed text. Leading whitespace therefore
+    // shifts every colour left unless the highlighter compensates, so each
+    // token loses its last character and picks up the one before it. This is
+    // the "last letter never highlights" bug, and a blank first line is the
+    // ordinary way to hit it: press return after the opening fence and the
+    // newline becomes part of the code.
+
+    @Test("A blank first line doesn't shift colours off their tokens", arguments: [
+        "\nint x = 0;",
+        "\n\nint x = 0;",
+        "\n\t int x = 0;",
+    ])
+    func leadingWhitespaceDoesNotShiftOffsets(code: String) async {
+        let coloured = await colouredText(code, "cpp")
+        #expect(coloured.contains("int"))
+    }
+
+    @Test("Keywords late in a block are still coloured exactly")
+    func tokensStayAlignedAfterLeadingBlankLines() async {
+        // The signature of the shift is that every run slides toward the front
+        // of the block, so a keyword comes back with its last character missing
+        // and the whitespace before it attached. Checking a keyword near the end
+        // catches it; checking only the first one sometimes does not.
+        let coloured = await colouredText("\n\nint x = 0;\nreturn x;", "cpp")
+
+        #expect(coloured.contains("int"))
+        #expect(coloured.contains("return"))
+    }
+
+    @Test("Trailing blank lines leave the earlier colours alone")
+    func trailingWhitespaceIsHarmless() async {
+        let coloured = await colouredText("int x = 0;\n\n\n", "cpp")
+        #expect(coloured.contains("int"))
+    }
+
+    @Test("A block that is nothing but whitespace produces no colours")
+    func whitespaceOnlyBlock() async {
+        let runs = await HighlightSwiftHighlighter()
+            .colorRuns(for: "\n\n   \n", languageTag: "cpp", appearance: .dark)
+        #expect(runs.isEmpty)
+    }
 }
 
 #endif

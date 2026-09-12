@@ -42,6 +42,36 @@ struct HighlightSwiftHighlighter: SyntaxHighlighter {
             return []
         }
 
+        // highlight.js trims whitespace off both ends of what it is handed, so
+        // the attributed string coming back can be shorter than the code that
+        // went in. Every run offset is then relative to that trimmed text. Used
+        // as-is against the original they are all shifted left by however much
+        // was removed from the front, which paints each token's colour one
+        // character early and leaves the tail of the block uncoloured — the
+        // "last letter never highlights" symptom.
+        //
+        // A block whose first line is blank is the common way to hit this,
+        // because the newline after the opening fence is then part of the code.
+        let trimmed = String(highlighted.characters)
+        let source = code as NSString
+        let offset: Int
+
+        if trimmed == code {
+            offset = 0
+        } else {
+            let found = source.range(of: trimmed)
+            guard found.location != NSNotFound,
+                  source.substring(to: found.location).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else {
+                // Came back altered in some way this can't map. Colouring by
+                // these offsets would land on the wrong characters, which reads
+                // as working syntax highlighting that is quietly wrong. Plain
+                // monospace is the better failure.
+                return []
+            }
+            offset = found.location
+        }
+
         return highlighted.runs.compactMap { run in
             // HighlightSwift may populate either attribute scope depending on
             // how the AttributedString was built, so check both rather than
@@ -60,7 +90,11 @@ struct HighlightSwiftHighlighter: SyntaxHighlighter {
             }
 
             guard let color else { return nil }
-            return ColorRun(range: NSRange(run.range, in: highlighted), color: color)
+            let range = NSRange(run.range, in: highlighted)
+            return ColorRun(
+                range: NSRange(location: range.location + offset, length: range.length),
+                color: color
+            )
         }
     }
 }

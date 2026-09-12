@@ -76,8 +76,15 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
     /// to the glyphs — so a full-width panel gets cropped back to the text
     /// width no matter how wide a rect is filled.
     override var renderingSurfaceBounds: CGRect {
+        // The extra point at the bottom covers the overhang described in
+        // panelRect; TextKit clips fragment drawing to these bounds, so without
+        // it the overhang is trimmed and the seam comes back.
+        //
+        // Nothing is added at the top, deliberately. Growing upward would let a
+        // fragment paint over the line above it, which eats the bottom of any
+        // descender there — the tail of a `g`, `p` or `y`.
         super.renderingSurfaceBounds.union(
-            CGRect(x: 0, y: 0, width: panelWidth, height: layoutFragmentFrame.height)
+            CGRect(x: 0, y: 0, width: panelWidth, height: layoutFragmentFrame.height + 1)
         )
     }
 
@@ -88,7 +95,7 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
     /// Without it, two code blocks on consecutive lines draw panels that touch,
     /// and three in a row read as a single block — you can't see where one ends
     /// and the next begins.
-    private let endInset: CGFloat = 2
+    static let endInset: CGFloat = 2
     private let fillColor = UIColor.secondarySystemBackground
 
     override func draw(at point: CGPoint, in context: CGContext) {
@@ -96,19 +103,66 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
         super.draw(at: point, in: context)
     }
 
+    /// Device pixels per point in the context being drawn into.
+    ///
+    /// Read from the transform rather than the screen so it stays right when the
+    /// view is rendered somewhere other than the display.
+    static func pixelScale(of context: CGContext) -> CGFloat {
+        let scale = hypot(context.ctm.b, context.ctm.d)
+        return scale > 0 ? scale : 1
+    }
+
+    /// The panel rectangle for one fragment.
+    ///
+    /// A code line is 20.021484375pt tall at body size, so fragment boundaries
+    /// land partway through a device pixel rather than on the grid. Two
+    /// fragments meeting inside one pixel each cover part of it, and two partial
+    /// coverages composite to less than the fill: a hairline of the page showing
+    /// through the block, every few lines. It is faint on a light background and
+    /// obvious on a dark one.
+    ///
+    /// The cure is to run an interior fragment's bottom on to the next whole
+    /// pixel, so that pixel is already solid before the fragment below paints
+    /// over part of it. Only the bottom moves. Overhanging downward is safe
+    /// because it lands on the fragment that draws *next*, which then covers it
+    /// with its own panel and its own text; overhanging upward would paint over
+    /// text that has already been drawn.
+    static func panelRect(
+        frame: CGRect,
+        position: CodeBlockPosition,
+        scale: CGFloat
+    ) -> CGRect {
+        let scale = scale > 0 ? scale : 1
+
+        // Untouched. An interior fragment starts exactly where the one above it
+        // stopped, and that pixel is already solid, so a soft edge of the same
+        // colour over it changes nothing.
+        let top = position.roundsTop ? frame.minY + endInset : frame.minY
+
+        let bottom = position.roundsBottom
+            ? frame.maxY - endInset
+            : (frame.maxY * scale).rounded(.up) / scale
+
+        return CGRect(
+            x: frame.minX,
+            y: top,
+            width: frame.width,
+            height: max(0, bottom - top)
+        )
+    }
+
     private func drawPanel(at point: CGPoint, in context: CGContext) {
         // Span the container, not the text. `layoutFragmentFrame.width` stops at
         // the last glyph, which is precisely the ragged edge being fixed here.
-        let width = panelWidth
-        // Only the outer fragments inset, so a block's interior stays solid.
-        let topInset = position.roundsTop ? endInset : 0
-        let bottomInset = position.roundsBottom ? endInset : 0
-
-        let rect = CGRect(
-            x: point.x,
-            y: point.y + topInset,
-            width: width,
-            height: layoutFragmentFrame.height - topInset - bottomInset
+        let rect = Self.panelRect(
+            frame: CGRect(
+                x: point.x,
+                y: point.y,
+                width: panelWidth,
+                height: layoutFragmentFrame.height
+            ),
+            position: position,
+            scale: Self.pixelScale(of: context)
         )
 
         var corners: UIRectCorner = []
