@@ -86,7 +86,7 @@ leaving strokes where they are — rotation, Split View, a different device —
 points annotations at the wrong words, and there is no repairing it after the
 fact. A fixed column means rotation changes the margins, not the line breaks.
 
-Wanted, not yet built:
+Wanted, and now built (see "Pages" for how):
 
 - **A base width per orientation** — portrait narrower, landscape wider, so
   neither orientation wastes the screen.
@@ -124,11 +124,16 @@ rather than a risk. Below some width — a narrow Split View — scaling down to
 fit stops being readable, so the scale wants a floor with horizontal scrolling
 past it rather than shrinking indefinitely.
 
-**Built 12 Sep** (`CanvasGeometry`, `PageView`): the page lays out at 700pt and
-is drawn at the page area's width over 700, held between 0.75 and 1.25 — margins
-grow past the ceiling, and the page scrolls sideways below the floor. The hotbar
-reserves room on both sides whichever edge it is on, so the scale is a function
-of the window alone and moving the bar never resizes the text.
+**Built 12 Sep, and made page-based the same evening** (`PageLayout`,
+`CanvasGeometry`, `PageView`). A note lays out at its pages' text width — 672pt
+for portrait pages, 912pt for landscape — and is drawn at the area's width over
+the page's, up to 1.25x, times the reader's pinch zoom (0.5x to 4x). There is no
+floor on fitting after all: a landscape page in a portrait iPad fits at about
+0.65x, and zoom is how it gets larger. The hotbar reserves room on both sides
+whichever edge it is on, so moving the bar never resizes the text.
+
+The page's orientation is the note's, not the device's: rotating the iPad still
+changes only the scale, while choosing landscape pages re-wraps that note.
 
 `GeometrySpike` (branch `spike/page-geometry`) answered this and the question is
 now closed. Keep the branch for the drift demonstration it also gives.
@@ -158,8 +163,74 @@ note against 11ms scrolling, and 5.5 seconds at 2000 lines. So instead:
   while scaled below 1x takes its line width from the shrunken frame, and
   portrait and landscape then break lines differently.
 - Text is drawn at the density it is shown at, by raising `contentScaleFactor`
-  through the text view's subviews after each layout pass.
-- Pinch zoom, when it is built, is a user factor on the same transform.
+  through the text view's subviews after each layout pass, capped at 3x the
+  drawn scale. During a pinch it waits for the gesture to end.
+- Pinch zoom is a user factor on the same transform (`PageView.setZoom`), which
+  keeps the page point between the fingers still.
+- Zoomed in, a pan goes sideways or up and down, not diagonally: the text view
+  scrolls vertically and `PageView` sideways. The text view can't do both —
+  measured, `UITextView` forces its content width back to its own width.
+
+## Pages
+
+Notes are Letter-sized pages, Notability-style. The geometry is all in
+`PageLayout`, as pure functions.
+
+- **Paper.** US Letter at 96 units to the inch: 816 by 1056 portrait, 1056 by
+  816 landscape, with 0.75in margins. At that size 17pt body text prints at
+  12.75pt. Orientation belongs to the note (`Page.pageOrientation`); the view
+  mode is a per-device preference (`@AppStorage`), chosen from the header's
+  view menu.
+- **One pagination, three presentations.** Every page holds a body of the same
+  height in every mode, and text flows around a band between one body and the
+  next — two margins and a 24pt gap in print layout, a 24pt strip with a dashed
+  line in compressed, 1pt in seamless. The bands are the text container's
+  exclusion paths. A line that would cross a break is pushed to the next page
+  in every mode, so seamless shows up to a line's extra space at each break.
+  Because a line's page and its place on the page never depend on the mode,
+  neither does ink's.
+- **Ink lives in print coordinates** (`PageView.ink`), which is also where it
+  prints. The canvas shows it converted to the current mode, and every mode
+  change converts from the stored ink, never back from the canvas: a stroke in
+  a sheet's margin has no exact place in seamless, and a round trip would move
+  it a page. Changing orientation re-wraps the text, so ink keeps its printed
+  position and no longer sits on the same words — the case text-anchored ink
+  would fix.
+- **Print layout** fits its sheets inside a 24pt border of the surround
+  (`CanvasGeometry.printGutter`), so they read as paper rather than one slab
+  with grey bars across it. Text is a little smaller there than in the
+  continuous modes, which fit edge to edge.
+- **Whole pages are enforced where TextKit sets the height.**
+  `DocumentUITextView` overrides `contentSize` and rounds each height TextKit
+  sets up to whole pages, through `PageView.noteHeight(forTextHeight:)`.
+  Correcting it afterwards, from a layout observer, didn't work: TextKit can
+  set the height after the pass that would correct it. A switch to print
+  layout left a five-page note 500pt short, extra layout passes didn't close
+  the gap, and a reader near the end was pushed down (`PageSettlingTests`).
+- **Position things from lines, never from a fragment's frame.** A line pushed
+  past a page break stays inside a fragment whose frame begins above the
+  break, so the frame spans it. Code panels (`CodeBlockLayoutFragment.panelRuns`)
+  and run/copy buttons (`CodeBlockOverlay`) use the text lines' own bounds;
+  from the frame, a panel painted across the gap between two sheets.
+- **The reader's place survives a switch.** Switching mode converts the scroll
+  position by page, which is exact because every mode paginates the same; a
+  top edge in a margin or break shows that page from its top edge
+  (`PageLayout.scrollTop(forPage:)`). Switching orientation re-wraps the text,
+  so there the line at the top is kept instead. Either way the position is set
+  again after the text view's next layout pass: that first pass after a
+  relayout moves the scroll offset by itself (88pt in `PageViewTests`, with the
+  text not moving), which put the reader three lines into the page.
+- **Cost.** Once any exclusion path exists, TextKit 2 lays out everything below
+  an edit. A keystroke near the top of a note, measured on the simulator: 100
+  lines 2.8ms → 13.7ms, 250 lines 5.5ms → 33.8ms, 500 lines 9.7ms → 66ms.
+  `PageViewTests.typingCost` bounds it. If long notes lag on a real iPad, the
+  alternative is pushing paragraphs with paragraph spacing, computed lazily —
+  whole paragraphs rather than lines, and it has to coexist with the styler's
+  own paragraph styles.
+- **Printing** isn't built, but print layout is the printed page exactly:
+  `PageLayout.sheet(ofPage:)` in page points, times 72/96 for the printer. A
+  `UIPrintPageRenderer` drawing each sheet's rect of the text view, code panels
+  and ink included, is what's left.
 
 ## The note page
 

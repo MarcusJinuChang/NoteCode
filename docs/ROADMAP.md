@@ -67,8 +67,15 @@ See [phase-drawing-layer.md](phase-drawing-layer.md) for the build plan.
 
 The canvas goes inside the text view's content, not beside it, so both layers
 share one `contentOffset` with no sync code. An `EditorMode` enum owns all six
-settings the toggle moves at once. The zoom container gets built in the
-geometry step rather than retrofitted later.
+settings the toggle moves at once. Pinch zoom is a transform on the scrolling
+text view rather than a zoom container, which measured 40 times slower per
+keystroke.
+
+Added 12 Sep: notes are Letter-sized pages, portrait or landscape per note, with
+a view menu for seamless, compressed and print layout. Built within the geometry
+step's week. Its one open question — whether typing on long paged notes is fast
+enough — is answered on the iPad in the device pass, and any fix comes out of
+that buffer.
 
 The note page is laid out from the 12 September mockup: a title header with
 the note list behind ☰, and one hotbar docked left, bottom or right carrying
@@ -76,8 +83,8 @@ undo, redo, the text/draw toggle, and the current mode's tools. That hotbar
 replaces `PKToolPicker` — what used to be the fallback is now the plan, so the
 keyboard-versus-picker fight never happens.
 
-**Fallback if it runs long:** drop the bottom-growth inset, and confine ink to
-the text's own height.
+**Fallback if it runs long:** stop adding pages for ink, and confine it to the
+pages the text makes.
 
 ### Next — Sign in and ship (10 Oct – Nov)
 Sign in with Apple (no backend; as the only login option it sidesteps Apple's
@@ -100,7 +107,9 @@ Referenced by name from `TextRewritingPolicy.swift` and `DocumentTextView.swift`
 |---|---|
 | `TextRewritingPolicy.swift` | **Per-region text rewriting.** All five keyboard traits are `.code` everywhere, so prose loses autocorrect. Plan: `.prose` outside a fence, `.code` inside, with `reloadInputViews()`. |
 | `DocumentStyler.swift` | **Markers that recede.** Markdown markers stay visible in `tertiaryLabel`. Hiding them when the caret is elsewhere is the Obsidian behaviour. |
-| Page geometry | **Zoom + a base width per orientation.** Zoom is now scheduled into the drawing layer. Settled 2026-09-11: per-orientation width means two *display scales* over one canonical layout width, not two layout widths — line breaks never change, so rotation cannot drift ink. |
+| `PageLayout.swift` | **Printing.** Print layout is the printed page exactly — `sheet(ofPage:)` times 72/96. A `UIPrintPageRenderer` drawing each sheet's rect of the text view is what's left. A4 is one more paper size. |
+| `PageView.swift` | **Typing cost on long paged notes.** Page breaks are exclusion paths, and TextKit 2 then lays out everything below an edit: 34ms a keystroke near the top of a 250-line note on the simulator. If it lags on the iPad, push whole paragraphs with paragraph spacing instead, computed lazily. |
+| `PageView.swift` | **Diagonal panning when zoomed in.** The text view scrolls vertically and `PageView` sideways, so a pan picks one. |
 | `Page.swift` | **Text-anchored ink.** Wanted for its own sake, not just as a drift fix. Anchor each stroke to an `NSTextLocation` plus an offset, translate the group on relayout. Its own phase. |
 | `ContentView.swift` | **Folders.** A flat date-sorted list does not survive a semester. Touches the model, so settle it before more migrations pile up. Brings a folder-level run destination with it. |
 | `CodeDestination.swift` | **Pinned Compiler Explorer compilers.** `g142` and `python313`, chosen because the site has 1,197 compilers and no "latest" alias. A retired id still shows the code with the compiler pane complaining, so this is a maintenance item, not a risk. |

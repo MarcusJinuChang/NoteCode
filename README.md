@@ -11,8 +11,9 @@ drawings all live on the same page.
   language highlight.js recognises — and copy or share to run them elsewhere
 - A PencilKit drawing layer toggles on and off without losing scroll position
   or leaving the page
-- A fixed page width with its own base scale per orientation, and pinch to zoom
-  in and out, so the page reads the same whichever way the iPad is held
+- Letter-sized pages, portrait or landscape per note, shown seamless, compressed
+  or in print layout, with pinch to zoom — line breaks never change with the
+  device, its orientation, or the zoom, and print layout is the printed page
 
 ## Stack
 
