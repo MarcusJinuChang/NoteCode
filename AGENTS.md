@@ -304,8 +304,48 @@ One SwiftPM dependency: HighlightSwift 1.1.0.
 Tests use Swift Testing (`@Suite` / `@Test`), not XCTest. Suites that touch
 UIKit are wrapped in `#if canImport(UIKit)` and marked `@MainActor`.
 
+Since 13 September, runs fail to launch on Xcode's cloned simulators ("Busy
+… failed preflight checks"). Add `-parallel-testing-enabled NO`.
+
 Run on a physical iPad with Apple Pencil for anything involving ink — latency
 and palm rejection in the simulator are not representative.
+
+## Debug launch options
+
+Debug builds only (`DebugLaunch.swift`, all behind `#if DEBUG`). They put the
+app in a known state in one command and report what's on screen, so a check
+doesn't take twenty gestures, a pasteboard that syncs with the Mac, or a
+rebuilt copy of the app with logging.
+
+| Argument | Does |
+|---|---|
+| `-debug-note pages\|code\|empty` | Opens a built-in note, in an in-memory store — the simulator's notes are untouched |
+| `-debug-note-file <path>` | Opens a note read from a file on the Mac |
+| `-debug-orientation portrait\|landscape` | The seeded note's pages |
+| `-debug-mode seamless\|compressed\|print` | Sets the view mode, in the saved setting the menu uses |
+| `-debug-page <n>` | Scrolls to page n's top edge, counted from 1 |
+| `-debug-then-mode <mode>` | Switches mode once the page has settled |
+| `-debug-then-delay <seconds>` | Wait before that switch; default 1 |
+| `-debug-report` | Writes `tmp/notecode-debug-state.json` in the app container each time layout settles |
+
+The report lists mode, orientation, page count, scroll offset, scale, zoom, the
+top line (character, page, whether it starts the page, its text) and
+`visibleLinesAcrossBreaks`. It is built from where TextKit actually has the
+lines, not from page geometry, and the last two fields are the ones that would
+have shown the 13 September view-switch bug. Bad or misspelt arguments land in
+its `problems` rather than being ignored.
+
+The arguments are deliberately not the settings keys: `-pageViewMode print`
+would work with no code, but a launch argument outranks saved settings, and the
+view menu would then seem broken for the whole session.
+
+    scripts/debug-launch.sh --device "iPad Air 13-inch (M4)" -- \
+      -debug-note pages -debug-orientation landscape -debug-mode print \
+      -debug-page 4 -debug-then-mode seamless -debug-report
+
+The script relaunches the installed Debug build with those arguments, waits
+(`--wait`, default 4s) and prints the report. For manual runs from Xcode, put
+the same arguments in the scheme's Run → Arguments.
 
 ## Implementation requirements
 

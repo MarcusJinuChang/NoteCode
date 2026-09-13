@@ -126,6 +126,10 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         textView.addLayoutObserver { [weak self] in
             self?.textViewDidLayout()
         }
+
+#if DEBUG
+        DebugSession.shared.attach(self)
+#endif
     }
 
     @available(*, unavailable)
@@ -197,6 +201,9 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// Runs after every layout pass of the text view, which includes every
     /// scroll and every edit.
     private func textViewDidLayout() {
+#if DEBUG
+        defer { DebugSession.shared.pageDidLayout(self) }
+#endif
         updatePageFurniture()
         if pinch.state != .changed {
             matchRenderingScale()
@@ -323,7 +330,8 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     ///
     /// With the top edge in a margin or a page break, that's the next page's
     /// first line, which is what someone scrolled to a sheet's top is reading.
-    private func topLineCharacter() -> Int? {
+    /// Internal rather than private for `DebugStateReport`.
+    func topLineCharacter() -> Int? {
         guard let manager = textView.textLayoutManager,
               let content = manager.textContentManager
         else { return nil }
@@ -345,7 +353,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     }
 
     /// The top of the line holding `character`, in note coordinates.
-    private func lineTop(atCharacter character: Int) -> CGFloat? {
+    func lineTop(atCharacter character: Int) -> CGFloat? {
         guard let manager = textView.textLayoutManager,
               let content = manager.textContentManager,
               let location = content.location(content.documentRange.location, offsetBy: character),
