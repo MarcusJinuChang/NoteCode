@@ -36,6 +36,46 @@ final class DocumentUITextView: UITextView {
         layoutObservers = (layoutObservers ?? []) + [observer]
     }
 
+    // MARK: Content height
+
+    /// Turns the height TextKit works out for the text into the height the
+    /// view scrolls through. `PageView` rounds it up to whole pages.
+    ///
+    /// Applied in the setter, as TextKit sets the height, rather than
+    /// corrected afterwards. TextKit can set it after the layout pass that
+    /// would have corrected it, and then nothing does: a five-page note sat
+    /// 500pt short after a mode switch, and extra layout passes didn't fix it.
+    var contentHeightAdjustment: ((CGFloat) -> CGFloat)?
+
+    /// The height TextKit last set, before adjustment. Zeroed memory is a
+    /// valid 0 here, so the missing initialiser (see `layoutObservers`) is
+    /// harmless.
+    private(set) var textContentHeight: CGFloat = 0
+
+    override var contentSize: CGSize {
+        get { super.contentSize }
+        set {
+            textContentHeight = newValue.height
+            var adjusted = newValue
+            if let contentHeightAdjustment {
+                adjusted.height = contentHeightAdjustment(newValue.height)
+            }
+            super.contentSize = adjusted
+        }
+    }
+
+    /// Applies the adjustment again to TextKit's last height, for when what
+    /// it depends on changes without the text being laid out — ink, say.
+    ///
+    /// - Parameter convert: turns that height into what it will be once the
+    ///   text is laid out again, when the caller knows — a page layout change
+    ///   that moves every line by a known amount. Without it, the stale
+    ///   height is read against the new layout.
+    func reapplyContentHeightAdjustment(converting convert: ((CGFloat) -> CGFloat)? = nil) {
+        let height = convert?(textContentHeight) ?? textContentHeight
+        contentSize = CGSize(width: super.contentSize.width, height: height)
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
         for observer in layoutObservers ?? [] {

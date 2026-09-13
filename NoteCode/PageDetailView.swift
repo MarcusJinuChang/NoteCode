@@ -30,6 +30,11 @@ struct PageDetailView: View {
     @AppStorage(HotbarDock.defaultsKey)
     private var dock: HotbarDock = .default
 
+    /// How pages are shown. Per device, like the dock: it's how this reader
+    /// likes to look at notes, and changes nothing in the note itself.
+    @AppStorage(PageViewMode.defaultsKey)
+    private var viewMode: PageViewMode = .default
+
     /// How far the hotbar has been dragged away from its dock, mid-drag.
     @State private var dragOffset: CGSize = .zero
 
@@ -53,6 +58,7 @@ struct PageDetailView: View {
 #endif
         .onChange(of: page.title) { page.modifiedAt = .now }
         .onChange(of: page.content) { page.modifiedAt = .now }
+        .onChange(of: page.pageOrientation) { page.modifiedAt = .now }
     }
 
     // MARK: Header
@@ -67,6 +73,10 @@ struct PageDetailView: View {
                 }
 
                 Spacer()
+
+#if canImport(UIKit)
+                PageViewMenu(mode: $viewMode, orientation: $page.orientation)
+#endif
 
                 RunDestinationMenu(
                     pageSetting: $page.runDestination,
@@ -103,7 +113,8 @@ struct PageDetailView: View {
                 runDestination: RunDestinationPreference.resolve(
                     [page.runDestination, appDefaultDestination]
                 ),
-                editor: editor
+                editor: editor,
+                pageLayout: PageLayout(orientation: page.orientation, mode: viewMode)
             )
             // The outline is what separates the page from the hotbar's space
             // around it. Clipping to the same shape keeps anything that runs

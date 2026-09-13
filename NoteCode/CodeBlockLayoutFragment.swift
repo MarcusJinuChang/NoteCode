@@ -173,39 +173,125 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
         )
     }
 
+    // MARK: Page breaks
+
+    /// A stretch of the fragment the panel covers, in container coordinates,
+    /// with which of the block's ends it carries.
+    struct PanelRun: Equatable {
+        var top: CGFloat
+        var bottom: CGFloat
+        var position: CodeBlockPosition
+    }
+
+    /// Breaks shorter than this don't interrupt a panel. Seamless layout's
+    /// 1pt break still pushes a line, and a code block reads better unbroken
+    /// there; compressed and print layout's breaks are 24pt and more.
+    static let minimumBreakHeight: CGFloat = 2
+
+    /// The stretches a fragment's panel covers, split at page breaks.
+    ///
+    /// TextKit keeps a fragment's frame starting where its paragraph began and
+    /// places a line pushed past an exclusion band further down inside it, so
+    /// the frame spans the break. A panel drawn over the whole frame painted
+    /// across the gap between two sheets in print layout. Splitting where a
+    /// break lies above the first line, or between two lines of a wrapped
+    /// one, keeps the panel on the page.
+    ///
+    /// Only the first run carries the block's top, and only the last its
+    /// bottom: a code block continued over a page break is square at the
+    /// break. With no break in the fragment this is one run over the whole
+    /// frame, exactly as before.
+    ///
+    /// - Parameters:
+    ///   - frame: the fragment's frame, in container coordinates.
+    ///   - lines: each line's vertical extent, in container coordinates, in order.
+    ///   - breaks: the page breaks' vertical extents, in container coordinates.
+    static func panelRuns(
+        frame: CGRect,
+        lines: [ClosedRange<CGFloat>],
+        breaks: [ClosedRange<CGFloat>],
+        position: CodeBlockPosition
+    ) -> [PanelRun] {
+        let breaks = breaks.filter { $0.upperBound - $0.lowerBound >= minimumBreakHeight }
+
+        /// Whether a page break sits in the space between `upper` and `lower`.
+        func isBreak(from upper: CGFloat, to lower: CGFloat) -> Bool {
+            breaks.contains { $0.lowerBound >= upper - 0.5 && $0.upperBound <= lower + 0.5 }
+        }
+
+        var bounds: [(top: CGFloat, bottom: CGFloat)] = []
+        var runTop = frame.minY
+        if let first = lines.first, isBreak(from: frame.minY, to: first.lowerBound) {
+            runTop = first.lowerBound
+        }
+        for (upper, lower) in zip(lines, lines.dropFirst()) where isBreak(from: upper.upperBound, to: lower.lowerBound) {
+            bounds.append((runTop, upper.upperBound))
+            runTop = lower.lowerBound
+        }
+        bounds.append((runTop, frame.maxY))
+
+        return bounds.enumerated().map { index, run in
+            let roundsTop = index == 0 && position.roundsTop
+            let roundsBottom = index == bounds.count - 1 && position.roundsBottom
+            let runPosition: CodeBlockPosition = switch (roundsTop, roundsBottom) {
+            case (true, true):   .only
+            case (true, false):  .first
+            case (false, true):  .last
+            case (false, false): .middle
+            }
+            return PanelRun(top: run.top, bottom: run.bottom, position: runPosition)
+        }
+    }
+
+    // MARK: Drawing
+
     private func drawPanel(at point: CGPoint, in context: CGContext) {
-        // Span the container, not the text. `layoutFragmentFrame.width` stops at
-        // the last glyph, which is precisely the ragged edge being fixed here.
-        let rect = Self.panelRect(
-            frame: CGRect(
-                x: point.x,
-                y: point.y,
-                width: panelWidth,
-                height: layoutFragmentFrame.height
-            ),
-            position: position,
-            scale: Self.pixelScale(of: context)
-        )
-
-        var corners: UIRectCorner = []
-        if position.roundsTop {
-            corners.formUnion([.topLeft, .topRight])
+        let frame = layoutFragmentFrame
+        let lines = textLineFragments.map { line in
+            (frame.minY + line.typographicBounds.minY)...(frame.minY + line.typographicBounds.maxY)
         }
-        if position.roundsBottom {
-            corners.formUnion([.bottomLeft, .bottomRight])
-        }
+        let breaks = (textLayoutManager?.textContainer?.exclusionPaths ?? [])
+            .map { $0.bounds.minY...$0.bounds.maxY }
 
-        let path: UIBezierPath = corners.isEmpty
-            ? UIBezierPath(rect: rect)
-            : UIBezierPath(
-                roundedRect: rect,
-                byRoundingCorners: corners,
-                cornerRadii: CGSize(width: cornerRadius, height: cornerRadius)
-              )
+        let runs = Self.panelRuns(frame: frame, lines: lines, breaks: breaks, position: position)
+        let scale = Self.pixelScale(of: context)
 
         context.saveGState()
         context.setFillColor(fillColor.cgColor)
-        context.addPath(path.cgPath)
+
+        for run in runs {
+            // Span the container, not the text. `layoutFragmentFrame.width`
+            // stops at the last glyph, which is precisely the ragged edge
+            // being fixed here.
+            let rect = Self.panelRect(
+                frame: CGRect(
+                    x: point.x,
+                    y: point.y + (run.top - frame.minY),
+                    width: panelWidth,
+                    height: run.bottom - run.top
+                ),
+                position: run.position,
+                scale: scale
+            )
+
+            var corners: UIRectCorner = []
+            if run.position.roundsTop {
+                corners.formUnion([.topLeft, .topRight])
+            }
+            if run.position.roundsBottom {
+                corners.formUnion([.bottomLeft, .bottomRight])
+            }
+
+            let path: UIBezierPath = corners.isEmpty
+                ? UIBezierPath(rect: rect)
+                : UIBezierPath(
+                    roundedRect: rect,
+                    byRoundingCorners: corners,
+                    cornerRadii: CGSize(width: cornerRadius, height: cornerRadius)
+                  )
+            context.addPath(path.cgPath)
+        }
+
         context.fillPath()
         context.restoreGState()
     }

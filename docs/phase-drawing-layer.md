@@ -47,9 +47,11 @@ scrolls only sideways, for a page wider than its area.
 A 700 × 30,000pt `PKCanvasView` holding 100 strokes cost 3MB, so a canvas as
 tall as the note is not a concern.
 
-Pinch zoom isn't built. In this shape it is a user factor on the same
-transform, with `PageView`'s sideways scroll taking the overflow past the page
-area — no new scroll view.
+Pinch zoom, built the same evening, is a user factor on that transform, with
+`PageView`'s sideways scroll taking the overflow past the page area — no new
+scroll view. The cost is diagonal panning: zoomed in, a pan goes one way or the
+other, because `UITextView` forces its content width back to its own width and
+so can't scroll sideways itself.
 
 ## Who owns the touch
 
@@ -99,6 +101,90 @@ The bar reserves room on both sides of the page, whichever edge it is docked
 to, so moving it never changes the page's scale or position. The bottom is
 reserved only while the bar is there, since height doesn't affect the scale.
 
+### Amendment: pages (12 Sep, evening)
+
+Notes became Letter-sized pages, Notability-style: portrait or landscape per
+note, and a view menu in the header for seamless (default), compressed — a
+dashed line at each break — and print layout, a sheet of paper per page. Printing
+itself is for later, but print layout is laid out to be the printed page.
+
+**One pagination.** The modes differ only in how tall the band between two
+pages' bodies is; each page's body is the same height in all three. Text flows
+around the bands as exclusion paths, so a line lands on the same page, at the
+same place on it, in every mode — `PageViewTests.paginationIdenticalAcrossModes`
+holds that, and fails with the bands removed. Seamless keeps a 1pt band, which
+is what pushes a straddling line; it shows as up to a line's extra space.
+
+**Ink in print coordinates.** Stored where it prints, shown converted to the
+current mode, and never converted back from the screen. Converting into print
+layout is exact; converting out isn't, since a margin stroke reaches onto the
+next page where breaks are narrower. Strokes drawn on the canvas, once the
+toggle makes that possible, need converting into print coordinates as they're
+added, one at a time.
+
+**Measured before building:**
+
+| Keystroke near a note's top | No bands | Bands |
+|---|---|---|
+| 100 lines | 2.8ms | 13.7ms |
+| 250 lines | 5.5ms | 33.8ms |
+| 500 lines | 9.7ms | 66ms |
+
+The count of bands barely matters (5 and 60 cost the same); their existence
+does, because TextKit 2 then lays out everything below an edit. Worth checking
+on the iPad in step 5. If long notes lag there, the alternative is pushing whole
+paragraphs with paragraph spacing, computed lazily.
+
+Found on the simulator: after a mode switch, TextKit set the text's height
+after the layout pass that sized the note from it — a five-page note sat 500pt
+short, and a reader at its end was pushed down. Asking for extra layout passes
+didn't fix it. Rounding to whole pages inside the text view's `contentSize`
+setter does, since that's where TextKit's height arrives; `PageSettlingTests`
+fails on the observer-based version. Scrolling a 500-line note
+end to end in print layout, by contrast, never changed its page count: the
+bands keep the estimate honest once layout has run.
+
+Two more from the simulator, each with a test that fails without its fix:
+
+- A code line pushed onto a new page keeps a fragment frame that begins above
+  the break. The code panel, drawn over that frame, filled the gap between two
+  sheets. Panels and their buttons now take their position from the lines
+  (`CodeBlockPageBreakTests`).
+- Switching from print layout, scrolled to a sheet's top, opened the note three
+  lines into the page. The page count was worked out from the old mode's text
+  height, so it swung 11 → 9 → 10 → 9 as the text reflowed; each change
+  reassigned the bands, relaying out the note, and TextKit shifted the scroll
+  offset to compensate. The old text bottom is now converted into the new mode
+  before the count is taken, so the bands are set once. An orientation change,
+  where nothing converts, keeps the line at the top instead. Two other suspects
+  were measured and ruled out: layout done while scrolling and a full layout
+  paginate identically (366 of 366 lines), and laying out the whole note on
+  every switch would cost 500ms at 2,000 lines.
+
+**Fixed (13 Sep): the page-count fix corrected the scroll offset, not what the
+reader saw.** Deep in a note the offset landed on the right page edge while
+TextKit showed the previous page's lines there — ten lines off at sheet 4 of a
+landscape note on the simulator. `ccaf69c` had reported it fixed on a test that
+compared the offset to page geometry.
+
+Cause: TextKit 2 keeps its viewport anchor when the bands change under it. A
+probe comparing every visible line to a note laid out from scratch found all 40
+exactly 167pt low — print layout's 168pt break less seamless's 1pt, one stale
+break's worth. The page breaks on the text container were correct throughout;
+`invalidateLayout(for: documentRange)`, a full `ensureLayout` (68ms on that
+note) and relaying out the viewport changed nothing. Scrolling to the top and
+back put every line right.
+
+Fix: `PageView` scrolls to the note's top after applying the bands, then
+restores the reader's place, all before the next frame. Verified in the app
+with logging: after the same sheet-4 switch, "Line 64" — page 4's first line —
+is at the top and stays there. `PageSettlingTests.roundTripDeepShowsPagesFirstLine`
+failed before the fix and passes after; the full suite passes (349 tests).
+
+Changing a note's orientation re-wraps it, so its ink keeps its printed
+position but not its words. Harmless today, with no saved ink; the persistence
+step should ask before re-wrapping a note that has some.
+
 ## Build order
 
 ### 1. Spike (Sep 6–7)
@@ -112,30 +198,31 @@ canvas is `becomeFirstResponder()`.
 **Gate:** strokes survive a force-quit.
 
 ### 2. Geometry (Sep 8–14)
-One layout width, `CanvasGeometry.pageWidth` = 700pt, pinned on the text
-container rather than inferred from the view. The display scale is the page
-area's width over 700, held between 0.75 and 1.25: past the ceiling the margins
-grow instead of the text, and below the floor the page scrolls sideways. The
-hotbar reserves both sides always, so the scale depends on the window alone.
-Then the canvas, as a subview of the text view's content.
+Built 12 Sep at one 700pt width, then made page-based the same evening (see
+the pages amendment). Lines wrap at the note's pages' text width, pinned on the
+text container rather than inferred from the view. The display scale fits the
+page's width to the area, up to 1.25x, times the reader's zoom. The hotbar
+reserves both sides always, so the scale depends on the window alone. The
+canvas is a subview of the text view's content.
 
 Ink drawn *below* the last line has nothing to scroll to, because content
-height comes from the text. Lever: `textContainerInset.bottom`, grown until
-content covers `drawing.bounds.maxY`. Compute it as a pure function of (text
-height, ink bounds, column width, scale) so it is idempotent — deriving it from
-current content height sets up a layout feedback loop.
+height comes from the text. The note now ends on a whole page, and ink below
+the text adds pages: `textContainerInset.bottom` pads to the last page's end.
+It's computed from the text's height excluding that inset, so it's idempotent —
+deriving it from current content height sets up a layout feedback loop.
 
-Built 12 Sep. Found on the way: a text view first sized while scaled below 1x
-takes its line width from the shrunken frame, so its container width is pinned
-rather than tracked. Left for later steps: pinch zoom, and checking PencilKit
-renders sharply under the transform, which needs ink on screen.
+Found on the way: a text view first sized while scaled below 1x takes its line
+width from the shrunken frame, so its container width is pinned rather than
+tracked. Left for later: checking PencilKit renders sharply under the transform,
+which needs ink on screen.
 
-**Files:** `CanvasGeometry.swift`, `PageView.swift`, `DocumentTextView.swift`
-**Tests:** `CanvasGeometryTests` (scale, reserve, frame, bottom inset) and
-`PageViewTests` — canvas covers the text; ink at y = 3000 is reachable; deleting
-text never clips ink; portrait and landscape scales give identical line breaks;
-laying out again changes nothing. The last three were each shown to fail with
-their fix reverted.
+**Files:** `PageLayout.swift`, `CanvasGeometry.swift`, `PageView.swift`, `PageViewMenu.swift`, `DocumentTextView.swift`
+**Tests:** `PageLayoutTests`, `CanvasGeometryTests` (fit, zoom, focus, reserve)
+and `PageViewTests` — lines never sit in a break; pagination identical in every
+mode; ink shown on its page in every mode, and margin ink surviving a trip
+through seamless; zoom keeps the pinch point still; reading place kept across a
+mode switch; ink adds pages; deleting text never clips ink; portrait and
+landscape iPads give identical line breaks; laying out again changes nothing.
 **Gate:** reach a stroke at y = 3000; rotate and confirm identical line breaks.
 
 ### 3. The toggle (Sep 15–21) — flagged risk
@@ -210,7 +297,9 @@ Hardware only:
    scroll offset unchanged, caret restored, syntax colours intact.
 2. Draw, force-quit, reopen — ink there, right page.
 3. Rest a palm and draw, then scroll with one finger — no stray marks.
-4. Draw below the last line, scroll to it — bottom inset grew.
+4. Draw below the last page, scroll to it — a page was added.
+4a. Annotate a page, switch through seamless, compressed and print layout — ink
+    stays on its words in all three.
 5. Rotate, then Split View — scale changes; ink stays beside the same words.
 6. Pinch zoom in and out — text re-renders crisp, ink tracks it.
 7. Type a paragraph at the top of an annotated page — confirms known drift.
@@ -218,7 +307,7 @@ Hardware only:
 
 ## Cut list, in order
 
-1. **Drop the bottom-growth inset.** Ink confined to the text's own height.
+1. **Drop pages added for ink.** Ink confined to the pages the text makes.
 2. **Drop the Pencil/finger split.** `.anyInput` with an explicit scroll-lock
    button. Cruder, but removes any dependence on gesture resolution.
 

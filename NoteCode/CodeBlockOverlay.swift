@@ -99,10 +99,18 @@ final class CodeBlockOverlay {
 
             let offset = contentManager.offset(from: documentStart, to: start)
             if let index = indexByOffset[offset], index < bars.count {
+                // The first line, not the whole fragment. A block that starts
+                // a new page keeps a fragment frame beginning above the page
+                // break, with its line pushed down inside it, and centring on
+                // the frame put the buttons in the gap between two sheets.
+                let frame = fragment.layoutFragmentFrame
+                let firstLine = fragment.textLineFragments.first.map {
+                    $0.typographicBounds.offsetBy(dx: frame.minX, dy: frame.minY)
+                } ?? frame
                 place(
                     bars[index],
                     target: targets[index],
-                    lineFrame: fragment.layoutFragmentFrame.offsetBy(dx: inset.left, dy: inset.top),
+                    lineFrame: firstLine.offsetBy(dx: inset.left, dy: inset.top),
                     panelRight: panelRight
                 )
             }
