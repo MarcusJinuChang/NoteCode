@@ -5,6 +5,7 @@
 
 #if canImport(UIKit)
 
+import SwiftUI
 import Testing
 import UIKit
 @testable import NoteCode
@@ -190,6 +191,87 @@ struct ApplyColorsTests {
         DocumentStyler.applyColors([], clearing: [codeRange], to: textView)
 
         #expect(textView.textStorage.attribute(.foregroundColor, at: Self.codeOffset, effectiveRange: nil) as? UIColor == .label)
+    }
+}
+
+// MARK: - Switching appearance
+
+@Suite("Highlighting follows an appearance switch")
+@MainActor
+struct AppearanceSwitchTests {
+
+    /// Keywords, a string literal and plain identifiers, so every kind of
+    /// token the theme colours is covered.
+    private static let code = "int count = 0;\nstd::string name = \"hi\";\nreturn count;"
+    private static let source = "prose\n```cpp\n\(code)\n```\n"
+    private static let codeOffset = ("prose\n```cpp\n" as NSString).length
+
+    @Test("Code coloured under dark is re-coloured when the view turns light")
+    func darkToLight() async {
+        await expectRecolouring(from: .dark, to: .light)
+    }
+
+    @Test("Code coloured under light is re-coloured when the view turns dark")
+    func lightToDark() async {
+        await expectRecolouring(from: .light, to: .dark)
+    }
+
+    /// Goes through the coordinator rather than DocumentStyler, because the
+    /// bug lived there: blocks were remembered as coloured by content alone,
+    /// so an unchanged block was never highlighted again.
+    private func expectRecolouring(from before: HighlightAppearance, to after: HighlightAppearance) async {
+        let highlighter = HighlightSwiftHighlighter()
+        let beforeRuns = await highlighter.colorRuns(for: Self.code, languageTag: "cpp", appearance: before)
+        let afterRuns = await highlighter.colorRuns(for: Self.code, languageTag: "cpp", appearance: after)
+
+        // Without a difference between the themes this test proves nothing.
+        #expect(!beforeRuns.isEmpty)
+        #expect(beforeRuns.first?.color != afterRuns.first?.color)
+
+        let textView = DocumentTextView.makeConfiguredTextView()
+        textView.traitOverrides.userInterfaceStyle = Self.style(before)
+        textView.updateTraitsIfNeeded()
+
+        let coordinator = DocumentTextView.Coordinator(text: .constant(Self.source))
+        textView.delegate = coordinator
+        coordinator.observeAppearance(of: textView)
+        textView.text = Self.source
+        coordinator.invalidateStyling()
+        coordinator.restyle(textView)
+
+        let unpaintedBefore = await Self.waitUntilPainted(beforeRuns, in: textView)
+        #expect(unpaintedBefore.isEmpty, "never coloured for \(before) to begin with")
+
+        textView.traitOverrides.userInterfaceStyle = Self.style(after)
+        textView.updateTraitsIfNeeded()
+
+        let unpaintedAfter = await Self.waitUntilPainted(afterRuns, in: textView)
+        #expect(unpaintedAfter.isEmpty, "\(unpaintedAfter.count) of \(afterRuns.count) runs kept the \(before) colours")
+    }
+
+    private static func style(_ appearance: HighlightAppearance) -> UIUserInterfaceStyle {
+        appearance == .dark ? .dark : .light
+    }
+
+    /// Polls until every run's colour is in the text storage, since
+    /// highlighting is debounced and runs off the main actor. Returns the runs
+    /// still wrong when time runs out.
+    private static func waitUntilPainted(_ runs: [ColorRun], in textView: UITextView) async -> [ColorRun] {
+        let deadline = ContinuousClock.now + .seconds(3)
+
+        while true {
+            let unpainted = runs.filter { run in
+                guard run.range.length > 0 else { return false }
+                let color = textView.textStorage.attribute(
+                    .foregroundColor, at: codeOffset + run.range.location, effectiveRange: nil
+                ) as? UIColor
+                return color != run.color
+            }
+            if unpainted.isEmpty || ContinuousClock.now >= deadline {
+                return unpainted
+            }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
     }
 }
 

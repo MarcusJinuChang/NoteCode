@@ -29,6 +29,7 @@ struct DocumentTextView: UIViewRepresentable {
         // view, so the coordinator has to be wired in as both delegates.
         textView.textLayoutManager?.delegate = context.coordinator
         context.coordinator.attachOverlay(to: textView)
+        context.coordinator.observeAppearance(of: textView)
         textView.text = text
         context.coordinator.invalidateStyling()
         context.coordinator.restyle(textView)
@@ -86,6 +87,13 @@ struct DocumentTextView: UIViewRepresentable {
         /// changed keeps the colours already in the text storage, so only the
         /// block being edited needs re-highlighting.
         private var highlightedBlocks: Set<CodeBlockID> = []
+
+        /// The appearance `highlightedBlocks` were coloured for.
+        ///
+        /// Syntax colours are fixed values picked from one theme, not dynamic
+        /// colours like `.label`, so a block coloured under dark is not coloured
+        /// for light just because its code hasn't changed.
+        private var highlightedAppearance: HighlightAppearance?
 
         /// Just enough to coalesce a fast burst of keystrokes.
         ///
@@ -192,6 +200,14 @@ struct DocumentTextView: UIViewRepresentable {
             let generation = highlightGeneration
             let appearance = HighlightAppearance(textView.traitCollection)
 
+            // Every block on screen was coloured for the other theme, so none of
+            // them can be skipped. A pass still running under that theme is
+            // dropped by the generation bump above.
+            if appearance != highlightedAppearance {
+                highlightedBlocks = []
+                highlightedAppearance = appearance
+            }
+
             // Forget blocks that no longer exist, so the set can't grow forever.
             highlightedBlocks.formIntersection(Set(blocks.compactMap(\.codeBlock?.id)))
 
@@ -243,6 +259,18 @@ struct DocumentTextView: UIViewRepresentable {
                 let covered = jobs.map { NSRange(location: $0.offset, length: ($0.code as NSString).length) }
                 DocumentStyler.applyColors(painted, clearing: covered, to: textView)
                 self.highlightedBlocks.formUnion(jobs.map(\.id))
+            }
+        }
+
+        /// Re-colours the code when the view switches between light and dark.
+        ///
+        /// Nothing else would: highlighting only runs after an edit, so a note
+        /// left open across the switch keeps the old theme's colours.
+        func observeAppearance(of textView: UITextView) {
+            textView.registerForTraitChanges([UITraitUserInterfaceStyle.self]) { [weak self] (textView: UITextView, _) in
+                guard let self else { return }
+                let source = textView.text ?? ""
+                scheduleHighlighting(for: textView, source: source, blocks: documentCache.blocks(for: source))
             }
         }
 
