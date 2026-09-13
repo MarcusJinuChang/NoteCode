@@ -161,19 +161,25 @@ Two more from the simulator, each with a test that fails without its fix:
   paginate identically (366 of 366 lines), and laying out the whole note on
   every switch would cost 500ms at 2,000 lines.
 
-**Still open (13 Sep): the page-count fix corrected the scroll offset, not what
-the reader sees.** Deep in a note, the offset lands on the right page edge but
-TextKit shows the previous page's lines there — ten lines off on the simulator
-at sheet 4 of a landscape note. The app log shows correct seamless page breaks
-on the text container while "Line 54" keeps its print-layout position across
-one, and neither `invalidateLayout(for: documentRange)` nor a full
-`ensureLayout` (68ms on that note) moves it. `ccaf69c` reported this case as
-fixed on the strength of a test that compared the offset to page geometry; the
-test that checks the line actually at the top,
-`PageSettlingTests.roundTripDeepShowsPagesFirstLine`, fails by one line.
-Before building more on page modes, find out why TextKit keeps those
-positions — or measure whether the ink-on-words promise holds after such a
-switch, since it depends on the same positions.
+**Fixed (13 Sep): the page-count fix corrected the scroll offset, not what the
+reader saw.** Deep in a note the offset landed on the right page edge while
+TextKit showed the previous page's lines there — ten lines off at sheet 4 of a
+landscape note on the simulator. `ccaf69c` had reported it fixed on a test that
+compared the offset to page geometry.
+
+Cause: TextKit 2 keeps its viewport anchor when the bands change under it. A
+probe comparing every visible line to a note laid out from scratch found all 40
+exactly 167pt low — print layout's 168pt break less seamless's 1pt, one stale
+break's worth. The page breaks on the text container were correct throughout;
+`invalidateLayout(for: documentRange)`, a full `ensureLayout` (68ms on that
+note) and relaying out the viewport changed nothing. Scrolling to the top and
+back put every line right.
+
+Fix: `PageView` scrolls to the note's top after applying the bands, then
+restores the reader's place, all before the next frame. Verified in the app
+with logging: after the same sheet-4 switch, "Line 64" — page 4's first line —
+is at the top and stays there. `PageSettlingTests.roundTripDeepShowsPagesFirstLine`
+failed before the fix and passes after; the full suite passes (349 tests).
 
 Changing a note's orientation re-wraps it, so its ink keeps its printed
 position but not its words. Harmless today, with no saved ink; the persistence

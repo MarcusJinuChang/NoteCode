@@ -253,6 +253,22 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
 
         guard old != nil else { return }
 
+        // Re-anchor TextKit at the top of the note before going back to the
+        // reader's place.
+        //
+        // TextKit 2 lays text out relative to what the viewport showed last.
+        // After the bands change under a viewport deep in a note, it kept that
+        // anchor: every line on screen sat 167pt below its true position —
+        // exactly print layout's 168pt break less seamless's 1pt, one stale
+        // break's worth — and lines ran across seamless's page breaks. The
+        // reader saw the previous page's last lines where the page began.
+        // Invalidating the layout, a full ensureLayout, and relaying out the
+        // viewport all left it there; only scrolling to the top and back
+        // cleared it (ZZ probe, 13 Sep). At the top of a note nothing is above
+        // the viewport to be stale, so the jump back lays out fresh. It all
+        // happens before the next frame is drawn, so nothing flickers.
+        textView.contentOffset.y = 0
+
         // The text reflows against new bands, so lay it out before restoring
         // the reader's place in it.
         setNeedsLayout()
