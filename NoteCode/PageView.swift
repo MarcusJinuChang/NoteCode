@@ -286,7 +286,15 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
                 ? pageLayout.scrollTop(forPage: index)
                 : pageLayout.bodyTop(ofPage: index) + min(intoBody, pageLayout.bodyHeight)
         } else if let anchor, let top = lineTop(atCharacter: anchor) {
-            target = top
+            // A page's first line means the page itself, the same rule as a
+            // mode switch — and the note's first line means its very top.
+            // Keeping the line itself at the top instead opened every note
+            // with landscape pages 36pt down, its top margin out of view:
+            // PageView starts with default portrait pages, so taking the
+            // note's own on opening runs through here.
+            let index = pageLayout.pageIndex(atY: top)
+            let startsPage = top - pageLayout.bodyTop(ofPage: index) < 1
+            target = startsPage ? pageLayout.scrollTop(forPage: index) : top
         } else {
             textView.contentOffset.y = clampedOffset(textView.contentOffset.y)
             return

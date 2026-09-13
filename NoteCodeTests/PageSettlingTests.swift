@@ -275,6 +275,34 @@ struct PageSettlingTests {
         return found
     }
 
+    @Test("Opened the way the app opens it, a note with landscape pages starts at its very top", arguments: PageViewMode.allCases)
+    func landscapeNoteOpensAtTop(mode: PageViewMode) async {
+        let box = Box()
+        let coordinator = DocumentTextView.Coordinator(text: Binding(get: { box.value }, set: { box.value = $0 }))
+        let textView = DocumentTextView.makeConfiguredTextView()
+        textView.delegate = coordinator
+        textView.textLayoutManager?.delegate = coordinator
+        coordinator.attachOverlay(to: textView)
+        coordinator.observeAppearance(of: textView)
+        textView.text = Self.note
+        coordinator.invalidateStyling()
+        coordinator.restyle(textView)
+
+        // DocumentTextView.makeUIView's order: the page view exists, takes the
+        // note's layout, then joins the window. On the simulator this opened a
+        // landscape note 36pt down, its top margin scrolled out of view.
+        let page = PageView(textView: textView)
+        page.pageLayout = PageLayout(orientation: .landscape, mode: mode)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1024, height: 1366))
+        page.frame = CGRect(x: 76, y: 137, width: 872, height: 1100)
+        window.addSubview(page)
+        window.makeKeyAndVisible()
+        await Self.settle(0.5)
+
+        #expect(textView.contentOffset.y == 0, "\(mode): opened at \(textView.contentOffset.y)")
+        withExtendedLifetime((window, coordinator, box)) {}
+    }
+
     @Test("A note's page count matches its text once laid out to the end", arguments: PageViewMode.allCases)
     func pageCountMatchesText(mode: PageViewMode) async {
         let (window, coordinator, page) = await Self.openNote(layout: PageLayout(mode: mode))

@@ -216,7 +216,12 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   position by page, which is exact because every mode paginates the same; a
   top edge in a margin or break shows that page from its top edge
   (`PageLayout.scrollTop(forPage:)`). Switching orientation re-wraps the text,
-  so there the line at the top is kept instead.
+  so there the line at the top is kept instead — except that a page's first
+  line shows that page from its top edge, the same rule, and the note's first
+  line means offset 0. Opening a note counts as an orientation change for a
+  landscape note (`PageView` starts with default portrait pages), and keeping
+  its first line at the top opened every such note 36pt down, its top margin
+  out of view.
 - **Get the page count right before the bands, on a switch.** The page count
   comes from the text's height, which is still the old layout's until TextKit
   lays it out again. Read against the new layout it gave a nine-page note

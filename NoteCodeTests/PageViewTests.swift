@@ -352,6 +352,29 @@ struct PageViewTests {
         #expect(abs(harness.page.textView.contentOffset.y - seamless.scrollTop(forPage: 2)) < 0.5)
     }
 
+    @Test("A note with landscape pages opens at its very top", arguments: PageViewMode.allCases)
+    func landscapeOpensAtTop(mode: PageViewMode) {
+        // PageView starts with default portrait pages and takes the note's own
+        // on opening, which counts as an orientation change. That path kept
+        // the top line at the top of the view: 36pt down in seamless, past the
+        // note's top margin.
+        let harness = Harness(text: Self.severalPages, layout: PageLayout(orientation: .landscape, mode: mode))
+
+        #expect(harness.page.textView.contentOffset.y == 0)
+    }
+
+    @Test("At a note's very top, switching orientation stays at the very top", arguments: PageOrientation.allCases)
+    func orientationSwitchAtTopStaysAtTop(target: PageOrientation) {
+        let start: PageOrientation = target == .portrait ? .landscape : .portrait
+        let harness = Harness(text: Self.severalPages, layout: PageLayout(orientation: start))
+        harness.page.textView.contentOffset.y = 0
+        harness.layOut()
+
+        harness.switchTo(PageLayout(orientation: target))
+
+        #expect(harness.page.textView.contentOffset.y == 0)
+    }
+
     @Test("Landscape pages wrap wider")
     func landscapeRewraps() {
         let harness = Harness(text: Self.longProse)
