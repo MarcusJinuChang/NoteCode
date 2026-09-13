@@ -11,7 +11,8 @@ nonisolated enum InlineParser {
 
     /// Scans `range` within `text` for inline markdown spans.
     ///
-    /// A deliberately small subset — inline code, strong, emphasis. Full
+    /// A deliberately small subset — inline code, strong, emphasis,
+    /// strikethrough. Spans don't nest. Full
     /// CommonMark inline parsing (reference links, nested emphasis, HTML) is a
     /// famous tar pit and none of it is needed for class notes.
     ///
@@ -68,6 +69,22 @@ nonisolated enum InlineParser {
                     cursor = end
                     plainStart = cursor
                     continue
+                }
+            } else if character == "~" {
+                // Doubled only. A single tilde is ordinary text in notes —
+                // `~5ms`, `~/Developer` — and nothing renders it as markup.
+                let second = text.index(after: cursor)
+                if second < range.upperBound, text[second] == "~" {
+                    let contentStart = text.index(after: second)
+                    if let closing = firstDoubled("~", in: text, from: contentStart, limit: range.upperBound),
+                       closing > contentStart {
+                        flushPlainText(upTo: cursor)
+                        let end = text.index(closing, offsetBy: 2)
+                        nodes.append(InlineNode(kind: .strikethrough, range: cursor..<end, contentRange: contentStart..<closing))
+                        cursor = end
+                        plainStart = cursor
+                        continue
+                    }
                 }
             }
 

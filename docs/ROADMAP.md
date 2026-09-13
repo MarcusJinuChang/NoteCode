@@ -70,8 +70,14 @@ share one `contentOffset` with no sync code. An `EditorMode` enum owns all six
 settings the toggle moves at once. The zoom container gets built in the
 geometry step rather than retrofitted later.
 
-**Fallback if it runs long:** drop `PKToolPicker` for a fixed pen/eraser/colour
-toolbar. That removes the keyboard-versus-picker fight and keeps the feature.
+The note page is laid out from the 12 September mockup: a title header with
+the note list behind ☰, and one hotbar docked left, bottom or right carrying
+undo, redo, the text/draw toggle, and the current mode's tools. That hotbar
+replaces `PKToolPicker` — what used to be the fallback is now the plan, so the
+keyboard-versus-picker fight never happens.
+
+**Fallback if it runs long:** drop the bottom-growth inset, and confine ink to
+the text's own height.
 
 ### Next — Sign in and ship (10 Oct – Nov)
 Sign in with Apple (no backend; as the only login option it sidesteps Apple's

@@ -17,17 +17,30 @@ import UIKit
 /// and leaves `textLayoutManager` nil. Nothing here touches it.
 final class DocumentUITextView: UITextView {
 
-    /// Fires after every layout pass, which for a scroll view includes every
-    /// scroll. `CodeBlockOverlay` repositions from here.
-    var onLayout: (() -> Void)?
+    /// Run after every layout pass, which for a scroll view includes every
+    /// scroll. `CodeBlockOverlay` repositions from here, and `PageView` sizes
+    /// the canvas.
+    ///
+    /// Optional, and it has to be. This view is made with
+    /// `init(usingTextLayoutManager:)`, which goes through UIKit and never runs
+    /// this class's Swift property initialisers, so every stored property here
+    /// starts as zeroed memory. Zero is a valid `nil`; it is not a valid `[]`,
+    /// and appending to one crashed.
+    private var layoutObservers: [() -> Void]?
 
     /// Weak on purpose: the coordinator owns the overlay, and the overlay
     /// already points back at this view.
     weak var overlay: CodeBlockOverlay?
 
+    func addLayoutObserver(_ observer: @escaping () -> Void) {
+        layoutObservers = (layoutObservers ?? []) + [observer]
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
-        onLayout?()
+        for observer in layoutObservers ?? [] {
+            observer()
+        }
     }
 
     /// Keeps a tap on an action bar from reaching the text view's own gestures.

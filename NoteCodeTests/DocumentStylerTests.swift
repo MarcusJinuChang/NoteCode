@@ -33,6 +33,30 @@ struct DocumentStylerTests {
         #expect(font(textView, at: 0) == DocumentStyler.proseFont)
     }
 
+    @Test("Strikethrough strikes the content and leaves the markers alone")
+    func strikethroughStrikesContent() {
+        let textView = styledTextView("a ~~gone~~ b")
+        let storage = textView.textStorage
+
+        func struck(_ offset: Int) -> Bool {
+            storage.attribute(.strikethroughStyle, at: offset, effectiveRange: nil) as? Int == NSUnderlineStyle.single.rawValue
+        }
+
+        #expect(struck(("a ~~" as NSString).length))
+        #expect(!struck(("a " as NSString).length))       // opening marker
+        #expect(!struck(("a ~~gone" as NSString).length)) // closing marker
+        #expect(!struck(0))
+    }
+
+    @Test("Removing the markers removes the strike")
+    func strikethroughClearsOnRestyle() {
+        let textView = styledTextView("a ~~gone~~ b")
+        textView.text = "a gone b"
+        DocumentStyler.applyStyling(to: textView)
+
+        #expect(textView.textStorage.attribute(.strikethroughStyle, at: 2, effectiveRange: nil) == nil)
+    }
+
     @Test("Code is styled with the monospaced font")
     func codeUsesMonospacedFont() {
         let textView = styledTextView()

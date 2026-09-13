@@ -86,14 +86,17 @@ nonisolated struct InlineNode: Equatable, Sendable {
         case emphasis
         /// `` `code` ``
         case inlineCode
+        /// `~~struck~~`
+        case strikethrough
         // .math arrives with a later step.
 
         var discriminant: Int {
             switch self {
-            case .text:       0
-            case .strong:     1
-            case .emphasis:   2
-            case .inlineCode: 3
+            case .text:          0
+            case .strong:        1
+            case .emphasis:      2
+            case .inlineCode:    3
+            case .strikethrough: 4
             }
         }
     }

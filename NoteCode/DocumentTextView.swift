@@ -20,27 +20,37 @@ struct DocumentTextView: UIViewRepresentable {
     /// `RunDestinationPreference`.
     var runDestination: CodeDestination = .default
 
+    /// The page's hotbar state. Optional so the editor still stands alone in
+    /// tests and previews.
+    var editor: NoteEditor? = nil
+
     // MARK: UIViewRepresentable
 
-    func makeUIView(context: Context) -> DocumentUITextView {
+    func makeUIView(context: Context) -> PageView {
         let textView = Self.makeConfiguredTextView()
         textView.delegate = context.coordinator
         // Fragment selection happens through the layout manager, not the text
         // view, so the coordinator has to be wired in as both delegates.
         textView.textLayoutManager?.delegate = context.coordinator
         context.coordinator.attachOverlay(to: textView)
+        context.coordinator.observeAppearance(of: textView)
         textView.text = text
         context.coordinator.invalidateStyling()
         context.coordinator.restyle(textView)
-        return textView
+        context.coordinator.editor = editor
+        editor?.attach(textView)
+        return PageView(textView: textView)
     }
 
-    func updateUIView(_ textView: DocumentUITextView, context: Context) {
+    func updateUIView(_ page: PageView, context: Context) {
+        let textView = page.textView
+
         // The struct is recreated on every SwiftUI render but the Coordinator
         // persists, so hand it the current binding or it will keep writing
         // through a stale one.
         context.coordinator.text = $text
         context.coordinator.runDestination = runDestination
+        context.coordinator.editor = editor
 
         // Only push text down when it actually differs. Assigning `.text`
         // unconditionally would reset the selection on every render and fight
@@ -66,6 +76,7 @@ struct DocumentTextView: UIViewRepresentable {
     final class Coordinator: NSObject, UITextViewDelegate {
         var text: Binding<String>
         var runDestination: CodeDestination = .default
+        var editor: NoteEditor?
         let documentCache = DocumentCache()
 
         /// The run and copy buttons floating over each code block.
@@ -86,6 +97,13 @@ struct DocumentTextView: UIViewRepresentable {
         /// changed keeps the colours already in the text storage, so only the
         /// block being edited needs re-highlighting.
         private var highlightedBlocks: Set<CodeBlockID> = []
+
+        /// The appearance `highlightedBlocks` were coloured for.
+        ///
+        /// Syntax colours are fixed values picked from one theme, not dynamic
+        /// colours like `.label`, so a block coloured under dark is not coloured
+        /// for light just because its code hasn't changed.
+        private var highlightedAppearance: HighlightAppearance?
 
         /// Just enough to coalesce a fast burst of keystrokes.
         ///
@@ -132,7 +150,7 @@ struct DocumentTextView: UIViewRepresentable {
 
             self.overlay = overlay
             textView.overlay = overlay
-            textView.onLayout = { [weak overlay] in overlay?.reposition() }
+            textView.addLayoutObserver { [weak overlay] in overlay?.reposition() }
         }
 
         /// Hands a block to whichever site the page is pointed at.
@@ -192,6 +210,14 @@ struct DocumentTextView: UIViewRepresentable {
             let generation = highlightGeneration
             let appearance = HighlightAppearance(textView.traitCollection)
 
+            // Every block on screen was coloured for the other theme, so none of
+            // them can be skipped. A pass still running under that theme is
+            // dropped by the generation bump above.
+            if appearance != highlightedAppearance {
+                highlightedBlocks = []
+                highlightedAppearance = appearance
+            }
+
             // Forget blocks that no longer exist, so the set can't grow forever.
             highlightedBlocks.formIntersection(Set(blocks.compactMap(\.codeBlock?.id)))
 
@@ -246,6 +272,18 @@ struct DocumentTextView: UIViewRepresentable {
             }
         }
 
+        /// Re-colours the code when the view switches between light and dark.
+        ///
+        /// Nothing else would: highlighting only runs after an edit, so a note
+        /// left open across the switch keeps the old theme's colours.
+        func observeAppearance(of textView: UITextView) {
+            textView.registerForTraitChanges([UITraitUserInterfaceStyle.self]) { [weak self] (textView: UITextView, _) in
+                guard let self else { return }
+                let source = textView.text ?? ""
+                scheduleHighlighting(for: textView, source: source, blocks: documentCache.blocks(for: source))
+            }
+        }
+
         /// Forgets what's on screen, forcing the next restyle to do everything.
         /// Needed whenever the storage is replaced wholesale.
         func invalidateStyling() {
@@ -257,6 +295,7 @@ struct DocumentTextView: UIViewRepresentable {
         func textViewDidChange(_ textView: UITextView) {
             restyle(textView)
             text.wrappedValue = textView.text
+            editor?.refreshUndoState()
         }
 
         /// Adds copy and share for the code block under the caret.
@@ -357,7 +396,9 @@ struct DocumentTextView: UIViewRepresentable {
         textView.allowsEditingTextAttributes = false
         textView.alwaysBounceVertical = true
         textView.backgroundColor = .clear
-        textView.textContainerInset = UIEdgeInsets(top: 12, left: 8, bottom: 12, right: 8)
+        // Page points. The sides are the page's own margin inside its outline;
+        // the bottom is managed by PageView so the page can run on below ink.
+        textView.textContainerInset = UIEdgeInsets(top: 12, left: 24, bottom: PageView.minimumBottomInset, right: 24)
 
         // Prose is the document's default; code styling arrives with fence
         // rendering. Dynamic Type so the editor respects the reader's text size.

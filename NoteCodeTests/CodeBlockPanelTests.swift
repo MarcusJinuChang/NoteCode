@@ -5,6 +5,7 @@
 
 #if canImport(UIKit)
 
+import SwiftUI
 import Testing
 import UIKit
 @testable import NoteCode
@@ -17,6 +18,10 @@ struct CodeBlockPanelTests {
     /// measures 20.021484375pt, and that fraction is the whole problem: stack a
     /// few of them and the boundaries stop landing on device pixels.
     private static let lineHeight: CGFloat = 20.021484375
+
+    /// Content scales the page actually draws at: PageView's 0.75x to 1.25x,
+    /// on 2x and 3x screens.
+    private static let scales: [CGFloat] = [1.5, 2.0, 2.49, 3.0, 3.75]
 
     private static func frames(lines: Int, origin: CGFloat) -> [CGRect] {
         (0..<lines).map { index in
@@ -42,7 +47,7 @@ struct CodeBlockPanelTests {
         }
     }
 
-    // MARK: The bug being fixed
+    // MARK: The seam
 
     @Test("Fragment boundaries fall mid-pixel to begin with", arguments: [2.0, 3.0] as [CGFloat])
     func boundariesAreNotPixelAligned(scale: CGFloat) {
@@ -51,56 +56,96 @@ struct CodeBlockPanelTests {
     }
 
     @Test(
-        "Consecutive panels never leave a gap",
-        arguments: [2.0, 3.0] as [CGFloat], [0.0, 12.0, 0.5, 7.3] as [CGFloat]
+        "The panel behind overlaps the one in front by two whole pixels",
+        arguments: scales, [0.0, 12.0, 0.5, 7.3] as [CGFloat]
     )
-    func noSeamBetweenFragments(scale: CGFloat, origin: CGFloat) {
+    func overlapCoversTheBoundary(scale: CGFloat, origin: CGFloat) {
+        // Inside PageView the page is transformed, so neither fragment's pixel
+        // grid lines up with the screen's, and edges are filtered. An overlap
+        // of whole pixels is the only kind that survives any offset between
+        // the two. Rounding to a pixel boundary, the previous approach, could
+        // leave none.
         let rects = Self.panels(lines: 6, origin: origin, scale: scale)
 
         for (upper, lower) in zip(rects, rects.dropFirst()) {
-            #expect(
-                upper.maxY >= lower.minY,
-                "gap of \(lower.minY - upper.maxY)pt at scale \(scale), origin \(origin)"
-            )
-        }
-    }
-
-    @Test("An interior fragment ends on a whole device pixel", arguments: [2.0, 3.0] as [CGFloat])
-    func interiorBottomsArePixelAligned(scale: CGFloat) {
-        let rects = Self.panels(lines: 6, origin: 7.3, scale: scale)
-
-        for rect in rects.dropLast() {
-            #expect((rect.maxY * scale).rounded() == rect.maxY * scale)
+            let overlapPixels = (upper.maxY - lower.minY) * scale
+            #expect(overlapPixels >= CodeBlockLayoutFragment.overhangPixels - 0.0001,
+                    "overlap of \(overlapPixels)px at scale \(scale), origin \(origin)")
         }
     }
 
     // MARK: The regression guard
 
     @Test(
-        "A panel never reaches above its own fragment",
-        arguments: [2.0, 3.0] as [CGFloat], [0.0, 0.5, 7.3] as [CGFloat]
+        "A panel never reaches below its own fragment",
+        arguments: scales, [0.0, 0.5, 7.3] as [CGFloat]
     )
-    func neverPaintsUpward(scale: CGFloat, origin: CGFloat) {
-        // This is the one that matters. A panel drawn above its own fragment
-        // lands on the line above, which has already drawn its text, and eats
-        // the tail of any descender there. Growing the panel downward instead
-        // is harmless: the fragment below has not drawn yet and will cover it.
+    func neverPaintsDownward(scale: CGFloat, origin: CGFloat) {
+        // This is the one that matters. Each line's view sits in front of the
+        // line below it, so a panel reaching down paints over the next line's
+        // text. Reaching up lands behind the line above, under its descenders.
         let frames = Self.frames(lines: 6, origin: origin)
         let rects = Self.panels(lines: 6, origin: origin, scale: scale)
 
         for (frame, rect) in zip(frames, rects) {
-            #expect(rect.minY >= frame.minY, "panel starts \(frame.minY - rect.minY)pt above its fragment")
+            #expect(rect.maxY <= frame.maxY, "panel runs \(rect.maxY - frame.maxY)pt below its fragment")
         }
     }
 
-    @Test("A panel overhangs its fragment by at most one pixel", arguments: [2.0, 3.0] as [CGFloat])
-    func overhangIsBounded(scale: CGFloat) {
+    @Test("A panel reaches up no further than its rendering surface allows", arguments: [0.5, 1.0] + scales)
+    func overhangFitsTheSurface(scale: CGFloat) {
         let frames = Self.frames(lines: 6, origin: 7.3)
         let rects = Self.panels(lines: 6, origin: 7.3, scale: scale)
 
         for (frame, rect) in zip(frames, rects) {
-            #expect(rect.maxY - frame.maxY <= 1 / scale + .ulpOfOne)
+            #expect(frame.minY - rect.minY <= CodeBlockLayoutFragment.maximumOverhang + .ulpOfOne)
         }
+    }
+
+    @Test("The rendering surface leaves room above for the overhang")
+    func surfaceHoldsTheOverhang() {
+        let paragraph = NSTextParagraph(attributedString: NSAttributedString(string: "int x;\n"))
+        let fragment = CodeBlockLayoutFragment(textElement: paragraph, range: paragraph.elementRange)
+
+        #expect(fragment.renderingSurfaceBounds.minY <= -CodeBlockLayoutFragment.maximumOverhang)
+    }
+
+    /// The premise the overhang direction rests on. If UIKit ever stacks
+    /// fragment views the other way, upward overhang paints over descenders
+    /// and this has to be rethought — so it is checked, not assumed.
+    @Test("TextKit stacks each line's view in front of the line below it")
+    func upperLinesInFront() {
+        final class Box { var value = "" }
+        let box = Box()
+        let coordinator = DocumentTextView.Coordinator(text: Binding(get: { box.value }, set: { box.value = $0 }))
+
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1100, height: 1400))
+        let textView = DocumentTextView.makeConfiguredTextView()
+        textView.delegate = coordinator
+        textView.textLayoutManager?.delegate = coordinator
+        textView.text = "```cpp\n" + (0..<30).map { "int value\($0) = query(gap);" }.joined(separator: "\n") + "\n```"
+        coordinator.restyle(textView)
+
+        let page = PageView(textView: textView)
+        page.frame = CGRect(x: 0, y: 0, width: 872, height: 1200)
+        window.addSubview(page)
+        window.makeKeyAndVisible()
+        page.layoutIfNeeded()
+        textView.layoutIfNeeded()
+
+        var views: [UIView] = []
+        func collect(_ view: UIView) {
+            if String(describing: type(of: view)).contains("TextLayoutFragmentView") {
+                views.append(view)
+            }
+            view.subviews.forEach(collect)
+        }
+        collect(textView)
+
+        // Subviews run back to front, so front-most last: y should fall.
+        let tops = views.map { $0.convert($0.bounds, to: textView).minY }
+        #expect(views.count > 10)
+        #expect(tops == tops.sorted(by: >))
     }
 
     // MARK: Unchanged behaviour
