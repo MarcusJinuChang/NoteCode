@@ -8,12 +8,30 @@ import SwiftData
 
 @main
 struct NoteCodeApp: App {
-    private let storage = Storage.open()
+    private let storage: Storage
+
+    /// A note to open on launch. Only debug launch arguments set one.
+    private let openedPage: Page?
+
+    init() {
+#if DEBUG && canImport(UIKit)
+        // See DebugLaunch.swift. A no-op unless a -debug- argument was passed.
+        let session = DebugSession.shared
+        DebugLaunch.applyViewMode(session.options)
+        if let seeded = DebugLaunch.seededStorage(session.options, session: session) {
+            storage = seeded.storage
+            openedPage = seeded.page
+            return
+        }
+#endif
+        storage = Storage.open()
+        openedPage = nil
+    }
 
     var body: some Scene {
         WindowGroup {
             if let container = storage.container {
-                ContentView(storageIsEphemeral: storage.isEphemeral)
+                ContentView(storageIsEphemeral: storage.isEphemeral, openedPage: openedPage)
                     .modelContainer(container)
             } else {
                 StorageUnavailableView(reason: storage.reason)

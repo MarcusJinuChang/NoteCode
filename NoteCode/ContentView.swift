@@ -26,6 +26,14 @@ struct ContentView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
 
+    /// - Parameter openedPage: a note to open straight away, with the list
+    ///   hidden. Only debug launch arguments pass one.
+    init(storageIsEphemeral: Bool = false, openedPage: Page? = nil) {
+        self.storageIsEphemeral = storageIsEphemeral
+        _selection = State(initialValue: openedPage)
+        _columnVisibility = State(initialValue: openedPage == nil ? .all : .detailOnly)
+    }
+
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             List(selection: $selection) {
