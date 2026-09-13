@@ -2,31 +2,38 @@
 //  CanvasGeometry.swift
 //  NoteCode
 //
-//  Where the page sits, how big it is drawn, and how far it runs.
+//  How large the page is drawn, where it sits, and how zoom moves it.
 //
 
 import CoreGraphics
 
-/// The page's geometry, as pure functions of the space it is given.
+/// The page's on-screen geometry, as pure functions of the space it is given.
 ///
-/// Every note lays out at one width, `pageWidth`, whatever iPad it is on and
-/// however it is held. Line breaks are a function of that width alone, so
-/// rotation, Split View, and moving the hotbar change how large the page is
-/// drawn, never where its lines wrap — and ink stays on the words it was drawn
-/// over. See AGENTS.md, "Page geometry, orientation, and zoom".
+/// A note lays out at its pages' text width — see `PageLayout` — whatever iPad
+/// it is on and however it is held. This decides only how large that is drawn:
+/// a fit-to-width scale for the area, times the reader's zoom. Rotation, Split
+/// View, moving the hotbar and pinching all change the scale, never where
+/// lines wrap, so ink stays on the words it was drawn over.
 nonisolated enum CanvasGeometry {
 
-    /// The width every page lays out at, in page points.
-    static let pageWidth: CGFloat = 700
-
-    /// The display scale's range.
+    /// The most fitting to width will enlarge a page.
     ///
-    /// Above the ceiling, extra width becomes margin instead of larger text:
-    /// fitting a 13-inch iPad in landscape would draw body text at 1.75x.
-    /// Below the floor, text stops being comfortably readable, and the page
-    /// scrolls sideways instead of shrinking further.
-    static let minimumScale: CGFloat = 0.75
-    static let maximumScale: CGFloat = 1.25
+    /// A portrait page fitted to a 13-inch iPad in landscape would be drawn at
+    /// 1.5x, with body text near 26pt. Past this, extra width becomes margin;
+    /// anyone who wants it larger can zoom.
+    static let maximumFitScale: CGFloat = 1.25
+
+    /// Zoom, relative to fitting the page's width. Out far enough to see a
+    /// page and most of the next; in far enough to write between lines.
+    static let minimumZoom: CGFloat = 0.5
+    static let maximumZoom: CGFloat = 4
+
+    /// Text is never rendered denser than this multiple of its drawn scale.
+    ///
+    /// Every line is its own view, as wide as the page. At 4x zoom on a 2x
+    /// screen, full density is 5,400 by 180 pixels a line, 3.9MB; at this cap
+    /// it is 2.2MB, and the difference is not visible at arm's length.
+    static let maximumRenderingScale: CGFloat = 3
 
     // MARK: Room for the hotbar
 
@@ -47,20 +54,51 @@ nonisolated enum CanvasGeometry {
 
     // MARK: Scale
 
-    /// How large the page is drawn in an area this wide.
+    /// Surround left showing either side of a sheet in print layout.
     ///
-    /// A function of width only. Two iPads, or one iPad held two ways, get
-    /// different scales over identical line breaks.
-    static func displayScale(forAreaWidth width: CGFloat) -> CGFloat {
-        guard width > 0 else { return 1 }
-        return min(max(width / pageWidth, minimumScale), maximumScale)
+    /// Fitted edge to edge, sheets touch the sides of the area and read as one
+    /// long slab with grey bars across it rather than as paper. The continuous
+    /// modes fit edge to edge: there's no sheet edge for a border to show.
+    static let printGutter: CGFloat = 24
+
+    /// The scale that fits a page's width to the area, less a gutter each
+    /// side, up to the ceiling.
+    ///
+    /// No floor. A landscape page in a portrait iPad fits at about 0.65x, and
+    /// zoom is how it gets larger, rather than a floor that makes the page
+    /// scroll sideways before the reader has asked for anything.
+    static func fitScale(areaWidth: CGFloat, pageWidth: CGFloat, gutter: CGFloat = 0) -> CGFloat {
+        let available = areaWidth - gutter * 2
+        guard available > 0, pageWidth > 0 else { return 1 }
+        return min(available / pageWidth, maximumFitScale)
     }
+
+    /// The gutter a view mode fits its pages inside.
+    static func gutter(for mode: PageViewMode) -> CGFloat {
+        mode == .print ? printGutter : 0
+    }
+
+    static func clampedZoom(_ zoom: CGFloat) -> CGFloat {
+        min(max(zoom, minimumZoom), maximumZoom)
+    }
+
+    /// How large the page is drawn: fitted, then zoomed.
+    static func displayScale(areaWidth: CGFloat, pageWidth: CGFloat, zoom: CGFloat, gutter: CGFloat = 0) -> CGFloat {
+        fitScale(areaWidth: areaWidth, pageWidth: pageWidth, gutter: gutter) * clampedZoom(zoom)
+    }
+
+    /// The density text is rendered at, for a scale on a screen.
+    static func renderingScale(displayScale: CGFloat, screenScale: CGFloat) -> CGFloat {
+        min(displayScale, maximumRenderingScale) * screenScale
+    }
+
+    // MARK: Frame
 
     /// The page's frame within its area, once drawn at `scale`.
     ///
-    /// Centred when narrower than the area. When wider — only below the
-    /// minimum scale — it starts at the left edge and the area scrolls.
-    static func pageFrame(in area: CGSize, scale: CGFloat) -> CGRect {
+    /// Centred when narrower than the area. When wider — zoomed in — it starts
+    /// at the left edge and the area scrolls sideways.
+    static func pageFrame(in area: CGSize, pageWidth: CGFloat, scale: CGFloat) -> CGRect {
         let width = pageWidth * scale
         return CGRect(
             x: max((area.width - width) / 2, 0),
@@ -70,37 +108,57 @@ nonisolated enum CanvasGeometry {
         )
     }
 
-    /// The page view's own bounds, in page points: always `pageWidth` wide, and
-    /// as tall as the area once the scale is undone.
-    static func pageBounds(in area: CGSize, scale: CGFloat) -> CGSize {
+    /// The page view's own bounds, in page points: always the page's width,
+    /// and as tall as the area once the scale is undone.
+    static func pageBounds(in area: CGSize, pageWidth: CGFloat, scale: CGFloat) -> CGSize {
         CGSize(width: pageWidth, height: scale > 0 ? area.height / scale : area.height)
     }
 
-    // MARK: Running past the text
+    // MARK: Zoom
 
-    /// The page's bottom inset, grown until the content reaches below the ink.
-    ///
-    /// The page scrolls as far as its text runs, so ink drawn below the last
-    /// line would have nothing to scroll to. The inset makes up the difference.
-    ///
-    /// A function of its inputs only, and `textHeight` must exclude this inset.
-    /// Deriving it from the content height as it stands would include last
-    /// time's answer, and each layout pass would grow the page again.
+    /// Where the page is scrolled to, and how large it is drawn.
+    struct Viewport: Equatable, Sendable {
+        var scale: CGFloat
+        /// The area's sideways scroll, in screen points.
+        var horizontalOffset: CGFloat
+        /// The page's vertical scroll, in page points.
+        var verticalOffset: CGFloat
+    }
+
+    /// The viewport after zooming to `scale`, keeping whatever was under
+    /// `focus` under it — the point between two pinching fingers.
     ///
     /// - Parameters:
-    ///   - textHeight: how far the text runs, top inset included, bottom excluded.
-    ///   - inkBottom: the lowest point of any ink, or `nil` for none.
-    ///   - minimum: the inset with no ink below the text.
-    ///   - room: space kept below the lowest ink, so there's somewhere to keep
-    ///     writing.
-    static func bottomInset(
-        textHeight: CGFloat,
-        inkBottom: CGFloat?,
-        minimum: CGFloat,
-        room: CGFloat
-    ) -> CGFloat {
-        guard let inkBottom else { return minimum }
-        return max(minimum, inkBottom + room - textHeight)
+    ///   - focus: a point in the area, in screen points from its top left.
+    ///   - noteHeight: how tall the note is, in page points, so the result
+    ///     can't scroll past its end.
+    static func zoom(
+        _ viewport: Viewport,
+        to scale: CGFloat,
+        about focus: CGPoint,
+        area: CGSize,
+        pageWidth: CGFloat,
+        noteHeight: CGFloat
+    ) -> Viewport {
+        guard viewport.scale > 0, scale > 0 else { return viewport }
+
+        // The page point under the focus now.
+        let oldFrame = pageFrame(in: area, pageWidth: pageWidth, scale: viewport.scale)
+        let pageX = (focus.x + viewport.horizontalOffset - oldFrame.minX) / viewport.scale
+        let pageY = viewport.verticalOffset + focus.y / viewport.scale
+
+        // Put it back under the focus at the new scale.
+        let newFrame = pageFrame(in: area, pageWidth: pageWidth, scale: scale)
+        let maxHorizontal = max(newFrame.width - area.width, 0)
+        let horizontal = newFrame.minX + pageX * scale - focus.x
+        let maxVertical = max(noteHeight - area.height / scale, 0)
+        let vertical = pageY - focus.y / scale
+
+        return Viewport(
+            scale: scale,
+            horizontalOffset: min(max(horizontal, 0), maxHorizontal),
+            verticalOffset: min(max(vertical, 0), maxVertical)
+        )
     }
 }
 

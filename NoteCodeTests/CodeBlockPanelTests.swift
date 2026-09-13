@@ -148,6 +148,73 @@ struct CodeBlockPanelTests {
         #expect(tops == tops.sorted(by: >))
     }
 
+    // MARK: Page breaks
+
+    private typealias Run = CodeBlockLayoutFragment.PanelRun
+
+    @Test("With no page break, the panel covers the whole fragment", arguments: [CodeBlockPosition.only, .first, .middle, .last])
+    func noBreakOneRun(position: CodeBlockPosition) {
+        let frame = CGRect(x: 0, y: 100, width: 500, height: Self.lineHeight * 2)
+        let lines = [100...(100 + Self.lineHeight), (100 + Self.lineHeight)...(100 + Self.lineHeight * 2)]
+
+        let runs = CodeBlockLayoutFragment.panelRuns(frame: frame, lines: lines, breaks: [], position: position)
+
+        #expect(runs == [Run(top: frame.minY, bottom: frame.maxY, position: position)])
+    }
+
+    @Test("A line pushed onto the next page starts its panel there, not above the break")
+    func pushedLineStartsBelowBreak() {
+        // The fragment begins at 890, the page ends at 912, a 168pt break
+        // follows, and TextKit has placed the line below it.
+        let frame = CGRect(x: 0, y: 890, width: 500, height: 1080 + Self.lineHeight - 890)
+        let line = CGFloat(1080)...(1080 + Self.lineHeight)
+        let pageBreak = CGFloat(912)...1080
+
+        let runs = CodeBlockLayoutFragment.panelRuns(frame: frame, lines: [line], breaks: [pageBreak], position: .middle)
+
+        #expect(runs == [Run(top: 1080, bottom: frame.maxY, position: .middle)])
+    }
+
+    @Test("A block that starts on a new page keeps its rounded top")
+    func pushedFirstLineKeepsTop() {
+        let frame = CGRect(x: 0, y: 890, width: 500, height: 1080 + Self.lineHeight - 890)
+        let runs = CodeBlockLayoutFragment.panelRuns(
+            frame: frame,
+            lines: [CGFloat(1080)...(1080 + Self.lineHeight)],
+            breaks: [912...1080],
+            position: .first
+        )
+
+        #expect(runs == [Run(top: 1080, bottom: frame.maxY, position: .first)])
+    }
+
+    @Test("A wrapped line across a break splits into two panels, square at the break")
+    func wrappedLineSplits() {
+        let frame = CGRect(x: 0, y: 870, width: 500, height: 1080 + Self.lineHeight - 870)
+        let above = CGFloat(870)...(870 + Self.lineHeight)
+        let below = CGFloat(1080)...(1080 + Self.lineHeight)
+
+        let runs = CodeBlockLayoutFragment.panelRuns(frame: frame, lines: [above, below], breaks: [912...1080], position: .only)
+
+        #expect(runs == [
+            Run(top: 870, bottom: above.upperBound, position: .first),
+            Run(top: 1080, bottom: frame.maxY, position: .last),
+        ])
+    }
+
+    @Test("Seamless layout's 1pt break doesn't interrupt a panel")
+    func hairlineBreakDoesNotSplit() {
+        let frame = CGRect(x: 0, y: 900, width: 500, height: 913 + Self.lineHeight - 900)
+        let runs = CodeBlockLayoutFragment.panelRuns(
+            frame: frame,
+            lines: [CGFloat(913)...(913 + Self.lineHeight)],
+            breaks: [912...913],
+            position: .middle
+        )
+
+        #expect(runs == [Run(top: frame.minY, bottom: frame.maxY, position: .middle)])
+    }
+
     // MARK: Unchanged behaviour
 
     @Test("The block's outer edges keep their inset exactly", arguments: [2.0, 3.0] as [CGFloat])

@@ -24,6 +24,9 @@ struct DocumentTextView: UIViewRepresentable {
     /// tests and previews.
     var editor: NoteEditor? = nil
 
+    /// The note's page orientation and the device's view mode.
+    var pageLayout = PageLayout()
+
     // MARK: UIViewRepresentable
 
     func makeUIView(context: Context) -> PageView {
@@ -39,11 +42,14 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.restyle(textView)
         context.coordinator.editor = editor
         editor?.attach(textView)
-        return PageView(textView: textView)
+        let page = PageView(textView: textView)
+        page.pageLayout = pageLayout
+        return page
     }
 
     func updateUIView(_ page: PageView, context: Context) {
         let textView = page.textView
+        page.pageLayout = pageLayout
 
         // The struct is recreated on every SwiftUI render but the Coordinator
         // persists, so hand it the current binding or it will keep writing
@@ -396,9 +402,15 @@ struct DocumentTextView: UIViewRepresentable {
         textView.allowsEditingTextAttributes = false
         textView.alwaysBounceVertical = true
         textView.backgroundColor = .clear
-        // Page points. The sides are the page's own margin inside its outline;
-        // the bottom is managed by PageView so the page can run on below ink.
-        textView.textContainerInset = UIEdgeInsets(top: 12, left: 24, bottom: PageView.minimumBottomInset, right: 24)
+        // Page points: a page's margins. PageView sets these from the note's
+        // PageLayout, and manages the bottom so the note ends on a whole page.
+        let pages = PageLayout()
+        textView.textContainerInset = UIEdgeInsets(
+            top: pages.firstBodyTop,
+            left: PageLayout.margin,
+            bottom: pages.trailingSpace,
+            right: PageLayout.margin
+        )
 
         // Prose is the document's default; code styling arrives with fence
         // rendering. Dynamic Type so the editor respects the reader's text size.
