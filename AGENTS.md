@@ -226,6 +226,19 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   old text bottom into the new layout first, which is exact within one
   orientation. Laying out the whole note instead also worked, and cost 500ms
   on a 2,000-line note.
+- **Open: a mode switch deep in a note shows the wrong lines.** The scroll
+  offset lands exactly on the page's top edge, but the lines TextKit places
+  there are the page before's. On the simulator, switching a landscape note
+  from print layout to seamless at sheet 4 put "Line 54" at the top, where
+  page 4 begins with "Line 64". Logged in the app: the page breaks on the
+  text container were seamless's and correct, yet "Line 54" sat at its
+  print-layout position, straight across a seamless break — and stayed there
+  after `invalidateLayout(for: documentRange)` and a full `ensureLayout`.
+  Near the top of a note the same switch is right. The cause is not known.
+  `PageSettlingTests.roundTripDeepShowsPagesFirstLine` reproduces a
+  one-line version (seamless → print → scroll deep → seamless) and fails.
+  Tests that compare the scroll offset to page geometry pass throughout;
+  they check a number the code computes, not what is on screen.
 - **Cost.** Once any exclusion path exists, TextKit 2 lays out everything below
   an edit. A keystroke near the top of a note, measured on the simulator: 100
   lines 2.8ms → 13.7ms, 250 lines 5.5ms → 33.8ms, 500 lines 9.7ms → 66ms.

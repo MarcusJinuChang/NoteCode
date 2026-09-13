@@ -161,6 +161,20 @@ Two more from the simulator, each with a test that fails without its fix:
   paginate identically (366 of 366 lines), and laying out the whole note on
   every switch would cost 500ms at 2,000 lines.
 
+**Still open (13 Sep): the page-count fix corrected the scroll offset, not what
+the reader sees.** Deep in a note, the offset lands on the right page edge but
+TextKit shows the previous page's lines there — ten lines off on the simulator
+at sheet 4 of a landscape note. The app log shows correct seamless page breaks
+on the text container while "Line 54" keeps its print-layout position across
+one, and neither `invalidateLayout(for: documentRange)` nor a full
+`ensureLayout` (68ms on that note) moves it. `ccaf69c` reported this case as
+fixed on the strength of a test that compared the offset to page geometry; the
+test that checks the line actually at the top,
+`PageSettlingTests.roundTripDeepShowsPagesFirstLine`, fails by one line.
+Before building more on page modes, find out why TextKit keeps those
+positions — or measure whether the ink-on-words promise holds after such a
+switch, since it depends on the same positions.
+
 Changing a note's orientation re-wraps it, so its ink keeps its printed
 position but not its words. Harmless today, with no saved ink; the persistence
 step should ask before re-wrapping a note that has some.
