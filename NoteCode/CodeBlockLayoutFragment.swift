@@ -76,15 +76,23 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
     /// to the glyphs — so a full-width panel gets cropped back to the text
     /// width no matter how wide a rect is filled.
     override var renderingSurfaceBounds: CGRect {
-        // The extra point at the bottom covers the overhang described in
-        // panelRect; TextKit clips fragment drawing to these bounds, so without
-        // it the overhang is trimmed and the seam comes back.
+        // The room above covers the overhang described in panelRect. TextKit
+        // clips fragment drawing to these bounds, so without it the overhang is
+        // trimmed and the seam comes back.
         //
-        // Nothing is added at the top, deliberately. Growing upward would let a
-        // fragment paint over the line above it, which eats the bottom of any
-        // descender there — the tail of a `g`, `p` or `y`.
+        // Upward is the safe direction. TextKit 2 stacks fragment views with
+        // each line in front of the line below it — measured, and held by
+        // CodeBlockPanelTests.upperLinesInFront — so a panel reaching up lands
+        // behind the line above, under its text and its descenders. Nothing is
+        // added at the bottom: a panel reaching down would land in front of the
+        // next line and paint over it.
         super.renderingSurfaceBounds.union(
-            CGRect(x: 0, y: 0, width: panelWidth, height: layoutFragmentFrame.height + 1)
+            CGRect(
+                x: 0,
+                y: -Self.maximumOverhang,
+                width: panelWidth,
+                height: layoutFragmentFrame.height + Self.maximumOverhang
+            )
         )
     }
 
@@ -112,6 +120,13 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
         return scale > 0 ? scale : 1
     }
 
+    /// How far an interior panel reaches above its fragment, in device pixels.
+    static let overhangPixels: CGFloat = 2
+
+    /// The most that overhang can be in points, which the rendering surface
+    /// has to leave room for. Two points is two pixels even at 1x.
+    static let maximumOverhang: CGFloat = 2
+
     /// The panel rectangle for one fragment.
     ///
     /// A code line is 20.021484375pt tall at body size, so fragment boundaries
@@ -121,27 +136,34 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
     /// through the block, every few lines. It is faint on a light background and
     /// obvious on a dark one.
     ///
-    /// The cure is to run an interior fragment's bottom on to the next whole
-    /// pixel, so that pixel is already solid before the fragment below paints
-    /// over part of it. Only the bottom moves. Overhanging downward is safe
-    /// because it lands on the fragment that draws *next*, which then covers it
-    /// with its own panel and its own text; overhanging upward would paint over
-    /// text that has already been drawn.
+    /// The cure is for the fragment *behind* to cover that pixel completely, so
+    /// the one in front can be partial without the page showing through. Each
+    /// line's view sits in front of the line below it, so the fragment behind is
+    /// the lower one: an interior panel starts `overhangPixels` above its frame,
+    /// underneath the line above. The bottom never moves — reaching down would
+    /// paint in front of the next line's text.
+    ///
+    /// Whole pixels of overlap, not a round-up to the next pixel boundary. An
+    /// earlier version rounded the bottom up to its own pixel grid, which works
+    /// only while that grid is the screen's. Inside `PageView` the page is
+    /// scaled by a transform, the fragment's grid sits some fraction off the
+    /// screen's, and the edge is filtered as well; the round-up could leave no
+    /// overlap on screen at all, and at 1.25x the seam came back.
     static func panelRect(
         frame: CGRect,
         position: CodeBlockPosition,
         scale: CGFloat
     ) -> CGRect {
         let scale = scale > 0 ? scale : 1
+        let overhang = min(overhangPixels / scale, maximumOverhang)
 
-        // Untouched. An interior fragment starts exactly where the one above it
-        // stopped, and that pixel is already solid, so a soft edge of the same
-        // colour over it changes nothing.
-        let top = position.roundsTop ? frame.minY + endInset : frame.minY
+        let top = position.roundsTop
+            ? frame.minY + endInset
+            : frame.minY - overhang
 
         let bottom = position.roundsBottom
             ? frame.maxY - endInset
-            : (frame.maxY * scale).rounded(.up) / scale
+            : frame.maxY
 
         return CGRect(
             x: frame.minX,
