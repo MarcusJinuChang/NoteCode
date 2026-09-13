@@ -66,8 +66,14 @@ final class DocumentUITextView: UITextView {
 
     /// Applies the adjustment again to TextKit's last height, for when what
     /// it depends on changes without the text being laid out — ink, say.
-    func reapplyContentHeightAdjustment() {
-        contentSize = CGSize(width: super.contentSize.width, height: textContentHeight)
+    ///
+    /// - Parameter convert: turns that height into what it will be once the
+    ///   text is laid out again, when the caller knows — a page layout change
+    ///   that moves every line by a known amount. Without it, the stale
+    ///   height is read against the new layout.
+    func reapplyContentHeightAdjustment(converting convert: ((CGFloat) -> CGFloat)? = nil) {
+        let height = convert?(textContentHeight) ?? textContentHeight
+        contentSize = CGSize(width: super.contentSize.width, height: height)
     }
 
     override func layoutSubviews() {

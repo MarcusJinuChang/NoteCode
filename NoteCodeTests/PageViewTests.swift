@@ -303,8 +303,9 @@ struct PageViewTests {
         for mode in [PageViewMode.print, .compressed, .seamless, .print] {
             let layout = PageLayout(mode: mode)
             harness.switchTo(layout)
-            // Checked after the layout passes, not just after the switch: the
-            // first pass after a relayout moves the offset by itself.
+            // Checked after the layout passes, not just after the switch: a
+            // page count that settles late relays out the note and moves the
+            // offset after it was set.
             #expect(abs(harness.page.textView.contentOffset.y - (layout.bodyTop(ofPage: 2) + 300)) < 0.5, "\(mode)")
         }
     }
@@ -345,8 +346,9 @@ struct PageViewTests {
 
         harness.switchTo(seamless)
 
-        // After the layout passes. Set once, the offset was right; the text
-        // view's next pass then moved it 88pt, three lines into the page.
+        // After the layout passes. When the page count was taken from the old
+        // mode's text height it swung as the text reflowed, each change
+        // relaid out the note, and TextKit moved the offset 33pt into the page.
         #expect(abs(harness.page.textView.contentOffset.y - seamless.scrollTop(forPage: 2)) < 0.5)
     }
 

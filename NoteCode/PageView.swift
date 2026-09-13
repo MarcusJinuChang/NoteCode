@@ -215,6 +215,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         // so there the line at the top is kept instead.
         let offset = textView.contentOffset.y
         let anchor = old.map { $0.orientation != pageLayout.orientation } == true ? topLineCharacter() : nil
+        let oldTextBottom = textView.textContentHeight - textView.textContainerInset.bottom
 
         if old != nil {
             showInk()
@@ -229,10 +230,25 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             bottom: pageLayout.trailingSpace,
             right: PageLayout.margin
         )
-
         pinLineWidth()
+
+        // The page count, before the bands that depend on it.
+        //
+        // The text's height is still the old layout's until TextKit lays it
+        // out again, and read against the new layout it gave the wrong count:
+        // switching a nine-page note from print layout to seamless counted
+        // eleven pages, then nine, ten, nine, as the text reflowed. Every
+        // change reassigned the bands, which relays out the whole note, and
+        // TextKit shifted the scroll offset each time — the reader landed a
+        // line and a half into the page. Within one orientation every mode
+        // puts the same lines on the same pages, so the old text bottom
+        // converts exactly, and the count is right the first time.
+        let newLayout = pageLayout
+        textView.reapplyContentHeightAdjustment(converting: { [textView] height in
+            guard let old, let bottom = old.convert(y: oldTextBottom, to: newLayout) else { return height }
+            return bottom + textView.textContainerInset.bottom
+        })
         applyBands()
-        textView.reapplyContentHeightAdjustment()
         backgroundColor = pageLayout.mode == .print ? .secondarySystemBackground : .clear
 
         guard old != nil else { return }
@@ -260,11 +276,11 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             return
         }
 
-        // Set more than once. The text view's first layout pass after a
-        // relayout moves the scroll offset by itself — 88pt in PageViewTests,
-        // with the text staying exactly where it was — and the reader landed
-        // three lines into the page. Once that pass has run, the offset stays
-        // where it's put.
+        // Within one orientation the page count is right from the start, so
+        // nothing reassigns the bands after this and the first set sticks.
+        // Across orientations the text re-wraps and the count can still move
+        // while it settles, which relays out the note and shifts the offset,
+        // so set it again if a pass moved it.
         for _ in 0..<3 {
             let clamped = clampedOffset(target)
             if abs(textView.contentOffset.y - clamped) < 0.5 { break }

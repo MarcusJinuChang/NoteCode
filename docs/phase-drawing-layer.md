@@ -151,12 +151,15 @@ Two more from the simulator, each with a test that fails without its fix:
   sheets. Panels and their buttons now take their position from the lines
   (`CodeBlockPageBreakTests`).
 - Switching from print layout, scrolled to a sheet's top, opened the note three
-  lines into the page. The offset was right when set; the text view's first
-  layout pass then moved it 88pt on its own. The converted position is now set
-  again once that pass has run. An orientation change, where no position
-  converts, keeps the line at the top instead. (A probe ruled out the other
-  suspect: lazy and full layout paginate identically, and a full layout of a
-  2,000-line note costs 2ms once the bands exist.)
+  lines into the page. The page count was worked out from the old mode's text
+  height, so it swung 11 → 9 → 10 → 9 as the text reflowed; each change
+  reassigned the bands, relaying out the note, and TextKit shifted the scroll
+  offset to compensate. The old text bottom is now converted into the new mode
+  before the count is taken, so the bands are set once. An orientation change,
+  where nothing converts, keeps the line at the top instead. Two other suspects
+  were measured and ruled out: layout done while scrolling and a full layout
+  paginate identically (366 of 366 lines), and laying out the whole note on
+  every switch would cost 500ms at 2,000 lines.
 
 Changing a note's orientation re-wraps it, so its ink keeps its printed
 position but not its words. Harmless today, with no saved ink; the persistence

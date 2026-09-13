@@ -216,10 +216,16 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   position by page, which is exact because every mode paginates the same; a
   top edge in a margin or break shows that page from its top edge
   (`PageLayout.scrollTop(forPage:)`). Switching orientation re-wraps the text,
-  so there the line at the top is kept instead. Either way the position is set
-  again after the text view's next layout pass: that first pass after a
-  relayout moves the scroll offset by itself (88pt in `PageViewTests`, with the
-  text not moving), which put the reader three lines into the page.
+  so there the line at the top is kept instead.
+- **Get the page count right before the bands, on a switch.** The page count
+  comes from the text's height, which is still the old layout's until TextKit
+  lays it out again. Read against the new layout it gave a nine-page note
+  eleven pages, then nine, ten, nine; each change reassigned the bands, which
+  relays out the whole note, and TextKit shifted the scroll offset every time
+  — the reader landed a line and a half into the page. `PageView` converts the
+  old text bottom into the new layout first, which is exact within one
+  orientation. Laying out the whole note instead also worked, and cost 500ms
+  on a 2,000-line note.
 - **Cost.** Once any exclusion path exists, TextKit 2 lays out everything below
   an edit. A keystroke near the top of a note, measured on the simulator: 100
   lines 2.8ms → 13.7ms, 250 lines 5.5ms → 33.8ms, 500 lines 9.7ms → 66ms.
