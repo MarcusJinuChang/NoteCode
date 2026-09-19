@@ -49,11 +49,16 @@ walks, not another branch.
 - **Swift + SwiftUI** — app shell, navigation, state management.
 - **TextKit 2** (`NSTextLayoutManager`) — custom text editor that detects code
   fences as you type and renders that span as a distinct, non-plain-text region.
-- **PencilKit** (`PKCanvasView`) — transparent overlay canvas for ink, sharing
-  scroll position with the text layer. Only one of (text layer, drawing layer)
-  should own touch input at a time, controlled by the toggle.
+- **PaperKit** (`PaperMarkupViewController`, `PaperMarkup`) — transparent
+  overlay canvas for ink, sharing scroll position with the text layer. It is
+  PencilKit's canvas plus shapes, images and text boxes; PencilKit's tools still
+  drive it. Only one of (text layer, drawing layer) should own touch input at a
+  time, controlled by the toggle. Chosen over a bare `PKCanvasView` on 19 Sep;
+  see docs/phase-drawing-layer.md.
 - **SwiftData** — persistence for documents (text content + serialized
-  `PKDrawing` data per page). iCloud sync is a later-stage concern, not MVP.
+  `PaperMarkup` data per page). iCloud sync is a later-stage concern, not MVP.
+- **Platforms** — iOS and macOS, each at the latest release (27.0). iPhone Duo
+  runs the same iOS; see docs/ROADMAP.md.
 
 ## Conventions
 
@@ -62,7 +67,7 @@ walks, not another branch.
 - Keep the text/code parsing logic (fence detection, language tagging)
   separate from rendering — parsing should be pure and testable without
   SwiftUI in the loop.
-- Drawing data (`PKDrawing`) is serialized independently per page and should
+- Drawing data (`PaperMarkup`) is serialized independently per page and should
   never be re-encoded on every keystroke of the text layer — only on drawing
   layer changes.
 - When several settings have to move together, they live in one type with one
@@ -102,7 +107,7 @@ the difference decides how much work they are:
   drift stops being an edge case. That version is only safe on top of
   text-anchored strokes: anchor each stroke to an `NSTextLocation` plus an
   offset from that paragraph's fragment origin, then translate the stroke group
-  on relayout (`PKDrawing.strokes` is mutable and `PKStroke` has a `transform`).
+  on relayout (every PaperKit element has an ID and `applyTransform`).
 
 **Decided, then reversed on measurement:** the zoom container was to be built
 before the drawing layer. Measured first, on 12 Sep, it cost TextKit 2 its lazy
@@ -351,7 +356,7 @@ the same arguments in the scheme's Run → Arguments.
 
 - TextKit 2 fence-to-code-region conversion — changes here need manual testing
   against fast typing, pasting, and mid-fence edits.
-- Overlay touch handoff between `PKCanvasView` and the text view — exactly one
+- Overlay touch handoff between the PaperKit canvas and the text view — exactly one
   layer accepts touches at any moment.
 - Reading `.layoutManager` anywhere on the text view silently downgrades it to
   TextKit 1 and leaves `textLayoutManager` nil, with no error to say why.
@@ -377,8 +382,9 @@ into a section above once they are settled.
   One-to-many is far simpler and probably right for coursework.
 - Undo: text and ink in one shared undo stack, or two separate ones? The
   hotbar's arrows go through `NoteEditor`, which picks the stack, so this is a
-  choice rather than something the responder chain settles. PencilKit may
-  still register ink on the text view's stack through that chain — verify on
-  device before choosing.
+  choice rather than something the responder chain settles. By default ink
+  does land on the text view's stack (simulator, 18 Sep); PaperKit's controller
+  can't be subclassed, so a separate stack means a container view that
+  overrides `undoManager`.
 - Per-region text rewriting: `TextRewritingPolicy` is `.code` everywhere today,
   costing prose its autocorrect. Switching per region is designed but unbuilt.
