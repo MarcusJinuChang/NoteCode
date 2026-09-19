@@ -5,6 +5,7 @@
 
 #if canImport(UIKit)
 
+import PaperKit
 import PencilKit
 import Testing
 import UIKit
@@ -71,8 +72,15 @@ struct PageViewTests {
             layOut()
         }
 
+        /// Ink is a `PaperMarkup`, but strokes are easier to write as a
+        /// `PKDrawing`, and PaperKit takes one wholesale.
         func setInk(_ drawing: PKDrawing) {
-            page.setInk(drawing)
+            var markup = PaperMarkup(bounds: CGRect(origin: .zero, size: CGSize(
+                width: page.pageLayout.pageSize.width,
+                height: 100_000
+            )))
+            markup.append(contentsOf: drawing)
+            page.setInk(markup)
             layOut()
         }
 
@@ -125,7 +133,7 @@ struct PageViewTests {
 
         /// Where the first stroke is shown, by its middle.
         var shownInkY: CGFloat? {
-            page.canvas.drawing.strokes.first?.renderBounds.midY
+            page.canvas.markup.subelements.strokes.first?.renderBounds.midY
         }
     }
 
@@ -429,11 +437,11 @@ struct PageViewTests {
     func inkKeptOnOrientationChange() {
         let harness = Harness(text: Self.severalPages)
         harness.setInk(PKDrawing(strokes: [Self.stroke(at: 1500)]))
-        let before = harness.page.ink.strokes.first?.renderBounds
+        let before = harness.page.ink.subelements.strokes.first?.renderBounds
 
         harness.switchTo(PageLayout(orientation: .landscape))
 
-        #expect(harness.page.ink.strokes.first?.renderBounds == before)
+        #expect(harness.page.ink.subelements.strokes.first?.renderBounds == before)
     }
 
     // MARK: Decorations
@@ -493,7 +501,7 @@ struct PageViewTests {
         let layout = harness.page.pageLayout
 
         harness.setInk(PKDrawing(strokes: [Self.stroke(at: 3000)]))
-        let inkBottom = harness.page.canvas.drawing.bounds.maxY
+        let inkBottom = harness.page.canvas.markup.contentsRenderFrame.maxY
 
         #expect(harness.page.pageCount == layout.pageIndex(atY: inkBottom) + 1)
         #expect(harness.page.pageCount > 1)
@@ -505,7 +513,7 @@ struct PageViewTests {
     func deletingTextKeepsInk() {
         let harness = Harness(text: Self.severalPages, area: CGSize(width: 682, height: 900))
         harness.setInk(PKDrawing(strokes: [Self.stroke(at: 3000)]))
-        let inkBottom = harness.page.canvas.drawing.bounds.maxY
+        let inkBottom = harness.page.canvas.markup.contentsRenderFrame.maxY
 
         harness.page.textView.text = "Nearly empty now."
         harness.layOut()

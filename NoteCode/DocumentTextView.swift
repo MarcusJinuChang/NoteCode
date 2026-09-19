@@ -41,8 +41,10 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.invalidateStyling()
         context.coordinator.restyle(textView)
         context.coordinator.editor = editor
-        editor?.attach(textView)
         let page = PageView(textView: textView)
+        // After the page: `attach` applies the current mode, which now moves a
+        // canvas knob too, and the canvas is the page's.
+        editor?.attach(textView, canvas: page.canvas)
         page.pageLayout = pageLayout
         return page
     }

@@ -21,19 +21,27 @@ final class NoteEditor {
     private(set) var mode: EditorMode = .text
 
     /// What ink mode draws with. Kept here rather than in the hotbar so the
-    /// canvas can read it once it exists.
-    var inkTool = InkToolState()
+    /// canvas can take it as it changes.
+    var inkTool = InkToolState() {
+        didSet {
+            guard inkTool != oldValue else { return }
+            canvas?.tool = inkTool.pencilKitTool
+        }
+    }
 
     private(set) var canUndo = false
     private(set) var canRedo = false
 
     @ObservationIgnored private weak var textView: UITextView?
+    @ObservationIgnored private weak var canvas: DrawingCanvas?
     @ObservationIgnored private var savedSession: TextSession?
 
-    /// Called by `DocumentTextView` once its text view exists.
-    func attach(_ textView: UITextView) {
+    /// Called by `DocumentTextView` once the page, and so the canvas, exists.
+    func attach(_ textView: UITextView, canvas: DrawingCanvas? = nil) {
         self.textView = textView
-        savedSession = mode.apply(to: textView, saved: nil)
+        self.canvas = canvas
+        canvas?.tool = inkTool.pencilKitTool
+        savedSession = mode.apply(to: textView, canvas: canvas, saved: nil)
         refreshUndoState()
     }
 
@@ -41,7 +49,7 @@ final class NoteEditor {
         guard newMode != mode else { return }
         mode = newMode
         if let textView {
-            savedSession = newMode.apply(to: textView, saved: savedSession)
+            savedSession = newMode.apply(to: textView, canvas: canvas, saved: savedSession)
         }
         refreshUndoState()
     }
@@ -93,11 +101,13 @@ final class NoteEditor {
 
     /// The undo stack of whichever layer is taking input.
     ///
-    /// Only the text view's today. Whether ink gets its own stack or shares
-    /// this one is still open in the phase plan, and is answered on device
-    /// once the canvas exists.
+    /// Two stacks, not one. Left alone they would be one: the canvas's
+    /// `undoManager` walks the responder chain into the text view's. Ink and
+    /// text are separate kinds of edit, and undoing a stroke by accident while
+    /// typing is worse than an arrow that only undoes what the current mode
+    /// did, so `DrawingCanvas` vends its own and this picks between them.
     private var activeUndoManager: UndoManager? {
-        mode == .text ? textView?.undoManager : nil
+        mode == .text ? textView?.undoManager : canvas?.undoManager
     }
 
     func undo() {
