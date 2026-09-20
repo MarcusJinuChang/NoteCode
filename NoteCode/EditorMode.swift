@@ -37,16 +37,25 @@ extension EditorMode {
     ///
     /// The same shape as `TextRewritingPolicy.apply(to:)`, for the same
     /// reason: settings that have to agree live in one call, or one of them
-    /// eventually gets missed at a call site. The canvas's
-    /// `isUserInteractionEnabled` and `drawingPolicy` join this when the
-    /// canvas exists. The tool picker's settings never will — the hotbar
-    /// replaces `PKToolPicker`, see docs/phase-drawing-layer.md.
+    /// eventually gets missed at a call site. The tool picker's settings never
+    /// join it — the hotbar replaces `PKToolPicker`, see
+    /// docs/phase-drawing-layer.md.
+    ///
+    /// The canvas brings one knob, not the two the plan expected. Which input
+    /// may draw turned out to be a property of the canvas rather than of the
+    /// mode: PaperKit has no `drawingPolicy`, and its Pencil-only drawing
+    /// recognisers are set up once, in `DrawingCanvas`. What moves per mode is
+    /// who accepts touches at all.
     ///
     /// - Parameter saved: what the previous call returned.
     /// - Returns: what to pass next time. Entering ink captures a session and
     ///   returning to text spends it.
     @discardableResult
-    func apply(to textView: UITextView, saved: TextSession?) -> TextSession? {
+    func apply(to textView: UITextView, canvas: DrawingCanvas? = nil, saved: TextSession?) -> TextSession? {
+        // Not `isHidden`: both layers stay visible in both modes, and only
+        // one of them accepts touches.
+        canvas?.isUserInteractionEnabled = self == .ink
+
         switch self {
         case .ink:
             // Applying ink twice must not capture twice. By the second call

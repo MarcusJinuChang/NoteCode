@@ -5,6 +5,7 @@
 
 #if canImport(UIKit)
 
+import PencilKit
 import SwiftUI
 import Testing
 import UIKit
@@ -22,6 +23,7 @@ struct NoteEditorTests {
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
         let textView = DocumentTextView.makeConfiguredTextView()
         let editor = NoteEditor()
+        let canvas = DrawingCanvas(pageSize: CGSize(width: 816, height: 1056))
         var coordinator: DocumentTextView.Coordinator!
 
         init(_ text: String) {
@@ -35,9 +37,10 @@ struct NoteEditorTests {
             textView.delegate = coordinator
             textView.text = text
             window.addSubview(textView)
+            textView.addSubview(canvas)
             window.makeKeyAndVisible()
 
-            editor.attach(textView)
+            editor.attach(textView, canvas: canvas)
         }
     }
 
@@ -93,15 +96,59 @@ struct NoteEditorTests {
         #expect(harness.textView.isEditable)
     }
 
-    @Test("Undo stands down in ink mode until the canvas has a stack of its own")
-    func undoDisabledInInk() {
+    @Test("The arrows follow the mode's own undo stack")
+    func undoFollowsTheMode() {
         let harness = Harness("a word b")
         harness.textView.selectedRange = NSRange(location: 2, length: 4)
         harness.editor.toggle(.bold)
+        #expect(harness.editor.canUndo)
 
         harness.editor.setMode(.ink)
 
+        // The text edit is still there to undo, but it isn't ink's to undo.
+        // The canvas's stack is empty, so the arrow stands down.
         #expect(!harness.editor.canUndo)
+
+        harness.canvas.undoManager?.registerUndo(withTarget: harness.canvas) { _ in }
+        harness.editor.refreshUndoState()
+        #expect(harness.editor.canUndo)
+
+        harness.editor.setMode(.text)
+        #expect(harness.editor.canUndo)
+    }
+
+    @Test("Clearing ink undo stands the arrows down")
+    func clearedInkUndoUpdatesTheArrows() {
+        let harness = Harness("a word b")
+        harness.editor.setMode(.ink)
+        harness.canvas.undoManager?.registerUndo(withTarget: harness.canvas) { _ in }
+        harness.editor.refreshUndoState()
+        #expect(harness.editor.canUndo)
+
+        harness.canvas.forgetUndo()
+
+        #expect(!harness.editor.canUndo)
+    }
+
+    @Test("The Pencil-only lock reaches the canvas")
+    func pencilLockReachesTheCanvas() {
+        let harness = Harness("a word b")
+        #expect(harness.canvas.allowsFingerDrawing)
+
+        harness.editor.isPencilOnly = true
+        #expect(!harness.canvas.allowsFingerDrawing)
+
+        harness.editor.isPencilOnly = false
+        #expect(harness.canvas.allowsFingerDrawing)
+    }
+
+    @Test("The hotbar's tool reaches the canvas")
+    func toolReachesTheCanvas() {
+        let harness = Harness("a word b")
+
+        harness.editor.inkTool = InkToolState(kind: .highlighter, color: .red)
+
+        #expect((harness.canvas.tool as? PKInkingTool)?.inkType == .marker)
     }
 }
 

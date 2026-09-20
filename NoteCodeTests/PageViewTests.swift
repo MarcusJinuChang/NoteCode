@@ -5,6 +5,7 @@
 
 #if canImport(UIKit)
 
+import PaperKit
 import PencilKit
 import Testing
 import UIKit
@@ -71,8 +72,15 @@ struct PageViewTests {
             layOut()
         }
 
+        /// Ink is a `PaperMarkup`, but strokes are easier to write as a
+        /// `PKDrawing`, and PaperKit takes one wholesale.
         func setInk(_ drawing: PKDrawing) {
-            page.setInk(drawing)
+            var markup = PaperMarkup(bounds: CGRect(origin: .zero, size: CGSize(
+                width: page.pageLayout.pageSize.width,
+                height: 100_000
+            )))
+            markup.append(contentsOf: drawing)
+            page.setInk(markup)
             layOut()
         }
 
@@ -125,7 +133,7 @@ struct PageViewTests {
 
         /// Where the first stroke is shown, by its middle.
         var shownInkY: CGFloat? {
-            page.canvas.drawing.strokes.first?.renderBounds.midY
+            page.canvas.markup.subelements.strokes.first?.renderBounds.midY
         }
     }
 
@@ -429,11 +437,96 @@ struct PageViewTests {
     func inkKeptOnOrientationChange() {
         let harness = Harness(text: Self.severalPages)
         harness.setInk(PKDrawing(strokes: [Self.stroke(at: 1500)]))
-        let before = harness.page.ink.strokes.first?.renderBounds
+        let before = harness.page.ink.subelements.strokes.first?.renderBounds
 
         harness.switchTo(PageLayout(orientation: .landscape))
 
-        #expect(harness.page.ink.strokes.first?.renderBounds == before)
+        #expect(harness.page.ink.subelements.strokes.first?.renderBounds == before)
+    }
+
+    // MARK: Ink drawn on the canvas
+
+    /// Drawing, from the page's side: a stroke lands on the canvas and
+    /// PaperKit says the markup changed.
+    private static func draw(_ strokes: [PKStroke], on harness: Harness) {
+        var markup = harness.page.canvas.markup
+        markup.append(contentsOf: PKDrawing(strokes: strokes))
+        harness.page.canvas.markup = markup
+        harness.page.canvas.onMarkupChanged?()
+        harness.layOut()
+    }
+
+    @Test("A stroke drawn in any mode is stored where it prints", arguments: PageViewMode.allCases)
+    func drawnStrokeIsStoredInPrintCoordinates(mode: PageViewMode) {
+        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: mode))
+        let drawnAt = PageLayout(mode: mode).bodyTop(ofPage: 2) + 50
+
+        Self.draw([Self.stroke(at: drawnAt)], on: harness)
+
+        let stored = harness.page.ink.subelements.strokes.first?.renderBounds.midY
+        #expect(abs((stored ?? 0) - (Self.printPortrait.bodyTop(ofPage: 2) + 50)) < 0.5)
+    }
+
+    @Test("A stroke drawn in seamless is on the same words in every other mode")
+    func drawnStrokeFollowsTheModes() {
+        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
+        let drawnAt = PageLayout(mode: .seamless).bodyTop(ofPage: 2) + 50
+
+        Self.draw([Self.stroke(at: drawnAt)], on: harness)
+
+        for mode in [PageViewMode.print, .compressed, .seamless] {
+            harness.switchTo(PageLayout(mode: mode))
+            #expect(abs((harness.shownInkY ?? 0) - (PageLayout(mode: mode).bodyTop(ofPage: 2) + 50)) < 0.5)
+        }
+    }
+
+    @Test("Erasing on the canvas takes the stroke out of the stored ink")
+    func erasedStrokeLeavesTheInk() {
+        let harness = Harness(text: Self.severalPages)
+        Self.draw([Self.stroke(at: 400), Self.stroke(at: 1500)], on: harness)
+        #expect(harness.page.ink.subelements.count == 2)
+
+        var markup = harness.page.canvas.markup
+        if let last = markup.subelements.ids.last {
+            markup.subelements.removeElement(for: last)
+        }
+        harness.page.canvas.markup = markup
+        harness.page.canvas.onMarkupChanged?()
+
+        #expect(harness.page.ink.subelements.count == 1)
+    }
+
+    @Test("Drawing leaves untouched ink exactly where it was stored")
+    func drawingDoesNotDisturbStoredInk() {
+        let print = Self.printPortrait
+        let harness = Harness(text: Self.severalPages, layout: print)
+        let inMargin = print.bodyTop(ofPage: 2) + print.bodyHeight + 30
+        harness.setInk(PKDrawing(strokes: [Self.stroke(at: inMargin)]))
+        harness.switchTo(PageLayout(mode: .seamless))
+
+        // Margin ink has no exact place in seamless, so a stroke drawn
+        // elsewhere must not drag it through a round trip on the way in.
+        Self.draw([Self.stroke(at: 300)], on: harness)
+        harness.switchTo(print)
+
+        let marginInk = harness.page.ink.subelements.strokes
+            .map(\.renderBounds.midY)
+            .max()
+        #expect(abs((marginInk ?? 0) - inMargin) < 0.5)
+    }
+
+    @Test("Showing ink again clears what ink undo was holding")
+    func modeSwitchForgetsInkUndo() {
+        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
+        Self.draw([Self.stroke(at: 1500)], on: harness)
+        let canvas = harness.page.canvas
+        canvas.undoManager?.registerUndo(withTarget: canvas) { _ in }
+        #expect(canvas.undoManager?.canUndo == true)
+
+        harness.switchTo(PageLayout(mode: .print))
+
+        // That action would have put the stroke back where it sat in seamless.
+        #expect(canvas.undoManager?.canUndo == false)
     }
 
     // MARK: Decorations
@@ -493,7 +586,7 @@ struct PageViewTests {
         let layout = harness.page.pageLayout
 
         harness.setInk(PKDrawing(strokes: [Self.stroke(at: 3000)]))
-        let inkBottom = harness.page.canvas.drawing.bounds.maxY
+        let inkBottom = harness.page.canvas.markup.contentsRenderFrame.maxY
 
         #expect(harness.page.pageCount == layout.pageIndex(atY: inkBottom) + 1)
         #expect(harness.page.pageCount > 1)
@@ -505,7 +598,7 @@ struct PageViewTests {
     func deletingTextKeepsInk() {
         let harness = Harness(text: Self.severalPages, area: CGSize(width: 682, height: 900))
         harness.setInk(PKDrawing(strokes: [Self.stroke(at: 3000)]))
-        let inkBottom = harness.page.canvas.drawing.bounds.maxY
+        let inkBottom = harness.page.canvas.markup.contentsRenderFrame.maxY
 
         harness.page.textView.text = "Nearly empty now."
         harness.layOut()

@@ -107,15 +107,16 @@ Referenced by name from `TextRewritingPolicy.swift` and `DocumentTextView.swift`
 |---|---|
 | `TextRewritingPolicy.swift` | **Per-region text rewriting.** All five keyboard traits are `.code` everywhere, so prose loses autocorrect. Plan: `.prose` outside a fence, `.code` inside, with `reloadInputViews()`. |
 | `DocumentStyler.swift` | **Markers that recede.** Markdown markers stay visible in `tertiaryLabel`. Hiding them when the caret is elsewhere is the Obsidian behaviour. |
-| `PageLayout.swift` | **Printing.** Print layout is the printed page exactly — `sheet(ofPage:)` times 72/96. A `UIPrintPageRenderer` drawing each sheet's rect of the text view is what's left. A4 is one more paper size. |
+| `PageLayout.swift` | **Printing.** Print layout is the printed page exactly — `sheet(ofPage:)` times 72/96. A `UIPrintPageRenderer` drawing each sheet's rect of the text view is what's left. A4 is one more paper size. Ink renders through `PaperMarkup.draw(in:frame:options:)`, which is async; whether it stays vector in a PDF context is untested. PencilKit's `draw(in:)` crashed there (18 Sep). |
 | `PageView.swift` | **Typing cost on long paged notes.** Page breaks are exclusion paths, and TextKit 2 then lays out everything below an edit: 34ms a keystroke near the top of a 250-line note on the simulator. If it lags on the iPad, push whole paragraphs with paragraph spacing instead, computed lazily. |
 | `PageView.swift` | **Diagonal panning when zoomed in.** The text view scrolls vertically and `PageView` sideways, so a pan picks one. |
 | `Page.swift` | **Text-anchored ink.** Wanted for its own sake, not just as a drift fix. Anchor each stroke to an `NSTextLocation` plus an offset, translate the group on relayout. Its own phase. |
 | `ContentView.swift` | **Folders.** A flat date-sorted list does not survive a semester. Touches the model, so settle it before more migrations pile up. Brings a folder-level run destination with it. |
 | `CodeDestination.swift` | **Pinned Compiler Explorer compilers.** `g142` and `python313`, chosen because the site has 1,197 compilers and no "latest" alias. A retired id still shows the code with the compiler pane complaining, so this is a maintenance item, not a risk. |
-| Responder chain | **One undo stack, or two.** The canvas's chain runs through the text view, which vends its own undo manager — verify on device. |
+| Responder chain | **One undo stack, or two.** Shared by default: the canvas's undo manager is the text view's (18 Sep, simulator). PaperKit's controller can't be subclassed, so separating them means a container view that overrides `undoManager` — untested. |
 | `PageDetailView.swift` | **The macOS editor.** Still a plain `TextEditor` — no fences, no highlighting, no ink. |
 | `Storage.swift` | **iCloud sync.** CloudKit via SwiftData, deferred past MVP by design. |
+| Layout | **iPhone Duo.** Apple's foldable, out 23 Oct 2026, runs standard iOS 27.1, so it's covered by the iPhone target. Apple asks apps to resize with the scene rather than the screen, keep controls out of the fold (`reservedRegions`), and let bars run vertically down the side. Testing needs Xcode 27.1, which carries the Duo simulator. It takes the USB-C Apple Pencil (one report says not until after launch), but ink mode on any iPhone needs fingers to draw — cut-list item 2, unproven on PaperKit. |
 
 ## Habits that are paying off
 

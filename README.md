@@ -9,7 +9,7 @@ drawings all live on the same page.
 - Continuous, scrollable notes with Obsidian-style markdown formatting
 - Triple-backtick code fences become syntax-highlighted code blocks, with any
   language highlight.js recognises — and copy or share to run them elsewhere
-- A PencilKit drawing layer toggles on and off without losing scroll position
+- A PaperKit drawing layer toggles on and off without losing scroll position
   or leaving the page
 - Letter-sized pages, portrait or landscape per note, shown seamless, compressed
   or in print layout, with pinch to zoom — line breaks never change with the
@@ -17,7 +17,7 @@ drawings all live on the same page.
 
 ## Stack
 
-Swift, SwiftUI, TextKit 2, PencilKit, SwiftData
+Swift, SwiftUI, TextKit 2, PaperKit, SwiftData
 
 ## Status
 

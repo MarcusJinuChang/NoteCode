@@ -5,6 +5,7 @@
 
 #if canImport(UIKit)
 
+import PaperKit
 import PencilKit
 import Testing
 import UIKit
@@ -86,6 +87,35 @@ struct EditorModeTests {
         let saved = EditorMode.ink.apply(to: harness.textView, saved: nil)
 
         #expect(EditorMode.text.apply(to: harness.textView, saved: saved) == nil)
+    }
+
+    @Test("Ink mode hands input to the canvas, and text mode takes it back")
+    func canvasTakesInput() {
+        let harness = Harness()
+        let canvas = DrawingCanvas(pageSize: CGSize(width: 816, height: 1056))
+        harness.textView.addSubview(canvas)
+
+        let saved = EditorMode.ink.apply(to: harness.textView, canvas: canvas, saved: nil)
+        #expect(canvas.isUserInteractionEnabled)
+
+        EditorMode.text.apply(to: harness.textView, canvas: canvas, saved: saved)
+        #expect(!canvas.isUserInteractionEnabled)
+    }
+
+    @Test("A round trip leaves the canvas's own settings alone")
+    func canvasSettingsSurviveARoundTrip() {
+        let harness = Harness()
+        let canvas = DrawingCanvas(pageSize: CGSize(width: 816, height: 1056))
+        harness.textView.addSubview(canvas)
+
+        // Who may draw belongs to the canvas, not to the mode. If a mode ever
+        // starts moving these, they belong in `apply` with the rest.
+        let saved = EditorMode.ink.apply(to: harness.textView, canvas: canvas, saved: nil)
+        EditorMode.text.apply(to: harness.textView, canvas: canvas, saved: saved)
+
+        #expect(!canvas.controller.directTouchAutomaticallyDraws)
+        #expect(canvas.controller.directTouchMode == .drawing)
+        #expect(!canvas.controller.scrollConfiguration.isScrollEnabled)
     }
 }
 
