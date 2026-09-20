@@ -29,6 +29,20 @@ final class NoteEditor {
         }
     }
 
+    /// Whether only the Pencil draws.
+    ///
+    /// Off by default. The page already has a hard toggle between typing and
+    /// drawing, so a finger in ink mode means to draw; there is no need to
+    /// make people reach for the Pencil to leave a mark. On, a finger scrolls
+    /// and selects instead — what you want with the Pencil in hand and a palm
+    /// resting on the page.
+    var isPencilOnly = false {
+        didSet {
+            guard isPencilOnly != oldValue else { return }
+            canvas?.allowsFingerDrawing = !isPencilOnly
+        }
+    }
+
     private(set) var canUndo = false
     private(set) var canRedo = false
 
@@ -41,6 +55,7 @@ final class NoteEditor {
         self.textView = textView
         self.canvas = canvas
         canvas?.tool = inkTool.pencilKitTool
+        canvas?.allowsFingerDrawing = !isPencilOnly
         savedSession = mode.apply(to: textView, canvas: canvas, saved: nil)
         refreshUndoState()
     }

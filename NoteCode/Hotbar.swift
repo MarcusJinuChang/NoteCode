@@ -148,6 +148,19 @@ struct Hotbar: View {
         // The eraser and lasso have no colour, so the swatches stand down
         // rather than suggesting a choice that does nothing.
         .disabled(!editor.inkTool.kind.usesColor)
+
+        divider
+
+        // Locked, a finger scrolls and selects instead of drawing. Worth a
+        // button rather than a setting: which one you want changes with
+        // whether the Pencil is in your hand.
+        button(
+            "Pencil Only",
+            editor.isPencilOnly ? "applepencil" : "hand.draw",
+            isSelected: editor.isPencilOnly
+        ) {
+            editor.isPencilOnly.toggle()
+        }
     }
 
     // MARK: Pieces

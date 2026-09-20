@@ -444,6 +444,77 @@ struct PageViewTests {
         #expect(harness.page.ink.subelements.strokes.first?.renderBounds == before)
     }
 
+    // MARK: Ink drawn on the canvas
+
+    /// Drawing, from the page's side: a stroke lands on the canvas and
+    /// PaperKit says the markup changed.
+    private static func draw(_ strokes: [PKStroke], on harness: Harness) {
+        var markup = harness.page.canvas.markup
+        markup.append(contentsOf: PKDrawing(strokes: strokes))
+        harness.page.canvas.markup = markup
+        harness.page.canvas.onMarkupChanged?()
+        harness.layOut()
+    }
+
+    @Test("A stroke drawn in any mode is stored where it prints", arguments: PageViewMode.allCases)
+    func drawnStrokeIsStoredInPrintCoordinates(mode: PageViewMode) {
+        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: mode))
+        let drawnAt = PageLayout(mode: mode).bodyTop(ofPage: 2) + 50
+
+        Self.draw([Self.stroke(at: drawnAt)], on: harness)
+
+        let stored = harness.page.ink.subelements.strokes.first?.renderBounds.midY
+        #expect(abs((stored ?? 0) - (Self.printPortrait.bodyTop(ofPage: 2) + 50)) < 0.5)
+    }
+
+    @Test("A stroke drawn in seamless is on the same words in every other mode")
+    func drawnStrokeFollowsTheModes() {
+        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
+        let drawnAt = PageLayout(mode: .seamless).bodyTop(ofPage: 2) + 50
+
+        Self.draw([Self.stroke(at: drawnAt)], on: harness)
+
+        for mode in [PageViewMode.print, .compressed, .seamless] {
+            harness.switchTo(PageLayout(mode: mode))
+            #expect(abs((harness.shownInkY ?? 0) - (PageLayout(mode: mode).bodyTop(ofPage: 2) + 50)) < 0.5)
+        }
+    }
+
+    @Test("Erasing on the canvas takes the stroke out of the stored ink")
+    func erasedStrokeLeavesTheInk() {
+        let harness = Harness(text: Self.severalPages)
+        Self.draw([Self.stroke(at: 400), Self.stroke(at: 1500)], on: harness)
+        #expect(harness.page.ink.subelements.count == 2)
+
+        var markup = harness.page.canvas.markup
+        if let last = markup.subelements.ids.last {
+            markup.subelements.removeElement(for: last)
+        }
+        harness.page.canvas.markup = markup
+        harness.page.canvas.onMarkupChanged?()
+
+        #expect(harness.page.ink.subelements.count == 1)
+    }
+
+    @Test("Drawing leaves untouched ink exactly where it was stored")
+    func drawingDoesNotDisturbStoredInk() {
+        let print = Self.printPortrait
+        let harness = Harness(text: Self.severalPages, layout: print)
+        let inMargin = print.bodyTop(ofPage: 2) + print.bodyHeight + 30
+        harness.setInk(PKDrawing(strokes: [Self.stroke(at: inMargin)]))
+        harness.switchTo(PageLayout(mode: .seamless))
+
+        // Margin ink has no exact place in seamless, so a stroke drawn
+        // elsewhere must not drag it through a round trip on the way in.
+        Self.draw([Self.stroke(at: 300)], on: harness)
+        harness.switchTo(print)
+
+        let marginInk = harness.page.ink.subelements.strokes
+            .map(\.renderBounds.midY)
+            .max()
+        #expect(abs((marginInk ?? 0) - inMargin) < 0.5)
+    }
+
     // MARK: Decorations
 
     @Test("Print layout draws a sheet per page, exactly where each prints")

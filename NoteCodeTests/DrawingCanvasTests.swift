@@ -61,15 +61,30 @@ struct DrawingCanvasTests {
         #expect(harness.canvas.controller.contentView?.backgroundColor == .clear)
     }
 
-    @Test("Only the Pencil draws")
-    func pencilOnly() {
+    @Test("A finger draws too, until the canvas is locked to the Pencil")
+    func fingerDrawing() {
         let harness = Harness()
 
-        // PaperKit's drawing recognisers take the Pencil on their own. What
-        // this turns off is a finger drawing when a tool picker happens to be
-        // up and the system setting allows it — neither of which is ours.
-        #expect(!harness.canvas.controller.directTouchAutomaticallyDraws)
+        #expect(harness.canvas.allowsFingerDrawing)
+        #expect(harness.canvas.controller.directTouchMode == .drawing)
+
+        harness.canvas.allowsFingerDrawing = false
         #expect(harness.canvas.controller.directTouchMode == .selection)
+
+        // Never left to PaperKit: automatic means a finger draws only while a
+        // tool picker is up, and the hotbar replaced the picker.
+        #expect(!harness.canvas.controller.directTouchAutomaticallyDraws)
+    }
+
+    @Test("A change on the canvas reaches the page")
+    func changesReachThePage() {
+        let harness = Harness()
+        var told = 0
+        harness.canvas.onMarkupChanged = { told += 1 }
+
+        harness.canvas.controller.delegate?.paperMarkupViewControllerDidChangeMarkup(harness.canvas.controller)
+
+        #expect(told == 1)
     }
 
     @Test("Text owns input until the toggle hands it over")

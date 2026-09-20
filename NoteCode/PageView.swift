@@ -76,6 +76,14 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// count — which every layout pass does — doesn't walk the strokes.
     private var inkBottom: CGFloat?
 
+    /// Where each element sat when the canvas was last shown or read.
+    ///
+    /// What the reader draws, erases or moves is whatever differs from this.
+    /// Everything else keeps the stored copy it already has, so ink that was
+    /// never touched is never converted back from the screen — the round trip
+    /// `ink` exists to avoid.
+    private var shownElements: [MarkupOrderedSet.ElementID: CGRect] = [:]
+
     private let pinch = UIPinchGestureRecognizer()
     private var zoomAtPinchStart: CGFloat = 1
 
@@ -122,6 +130,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
 
         // Scrolling, transparency and who may draw are the canvas's own
         // business — see DrawingCanvas.
+        canvas.onMarkupChanged = { [weak self] in self?.captureInk() }
         textView.addSubview(canvas)
 
         pinch.addTarget(self, action: #selector(handlePinch(_:)))
@@ -430,19 +439,123 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// that round trip is what `ink` exists to avoid.
     private func showInk() {
         let print = PageLayout(orientation: pageLayout.orientation, mode: .print)
-        canvas.markup = PageView.convert(ink, from: print, to: pageLayout) ?? ink
+        var shown = canvas.markup
+
+        if shown.subelements.isEmpty {
+            // Nothing on the canvas to reconcile with: hand it the stored ink,
+            // converted, in one go.
+            canvas.markup = PageView.convert(ink, from: print, to: pageLayout) ?? ink
+        } else {
+            // The canvas has its own copy of these elements, and a markup
+            // *merges* what it is given rather than replacing it. A copy made
+            // from `ink` branched before the canvas's own edits, so assigning
+            // it changes nothing — measured on 19 September, when ink stayed
+            // where it was drawn through every mode. Moving the canvas's own
+            // elements, by the distance its stored copy says, is what takes.
+            let stored = Dictionary(
+                ink.subelements.map { ($0.elementID, $0) },
+                uniquingKeysWith: { _, last in last }
+            )
+
+            for id in Set(shown.subelements.ids) where stored[id] == nil {
+                shown.subelements.removeElement(for: id)
+            }
+            let onCanvas = Set(shown.subelements.ids)
+            for (id, element) in stored where !onCanvas.contains(id) {
+                shown.subelements.updateOrAppend(element)
+            }
+
+            var placed = MarkupOrderedSet()
+            for element in shown.subelements {
+                guard let original = stored[element.elementID] else { continue }
+                let target = print.convert(y: original.renderFrame.midY, to: pageLayout)
+                    ?? original.renderFrame.midY
+                var element = element
+                let delta = target - element.renderFrame.midY
+                if abs(delta) > 0.001 {
+                    element.applyTransform(CGAffineTransform(translationX: 0, y: delta))
+                }
+                placed.append(element)
+            }
+            shown.subelements = placed
+            canvas.markup = shown
+        }
+
+        shownElements = PageView.frames(of: canvas.markup)
         inkBottom = canvas.markup.subelements.isEmpty ? nil : canvas.markup.contentsRenderFrame.maxY
         // The page count depends on the ink, and nothing about the text changed.
         textView.reapplyContentHeightAdjustment()
         textView.setNeedsLayout()
     }
 
-    /// The ink with every element moved to the same place on its page in
-    /// another layout, or `nil` when there's no such place — a different
-    /// orientation wraps text at another width.
+    /// Takes what the reader just drew, erased or moved into `ink`.
+    ///
+    /// Only what changed is converted into print coordinates. An element
+    /// that hasn't moved keeps the stored copy it came from, because
+    /// converting out of a mode with narrow breaks isn't exact: ink in a
+    /// sheet's margin has no place in seamless, so a round trip there and
+    /// back would walk it onto the next page.
+    private func captureInk() {
+        let shown = canvas.markup
+        let print = PageLayout(orientation: pageLayout.orientation, mode: .print)
+        let shownIDs = Set(shown.subelements.ids)
+        let storedIDs = Set(ink.subelements.ids)
+
+        var updated = ink
+        var changed = false
+
+        // Erased. A markup merges rather than replaces, so leaving an element
+        // out of a new set keeps it; taking it out is a call of its own.
+        for id in storedIDs where !shownIDs.contains(id) {
+            updated.subelements.removeElement(for: id)
+            changed = true
+        }
+
+        // Drawn, or moved by the lasso. Everything else keeps the copy it
+        // already has, so ink nobody touched is never converted back from the
+        // screen — the round trip `ink` exists to avoid.
+        for element in shown.subelements {
+            let id = element.elementID
+            guard !storedIDs.contains(id) || shownElements[id] != element.renderFrame else { continue }
+            updated.subelements.updateOrAppend(PageView.moved(element, from: pageLayout, to: print))
+            changed = true
+        }
+
+        guard changed else { return }
+        ink = updated
+
+        shownElements = PageView.frames(of: shown)
+        inkBottom = shown.subelements.isEmpty ? nil : shown.contentsRenderFrame.maxY
+        // Ink below the last line makes the note longer, and nothing about the
+        // text changed to trigger that on its own.
+        textView.reapplyContentHeightAdjustment()
+        textView.setNeedsLayout()
+    }
+
+    /// Where each element sits, by id.
+    private static func frames(of markup: PaperMarkup) -> [MarkupOrderedSet.ElementID: CGRect] {
+        Dictionary(
+            markup.subelements.map { ($0.elementID, $0.renderFrame) },
+            uniquingKeysWith: { _, last in last }
+        )
+    }
+
+    /// One element at the same place on its page in another layout.
     ///
     /// An element belongs to the page its middle is on, so a stroke drawn
     /// across a page break travels whole rather than being torn in two.
+    private static func moved(_ element: any Markup, from old: PageLayout, to new: PageLayout) -> any Markup {
+        var element = element
+        let middle = element.renderFrame.midY
+        if let target = old.convert(y: middle, to: new), target != middle {
+            element.applyTransform(CGAffineTransform(translationX: 0, y: target - middle))
+        }
+        return element
+    }
+
+    /// The ink with every element moved to the same place on its page in
+    /// another layout, or `nil` when there's no such place — a different
+    /// orientation wraps text at another width.
     ///
     /// Built in one pass and assigned once. Moving elements one at a time
     /// through `updateOrAppend` costs more the more there are: 3.3s for a
@@ -453,12 +566,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
 
         var moved = MarkupOrderedSet()
         for element in markup.subelements {
-            var element = element
-            let middle = element.renderFrame.midY
-            if let target = old.convert(y: middle, to: new), target != middle {
-                element.applyTransform(CGAffineTransform(translationX: 0, y: target - middle))
-            }
-            moved.append(element)
+            moved.append(PageView.moved(element, from: old, to: new))
         }
 
         var result = markup

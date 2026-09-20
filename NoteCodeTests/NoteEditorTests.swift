@@ -117,6 +117,18 @@ struct NoteEditorTests {
         #expect(harness.editor.canUndo)
     }
 
+    @Test("The Pencil-only lock reaches the canvas")
+    func pencilLockReachesTheCanvas() {
+        let harness = Harness("a word b")
+        #expect(harness.canvas.allowsFingerDrawing)
+
+        harness.editor.isPencilOnly = true
+        #expect(!harness.canvas.allowsFingerDrawing)
+
+        harness.editor.isPencilOnly = false
+        #expect(harness.canvas.allowsFingerDrawing)
+    }
+
     @Test("The hotbar's tool reaches the canvas")
     func toolReachesTheCanvas() {
         let harness = Harness("a word b")

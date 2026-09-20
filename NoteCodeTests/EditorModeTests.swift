@@ -114,7 +114,7 @@ struct EditorModeTests {
         EditorMode.text.apply(to: harness.textView, canvas: canvas, saved: saved)
 
         #expect(!canvas.controller.directTouchAutomaticallyDraws)
-        #expect(canvas.controller.directTouchMode == .selection)
+        #expect(canvas.controller.directTouchMode == .drawing)
         #expect(!canvas.controller.scrollConfiguration.isScrollEnabled)
     }
 }
