@@ -79,6 +79,10 @@ final class DrawingCanvas: UIView {
         }
     }
 
+    /// Called when ink's undo stack gains or loses something the hotbar's
+    /// arrows should reflect.
+    var onUndoDidChange: (() -> Void)?
+
     /// Called after the reader changes what's on the canvas: a stroke drawn,
     /// erased, or moved. Ink the app puts there itself changes nothing the
     /// page doesn't already know, so `PageView` measures against what it last
@@ -127,6 +131,21 @@ final class DrawingCanvas: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    // MARK: Undo
+
+    /// Forgets what ink undo was holding.
+    ///
+    /// Called when the page replaces what's on the canvas. Each action on that
+    /// stack restores a stroke to where it sat in the mode it was drawn in, so
+    /// after a switch to print layout, undoing a stroke drawn in seamless
+    /// would drop it a page short of its words. The stored ink in
+    /// `PageView.ink` is what survives a mode change; the stack isn't.
+    func forgetUndo() {
+        guard inkUndoManager.canUndo || inkUndoManager.canRedo else { return }
+        inkUndoManager.removeAllActions()
+        onUndoDidChange?()
     }
 
     // MARK: Input

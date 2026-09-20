@@ -56,6 +56,7 @@ final class NoteEditor {
         self.canvas = canvas
         canvas?.tool = inkTool.pencilKitTool
         canvas?.allowsFingerDrawing = !isPencilOnly
+        canvas?.onUndoDidChange = { [weak self] in self?.refreshUndoState() }
         savedSession = mode.apply(to: textView, canvas: canvas, saved: nil)
         refreshUndoState()
     }

@@ -481,6 +481,10 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             canvas.markup = shown
         }
 
+        // Ink just moved under whatever the undo stack was holding: its
+        // actions restore strokes to the mode they were drawn in.
+        canvas.forgetUndo()
+
         shownElements = PageView.frames(of: canvas.markup)
         inkBottom = canvas.markup.subelements.isEmpty ? nil : canvas.markup.contentsRenderFrame.maxY
         // The page count depends on the ink, and nothing about the text changed.

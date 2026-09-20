@@ -515,6 +515,20 @@ struct PageViewTests {
         #expect(abs((marginInk ?? 0) - inMargin) < 0.5)
     }
 
+    @Test("Showing ink again clears what ink undo was holding")
+    func modeSwitchForgetsInkUndo() {
+        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
+        Self.draw([Self.stroke(at: 1500)], on: harness)
+        let canvas = harness.page.canvas
+        canvas.undoManager?.registerUndo(withTarget: canvas) { _ in }
+        #expect(canvas.undoManager?.canUndo == true)
+
+        harness.switchTo(PageLayout(mode: .print))
+
+        // That action would have put the stroke back where it sat in seamless.
+        #expect(canvas.undoManager?.canUndo == false)
+    }
+
     // MARK: Decorations
 
     @Test("Print layout draws a sheet per page, exactly where each prints")

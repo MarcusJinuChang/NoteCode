@@ -117,6 +117,19 @@ struct NoteEditorTests {
         #expect(harness.editor.canUndo)
     }
 
+    @Test("Clearing ink undo stands the arrows down")
+    func clearedInkUndoUpdatesTheArrows() {
+        let harness = Harness("a word b")
+        harness.editor.setMode(.ink)
+        harness.canvas.undoManager?.registerUndo(withTarget: harness.canvas) { _ in }
+        harness.editor.refreshUndoState()
+        #expect(harness.editor.canUndo)
+
+        harness.canvas.forgetUndo()
+
+        #expect(!harness.editor.canUndo)
+    }
+
     @Test("The Pencil-only lock reaches the canvas")
     func pencilLockReachesTheCanvas() {
         let harness = Harness("a word b")
