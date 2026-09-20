@@ -66,22 +66,29 @@ so can't scroll sideways itself.
 
 ## Who owns the touch
 
-One layer owns *editing*; neither owns scrolling. In ink mode a finger must
-still scroll, or you toggle modes every few lines during a lecture.
+One layer owns *editing*; neither owns scrolling.
+
+**Amended 19 Sep: in ink mode a finger draws.** The plan was that a finger
+scrolls and only the Pencil draws, so that reading a lecture's notes never
+meant toggling modes. The toggle itself is what changed that: ink mode is
+already a deliberate switch, so a finger there means to draw, and asking for
+the Pencil before anything can be marked is a worse trade than scrolling by
+leaving ink mode. The hotbar carries a Pencil-only lock for when the Pencil is
+in hand and a palm is on the page; locked, a finger scrolls and selects again.
 
 | Knob | Text mode | Ink mode | Why it's in the enum |
 |---|---|---|---|
 | `canvas.view.isUserInteractionEnabled` | `false` | `true` | The hit-testing switch. Not `isHidden` — both layers stay visible. |
-| `canvas.directTouchMode` | — | `.selection`, with `directTouchAutomaticallyDraws = false` | PaperKit has no `drawingPolicy`; its drawing recognizers take the Pencil only. Left automatic, a finger draws whenever a tool picker is up and the system "Draw with Finger" setting is on. |
+| `canvas.allowsFingerDrawing` | — | the lock's state | Not a mode setting: `DrawingCanvas` holds it, and the hotbar's lock moves it. It sets `directTouchMode` to `.drawing` or `.selection`, with `directTouchAutomaticallyDraws` off either way. PaperKit has no `drawingPolicy`, and left automatic a finger draws only while a tool picker is up and the system's "Draw with Finger" setting allows — the hotbar replaced the picker, so a finger would never draw. |
 | `textView.isEditable` | `true` | `false` | Stops a stray tap re-summoning the keyboard mid-stroke. |
 | `textView.isSelectable` | `true` | `false` | A resting finger or a long press would otherwise start a text selection under the pen. |
 | first responder | textView, if it was | nobody | Resigning puts the keyboard away. With no tool picker, the canvas has no reason to claim it. |
 | saved keyboard state | restored | captured | The keyboard comes back only if it was up. Reading isn't typing. |
 
-Six settings that must move together, in one `EditorMode` enum with one
-`apply` — the same argument `TextRewritingPolicy` makes for its five keyboard
-traits. The four text-side ones are built (`EditorMode.apply(to:saved:)`); the
-two canvas ones join with the canvas. Test: a round trip through `.ink` and back
+Five settings that move together, in one `EditorMode` enum with one `apply` —
+the same argument `TextRewritingPolicy` makes for its five keyboard traits. The
+canvas brought one knob rather than the two expected: who may draw turned out
+to belong to the canvas, not the mode. Test: a round trip through `.ink` and back
 leaves all of them as they started.
 
 A saved `selectedRange` used to be in this table, on the expectation that the
@@ -243,7 +250,10 @@ Found on the way:
   that needs overriding, like undo, goes on a view around it.
 - Resizing its view shifted the content until the markup was assigned again
   (simulator). `PageView` resizes the canvas whenever the page count changes.
-- A finger drag over it scrolled the text view in every configuration tried.
+- A finger drag over it scrolled the text view in every configuration tried,
+  including `directTouchMode = .drawing`. The missing piece was
+  `directTouchAutomaticallyDraws`: left on, PaperKit decides for itself and a
+  finger never draws without a tool picker. Off, `.drawing` draws.
 
 **Scope for 10 Oct:** the canvas with today's hotbar tools. Inserting shapes,
 images and text comes after, as its own piece of work.
@@ -300,25 +310,27 @@ keyboard leaving and coming back cleanly.
 
 Built early, on 12 Sep, because it doesn't depend on geometry: the text side
 of `EditorMode`, `NoteEditor`, the hotbar, and the page header. The canvas
-knobs are what's left.
+followed on 19 Sep: `DrawingCanvas`, the mode's input knob, tools and the
+Pencil-only lock from the hotbar, ink undo of its own, and strokes captured
+into `ink` as they're drawn.
 
-What to expect:
+What it turned out to involve:
 
-- **Undo is shared** (checked 18 Sep on the simulator). The canvas's
-  `undoManager` is the text view's, whether or not the text view is first
-  responder, so ink lands on the text stack. That held for PaperKit's
-  controller and for `PKCanvasView`. The controller can't be subclassed, so
-  giving ink its own stack means a container view between it and the text view
-  that overrides `undoManager`. That's untested. `showInk()` assigns the
-  markup on every mode switch, which leaves the stack pointing at strokes in
-  the old mode's positions, so clear it there.
+- **Undo is shared, and had to be unshared.** The canvas's `undoManager` is
+  the text view's, whether or not the text view is first responder, so ink
+  landed on the text stack. PaperKit's controller is `public`, not `open`, so
+  `DrawingCanvas` is the view between it and the text view, and vends its own.
+  `NoteEditor` picks the stack the mode is using. Still to do: `showInk()`
+  assigns the markup on every mode switch, which leaves that stack pointing at
+  strokes in the old mode's positions, so it needs clearing there.
 - **Scroll position is safe, content insets are not.** Dismissing the keyboard
   changes `adjustedContentInset`, which can shift visible content anyway.
-- **Fingers still reach the canvas.** A finger drag scrolls the text view, as
-  planned. The canvas keeps finger tap and long-press recognizers, though, and
-  in `.selection` mode a tap can select an element. The text view still sees
-  finger taps through the canvas too. Decide what a finger tap does in ink
-  mode.
+- **A finger reaches the canvas, and now draws there.** Locked to the Pencil,
+  a finger drag scrolls the text view instead, and the canvas's tap and
+  long-press recognizers can select an element. The text view still sees
+  finger taps through the canvas either way. Untested: how anyone scrolls a
+  long note while a finger draws — a two-finger pan should reach the text
+  view's own recognizer, which allows two touches, but that needs a device.
 - **Code-block bars straddle the canvas.** Bars for blocks that exist when a
   note opens are added before `PageView` adds the canvas
   (`DocumentTextView.swift:42` vs `:45`), so they sit under it and their
@@ -330,9 +342,23 @@ What to expect:
   controller. Either `DocumentTextView` becomes a
   `UIViewControllerRepresentable`, or the controller's view is hosted without
   one. The simulator spike ran both ways.
-- **`PageView`'s ink changes type.** `ink`, `setInk`, `showInk()` and `convert`
-  move from `PKDrawing` to `PaperMarkup`, and so do the `PageViewTests` that
-  build strokes.
+- **`PageView`'s ink changed type.** `ink`, `setInk`, `showInk()` and
+  `convert` moved from `PKDrawing` to `PaperMarkup`, and so did the
+  `PageViewTests` that build strokes.
+- **A markup is a document that merges, not a value that replaces**, and three
+  measurements on 19 Sep shaped how ink is captured:
+  - Assigning `markup` calls the delegate **twice, synchronously**. Showing
+    stored ink looked exactly like someone drawing it, and the page converted
+    what it had just shown straight back into storage. `DrawingCanvas` marks
+    its own assignments and ignores those calls.
+  - Leaving an element out of an assigned set **keeps** it. Erasing calls
+    `removeElement(for:)`.
+  - A merge only takes if it comes from the canvas's **own** document. A copy
+    made from `ink` branched before the canvas's edits, so assigning it changed
+    nothing and ink stayed where it was drawn through every mode. `showInk()`
+    moves the canvas's own elements by the distance the stored copy says.
+  - Elements assigned as a set from an unrelated markup are dropped, though
+    `updateOrAppend` takes them one by one.
 
 **Files:** `EditorMode.swift`, `NoteEditor.swift`, `Hotbar.swift`, `+DrawingCanvas.swift`, `PageView.swift`, `DocumentTextView.swift`, `PageDetailView.swift`
 **Gate:** toggle mid-document — scroll offset unchanged, caret where you left it.
@@ -341,8 +367,9 @@ What to expect:
 `Page.drawingData` already exists, so no schema change; it holds
 `PaperMarkup.dataRepresentation()` bytes. Save from
 `paperMarkupViewControllerDidChangeMarkup`, since PaperKit has no end-of-stroke
-callback. Whether it also fires when code assigns the markup is untested; ignore
-the calls `showInk()` causes either way. Encoding is async, 73ms for 1,000
+callback. It also fires — twice, synchronously — when the app assigns the
+markup itself, so `DrawingCanvas` marks those and the page ignores them.
+Capture already hangs off the same callback, so saving joins it there. Encoding is async, 73ms for 1,000
 strokes on the simulator, so it runs off the main actor. A save started as the
 app goes to the background needs a background task to finish in.
 
@@ -421,21 +448,22 @@ Hardware only:
 8. Type for thirty seconds on a heavily inked page — no dropped keystrokes.
 9. Pen, highlighter, eraser and lasso from the hotbar — each does its job on
    the canvas.
+10. Draw with a finger, then lock to the Pencil — a finger scrolls again, and
+    a resting palm leaves no mark.
+11. With a finger drawing, scroll a long note: does a two-finger pan reach the
+    text view?
 
 ## Cut list, in order
 
 1. **Drop pages added for ink.** Ink confined to the pages the text makes.
-2. **Drop the Pencil/finger split.** Fingers draw too, with an explicit
-   scroll-lock button. Cruder, but removes any dependence on gesture
-   resolution. PaperKit has no `.anyInput`. `directTouchMode = .drawing` is
-   the candidate, but a finger still scrolled with it on the simulator, so this
-   cut is unproven.
-3. **PencilKit's canvas instead of PaperKit's.** If the eraser or lasso don't
+2. **PencilKit's canvas instead of PaperKit's.** If the eraser or lasso don't
    work through `drawingTool`, or ink undo can't be separated, fall back to
    `PKCanvasView`, which `PageView` has today. Shapes and images then wait.
 
-Dropping `PKToolPicker` used to be first on this list. The hotbar adopted it
-as the plan — see the amendment under "Who owns the touch".
+Dropping `PKToolPicker` used to be first on this list, and dropping the
+Pencil/finger split was second. Both became the plan instead: the hotbar
+replaced the picker, and a finger draws by default with a lock for the Pencil —
+see the amendments under "Who owns the touch".
 
 Not cut under any circumstance: persistence. A drawing layer that loses ink is
 worse than no drawing layer.
