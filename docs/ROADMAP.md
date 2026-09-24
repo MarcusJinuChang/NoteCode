@@ -9,7 +9,7 @@ Revised 23 September 2026.
 | | |
 |---|---|
 | Drawing layer due | **10 Oct 2026** (hard stop) |
-| Using it day to day | as soon as ink is saved |
+| Using it day to day | now — ink is saved as of 23 Sep |
 | App Store submission | Nov 2026 |
 | Second version | AI + feedback, Mar 2027 |
 
@@ -18,11 +18,13 @@ Revised 23 September 2026.
 Everything up to the drawing layer's toggle is built and merged: the TextKit 2
 editor with code blocks, run and copy, Letter-sized pages in three view modes
 with pinch zoom, the note page and its hotbar, and a PaperKit canvas that a
-finger or the Pencil draws on, with ink undo of its own. 17 pull requests, 392
-tests.
+finger or the Pencil draws on, with ink undo of its own. 17 pull requests.
 
-- **Ink isn't saved yet.** It lives in memory and is gone when the note
-  closes. Saving it is this week's step, on branch `ink-persistence`.
+- **Ink is saved** (23 Sep, branch `ink-persistence`): half a second after
+  drawing pauses, and at once when the note closes or the app leaves the
+  screen. It survived a force-quit on the simulator. 410 tests.
+- **The iPad pass hasn't started.** Latency, palm rejection and Pencil-versus-
+  finger routing can only be judged on the device.
 - **Nothing is started for signing in and shipping.** Builds still sign with
   the free Personal Team, whose profiles last seven days. As of 11 Sep the
   paid Developer Program membership wasn't showing on the account. That has
@@ -33,7 +35,7 @@ tests.
 
 Not set in stone. Once the drawing layer is done, the before-November list
 gets planned properly — what fits and in what order — along with a proper UI
-design. Using the app for real starts as soon as ink is saved, and what that
+design. Using the app for real can start now that ink is saved, and what that
 turns up feeds both.
 
 ### Now — the drawing layer on PaperKit (to 10 Oct)
@@ -44,7 +46,7 @@ See [phase-drawing-layer.md](phase-drawing-layer.md) for the build plan.
 | 1. Spike | 6–7 Sep | Done |
 | 2. Geometry | 8–14 Sep | Done, and grew into pages and view modes |
 | 3. The toggle | 15–21 Sep | Done. Left over: code-block buttons and the canvas overlap — see step 3 in the phase doc |
-| 4. Saving ink | 22–28 Sep | In progress |
+| 4. Saving ink | 22–28 Sep | Done 23 Sep; gate passed on the simulator |
 | 5. Device pass | 29 Sep – 10 Oct | Not started; 11 hardware checks listed |
 
 **Fallback if it runs long:** the phase doc's cut list — stop adding pages for

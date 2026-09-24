@@ -23,9 +23,9 @@ Swift, SwiftUI, TextKit 2, PaperKit, SwiftData
 ## Status
 
 In development. The text engine, run and copy on code blocks, pages and view
-modes, pinch zoom and the note page all work. The drawing layer draws but
-doesn't save ink yet; saving is in progress. Submission is planned for
-November 2026 — see [docs/ROADMAP.md](docs/ROADMAP.md).
+modes, pinch zoom, the note page and drawing — with a finger or the Pencil,
+saved with the note — all work. Submission is planned for November 2026 — see
+[docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Planning docs
 

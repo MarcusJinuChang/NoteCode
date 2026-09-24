@@ -394,6 +394,15 @@ the same arguments in the scheme's Run → Arguments.
   tracking and it never fires, so `DocumentUITextView` refuses to let those
   recognisers begin on an action bar. Changes near this need a real tap test —
   `sendActions` in a unit test cannot see the conflict.
+- Ink is saved by `DrawingSaveScheduler` from `PageView.onInkChanged`, which
+  fires only for changes the reader made. Anything that shows or moves ink
+  for the app's own reasons must not call it: a save bumps `modifiedAt`, and
+  opening a note would reorder the list. See step 4 of
+  docs/phase-drawing-layer.md.
+- Never read `Page.drawingData` from a page whose deletion has been saved.
+  SwiftData traps ("backing data was detached … without resolving attribute
+  faults"), since external storage leaves the attribute unloaded, and
+  `isDeleted` reads false again by then — check `modelContext` too.
 - The action bars are positioned from TextKit 2's *viewport*, never from the
   whole document. Asking for a fragment further down forces layout all the way
   to it, which is the lazy layout the editor is built on.

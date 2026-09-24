@@ -91,6 +91,14 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// `ink` exists to avoid.
     private var shownElements: [MarkupOrderedSet.ElementID: CGRect] = [:]
 
+    /// Called with the note's ink, in print coordinates, whenever the reader
+    /// changes it: a stroke drawn, erased or moved.
+    ///
+    /// Not when ink is only shown — opened, or moved for a mode switch —
+    /// since nothing needs saving then, and a save would bump the note up the
+    /// list just for being looked at.
+    var onInkChanged: ((PaperMarkup) -> Void)?
+
     private let pinch = UIPinchGestureRecognizer()
     private var zoomAtPinchStart: CGFloat = 1
 
@@ -585,6 +593,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
 
         guard changed else { return }
         ink = updated
+        onInkChanged?(updated)
 
         shownElements = PageView.frames(of: shown)
         inkBottom = shown.subelements.isEmpty ? nil : shown.contentsRenderFrame.maxY
