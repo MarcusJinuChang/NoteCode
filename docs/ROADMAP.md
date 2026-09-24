@@ -169,15 +169,16 @@ Referenced by name from `TextRewritingPolicy.swift` and `DocumentTextView.swift`
 ## Habits that are paying off
 
 - **Measure first.** The highlight debounce was guessed at 200ms and measured
-  at 20ms. Do the same before choosing how often ink gets serialised.
+  at 20ms. Ink got the same treatment: 1,000 strokes read back in 29ms, so
+  reading as a note opens is fine.
 - **Isolate risk.** Spike the hard part standalone. A failed spike costs an
   afternoon; a failed integration costs a week.
 - **Settings travel together.** `TextRewritingPolicy` groups five traits into
   one type with one `apply(to:)` so they cannot drift. `EditorMode` does the
   same for the drawing toggle.
 - **Degrade, don't crash.** `Storage` falls back to an in-memory store and says
-  so. Corrupt drawing data should give an empty canvas and a warning, and must
-  never overwrite what's on disk.
+  so. Unreadable ink gives an empty canvas and a warning, and is never written
+  over.
 - **Check what's on screen, not what the code computed.** The view-switch bug
   of 13 Sep passed a test comparing the scroll offset to page geometry while
   the screen showed the wrong page. The debug launch options report where
