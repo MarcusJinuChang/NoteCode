@@ -553,6 +553,22 @@ struct PageViewTests {
         #expect(abs(harness.page.textView.frame.minX) < 0.5)
     }
 
+    @Test("The outline sits on the page's edges, not the area's, and print layout's sheets carry their own")
+    func outlineOnThePage() {
+        // Wider than a page fits at 1.25x, so the page is narrower than its area.
+        let harness = Harness(text: Self.severalPages, area: CGSize(width: 1300, height: 900), layout: PageLayout(mode: .seamless))
+        let page = harness.page
+
+        #expect(!page.outline.isHidden)
+        #expect(page.outline.frame == page.textView.frame)
+        #expect(page.outline.frame.width < 1300 - 1)
+        #expect(abs(page.outline.frame.width - page.pageLayout.pageSize.width * page.displayScale) < 0.5)
+
+        harness.switchTo(PageLayout(mode: .print))
+        #expect(page.outline.isHidden)
+        #expect(page.decorations.sheetBorderWidths.allSatisfy { $0 > 0 })
+    }
+
     @Test("Compressed layout draws a line at each break, and seamless draws nothing")
     func breakLines() {
         let compressed = PageLayout(mode: .compressed)
