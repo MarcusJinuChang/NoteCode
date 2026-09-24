@@ -311,24 +311,22 @@ struct DocumentTextView: UIViewRepresentable {
         /// The edit menu is the right home for this: no new chrome, no overlay
         /// to position, and it appears exactly where a selection already is.
         ///
-        /// Two methods because UIKit changed the shape in iOS 26 — the plural
-        /// one is preferred and the singular is its deprecated predecessor.
-        /// Implementing only the deprecated one silently never gets called.
+        /// Mind the label. This is iOS 26's plural method, and Swift keeps
+        /// "Ranges" in its name because the argument is `[NSValue]`, where the
+        /// deprecated singular loses "Range" to its `NSRange` argument. Spelt
+        /// `editMenuForTextIn ranges:`, it matches no requirement and UIKit
+        /// never calls it, with only a "nearly matches" warning to say so.
+        ///
+        /// There is deliberately no singular fallback. The deployment target
+        /// is 27.0, so UIKit always has this one to call, and a fallback is
+        /// what once hid this method's wrong label: the menu kept working.
         func textView(
             _ textView: UITextView,
-            editMenuForTextIn ranges: [NSValue],
+            editMenuForTextInRanges ranges: [NSValue],
             suggestedActions: [UIMenuElement]
         ) -> UIMenu? {
             let caret = ranges.first?.rangeValue.location ?? textView.selectedRange.location
             return menu(for: textView, at: caret, suggestedActions: suggestedActions)
-        }
-
-        func textView(
-            _ textView: UITextView,
-            editMenuForTextIn range: NSRange,
-            suggestedActions: [UIMenuElement]
-        ) -> UIMenu? {
-            menu(for: textView, at: range.location, suggestedActions: suggestedActions)
         }
 
         private func menu(
