@@ -306,6 +306,12 @@ Laid out from the 12 September mockup.
 - **`NoteEditor` is the bridge.** SwiftUI owns the hotbar and UIKit owns the
   text view, and neither can reach the other. The hotbar talks to `NoteEditor`,
   and the text view registers with it.
+- **Text and ink have separate undo stacks** (decided and built 19 Sep). Left
+  alone, ink landed on the text view's stack, since the canvas's
+  `undoManager` walks the responder chain through it. PaperKit's controller
+  can't be subclassed, so `DrawingCanvas` is the view between them and vends
+  its own; `NoteEditor` routes the hotbar's arrows to the stack the mode uses.
+  Ink's stack is cleared whenever the page re-places ink for a mode switch.
 
 ## Organising notes
 
@@ -313,10 +319,13 @@ A flat, date-sorted list of pages does not survive a semester of coursework.
 Folders are wanted: pages grouped by class — CS133, algorithm practice — rather
 than one undifferentiated stream.
 
-Not yet built, and it touches the model, so it is worth settling before the
-drawing layer adds a second thing to migrate. The likely shape is a `Folder`
-`@Model` with a to-many relationship to `Page` and a nullable inverse, so a page
-can sit at the top level while folders are optional.
+Not yet built. The likely shape is a `Folder` `@Model` with a to-many
+relationship to `Page` and a nullable inverse, so a page can sit at the top
+level while folders are optional.
+
+Favouriting, sorting and note info are on the before-November candidate list
+(docs/ROADMAP.md) and change the model too; favouriting folders needs folders.
+They are cheaper as one migration than as four.
 
 ## Build/test
 
@@ -394,17 +403,19 @@ the same arguments in the scheme's Run → Arguments.
 Things that are decided in someone's head but not in the code. Move them up
 into a section above once they are settled.
 
-- Orientation widths: two display scales, or two layout widths? Run
-  `GeometrySpike` on `spike/page-geometry` to see both before deciding.
 - Where text-anchored ink lands in the schedule. Wanted for its own sake, but
   it is a phase, not a step, and November is committed.
 - Folders: does a page live in exactly one folder, or can it be in several?
   One-to-many is far simpler and probably right for coursework.
-- Undo: text and ink in one shared undo stack, or two separate ones? The
-  hotbar's arrows go through `NoteEditor`, which picks the stack, so this is a
-  choice rather than something the responder chain settles. By default ink
-  does land on the text view's stack (simulator, 18 Sep); PaperKit's controller
-  can't be subclassed, so a separate stack means a container view that
-  overrides `undoManager`.
 - Per-region text rewriting: `TextRewritingPolicy` is `.code` everywhere today,
   costing prose its autocorrect. Switching per region is designed but unbuilt.
+- What goes in before November. The candidate list in docs/ROADMAP.md is
+  planned properly once the drawing layer is done, alongside a UI design.
+- Side-by-side pages (a scrolling-direction setting): the text view scrolls
+  itself and only vertically, so pages flowing sideways means something other
+  than the text view owns scrolling — the same question "Who owns scrolling"
+  settled the other way for zoom.
+- An infinite canvas against Letter pages: ink is stored in page coordinates,
+  so an unbounded canvas is probably a second kind of note rather than a mode.
+- Group notes and comments need a server. Nothing else in the app does, and
+  Sign in with Apple was chosen partly because it doesn't.

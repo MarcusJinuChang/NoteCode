@@ -29,7 +29,7 @@ nonisolated enum CodeDelivery: Equatable, Sendable {
 /// A free online compiler a code block can be handed off to.
 ///
 /// Running code in-app stays out of scope — see AGENTS.md, and the roadmap's
-/// "Cut — Run button". Nothing here executes anything; the app's whole job is
+/// "Run and copy". Nothing here executes anything; the app's whole job is
 /// to get the block to a toolchain the student already trusts and let them run
 /// it there.
 nonisolated enum CodeDestination: Equatable, Hashable, Sendable, Identifiable {

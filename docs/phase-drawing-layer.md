@@ -338,9 +338,9 @@ What it turned out to involve:
   the text view's, whether or not the text view is first responder, so ink
   landed on the text stack. PaperKit's controller is `public`, not `open`, so
   `DrawingCanvas` is the view between it and the text view, and vends its own.
-  `NoteEditor` picks the stack the mode is using. Still to do: `showInk()`
-  assigns the markup on every mode switch, which leaves that stack pointing at
-  strokes in the old mode's positions, so it needs clearing there.
+  `NoteEditor` picks the stack the mode is using. `showInk()` re-places the
+  markup on every mode switch, which left that stack pointing at strokes in
+  the old mode's positions, so it clears the stack there (20 Sep).
 - **Scroll position is safe, content insets are not.** Dismissing the keyboard
   changes `adjustedContentInset`, which can shift visible content anyway.
 - **A finger reaches the canvas, and now draws there.** Locked to the Pencil,
@@ -349,11 +349,11 @@ What it turned out to involve:
   finger taps through the canvas either way. Untested: how anyone scrolls a
   long note while a finger draws — a two-finger pan should reach the text
   view's own recognizer, which allows two touches, but that needs a device.
-- **Code-block bars straddle the canvas.** Bars for blocks that exist when a
-  note opens are added before `PageView` adds the canvas
-  (`DocumentTextView.swift:42` vs `:45`), so they sit under it and their
-  buttons are dead in ink mode. Bars for blocks added later sit above it and
-  catch the Pencil.
+- **Code-block bars straddle the canvas — still open (23 Sep).** Bars for
+  blocks that exist when a note opens are added before `PageView` adds the
+  canvas (`restyle` in `DocumentTextView.makeUIView`, then `PageView(textView:)`),
+  so they sit under it and their buttons are dead in ink mode. Bars for blocks
+  added later sit above it and catch the Pencil.
 - **The wiring moves.** `EditorMode.apply(to:saved:)` takes only the text view,
   and `editor.attach` runs before `PageView` creates the canvas
   (`DocumentTextView.swift:44-45`). The canvas also needs a parent view
@@ -380,6 +380,8 @@ What it turned out to involve:
 
 **Files:** `EditorMode.swift`, `NoteEditor.swift`, `Hotbar.swift`, `+DrawingCanvas.swift`, `PageView.swift`, `DocumentTextView.swift`, `PageDetailView.swift`
 **Gate:** toggle mid-document — scroll offset unchanged, caret where you left it.
+**Status (23 Sep):** built and merged (#15, #16), except the code-block bars
+above. Its checks on the iPad are step 5's.
 
 ### 4. Persistence (Sep 22–28)
 `Page.drawingData` already exists, so no schema change; it holds
