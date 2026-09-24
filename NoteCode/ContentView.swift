@@ -69,8 +69,19 @@ struct ContentView: View {
                 }
 #endif
                 ToolbarItem {
-                    Button(action: addPage) {
-                        Label("Add Page", systemImage: "plus")
+                    // Which way up a note's pages are is chosen here, once.
+                    // Changing it later would re-wrap the text at another
+                    // width and move every line out from under its ink.
+                    Menu {
+                        ForEach(PageOrientation.allCases, id: \.self) { orientation in
+                            Button {
+                                addPage(orientation)
+                            } label: {
+                                Label("\(orientation.title) Pages", systemImage: orientation.systemImage)
+                            }
+                        }
+                    } label: {
+                        Label("New Note", systemImage: "plus")
                     }
                 }
             }
@@ -112,8 +123,9 @@ struct ContentView: View {
 #endif
     }
 
-    private func addPage() {
+    private func addPage(_ orientation: PageOrientation) {
         let page = Page()
+        page.orientation = orientation
         withAnimation {
             modelContext.insert(page)
         }

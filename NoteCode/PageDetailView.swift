@@ -55,7 +55,6 @@ struct PageDetailView: View {
 #endif
         .onChange(of: page.title) { page.modifiedAt = .now }
         .onChange(of: page.content) { page.modifiedAt = .now }
-        .onChange(of: page.pageOrientation) { page.modifiedAt = .now }
     }
 
     // MARK: Header
@@ -72,7 +71,7 @@ struct PageDetailView: View {
                 Spacer()
 
 #if canImport(UIKit)
-                PageViewMenu(mode: $viewMode, orientation: $page.orientation)
+                PageViewMenu(mode: $viewMode)
 #endif
 
                 RunDestinationMenu(
@@ -126,7 +125,7 @@ struct PageDetailView: View {
 
             Hotbar(editor: editor, dock: $dock, onDrop: drop)
                 .padding(Self.hotbarMargin)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: dock.alignment)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: dock.alignment)
         }
         .coordinateSpace(.named(Hotbar.coordinateSpace))
         .onGeometryChange(for: CGSize.self) { $0.size } action: { pageSize = $0 }

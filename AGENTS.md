@@ -138,7 +138,9 @@ floor on fitting after all: a landscape page in a portrait iPad fits at about
 whichever edge it is on, so moving the bar never resizes the text.
 
 The page's orientation is the note's, not the device's: rotating the iPad still
-changes only the scale, while choosing landscape pages re-wraps that note.
+changes only the scale. It's chosen when the note is made, from the "+" menu,
+and fixed after that (23 Sep): changing it would re-wrap the text and move every
+line out from under its ink.
 
 `GeometrySpike` (branch `spike/page-geometry`) answered this and the question is
 now closed. Keep the branch for the drift demonstration it also gives.
@@ -183,9 +185,9 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
 
 - **Paper.** US Letter at 96 units to the inch: 816 by 1056 portrait, 1056 by
   816 landscape, with 0.75in margins. At that size 17pt body text prints at
-  12.75pt. Orientation belongs to the note (`Page.pageOrientation`); the view
-  mode is a per-device preference (`@AppStorage`), chosen from the header's
-  view menu.
+  12.75pt. Orientation belongs to the note (`Page.pageOrientation`), set once
+  when it's made; the view mode is a per-device preference (`@AppStorage`),
+  chosen from the header's view menu.
 - **One pagination, three presentations.** Every page holds a body of the same
   height in every mode, and text flows around a band between one body and the
   next — two margins and a 24pt gap in print layout, a 24pt strip with a dashed
@@ -198,9 +200,9 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   prints. The canvas shows it converted to the current mode, and every mode
   change converts from the stored ink, never back from the canvas: a stroke in
   a sheet's margin has no exact place in seamless, and a round trip would move
-  it a page. Changing orientation re-wraps the text, so ink keeps its printed
-  position and no longer sits on the same words — the case text-anchored ink
-  would fix.
+  it a page. A note's orientation can't change after it's made, so there is
+  no re-wrap for ink to fall out of; `PageView` still handles one, because it
+  opens every note with portrait pages first.
 - **Print layout** fits its sheets inside a 24pt border of the surround
   (`CanvasGeometry.printGutter`), so they read as paper rather than one slab
   with grey bars across it. Text is a little smaller there than in the
