@@ -414,11 +414,24 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         }
 
         let noteHeight = pageLayout.noteHeight(pageCount: pageCount)
-        let frame = CGRect(x: 0, y: 0, width: pageLayout.pageSize.width, height: noteHeight)
-        if canvas.frame != frame {
-            canvas.frame = frame
-        }
+        canvas.noteSize = CGSize(width: pageLayout.pageSize.width, height: noteHeight)
+        canvas.cover(Self.visiblePart(
+            ofNoteHeight: noteHeight,
+            width: pageLayout.pageSize.width,
+            scrolledTo: textView.contentOffset.y,
+            viewHeight: textView.bounds.height
+        ))
         decorations.update(layout: pageLayout, pageCount: pageCount, height: noteHeight)
+    }
+
+    /// The part of the note on screen, which is all the canvas covers.
+    ///
+    /// Kept within the note, so a bounce past either end doesn't carry the
+    /// canvas off it: the ink there has nothing to draw anyway.
+    static func visiblePart(ofNoteHeight noteHeight: CGFloat, width: CGFloat, scrolledTo offset: CGFloat, viewHeight: CGFloat) -> CGRect {
+        let height = min(max(viewHeight, 0), noteHeight)
+        let top = min(max(offset, 0), noteHeight - height)
+        return CGRect(x: 0, y: top, width: width, height: height)
     }
 
     // MARK: Ink

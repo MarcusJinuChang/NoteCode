@@ -39,8 +39,11 @@ final class DrawingCanvas: UIView {
     ///
     /// The note's stored ink lives in `PageView.ink`, in print coordinates.
     var markup: PaperMarkup {
-        get { controller.markup ?? PaperMarkup(bounds: bounds) }
-        set { show { controller.markup = newValue } }
+        get { controller.markup ?? PaperMarkup(bounds: CGRect(origin: .zero, size: noteSize)) }
+        set {
+            show { controller.markup = newValue }
+            fitMarkupToNote()
+        }
     }
 
     /// Whether the ink on the canvas is being put there by the app.
@@ -96,6 +99,7 @@ final class DrawingCanvas: UIView {
             supportedFeatureSet: .latest
         )
         super.init(frame: frame)
+        noteSize = pageSize
 
         // Transparent all the way down, or the canvas paints over every word
         // underneath. The controller's own background is opaque by default,
@@ -156,11 +160,112 @@ final class DrawingCanvas: UIView {
     /// settles is the finger. Left automatic, PaperKit decides: a finger draws
     /// only while a `PKToolPicker` is up and the system's "Draw with Finger"
     /// setting allows it. The hotbar replaced the picker, so that rule would
-    /// mean a finger never draws, whatever the app wants. Deciding here
-    /// instead is what makes `allowsFingerDrawing` mean anything.
+    /// mean a finger never draws, whatever the app wants.
+    ///
+    /// Turning the automatic rule off and asking for `.drawing` isn't enough
+    /// on its own, though an earlier note here said it was. Measured in the
+    /// app on 23 September: PencilKit's canvas inside PaperKit kept its
+    /// drawing policy at `.default`, its drawing recognisers accepted only the
+    /// Pencil, and a finger landed on the selection view above them. Setting
+    /// before or after the view loaded, and toggling, changed none of that.
+    /// Setting that canvas's own `drawingPolicy` — the property `PKCanvasView`
+    /// makes public — opens the recognisers to a finger and moves the hit
+    /// test onto them, and a finger draws.
     private func applyTouchMode() {
         controller.directTouchAutomaticallyDraws = false
         controller.directTouchMode = allowsFingerDrawing ? .drawing : .selection
+
+        let policy: PKCanvasViewDrawingPolicy = allowsFingerDrawing ? .anyInput : .pencilOnly
+        guard let pencilKitCanvas = Self.pencilKitCanvas(in: controller.view),
+              pencilKitCanvas.responds(to: NSSelectorFromString("setDrawingPolicy:"))
+        else {
+            // PencilKit's insides moved. The Pencil still draws; a finger
+            // doesn't, which is where this started.
+            return
+        }
+        pencilKitCanvas.setValue(policy.rawValue, forKey: "drawingPolicy")
+    }
+
+    /// PencilKit's canvas view inside PaperKit's, found by class name.
+    ///
+    /// Not public API, so looked up rather than assumed, and the setter is
+    /// checked before it's used.
+    private static func pencilKitCanvas(in view: UIView) -> UIView? {
+        if NSStringFromClass(type(of: view)) == "PKTiledView" { return view }
+        for subview in view.subviews {
+            if let found = pencilKitCanvas(in: subview) { return found }
+        }
+        return nil
+    }
+
+    /// PencilKit's drawing policy, as the canvas has it now. For tests.
+    var pencilKitDrawingPolicy: PKCanvasViewDrawingPolicy? {
+        guard let pencilKitCanvas = Self.pencilKitCanvas(in: controller.view),
+              let raw = pencilKitCanvas.value(forKey: "drawingPolicy") as? UInt
+        else { return nil }
+        return PKCanvasViewDrawingPolicy(rawValue: raw)
+    }
+
+    // MARK: What's on screen
+
+    /// The whole note, which the markup spans.
+    ///
+    /// The canvas view itself only ever covers what's on screen — see
+    /// `show(_:)` — but ink is kept in note coordinates, top to bottom.
+    var noteSize: CGSize = .zero {
+        didSet {
+            guard noteSize != oldValue else { return }
+            fitMarkupToNote()
+        }
+    }
+
+    /// Covers `visible`, part of the note, and draws the ink that falls there.
+    ///
+    /// The canvas used to be as tall as the note. PencilKit sizes the buffer a
+    /// stroke is drawn into from its canvas's bounds, and past 16,384 pixels
+    /// Metal refuses the texture: the first stroke on a nine-page note, 9,237
+    /// points tall at 2x, crashed the app (simulator, 23 September) — a little
+    /// under eight pages in seamless, and on the iPad the Pencil as much as a
+    /// finger. Sized to the screen, the buffer is the screen's size however
+    /// long the note is.
+    ///
+    /// The view stays a subview of the text view's content, so it scrolls with
+    /// the text. It's moved to where the text view is scrolled to on each
+    /// layout pass, and PaperKit is told which part of the note it's over.
+    /// Both happen in the text view's layout, before anything is drawn, so
+    /// the ink never lags the words.
+    ///
+    /// - Parameter visible: in note coordinates, within `noteSize`.
+    func cover(_ visible: CGRect) {
+        if frame != visible {
+            let resized = frame.size != visible.size
+            frame = visible
+            // PaperKit centres the frame it's given in its viewport as it
+            // stands. Until layout reaches its scroll view, that's the old
+            // size: a canvas cut from 1,056 to 600 points showed 1,200 at
+            // 972 (unit test, 23 September), ink half the difference off.
+            if resized {
+                layoutIfNeeded()
+            }
+        }
+        if controller.contentVisibleFrame != visible {
+            controller.contentVisibleFrame = visible
+        }
+    }
+
+    /// Keeps the markup's bounds on the note's.
+    ///
+    /// PaperKit positions content against the markup's bounds, not the view's.
+    /// Resizing the view alone shifted what was drawn until the markup was
+    /// assigned again (simulator, 18 September), and the note gains or loses
+    /// a page as it's written.
+    private func fitMarkupToNote() {
+        let bounds = CGRect(origin: .zero, size: noteSize)
+        guard noteSize.width > 0, noteSize.height > 0,
+              var markup = controller.markup, markup.bounds != bounds
+        else { return }
+        markup.bounds = bounds
+        show { controller.markup = markup }
     }
 
     // MARK: Lifecycle
@@ -176,7 +281,12 @@ final class DrawingCanvas: UIView {
     override func didMoveToWindow() {
         super.didMoveToWindow()
 
-        guard window != nil, controller.parent == nil, let parent = nearestViewController() else { return }
+        guard window != nil else { return }
+        // PencilKit's canvas can be rebuilt as the controller settles in, and
+        // the drawing policy lives on it.
+        applyTouchMode()
+
+        guard controller.parent == nil, let parent = nearestViewController() else { return }
         parent.addChild(controller)
         controller.didMove(toParent: parent)
     }
@@ -189,22 +299,6 @@ final class DrawingCanvas: UIView {
         }
         return nil
     }
-
-    // MARK: Layout
-
-    /// Keeps the markup's bounds on the view's.
-    ///
-    /// PaperKit positions content against the markup's bounds, not the view's.
-    /// Resizing the view alone shifted what was drawn until the markup was
-    /// assigned again (simulator, 18 September), and the page resizes whenever
-    /// the note gains or loses a page.
-    override func layoutSubviews() {
-        super.layoutSubviews()
-
-        guard var markup = controller.markup, markup.bounds != bounds else { return }
-        markup.bounds = bounds
-        show { controller.markup = markup }
-    }
 }
 
 // MARK: - Changes
@@ -214,6 +308,10 @@ extension DrawingCanvas: PaperMarkupViewController.Delegate {
     func paperMarkupViewControllerDidChangeMarkup(_ paperMarkupViewController: PaperMarkupViewController) {
         guard !isShowingInk else { return }
         onMarkupChanged?()
+        // PaperKit has registered the change on ink's stack by now (measured
+        // 23 September), and nothing else tells the hotbar: its undo arrow
+        // stayed dim after a stroke.
+        onUndoDidChange?()
     }
 }
 

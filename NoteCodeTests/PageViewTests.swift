@@ -569,15 +569,48 @@ struct PageViewTests {
 
     // MARK: Ink and the note's length
 
-    @Test("The canvas covers every page")
-    func canvasCoversNote() {
+    @Test("The canvas covers what's on screen, and its ink spans every page")
+    func canvasCoversScreen() {
         let harness = Harness(text: Self.severalPages)
         let page = harness.page
+        let width = page.pageLayout.pageSize.width
+        let noteHeight = page.pageLayout.noteHeight(pageCount: page.pageCount)
 
         #expect(page.canvas.superview === page.textView)
-        #expect(page.canvas.frame.width == page.pageLayout.pageSize.width)
-        #expect(page.canvas.frame.height == page.pageLayout.noteHeight(pageCount: page.pageCount))
-        #expect(page.canvas.frame.height >= page.textView.contentSize.height - 0.5)
+        #expect(page.canvas.markup.bounds.size == CGSize(width: width, height: noteHeight))
+        #expect(page.canvas.markup.bounds.height >= page.textView.contentSize.height - 0.5)
+
+        for offset in [0, 1800, noteHeight - page.textView.bounds.height] {
+            page.textView.contentOffset.y = offset
+            harness.layOut()
+            #expect(page.canvas.frame == CGRect(x: 0, y: offset, width: width, height: page.textView.bounds.height))
+        }
+    }
+
+    @Test("However long the note, the canvas is no taller than the screen")
+    func canvasStaysScreenSized() {
+        let long = (0..<60).map { _ in Self.severalPages }.joined(separator: "\n")
+        let harness = Harness(text: long)
+        let page = harness.page
+
+        // PencilKit draws a stroke into a buffer its canvas's size, and Metal
+        // refuses one past 16,384 pixels. A canvas as tall as a nine-page
+        // note crashed on the first stroke (simulator, 23 September).
+        #expect(page.pageCount > 40)
+        #expect(page.canvas.bounds.height <= page.textView.bounds.height + 0.5)
+    }
+
+    @Test("The part of the note on screen stays within the note")
+    func visiblePartClamps() {
+        let inside = PageView.visiblePart(ofNoteHeight: 3000, width: 816, scrolledTo: 1000, viewHeight: 800)
+        let bouncedAbove = PageView.visiblePart(ofNoteHeight: 3000, width: 816, scrolledTo: -60, viewHeight: 800)
+        let bouncedBelow = PageView.visiblePart(ofNoteHeight: 3000, width: 816, scrolledTo: 2400, viewHeight: 800)
+        let shortNote = PageView.visiblePart(ofNoteHeight: 500, width: 816, scrolledTo: 0, viewHeight: 800)
+
+        #expect(inside == CGRect(x: 0, y: 1000, width: 816, height: 800))
+        #expect(bouncedAbove.minY == 0)
+        #expect(bouncedBelow.maxY == 3000)
+        #expect(shortNote == CGRect(x: 0, y: 0, width: 816, height: 500))
     }
 
     @Test("Ink below the last line adds the pages needed to reach it")
@@ -591,7 +624,7 @@ struct PageViewTests {
         #expect(harness.page.pageCount == layout.pageIndex(atY: inkBottom) + 1)
         #expect(harness.page.pageCount > 1)
         #expect(harness.page.textView.contentSize.height >= inkBottom)
-        #expect(harness.page.canvas.frame.maxY >= inkBottom)
+        #expect(harness.page.canvas.markup.bounds.maxY >= inkBottom)
     }
 
     @Test("Deleting text never clips ink")
@@ -604,7 +637,7 @@ struct PageViewTests {
         harness.layOut()
 
         #expect(harness.page.textView.contentSize.height >= inkBottom)
-        #expect(harness.page.canvas.frame.maxY >= inkBottom)
+        #expect(harness.page.canvas.markup.bounds.maxY >= inkBottom)
     }
 
     @Test("Laying out again doesn't grow the note again")

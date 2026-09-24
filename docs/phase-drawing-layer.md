@@ -58,6 +58,17 @@ carries over, and its canvas measured about 3MB more than PencilKit's at that
 size. Whether the iPad counts the surfaces is a step 5 check. If it does, the
 canvas has to become one per page rather than one per note.
 
+**Amended 23 Sep: the canvas covers the screen, not the note.** PencilKit
+draws a stroke into a buffer its canvas's size, and Metal refuses one past
+16,384 pixels. The first stroke on a nine-page note, a canvas 9,237 points
+tall at 2x, crashed the app on the simulator; on the iPad the Pencil would
+have done the same, from a little under eight pages. `DrawingCanvas.cover`
+now sizes the view to what's on screen, moves it with the scroll on every
+text view layout pass, and tells PaperKit which part of the note is under it
+through `contentVisibleFrame`. The markup still spans the note. PaperKit
+centres that frame in its viewport as it stands, so after a resize the canvas
+lays itself out before setting it, or the ink sits half the size change off.
+
 Pinch zoom, built the same evening, is a user factor on that transform, with
 `PageView`'s sideways scroll taking the overflow past the page area — no new
 scroll view. The cost is diagonal panning: zoomed in, a pan goes one way or the
@@ -79,7 +90,7 @@ in hand and a palm is on the page; locked, a finger scrolls and selects again.
 | Knob | Text mode | Ink mode | Why it's in the enum |
 |---|---|---|---|
 | `canvas.view.isUserInteractionEnabled` | `false` | `true` | The hit-testing switch. Not `isHidden` — both layers stay visible. |
-| `canvas.allowsFingerDrawing` | — | the lock's state | Not a mode setting: `DrawingCanvas` holds it, and the hotbar's lock moves it. It sets `directTouchMode` to `.drawing` or `.selection`, with `directTouchAutomaticallyDraws` off either way. PaperKit has no `drawingPolicy`, and left automatic a finger draws only while a tool picker is up and the system's "Draw with Finger" setting allows — the hotbar replaced the picker, so a finger would never draw. |
+| `canvas.allowsFingerDrawing` | — | the lock's state | Not a mode setting: `DrawingCanvas` holds it, and the hotbar's lock moves it. It sets PencilKit's own `drawingPolicy` to `.anyInput` or `.pencilOnly` on the canvas inside PaperKit — `directTouchMode` alone never reached it (23 Sep) — and `directTouchAutomaticallyDraws` off either way. Left automatic, a finger draws only while a tool picker is up and the system's "Draw with Finger" setting allows — the hotbar replaced the picker, so a finger would never draw. |
 | `textView.isEditable` | `true` | `false` | Stops a stray tap re-summoning the keyboard mid-stroke. |
 | `textView.isSelectable` | `true` | `false` | A resting finger or a long press would otherwise start a text selection under the pen. |
 | first responder | textView, if it was | nobody | Resigning puts the keyboard away. With no tool picker, the canvas has no reason to claim it. |
@@ -251,9 +262,16 @@ Found on the way:
 - Resizing its view shifted the content until the markup was assigned again
   (simulator). `PageView` resizes the canvas whenever the page count changes.
 - A finger drag over it scrolled the text view in every configuration tried,
-  including `directTouchMode = .drawing`. The missing piece was
+  including `directTouchMode = .drawing`. The missing piece was thought to be
   `directTouchAutomaticallyDraws`: left on, PaperKit decides for itself and a
-  finger never draws without a tool picker. Off, `.drawing` draws.
+  finger never draws without a tool picker. **Corrected 23 Sep:** off, with
+  `.drawing`, a finger still didn't draw in the app. PencilKit's canvas inside
+  PaperKit kept its drawing policy at `.default`, its drawing recognisers took
+  only the Pencil, and a finger hit the selection view above them, however and
+  whenever `directTouchMode` was set. Setting that canvas's own
+  `drawingPolicy` (found by class name, setter checked first) is what makes a
+  finger draw. It isn't public API, so it can break with an OS update; if it
+  does, the Pencil still draws.
 
 **Scope for 10 Oct:** the canvas with today's hotbar tools. Inserting shapes,
 images and text comes after, as its own piece of work.
