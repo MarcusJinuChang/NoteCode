@@ -374,6 +374,8 @@ struct DocumentTextView: UIViewRepresentable {
         }
 
         func textViewDidChangeSelection(_ textView: UITextView) {
+            (textView as? DocumentUITextView)?.placeCaretOnTappedBlankLine()
+
             // Moving the caret across a fence boundary changes what the next
             // character should look like, even though no text changed. This
             // fires on every keystroke too, so it reads through the cache
@@ -396,6 +398,13 @@ struct DocumentTextView: UIViewRepresentable {
         // nil — at which point none of the code-region rendering will run and
         // there is no error to tell you why.
         let textView = DocumentUITextView(usingTextLayoutManager: true)
+
+        // Blank lines are laid out as zero-width spaces, or TextKit lets them
+        // run through page breaks — see BlankLineLayout. The text view holds
+        // it, since the content storage's delegate is weak.
+        let blankLines = BlankLineLayout()
+        textView.blankLineLayout = blankLines
+        (textView.textLayoutManager?.textContentManager as? NSTextContentStorage)?.delegate = blankLines
 
         textView.isEditable = true
         textView.isScrollEnabled = true

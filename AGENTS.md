@@ -214,6 +214,24 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   set the height after the pass that would correct it. A switch to print
   layout left a five-page note 500pt short, extra layout passes didn't close
   the gap, and a reader near the end was pushed down (`PageSettlingTests`).
+- **Blank lines are laid out as zero-width spaces** (`BlankLineLayout`, 23
+  Sep). TextKit 2 ignores exclusion paths for an empty paragraph: it asks the
+  container, is told "below the band", and places the line where it proposed
+  anyway, so a pushing container doesn't help. Blank lines ran through the
+  breaks — print layout's band holds about seven, seamless's none — and text
+  after a blank run paginated differently by mode, which ink can't survive.
+  The content storage's delegate swaps each "\n" paragraph for "\u{200B}", the
+  same length, for layout only; the note keeps its newlines. The cost is on
+  taps: UIKit snaps a tap's caret to a word boundary, and a run of zero-width
+  spaces is one word, so a tap anywhere on a blank run put the caret after it.
+  That tap doesn't go through `closestPosition(to:)` (overridden anyway), nor
+  the text view's `gestureRecognizerShouldBegin` — its recogniser is on an
+  inner view — so `DocumentUITextView` notes the touch in `hitTest` and
+  `placeCaretOnTappedBlankLine` moves the caret back when the selection
+  changes. Needs a real tap to check; a unit test can't see it. Arrowing up
+  and down still visits each blank line. The empty
+  last line after a final newline isn't a paragraph and isn't covered: in
+  seamless and compressed its caret can still sit in a break.
 - **Position things from lines, never from a fragment's frame.** A line pushed
   past a page break stays inside a fragment whose frame begins above the
   break, so the frame spans it. Code panels (`CodeBlockLayoutFragment.panelRuns`)

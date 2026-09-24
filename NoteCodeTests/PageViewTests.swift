@@ -283,6 +283,72 @@ struct PageViewTests {
         #expect(intruding.isEmpty)
     }
 
+    /// Prose, a run of blank lines long enough to cross a page break in any
+    /// mode, and more prose after it.
+    private static let blankRun = (0..<30).map { "Line \($0): the loop invariant holds before and after every iteration." }
+        .joined(separator: "\n")
+        + String(repeating: "\n", count: 60)
+        + (30..<60).map { "Line \($0): the loop invariant holds before and after every iteration." }
+        .joined(separator: "\n")
+
+    @Test("Blank lines never sit in a page break", arguments: PageViewMode.allCases)
+    func blankLinesAvoidBreaks(mode: PageViewMode) {
+        let layout = PageLayout(mode: mode)
+        let harness = Harness(text: Self.blankRun, layout: layout)
+        let page = harness.page
+
+        let breaks = layout.exclusionBands(pageCount: page.pageCount, containerTop: layout.firstBodyTop)
+            .map { $0.offsetBy(dx: 0, dy: layout.firstBodyTop) }
+        let intruding = harness.lines.filter { line in breaks.contains { $0.intersects(line.frame.insetBy(dx: 0, dy: 0.5)) } }
+
+        // TextKit left empty paragraphs where they fell: 18 of them in print
+        // layout's first two breaks, before blank lines were laid out as
+        // zero-width spaces (probe, 23 September).
+        #expect(page.pageCount > 1)
+        #expect(intruding.isEmpty)
+    }
+
+    @Test("Blank lines paginate the same in every mode")
+    func blankLinesPaginateAlike() {
+        let harness = Harness(text: Self.blankRun)
+
+        var placements: [[String]] = []
+        for mode in PageViewMode.allCases {
+            let layout = PageLayout(mode: mode)
+            harness.switchTo(layout)
+            placements.append(harness.lines.map { line in
+                let index = layout.pageIndex(atY: line.frame.minY)
+                return "\(line.range.location) p\(index) \(String(format: "%.1f", line.frame.minY - layout.bodyTop(ofPage: index)))"
+            })
+        }
+
+        #expect(placements[0] == placements[1])
+        #expect(placements[0] == placements[2])
+    }
+
+    @Test("A tap on a blank line puts the caret on it, not on the line below")
+    func tapOnBlankLine() throws {
+        let harness = Harness(text: Self.blankRun, layout: PageLayout(mode: .print))
+        let textView = harness.page.textView
+        let text = textView.textStorage.string as NSString
+        // The first blank line: the newline after one.
+        let blank = text.range(of: "\n\n").location + 1
+        let position = try #require(textView.position(from: textView.beginningOfDocument, offset: blank))
+        let caret = textView.caretRect(for: position)
+
+        let tapped = try #require(textView.closestPosition(to: CGPoint(x: caret.midX + 200, y: caret.midY)))
+
+        #expect(textView.offset(from: textView.beginningOfDocument, to: tapped) == blank)
+    }
+
+    @Test("A blank line keeps the note's text a newline")
+    func blankLineTextUnchanged() {
+        let harness = Harness(text: Self.blankRun)
+
+        #expect(harness.page.textView.text == Self.blankRun)
+        #expect(!harness.page.textView.text.contains(BlankLineLayout.stand))
+    }
+
     @Test("Every mode puts every line on the same page, at the same place on it")
     func paginationIdenticalAcrossModes() {
         let harness = Harness(text: Self.severalPages)
