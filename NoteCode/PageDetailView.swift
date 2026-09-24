@@ -35,9 +35,6 @@ struct PageDetailView: View {
     @AppStorage(PageViewMode.defaultsKey)
     private var viewMode: PageViewMode = .default
 
-    /// How far the hotbar has been dragged away from its dock, mid-drag.
-    @State private var dragOffset: CGSize = .zero
-
     /// The page area the hotbar docks within, for working out where a drag lands.
     @State private var pageSize: CGSize = .zero
 #endif
@@ -127,14 +124,8 @@ struct PageDetailView: View {
             }
             .padding(pageInsets)
 
-            Hotbar(
-                editor: editor,
-                dock: $dock,
-                onDrag: { dragOffset = $0.translation },
-                onDrop: drop
-            )
-            .offset(dragOffset)
-            .padding(Self.hotbarMargin)
+            Hotbar(editor: editor, dock: $dock, onDrop: drop)
+                .padding(Self.hotbarMargin)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: dock.alignment)
         }
         .coordinateSpace(.named(Hotbar.coordinateSpace))
@@ -147,9 +138,10 @@ struct PageDetailView: View {
     /// toward an edge goes there without having to be dragged all the way.
     private func drop(_ drag: DragGesture.Value) {
         let landing = HotbarDock.nearest(to: drag.predictedEndLocation, in: pageSize)
+        // The bar's drag offset springs back on its own as the gesture ends,
+        // with the same animation, so the two read as one movement.
         withAnimation(.snappy) {
             dock = landing
-            dragOffset = .zero
         }
     }
 
