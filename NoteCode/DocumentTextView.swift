@@ -312,11 +312,18 @@ struct DocumentTextView: UIViewRepresentable {
         /// to position, and it appears exactly where a selection already is.
         ///
         /// Two methods because UIKit changed the shape in iOS 26 — the plural
-        /// one is preferred and the singular is its deprecated predecessor.
-        /// Implementing only the deprecated one silently never gets called.
+        /// one is preferred and the singular is its deprecated predecessor,
+        /// which UIKit asks only when the plural one isn't implemented.
+        ///
+        /// Mind the plural one's label. Swift trims "Range" from the singular
+        /// selector because its argument is an `NSRange`, but keeps "Ranges"
+        /// on the plural, whose argument is `[NSValue]`. Spelt
+        /// `editMenuForTextIn ranges:` it matched no requirement, with only a
+        /// "nearly matches" warning to say so, and UIKit fell back to the
+        /// singular one.
         func textView(
             _ textView: UITextView,
-            editMenuForTextIn ranges: [NSValue],
+            editMenuForTextInRanges ranges: [NSValue],
             suggestedActions: [UIMenuElement]
         ) -> UIMenu? {
             let caret = ranges.first?.rangeValue.location ?? textView.selectedRange.location
