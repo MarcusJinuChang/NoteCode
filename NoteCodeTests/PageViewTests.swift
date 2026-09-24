@@ -283,6 +283,72 @@ struct PageViewTests {
         #expect(intruding.isEmpty)
     }
 
+    /// Prose, a run of blank lines long enough to cross a page break in any
+    /// mode, and more prose after it.
+    private static let blankRun = (0..<30).map { "Line \($0): the loop invariant holds before and after every iteration." }
+        .joined(separator: "\n")
+        + String(repeating: "\n", count: 60)
+        + (30..<60).map { "Line \($0): the loop invariant holds before and after every iteration." }
+        .joined(separator: "\n")
+
+    @Test("Blank lines never sit in a page break", arguments: PageViewMode.allCases)
+    func blankLinesAvoidBreaks(mode: PageViewMode) {
+        let layout = PageLayout(mode: mode)
+        let harness = Harness(text: Self.blankRun, layout: layout)
+        let page = harness.page
+
+        let breaks = layout.exclusionBands(pageCount: page.pageCount, containerTop: layout.firstBodyTop)
+            .map { $0.offsetBy(dx: 0, dy: layout.firstBodyTop) }
+        let intruding = harness.lines.filter { line in breaks.contains { $0.intersects(line.frame.insetBy(dx: 0, dy: 0.5)) } }
+
+        // TextKit left empty paragraphs where they fell: 18 of them in print
+        // layout's first two breaks, before blank lines were laid out as
+        // zero-width spaces (probe, 23 September).
+        #expect(page.pageCount > 1)
+        #expect(intruding.isEmpty)
+    }
+
+    @Test("Blank lines paginate the same in every mode")
+    func blankLinesPaginateAlike() {
+        let harness = Harness(text: Self.blankRun)
+
+        var placements: [[String]] = []
+        for mode in PageViewMode.allCases {
+            let layout = PageLayout(mode: mode)
+            harness.switchTo(layout)
+            placements.append(harness.lines.map { line in
+                let index = layout.pageIndex(atY: line.frame.minY)
+                return "\(line.range.location) p\(index) \(String(format: "%.1f", line.frame.minY - layout.bodyTop(ofPage: index)))"
+            })
+        }
+
+        #expect(placements[0] == placements[1])
+        #expect(placements[0] == placements[2])
+    }
+
+    @Test("A tap on a blank line puts the caret on it, not on the line below")
+    func tapOnBlankLine() throws {
+        let harness = Harness(text: Self.blankRun, layout: PageLayout(mode: .print))
+        let textView = harness.page.textView
+        let text = textView.textStorage.string as NSString
+        // The first blank line: the newline after one.
+        let blank = text.range(of: "\n\n").location + 1
+        let position = try #require(textView.position(from: textView.beginningOfDocument, offset: blank))
+        let caret = textView.caretRect(for: position)
+
+        let tapped = try #require(textView.closestPosition(to: CGPoint(x: caret.midX + 200, y: caret.midY)))
+
+        #expect(textView.offset(from: textView.beginningOfDocument, to: tapped) == blank)
+    }
+
+    @Test("A blank line keeps the note's text a newline")
+    func blankLineTextUnchanged() {
+        let harness = Harness(text: Self.blankRun)
+
+        #expect(harness.page.textView.text == Self.blankRun)
+        #expect(!harness.page.textView.text.contains(BlankLineLayout.stand))
+    }
+
     @Test("Every mode puts every line on the same page, at the same place on it")
     func paginationIdenticalAcrossModes() {
         let harness = Harness(text: Self.severalPages)
@@ -553,6 +619,22 @@ struct PageViewTests {
         #expect(abs(harness.page.textView.frame.minX) < 0.5)
     }
 
+    @Test("The outline sits on the page's edges, not the area's, and print layout's sheets carry their own")
+    func outlineOnThePage() {
+        // Wider than a page fits at 1.25x, so the page is narrower than its area.
+        let harness = Harness(text: Self.severalPages, area: CGSize(width: 1300, height: 900), layout: PageLayout(mode: .seamless))
+        let page = harness.page
+
+        #expect(!page.outline.isHidden)
+        #expect(page.outline.frame == page.textView.frame)
+        #expect(page.outline.frame.width < 1300 - 1)
+        #expect(abs(page.outline.frame.width - page.pageLayout.pageSize.width * page.displayScale) < 0.5)
+
+        harness.switchTo(PageLayout(mode: .print))
+        #expect(page.outline.isHidden)
+        #expect(page.decorations.sheetBorderWidths.allSatisfy { $0 > 0 })
+    }
+
     @Test("Compressed layout draws a line at each break, and seamless draws nothing")
     func breakLines() {
         let compressed = PageLayout(mode: .compressed)
@@ -569,15 +651,48 @@ struct PageViewTests {
 
     // MARK: Ink and the note's length
 
-    @Test("The canvas covers every page")
-    func canvasCoversNote() {
+    @Test("The canvas covers what's on screen, and its ink spans every page")
+    func canvasCoversScreen() {
         let harness = Harness(text: Self.severalPages)
         let page = harness.page
+        let width = page.pageLayout.pageSize.width
+        let noteHeight = page.pageLayout.noteHeight(pageCount: page.pageCount)
 
         #expect(page.canvas.superview === page.textView)
-        #expect(page.canvas.frame.width == page.pageLayout.pageSize.width)
-        #expect(page.canvas.frame.height == page.pageLayout.noteHeight(pageCount: page.pageCount))
-        #expect(page.canvas.frame.height >= page.textView.contentSize.height - 0.5)
+        #expect(page.canvas.markup.bounds.size == CGSize(width: width, height: noteHeight))
+        #expect(page.canvas.markup.bounds.height >= page.textView.contentSize.height - 0.5)
+
+        for offset in [0, 1800, noteHeight - page.textView.bounds.height] {
+            page.textView.contentOffset.y = offset
+            harness.layOut()
+            #expect(page.canvas.frame == CGRect(x: 0, y: offset, width: width, height: page.textView.bounds.height))
+        }
+    }
+
+    @Test("However long the note, the canvas is no taller than the screen")
+    func canvasStaysScreenSized() {
+        let long = (0..<60).map { _ in Self.severalPages }.joined(separator: "\n")
+        let harness = Harness(text: long)
+        let page = harness.page
+
+        // PencilKit draws a stroke into a buffer its canvas's size, and Metal
+        // refuses one past 16,384 pixels. A canvas as tall as a nine-page
+        // note crashed on the first stroke (simulator, 23 September).
+        #expect(page.pageCount > 40)
+        #expect(page.canvas.bounds.height <= page.textView.bounds.height + 0.5)
+    }
+
+    @Test("The part of the note on screen stays within the note")
+    func visiblePartClamps() {
+        let inside = PageView.visiblePart(ofNoteHeight: 3000, width: 816, scrolledTo: 1000, viewHeight: 800)
+        let bouncedAbove = PageView.visiblePart(ofNoteHeight: 3000, width: 816, scrolledTo: -60, viewHeight: 800)
+        let bouncedBelow = PageView.visiblePart(ofNoteHeight: 3000, width: 816, scrolledTo: 2400, viewHeight: 800)
+        let shortNote = PageView.visiblePart(ofNoteHeight: 500, width: 816, scrolledTo: 0, viewHeight: 800)
+
+        #expect(inside == CGRect(x: 0, y: 1000, width: 816, height: 800))
+        #expect(bouncedAbove.minY == 0)
+        #expect(bouncedBelow.maxY == 3000)
+        #expect(shortNote == CGRect(x: 0, y: 0, width: 816, height: 500))
     }
 
     @Test("Ink below the last line adds the pages needed to reach it")
@@ -591,7 +706,7 @@ struct PageViewTests {
         #expect(harness.page.pageCount == layout.pageIndex(atY: inkBottom) + 1)
         #expect(harness.page.pageCount > 1)
         #expect(harness.page.textView.contentSize.height >= inkBottom)
-        #expect(harness.page.canvas.frame.maxY >= inkBottom)
+        #expect(harness.page.canvas.markup.bounds.maxY >= inkBottom)
     }
 
     @Test("Deleting text never clips ink")
@@ -604,7 +719,7 @@ struct PageViewTests {
         harness.layOut()
 
         #expect(harness.page.textView.contentSize.height >= inkBottom)
-        #expect(harness.page.canvas.frame.maxY >= inkBottom)
+        #expect(harness.page.canvas.markup.bounds.maxY >= inkBottom)
     }
 
     @Test("Laying out again doesn't grow the note again")

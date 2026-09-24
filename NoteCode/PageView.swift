@@ -36,6 +36,13 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// Sheets in print layout, break lines in compressed. Behind the text.
     let decorations = PageDecorationView()
 
+    /// The line around the page in the continuous modes, on its edges at
+    /// whatever scale it's drawn. Print layout's sheets carry their own.
+    let outline = UIView()
+
+    /// The outline's corners, on screen.
+    static let outlineCornerRadius: CGFloat = 16
+
     /// The pages' orientation and how they are shown.
     ///
     /// Changing the mode keeps the reader's place and shows ink on its page.
@@ -128,6 +135,19 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         decorations.isUserInteractionEnabled = false
         textView.insertSubview(decorations, at: 0)
 
+        // Over the text view rather than on it: the text view is scaled, and
+        // a border of its own would thicken and thin with the zoom.
+        outline.isUserInteractionEnabled = false
+        outline.backgroundColor = .clear
+        outline.layer.borderWidth = 1
+        outline.layer.cornerRadius = Self.outlineCornerRadius
+        outline.layer.cornerCurve = .continuous
+        addSubview(outline)
+        registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (page: PageView, _) in
+            page.resolveOutlineColor()
+        }
+        resolveOutlineColor()
+
         // Scrolling, transparency and who may draw are the canvas's own
         // business — see DrawingCanvas.
         canvas.onMarkupChanged = { [weak self] in self?.captureInk() }
@@ -193,6 +213,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         if textView.center != center {
             textView.center = center
         }
+        placeOutline()
 
         let content = CGSize(width: max(area.width, frame.width), height: area.height)
         if contentSize != content {
@@ -204,6 +225,29 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         if pinch.state != .changed {
             matchRenderingScale()
         }
+    }
+
+    /// Puts the outline on the page's edges, and rounds the page's corners to
+    /// match — in page points, since the text view is scaled.
+    ///
+    /// Print layout has none: each sheet has an edge of its own, and a line
+    /// around the column would run down the sheets' sides and across the
+    /// surround between them.
+    private func placeOutline() {
+        let continuous = pageLayout.mode != .print
+        outline.isHidden = !continuous
+        if outline.frame != textView.frame {
+            outline.frame = textView.frame
+        }
+        let radius = continuous && displayScale > 0 ? Self.outlineCornerRadius / displayScale : 0
+        if textView.layer.cornerRadius != radius {
+            textView.layer.cornerRadius = radius
+            textView.layer.cornerCurve = .continuous
+        }
+    }
+
+    private func resolveOutlineColor() {
+        outline.layer.borderColor = UIColor.separator.resolvedColor(with: traitCollection).cgColor
     }
 
     /// Sets the text container to the pages' text width.
@@ -273,6 +317,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         })
         applyBands()
         backgroundColor = pageLayout.mode == .print ? .secondarySystemBackground : .clear
+        placeOutline()
 
         guard old != nil else { return }
 
@@ -414,11 +459,24 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         }
 
         let noteHeight = pageLayout.noteHeight(pageCount: pageCount)
-        let frame = CGRect(x: 0, y: 0, width: pageLayout.pageSize.width, height: noteHeight)
-        if canvas.frame != frame {
-            canvas.frame = frame
-        }
+        canvas.noteSize = CGSize(width: pageLayout.pageSize.width, height: noteHeight)
+        canvas.cover(Self.visiblePart(
+            ofNoteHeight: noteHeight,
+            width: pageLayout.pageSize.width,
+            scrolledTo: textView.contentOffset.y,
+            viewHeight: textView.bounds.height
+        ))
         decorations.update(layout: pageLayout, pageCount: pageCount, height: noteHeight)
+    }
+
+    /// The part of the note on screen, which is all the canvas covers.
+    ///
+    /// Kept within the note, so a bounce past either end doesn't carry the
+    /// canvas off it: the ink there has nothing to draw anyway.
+    static func visiblePart(ofNoteHeight noteHeight: CGFloat, width: CGFloat, scrolledTo offset: CGFloat, viewHeight: CGFloat) -> CGRect {
+        let height = min(max(viewHeight, 0), noteHeight)
+        let top = min(max(offset, 0), noteHeight - height)
+        return CGRect(x: 0, y: top, width: width, height: height)
     }
 
     // MARK: Ink
@@ -695,6 +753,9 @@ final class PageDecorationView: UIView {
     /// Sheet frames in note coordinates, for tests.
     var sheetFrames: [CGRect] { sheets.map(\.frame) }
 
+    /// Each sheet's border width, for tests.
+    var sheetBorderWidths: [CGFloat] { sheets.map(\.layer.borderWidth) }
+
     /// Break line heights in note coordinates, for tests.
     var breakLineYs: [CGFloat] { breaks.map { $0.frame.midY } }
 
@@ -727,7 +788,8 @@ final class PageDecorationView: UIView {
             sheet.layer.shadowOpacity = 0.12
             sheet.layer.shadowRadius = 6
             sheet.layer.shadowOffset = CGSize(width: 0, height: 2)
-            // Dark mode swallows a shadow; the edge carries the sheet there.
+            // The page's border, in both appearances. The shadow lifts the
+            // sheet off the surround in light mode; dark mode swallows it.
             sheet.layer.borderWidth = 1
             addSubview(sheet)
             sheets.append(sheet)
@@ -768,9 +830,7 @@ final class PageDecorationView: UIView {
     private func resolveColors() {
         let separator = UIColor.separator.resolvedColor(with: traitCollection).cgColor
         for sheet in sheets {
-            sheet.layer.borderColor = traitCollection.userInterfaceStyle == .dark
-                ? separator
-                : UIColor.clear.cgColor
+            sheet.layer.borderColor = separator
         }
         for line in breaks {
             line.strokeColor = separator

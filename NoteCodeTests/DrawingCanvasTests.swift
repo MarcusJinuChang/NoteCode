@@ -66,10 +66,13 @@ struct DrawingCanvasTests {
         let harness = Harness()
 
         #expect(harness.canvas.allowsFingerDrawing)
-        #expect(harness.canvas.controller.directTouchMode == .drawing)
+        // PencilKit's policy is what decides. PaperKit's `directTouchMode`
+        // read `.drawing` all along while this sat at `.default` and a finger
+        // never drew (23 September); this test used to check only that.
+        #expect(harness.canvas.pencilKitDrawingPolicy == .anyInput)
 
         harness.canvas.allowsFingerDrawing = false
-        #expect(harness.canvas.controller.directTouchMode == .selection)
+        #expect(harness.canvas.pencilKitDrawingPolicy == .pencilOnly)
 
         // Never left to PaperKit: automatic means a finger draws only while a
         // tool picker is up, and the hotbar replaced the picker.
@@ -92,18 +95,32 @@ struct DrawingCanvasTests {
         #expect(!Harness().canvas.isUserInteractionEnabled)
     }
 
-    @Test("The markup's bounds follow the view's")
-    func markupBoundsFollowTheView() {
+    @Test("The markup's bounds follow the note's, whatever the view covers")
+    func markupBoundsFollowTheNote() {
         let harness = Harness()
-        let taller = CGRect(x: 0, y: 0, width: 816, height: 4224)
+        let note = CGSize(width: 816, height: 4224)
 
-        harness.canvas.frame = taller
-        harness.canvas.layoutIfNeeded()
+        harness.canvas.noteSize = note
+        harness.canvas.cover(CGRect(x: 0, y: 1200, width: 816, height: 600))
 
         // PaperKit places content against the markup's bounds, not the view's.
-        // Resizing the view alone shifted what was drawn (simulator, 18 Sep),
-        // and the page resizes the canvas whenever the note gains a page.
-        #expect(harness.canvas.markup.bounds == CGRect(origin: .zero, size: taller.size))
+        // The view covers only the screen; the ink spans the note.
+        #expect(harness.canvas.markup.bounds == CGRect(origin: .zero, size: note))
+        #expect(harness.canvas.frame == CGRect(x: 0, y: 1200, width: 816, height: 600))
+        #expect(harness.canvas.controller.contentVisibleFrame == harness.canvas.frame)
+    }
+
+    @Test("A change on the canvas tells the hotbar to look at undo again")
+    func changeRefreshesUndo() {
+        let harness = Harness()
+        var told = 0
+        harness.canvas.onUndoDidChange = { told += 1 }
+
+        harness.canvas.controller.delegate?.paperMarkupViewControllerDidChangeMarkup(harness.canvas.controller)
+
+        // PaperKit registers a stroke on ink's stack before it calls the
+        // delegate. Without this the arrow stayed dim after every stroke.
+        #expect(told == 1)
     }
 
     @Test("The tool the hotbar picks reaches the canvas")

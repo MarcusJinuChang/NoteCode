@@ -20,10 +20,20 @@ struct Hotbar: View {
     @Bindable var editor: NoteEditor
     @Binding var dock: HotbarDock
 
-    /// The grip's drag, in the page's coordinate space. The page moves the bar
-    /// and decides where it lands; the bar only reports.
-    var onDrag: (DragGesture.Value) -> Void
+    /// Where the grip was let go, in the page's coordinate space. The page
+    /// decides which edge that is.
     var onDrop: (DragGesture.Value) -> Void
+
+    /// How far the bar has been dragged from its dock.
+    ///
+    /// Gesture state rather than the page's own, so a drag that is cancelled
+    /// rather than ended — the system taking the touch at the screen's edge —
+    /// puts the bar back. A plain `@State` offset is only cleared by the
+    /// drop, and a cancelled drag never drops. The reset springs, like the
+    /// dock change it usually goes with, so the bar travels from where it was
+    /// let go to where it lands in one movement.
+    @GestureState(resetTransaction: Transaction(animation: .snappy))
+    private var dragOffset: CGSize = .zero
 
     /// Apple's minimum comfortable touch target.
     static let buttonSide: CGFloat = 44
@@ -50,15 +60,17 @@ struct Hotbar: View {
         stack {
             grip
 
-            // Hugs its tools when they fit, and scrolls when they don't — a
-            // side dock in landscape with the keyboard up is short.
-            ViewThatFits(in: axis) {
-                tools
+            // Hugs its tools when they fit, and scrolls when they don't: the
+            // ink tools don't fit down the side of an 11-inch iPad in
+            // landscape, and a side dock with the keyboard up is short.
+            HotbarTrack(axis: dock.isVertical ? .vertical : .horizontal) {
                 ScrollView(axis, showsIndicators: false) { tools }
+                    .scrollBounceBehavior(.basedOnSize, axes: axis)
             }
         }
         .padding(Self.padding)
         .glassEffect(.regular, in: .rect(cornerRadius: Self.thickness / 2))
+        .offset(dragOffset)
     }
 
     // MARK: Sections
@@ -176,7 +188,7 @@ struct Hotbar: View {
             .contentShape(.rect)
             .gesture(
                 DragGesture(coordinateSpace: .named(Self.coordinateSpace))
-                    .onChanged(onDrag)
+                    .updating($dragOffset) { drag, offset, _ in offset = drag.translation }
                     .onEnded(onDrop)
             )
             .accessibilityElement()
@@ -224,6 +236,37 @@ struct Hotbar: View {
         .buttonStyle(.plain)
         .accessibilityLabel(color.rawValue.capitalized)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+/// Gives the bar's scrolling tools their own length when there's room for it,
+/// and the room there is when there isn't.
+///
+/// This was a `ViewThatFits` choosing between the tools and the tools in a
+/// scroll view, and it froze the app. Docked to a side in ink mode on an
+/// 11-inch iPad in landscape, the tools don't fit and it held the scroll view;
+/// dropped back at the bottom, the axis flipped mid-animation and the two
+/// branches traded places on every update, without end — the main thread at
+/// 100% inside SwiftUI's transaction flush and the bar stuck mid-flight
+/// (simulator, 23 September). Here the scroll view is always there and is
+/// sized in one pass, so there's no branch to trade.
+private struct HotbarTrack: Layout {
+    var axis: Axis
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let track = subviews.first else { return .zero }
+        // A scroll view's ideal size is its content's.
+        let natural = track.sizeThatFits(.unspecified)
+        switch axis {
+        case .vertical:
+            return CGSize(width: natural.width, height: min(natural.height, proposal.height ?? natural.height))
+        case .horizontal:
+            return CGSize(width: min(natural.width, proposal.width ?? natural.width), height: natural.height)
+        }
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
     }
 }
 

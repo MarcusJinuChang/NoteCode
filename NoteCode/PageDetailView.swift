@@ -35,9 +35,6 @@ struct PageDetailView: View {
     @AppStorage(PageViewMode.defaultsKey)
     private var viewMode: PageViewMode = .default
 
-    /// How far the hotbar has been dragged away from its dock, mid-drag.
-    @State private var dragOffset: CGSize = .zero
-
     /// The page area the hotbar docks within, for working out where a drag lands.
     @State private var pageSize: CGSize = .zero
 #endif
@@ -58,7 +55,6 @@ struct PageDetailView: View {
 #endif
         .onChange(of: page.title) { page.modifiedAt = .now }
         .onChange(of: page.content) { page.modifiedAt = .now }
-        .onChange(of: page.pageOrientation) { page.modifiedAt = .now }
     }
 
     // MARK: Header
@@ -75,7 +71,7 @@ struct PageDetailView: View {
                 Spacer()
 
 #if canImport(UIKit)
-                PageViewMenu(mode: $viewMode, orientation: $page.orientation)
+                PageViewMenu(mode: $viewMode)
 #endif
 
                 RunDestinationMenu(
@@ -116,26 +112,16 @@ struct PageDetailView: View {
                 editor: editor,
                 pageLayout: PageLayout(orientation: page.orientation, mode: viewMode)
             )
-            // The outline is what separates the page from the hotbar's space
-            // around it. Clipping to the same shape keeps anything that runs
-            // past the page — ink, or a page wider than its area below the
-            // minimum scale — inside the line rather than across the dock.
-            .clipShape(.rect(cornerRadius: Self.pageCornerRadius))
-            .overlay {
-                RoundedRectangle(cornerRadius: Self.pageCornerRadius)
-                    .strokeBorder(.separator, lineWidth: 1)
-            }
+            // The page draws its own border, on the page's edges rather than
+            // the area's — see PageView.outline. Clipping keeps anything that
+            // runs past the area, like a page zoomed wider than it, off the
+            // hotbar's space, and rounds print layout's surround.
+            .clipShape(.rect(cornerRadius: PageView.outlineCornerRadius))
             .padding(pageInsets)
 
-            Hotbar(
-                editor: editor,
-                dock: $dock,
-                onDrag: { dragOffset = $0.translation },
-                onDrop: drop
-            )
-            .offset(dragOffset)
-            .padding(Self.hotbarMargin)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: dock.alignment)
+            Hotbar(editor: editor, dock: $dock, onDrop: drop)
+                .padding(Self.hotbarMargin)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: dock.alignment)
         }
         .coordinateSpace(.named(Hotbar.coordinateSpace))
         .onGeometryChange(for: CGSize.self) { $0.size } action: { pageSize = $0 }
@@ -147,18 +133,19 @@ struct PageDetailView: View {
     /// toward an edge goes there without having to be dragged all the way.
     private func drop(_ drag: DragGesture.Value) {
         let landing = HotbarDock.nearest(to: drag.predictedEndLocation, in: pageSize)
+        // The bar's drag offset springs back on its own as the gesture ends,
+        // with the same animation, so the two read as one movement.
         withAnimation(.snappy) {
             dock = landing
-            dragOffset = .zero
         }
     }
 
-    /// Where the page's outline sits.
+    /// The area the page is drawn in.
     ///
     /// Clear of the hotbar's room on both sides, wherever the bar is — see
     /// `CanvasGeometry.hotbarReserve` — so moving the bar leaves the page
     /// exactly where and how large it was. Top and bottom keep the same gap
-    /// the bar keeps from its edges, so the outline sits evenly in its space.
+    /// the bar keeps from its edges, so the page sits evenly in its space.
     private var pageInsets: EdgeInsets {
         let reserve = CanvasGeometry.hotbarReserve(
             dock: dock,
@@ -172,7 +159,6 @@ struct PageDetailView: View {
         )
     }
 
-    private static let pageCornerRadius: CGFloat = 16
 #else
     private var content: some View {
         TextEditor(text: $page.content)

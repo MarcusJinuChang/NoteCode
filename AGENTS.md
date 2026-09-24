@@ -138,7 +138,9 @@ floor on fitting after all: a landscape page in a portrait iPad fits at about
 whichever edge it is on, so moving the bar never resizes the text.
 
 The page's orientation is the note's, not the device's: rotating the iPad still
-changes only the scale, while choosing landscape pages re-wraps that note.
+changes only the scale. It's chosen when the note is made, from the "+" menu,
+and fixed after that (23 Sep): changing it would re-wrap the text and move every
+line out from under its ink.
 
 `GeometrySpike` (branch `spike/page-geometry`) answered this and the question is
 now closed. Keep the branch for the drift demonstration it also gives.
@@ -183,9 +185,9 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
 
 - **Paper.** US Letter at 96 units to the inch: 816 by 1056 portrait, 1056 by
   816 landscape, with 0.75in margins. At that size 17pt body text prints at
-  12.75pt. Orientation belongs to the note (`Page.pageOrientation`); the view
-  mode is a per-device preference (`@AppStorage`), chosen from the header's
-  view menu.
+  12.75pt. Orientation belongs to the note (`Page.pageOrientation`), set once
+  when it's made; the view mode is a per-device preference (`@AppStorage`),
+  chosen from the header's view menu.
 - **One pagination, three presentations.** Every page holds a body of the same
   height in every mode, and text flows around a band between one body and the
   next — two margins and a 24pt gap in print layout, a 24pt strip with a dashed
@@ -198,9 +200,9 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   prints. The canvas shows it converted to the current mode, and every mode
   change converts from the stored ink, never back from the canvas: a stroke in
   a sheet's margin has no exact place in seamless, and a round trip would move
-  it a page. Changing orientation re-wraps the text, so ink keeps its printed
-  position and no longer sits on the same words — the case text-anchored ink
-  would fix.
+  it a page. A note's orientation can't change after it's made, so there is
+  no re-wrap for ink to fall out of; `PageView` still handles one, because it
+  opens every note with portrait pages first.
 - **Print layout** fits its sheets inside a 24pt border of the surround
   (`CanvasGeometry.printGutter`), so they read as paper rather than one slab
   with grey bars across it. Text is a little smaller there than in the
@@ -212,6 +214,24 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   set the height after the pass that would correct it. A switch to print
   layout left a five-page note 500pt short, extra layout passes didn't close
   the gap, and a reader near the end was pushed down (`PageSettlingTests`).
+- **Blank lines are laid out as zero-width spaces** (`BlankLineLayout`, 23
+  Sep). TextKit 2 ignores exclusion paths for an empty paragraph: it asks the
+  container, is told "below the band", and places the line where it proposed
+  anyway, so a pushing container doesn't help. Blank lines ran through the
+  breaks — print layout's band holds about seven, seamless's none — and text
+  after a blank run paginated differently by mode, which ink can't survive.
+  The content storage's delegate swaps each "\n" paragraph for "\u{200B}", the
+  same length, for layout only; the note keeps its newlines. The cost is on
+  taps: UIKit snaps a tap's caret to a word boundary, and a run of zero-width
+  spaces is one word, so a tap anywhere on a blank run put the caret after it.
+  That tap doesn't go through `closestPosition(to:)` (overridden anyway), nor
+  the text view's `gestureRecognizerShouldBegin` — its recogniser is on an
+  inner view — so `DocumentUITextView` notes the touch in `hitTest` and
+  `placeCaretOnTappedBlankLine` moves the caret back when the selection
+  changes. Needs a real tap to check; a unit test can't see it. Arrowing up
+  and down still visits each blank line. The empty
+  last line after a final newline isn't a paragraph and isn't covered: in
+  seamless and compressed its caret can still sit in a break.
 - **Position things from lines, never from a fragment's frame.** A line pushed
   past a page break stays inside a fragment whose frame begins above the
   break, so the frame spans it. Code panels (`CodeBlockLayoutFragment.panelRuns`)
