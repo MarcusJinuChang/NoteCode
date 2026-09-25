@@ -4,7 +4,7 @@ Source of truth. The published version at
 <https://claude.ai/code/artifact/2490317a-7eaf-44ae-9389-f0fb92d7471a>
 is a rendering of this file — edit here, ask for the artifact to be regenerated.
 
-Revised 23 September 2026.
+Revised 25 September 2026.
 
 | | |
 |---|---|
@@ -13,7 +13,7 @@ Revised 23 September 2026.
 | App Store submission | Nov 2026 |
 | Second version | AI + feedback, Mar 2027 |
 
-## Where things stand (23 Sep)
+## Where things stand (25 Sep)
 
 Everything up to the drawing layer's toggle is built and merged: the TextKit 2
 editor with code blocks, run and copy, Letter-sized pages in three view modes
@@ -23,8 +23,14 @@ finger or the Pencil draws on, with ink undo of its own. 17 pull requests.
 - **Ink is saved** (23 Sep, branch `ink-persistence`): half a second after
   drawing pauses, and at once when the note closes or the app leaves the
   screen. It survived a force-quit on the simulator. 410 tests.
-- **The iPad pass hasn't started.** Latency, palm rejection and Pencil-versus-
-  finger routing can only be judged on the device.
+- **The iPad pass has started.** First findings (25 Sep): ink and the line
+  being typed were drawn at a lower density than the screen, and typing
+  stuttered now and then. Both density bugs are fixed and measured on the
+  simulator, and a keystroke costs about a third less (branch
+  `rendering-sharpness`). Typing near the top of a long note still costs
+  about two frames; the rest of that is pagination by exclusion paths.
+  Latency, palm rejection and Pencil-versus-finger routing are still to
+  judge on the device.
 - **Nothing is started for signing in and shipping.** Builds still sign with
   the free Personal Team, whose profiles last seven days. As of 11 Sep the
   paid Developer Program membership wasn't showing on the account. That has
@@ -47,7 +53,7 @@ See [phase-drawing-layer.md](phase-drawing-layer.md) for the build plan.
 | 2. Geometry | 8–14 Sep | Done, and grew into pages and view modes |
 | 3. The toggle | 15–21 Sep | Done. Left over: code-block buttons and the canvas overlap — see step 3 in the phase doc |
 | 4. Saving ink | 22–28 Sep | Done 23 Sep; gate passed on the simulator |
-| 5. Device pass | 29 Sep – 10 Oct | Not started; 11 hardware checks listed |
+| 5. Device pass | 29 Sep – 10 Oct | Started early, 25 Sep: rendering density fixed, typing cost cut |
 
 **Fallback if it runs long:** the phase doc's cut list — stop adding pages for
 ink, then PencilKit's canvas instead of PaperKit's. Saving is never cut.

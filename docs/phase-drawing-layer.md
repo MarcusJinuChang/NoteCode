@@ -309,8 +309,15 @@ tracked.
 Checked 18 Sep on the simulator: PencilKit does not render sharply under the
 transform. At 1.25x the canvas's tiles stay at 2x and the ink is visibly soft.
 Giving the canvas a matching `zoomScale` or counter-scaling it didn't fix it.
-PaperKit draws with the same tiled view and wasn't measured separately.
-Whether it's acceptable on the iPad is a step 5 call.
+
+**Fixed 25 Sep, on PaperKit,** after the iPad showed ink softer than Notes'.
+Zooming PaperKit to the page's scale *and* shrinking the canvas by the same
+factor (`DrawingCanvas.renderScale`) has it draw its tiles at the density
+they're shown at: 2.48 where they were 2.0, and one partly covered pixel row
+at a stroke's edge where there were two. It needed a third change, which a
+test caught: PaperKit sizes its content as the markup's bounds divided by the
+zoom, so the canvas's copy of the markup has the note's size times the zoom,
+or every element lands 81.6 points right of its words at 1.25x.
 
 **Files:** `PageLayout.swift`, `CanvasGeometry.swift`, `PageView.swift`, `PageViewMenu.swift`, `DocumentTextView.swift`
 **Tests:** `PageLayoutTests`, `CanvasGeometryTests` (fit, zoom, focus, reserve)
@@ -466,7 +473,13 @@ main actor. The debounce is there to coalesce saves, not to hide their cost.
 Confirm on the iPad. Also on the iPad:
 
 - tile memory on a long inked note (see the geometry amendment);
-- ink sharpness under the page scale;
+- ink sharpness under the page scale — fixed on the simulator 25 Sep, see
+  the geometry step; confirm against Notes on the iPad;
+- typing on a long note — a keystroke near the top of an eight-page note
+  still cost 16ms (Release) to 20ms (Debug) on a busy Mac's simulator after
+  25 Sep's fixes, against a 120Hz frame of 8.3ms; about half is the one
+  layout below the caret that exclusion paths cost. Judge it on the iPad in
+  a Release build — Xcode's Run button installs Debug;
 - that the eraser and lasso work through `drawingTool`.
 
 ## Known limitation: drift
