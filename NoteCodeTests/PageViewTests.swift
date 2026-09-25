@@ -152,6 +152,20 @@ struct PageViewTests {
 
     private static let printPortrait = PageLayout(orientation: .portrait, mode: .print)
 
+    /// Frames equal to within float error, which a transform introduces.
+    private static func close(_ a: CGRect, _ b: CGRect, within tolerance: CGFloat = 0.01) -> Bool {
+        abs(a.minX - b.minX) < tolerance && abs(a.minY - b.minY) < tolerance
+            && abs(a.width - b.width) < tolerance && abs(a.height - b.height) < tolerance
+    }
+
+    /// Every view the text view draws with, apart from the ink layer.
+    private static func textDrawingViews(in page: PageView) -> [UIView] {
+        func walk(_ view: UIView) -> [UIView] {
+            view === page.canvas ? [] : [view] + view.subviews.flatMap(walk)
+        }
+        return walk(page.textView)
+    }
+
     // MARK: Width and scale
 
     @Test("The text lays out at its pages' width, whatever the area", arguments: PageOrientation.allCases)
@@ -206,6 +220,77 @@ struct PageViewTests {
         let expected = CanvasGeometry.maximumFitScale * harness.page.traitCollection.displayScale
 
         #expect(harness.page.textView.contentScaleFactor == expected)
+    }
+
+    /// Typing doesn't lay the text view out: the edited paragraph gets a new
+    /// view at the screen's density, and until something else laid the text
+    /// view out, the line being typed was soft (on the iPad and the simulator,
+    /// 25 September). A layout pass of the window is what the next frame gets.
+    @Test("A line being typed is drawn at the page's density by the next frame")
+    func typedLineRenderingScale() {
+        let harness = Harness(area: CGSize(width: 1224, height: 800))
+        let textView = harness.page.textView
+        let expected = CanvasGeometry.maximumFitScale * harness.page.traitCollection.displayScale
+
+        textView.becomeFirstResponder()
+        textView.selectedRange = NSRange(location: 120, length: 0)
+        harness.layOut()
+
+        // The keyboard's own path, which a reader typing takes.
+        textView.insertText("z")
+        let softAtOnce = Self.textDrawingViews(in: harness.page).filter { $0.contentScaleFactor != expected }
+        harness.window.layoutIfNeeded()
+        let soft = Self.textDrawingViews(in: harness.page).filter { $0.contentScaleFactor != expected }
+
+        #expect(softAtOnce.isEmpty, "at once: \(softAtOnce.count) views at \(softAtOnce.map(\.contentScaleFactor))")
+        #expect(soft.isEmpty, "\(soft.count) views at \(soft.map(\.contentScaleFactor))")
+    }
+
+    @Test(
+        "Ink is drawn at the density the page is shown at, up to the cap",
+        arguments: [(CGFloat(1224), CGFloat(1)), (1224, 4), (682, 1), (880, 2)]
+    )
+    func inkRenderScale(width: CGFloat, zoom: CGFloat) {
+        let harness = Harness(text: Self.severalPages, area: CGSize(width: width, height: 800))
+        harness.page.setZoom(zoom, about: CGPoint(x: width / 2, y: 400))
+        harness.layOut()
+        let page = harness.page
+        let expected = min(page.displayScale, CanvasGeometry.maximumRenderingScale)
+
+        #expect(abs(page.canvas.renderScale - expected) < 0.0001)
+        #expect(abs(page.canvas.controller.scrollConfiguration.zoomScale - expected) < 0.0001)
+        // Zoomed and shrunk by the same factor: the canvas's own points are
+        // screen points, and it still covers the part of the note on screen.
+        #expect(abs(page.canvas.bounds.height - page.textView.bounds.height * expected) < 0.01)
+        let covered = CGRect(x: 0, y: page.textView.contentOffset.y, width: page.pageLayout.pageSize.width, height: page.textView.bounds.height)
+        #expect(Self.close(page.canvas.frame, covered), "canvas at \(page.canvas.frame)")
+    }
+
+    /// Where PaperKit actually draws an element, against the text: the
+    /// check that zooming it didn't move ink off its words. Measured on a
+    /// shape, which PaperKit draws in a view of its own. Before its bounds
+    /// were scaled, this shape sat 81.6 points right of where it belonged.
+    @Test("Ink lands on its note coordinates at any render scale", arguments: [CGFloat(1), 2.5])
+    func inkLinesUpWithText(zoom: CGFloat) throws {
+        let harness = Harness(text: Self.severalPages, area: CGSize(width: 1224, height: 800))
+        harness.page.setZoom(zoom, about: CGPoint(x: 612, y: 400))
+        harness.page.textView.contentOffset.y = 1500
+        harness.layOut()
+        #expect(harness.page.canvas.renderScale > 1)
+
+        let placed = CGRect(x: 200, y: 1700, width: 100, height: 50)
+        var markup = harness.page.canvas.markup
+        markup.insertNewShape(configuration: ShapeConfiguration(type: .rectangle, fillColor: UIColor.red.cgColor), frame: placed)
+        harness.page.canvas.markup = markup
+        harness.layOut()
+
+        func shapeView(in view: UIView) -> UIView? {
+            if NSStringFromClass(type(of: view)).hasSuffix("ShapeView") { return view }
+            return view.subviews.lazy.compactMap(shapeView(in:)).first
+        }
+        let shape = try #require(shapeView(in: harness.page.canvas))
+        let drawn = shape.convert(shape.bounds, to: harness.page.textView)
+        #expect(Self.close(drawn, placed), "shape drawn at \(drawn)")
     }
 
     // MARK: Zoom
@@ -721,14 +806,18 @@ struct PageViewTests {
         let width = page.pageLayout.pageSize.width
         let noteHeight = page.pageLayout.noteHeight(pageCount: page.pageCount)
 
+        // Times the render scale — see DrawingCanvas.fitMarkupToNote.
+        let scale = page.canvas.renderScale
         #expect(page.canvas.superview === page.textView)
-        #expect(page.canvas.markup.bounds.size == CGSize(width: width, height: noteHeight))
-        #expect(page.canvas.markup.bounds.height >= page.textView.contentSize.height - 0.5)
+        #expect(page.canvas.noteSize == CGSize(width: width, height: noteHeight))
+        #expect(page.canvas.markup.bounds.size == CGSize(width: width * scale, height: noteHeight * scale))
+        #expect(page.canvas.noteSize.height >= page.textView.contentSize.height - 0.5)
 
         for offset in [0, 1800, noteHeight - page.textView.bounds.height] {
             page.textView.contentOffset.y = offset
             harness.layOut()
-            #expect(page.canvas.frame == CGRect(x: 0, y: offset, width: width, height: page.textView.bounds.height))
+            let covered = CGRect(x: 0, y: offset, width: width, height: page.textView.bounds.height)
+            #expect(Self.close(page.canvas.frame, covered), "canvas at \(page.canvas.frame)")
         }
     }
 
@@ -741,8 +830,10 @@ struct PageViewTests {
         // PencilKit draws a stroke into a buffer its canvas's size, and Metal
         // refuses one past 16,384 pixels. A canvas as tall as a nine-page
         // note crashed on the first stroke (simulator, 23 September).
+        // The canvas's own points are screen points — see
+        // DrawingCanvas.renderScale — so its buffer is the screen's size.
         #expect(page.pageCount > 40)
-        #expect(page.canvas.bounds.height <= page.textView.bounds.height + 0.5)
+        #expect(page.canvas.bounds.height <= page.bounds.height + 0.5)
     }
 
     @Test("The part of the note on screen stays within the note")
@@ -769,7 +860,9 @@ struct PageViewTests {
         #expect(harness.page.pageCount == layout.pageIndex(atY: inkBottom) + 1)
         #expect(harness.page.pageCount > 1)
         #expect(harness.page.textView.contentSize.height >= inkBottom)
-        #expect(harness.page.canvas.markup.bounds.maxY >= inkBottom)
+        // The note PaperKit lays out: its bounds are the note's times the
+        // render scale — see DrawingCanvas.fitMarkupToNote.
+        #expect(harness.page.canvas.markup.bounds.maxY / harness.page.canvas.renderScale >= inkBottom)
     }
 
     @Test("Deleting text never clips ink")
@@ -782,7 +875,9 @@ struct PageViewTests {
         harness.layOut()
 
         #expect(harness.page.textView.contentSize.height >= inkBottom)
-        #expect(harness.page.canvas.markup.bounds.maxY >= inkBottom)
+        // The note PaperKit lays out: its bounds are the note's times the
+        // render scale — see DrawingCanvas.fitMarkupToNote.
+        #expect(harness.page.canvas.markup.bounds.maxY / harness.page.canvas.renderScale >= inkBottom)
     }
 
     @Test("Laying out again doesn't grow the note again")

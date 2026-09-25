@@ -120,6 +120,24 @@ final class DocumentUITextView: UITextView {
         layoutObservers = (layoutObservers ?? []) + [observer]
     }
 
+    /// Run after TextKit lays out the text on screen, and before it's drawn.
+    ///
+    /// Not the same as a layout pass of this view: an edit lays its paragraph
+    /// out again, in a new fragment view, with no pass of this view at all.
+    /// Optional for the same reason `layoutObservers` is.
+    private var viewportLayoutObservers: [() -> Void]?
+
+    func addViewportLayoutObserver(_ observer: @escaping () -> Void) {
+        viewportLayoutObservers = (viewportLayoutObservers ?? []) + [observer]
+    }
+
+    override func textViewportLayoutControllerDidLayout(_ textViewportLayoutController: NSTextViewportLayoutController) {
+        super.textViewportLayoutControllerDidLayout(textViewportLayoutController)
+        for observer in viewportLayoutObservers ?? [] {
+            observer()
+        }
+    }
+
     // MARK: Content height
 
     /// Turns the height TextKit works out for the text into the height the

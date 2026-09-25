@@ -171,6 +171,17 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             self?.textViewDidLayout()
         }
 
+        // An edit lays its paragraph out again in a new view, at the screen's
+        // density, with no layout pass of the text view to raise it: the line
+        // being typed stayed soft until the caret moved to another line (on
+        // the iPad, and measured on the simulator, 25 September). TextKit's
+        // own layout of what's on screen covers edits too, and comes before
+        // the frame is drawn.
+        textView.addViewportLayoutObserver { [weak self] in
+            guard let self, pinch.state != .changed else { return }
+            matchRenderingScale()
+        }
+
 #if DEBUG
         DebugSession.shared.attach(self)
 #endif
@@ -267,7 +278,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     }
 
     /// Runs after every layout pass of the text view, which includes every
-    /// scroll and every edit.
+    /// scroll, but not every edit.
     private func textViewDidLayout() {
 #if DEBUG
         defer { DebugSession.shared.pageDidLayout(self) }
@@ -721,17 +732,19 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// so text drawn at 1x and shown at 1.25x is soft. Raising the content
     /// scale makes TextKit draw it at the density it lands on. Newly created
     /// fragment views arrive at the default, which is why this also runs after
-    /// every text view layout; it only touches a view whose value is wrong.
+    /// every text view layout and every layout of the text on screen; it only
+    /// touches a view whose value is wrong.
     ///
-    /// The canvas is left out. PaperKit renders its own ink through
-    /// PencilKit's tiled canvas, which keeps its own scale; ink is soft above
-    /// 1x and no counter-scale fixed it (18 September). It is a step 5 call.
+    /// The canvas is left out: PaperKit keeps its own views' scale, and draws
+    /// ink at the density it's shown at by zooming instead — see
+    /// `DrawingCanvas.renderScale`.
     private func matchRenderingScale() {
         let value = CanvasGeometry.renderingScale(
             displayScale: displayScale,
             screenScale: traitCollection.displayScale
         )
         Self.setRenderingScale(value, in: textView, skipping: canvas)
+        canvas.renderScale = min(displayScale, CanvasGeometry.maximumRenderingScale)
     }
 
     private static func setRenderingScale(_ value: CGFloat, in view: UIView, skipping excluded: UIView) {
