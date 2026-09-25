@@ -51,7 +51,7 @@ See [phase-drawing-layer.md](phase-drawing-layer.md) for the build plan.
 |---|---|---|
 | 1. Spike | 6–7 Sep | Done |
 | 2. Geometry | 8–14 Sep | Done, and grew into pages and view modes |
-| 3. The toggle | 15–21 Sep | Done. Left over: code-block buttons and the canvas overlap — see step 3 in the phase doc |
+| 3. The toggle | 15–21 Sep | Done; the code-block buttons' overlap with the canvas fixed 25 Sep |
 | 4. Saving ink | 22–28 Sep | Done 23 Sep; gate passed on the simulator |
 | 5. Device pass | 29 Sep – 10 Oct | Started early, 25 Sep: rendering density fixed, typing cost cut |
 

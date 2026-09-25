@@ -47,6 +47,7 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.restyle(textView)
         context.coordinator.editor = editor
         let page = PageView(textView: textView)
+        context.coordinator.keepBars(under: page.canvas)
         // After the page: `attach` applies the current mode, which now moves a
         // canvas knob too, and the canvas is the page's.
         editor?.attach(textView, canvas: page.canvas)
@@ -166,12 +167,6 @@ struct DocumentTextView: UIViewRepresentable {
             self.text = text
         }
 
-        /// Builds the action bars and connects them to the text view's layout.
-        ///
-        /// `layoutSubviews` is the one hook that covers everything that can
-        /// move a block: scrolling (a scroll view lays out on every offset
-        /// change), typing, rotation, and Split View. Subscribing to it means
-        /// no separate scroll or bounds observers to keep in step.
         /// Forgets `layoutCodeRanges` whenever the text storage is edited.
         func observeEdits(of textView: UITextView) {
             NotificationCenter.default.addObserver(
@@ -197,6 +192,18 @@ struct DocumentTextView: UIViewRepresentable {
             return ranges
         }
 
+        /// Keeps the action bars beneath `ceiling` — see `CodeBlockOverlay.ceiling`.
+        func keepBars(under ceiling: UIView) {
+            overlay?.ceiling = ceiling
+        }
+
+        /// Builds the action bars and connects them to the text view's layout.
+        ///
+        /// Two hooks between them cover everything that can move a block.
+        /// `layoutSubviews` covers scrolling (a scroll view lays out on every
+        /// offset change), rotation and Split View; TextKit's viewport layout
+        /// covers edits, which lay the text out without a layout pass of the
+        /// text view. No separate scroll or bounds observers to keep in step.
         func attachOverlay(to textView: DocumentUITextView) {
             let overlay = CodeBlockOverlay(textView: textView)
 
@@ -212,6 +219,10 @@ struct DocumentTextView: UIViewRepresentable {
             self.overlay = overlay
             textView.overlay = overlay
             textView.addLayoutObserver { [weak overlay] in overlay?.reposition() }
+            // An edit lays its text out with no layout pass of the text view,
+            // so a block just typed had a bar and no place for it: hidden,
+            // until something else laid the text view out.
+            textView.addViewportLayoutObserver { [weak overlay] in overlay?.reposition(laysOutViewport: false) }
         }
 
         /// Hands a block to whichever site the page is pointed at.

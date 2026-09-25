@@ -35,6 +35,7 @@ struct PageOverlayTests {
             coordinator.restyle(textView)
 
             page = PageView(textView: textView)
+            coordinator.keepBars(under: page.canvas)
             page.frame = CGRect(origin: .zero, size: area)
             window.addSubview(page)
             window.makeKeyAndVisible()
@@ -43,6 +44,17 @@ struct PageOverlayTests {
         }
 
         final class Box { var value = "" }
+
+        /// Types `text` at `offset` the way the keyboard does, including the
+        /// delegate call that restyles and makes bars for new blocks.
+        func type(_ text: String, at offset: Int) {
+            let textView = page.textView
+            textView.selectedRange = NSRange(location: offset, length: 0)
+            textView.insertText(text)
+            coordinator.textViewDidChange(textView)
+            page.layoutIfNeeded()
+            textView.layoutIfNeeded()
+        }
 
         var visibleBars: [CodeBlockActionBar] {
             let textView = page.textView
@@ -63,6 +75,47 @@ struct PageOverlayTests {
         let harness = Harness(Self.note, area: area)
 
         #expect(harness.visibleBars.count == 1)
+    }
+
+    /// Typing lays the text out with no layout pass of the text view, which
+    /// was the only thing that placed bars: a block just typed had a bar,
+    /// hidden, with no frame, until something else laid the text view out.
+    @Test("A code block typed into the note gets its buttons straight away")
+    func typedBlockGetsItsBar() {
+        let harness = Harness(Self.note, area: CGSize(width: 872, height: 1200))
+        harness.type("\n```python\nprint(1)\n```", at: (Self.note as NSString).length)
+
+        #expect(harness.visibleBars.count == 2)
+    }
+
+    /// Exactly one layer takes touches: in draw mode the canvas, over every
+    /// bar, whether the bar was made as the note opened or for a block typed
+    /// afterwards; in text mode the bars. Bars made later used to land on top
+    /// of the canvas.
+    @Test("In draw mode the canvas takes touches on every bar; in text mode the bars do")
+    func barsUnderTheCanvas() throws {
+        let harness = Harness(Self.note, area: CGSize(width: 872, height: 1200))
+        let secondBlock = "\n```python\nprint(1)\n```"
+        harness.type(secondBlock, at: (Self.note as NSString).length)
+        let bars = harness.visibleBars
+        try #require(bars.count == 2)
+
+        func hit(_ bar: CodeBlockActionBar) -> UIView? {
+            let center = bar.convert(CGPoint(x: bar.bounds.midX, y: bar.bounds.midY), to: harness.window)
+            return harness.window.hitTest(center, with: nil)
+        }
+
+        harness.page.canvas.isUserInteractionEnabled = true
+        for bar in bars {
+            let view = try #require(hit(bar))
+            #expect(view.isDescendant(of: harness.page.canvas), "draw mode: \(type(of: view)) took the touch")
+        }
+
+        harness.page.canvas.isUserInteractionEnabled = false
+        for bar in bars {
+            let view = try #require(hit(bar))
+            #expect(view.isDescendant(of: bar), "text mode: \(type(of: view)) took the touch")
+        }
     }
 
     @Test("The buttons sit at the panel's right edge, in page points")

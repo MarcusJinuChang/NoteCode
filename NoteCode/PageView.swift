@@ -744,7 +744,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             screenScale: traitCollection.displayScale
         )
         Self.setRenderingScale(value, in: textView, skipping: canvas)
-        canvas.renderScale = min(displayScale, CanvasGeometry.maximumRenderingScale)
+        canvas.renderScale = CanvasGeometry.inkRenderScale(displayScale: displayScale)
     }
 
     private static func setRenderingScale(_ value: CGFloat, in view: UIView, skipping excluded: UIView) {

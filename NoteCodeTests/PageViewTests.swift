@@ -255,9 +255,14 @@ struct PageViewTests {
         harness.page.setZoom(zoom, about: CGPoint(x: width / 2, y: 400))
         harness.layOut()
         let page = harness.page
-        let expected = min(page.displayScale, CanvasGeometry.maximumRenderingScale)
+        let expected = max(1, min(page.displayScale, CanvasGeometry.maximumRenderingScale))
 
         #expect(abs(page.canvas.renderScale - expected) < 0.0001)
+        // PaperKit takes input only inside the markup's bounds, in the
+        // note's coordinates: they have to cover the whole note, or part of
+        // every page can't be drawn on.
+        #expect(page.canvas.markup.bounds.width >= page.pageLayout.pageSize.width - 0.01)
+        #expect(page.canvas.markup.bounds.height >= page.canvas.noteSize.height - 0.01)
         #expect(abs(page.canvas.controller.scrollConfiguration.zoomScale - expected) < 0.0001)
         // Zoomed and shrunk by the same factor: the canvas's own points are
         // screen points, and it still covers the part of the note on screen.
@@ -270,13 +275,15 @@ struct PageViewTests {
     /// check that zooming it didn't move ink off its words. Measured on a
     /// shape, which PaperKit draws in a view of its own. Before its bounds
     /// were scaled, this shape sat 81.6 points right of where it belonged.
-    @Test("Ink lands on its note coordinates at any render scale", arguments: [CGFloat(1), 2.5])
-    func inkLinesUpWithText(zoom: CGFloat) throws {
-        let harness = Harness(text: Self.severalPages, area: CGSize(width: 1224, height: 800))
-        harness.page.setZoom(zoom, about: CGPoint(x: 612, y: 400))
+    @Test(
+        "Ink lands on its note coordinates at any render scale",
+        arguments: [(CGFloat(1224), CGFloat(1)), (1224, 2.5), (682, 1)]
+    )
+    func inkLinesUpWithText(width: CGFloat, zoom: CGFloat) throws {
+        let harness = Harness(text: Self.severalPages, area: CGSize(width: width, height: 800))
+        harness.page.setZoom(zoom, about: CGPoint(x: width / 2, y: 400))
         harness.page.textView.contentOffset.y = 1500
         harness.layOut()
-        #expect(harness.page.canvas.renderScale > 1)
 
         let placed = CGRect(x: 200, y: 1700, width: 100, height: 50)
         var markup = harness.page.canvas.markup

@@ -92,6 +92,10 @@ struct CanvasGeometryTests {
     func renderingCap() {
         #expect(CanvasGeometry.renderingScale(displayScale: 1.25, screenScale: 2) == 2.5)
         #expect(CanvasGeometry.renderingScale(displayScale: 5, screenScale: 2) == CanvasGeometry.maximumRenderingScale * 2)
+        // Ink never zooms below 1 — see CanvasGeometry.inkRenderScale.
+        #expect(CanvasGeometry.inkRenderScale(displayScale: 0.84) == 1)
+        #expect(CanvasGeometry.inkRenderScale(displayScale: 1.25) == 1.25)
+        #expect(CanvasGeometry.inkRenderScale(displayScale: 5) == CanvasGeometry.maximumRenderingScale)
     }
 
     // MARK: Frame

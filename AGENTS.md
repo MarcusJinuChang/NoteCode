@@ -181,7 +181,9 @@ note against 11ms scrolling, and 5.5 seconds at 2000 lines. So instead:
   shrinks the canvas by the same factor. PaperKit then sizes its content as
   the markup's bounds divided by the zoom, so the canvas's copy of the
   markup has the note's size *times* the zoom; with the note's own size,
-  every element sat 81.6pt right of its words at 1.25x.
+  every element sat 81.6pt right of its words at 1.25x. The zoom never goes
+  below 1 (`CanvasGeometry.inkRenderScale`): PaperKit takes input only
+  inside the markup's bounds, and below 1 they were narrower than the note.
 - Pinch zoom is a user factor on the same transform (`PageView.setZoom`), which
   keeps the page point between the fingers still.
 - Zoomed in, a pan goes sideways or up and down, not diagonally: the text view
@@ -407,7 +409,11 @@ the same arguments in the scheme's Run → Arguments.
   view's own recognisers claims the touch, UIKit cancels the one the button was
   tracking and it never fires, so `DocumentUITextView` refuses to let those
   recognisers begin on an action bar. Changes near this need a real tap test —
-  `sendActions` in a unit test cannot see the conflict.
+  `sendActions` in a unit test cannot see the conflict. Bars are inserted
+  beneath the ink canvas (`CodeBlockOverlay.ceiling`), so in draw mode the
+  canvas takes every touch over them, and they're placed from TextKit's
+  viewport layout as well as the text view's, since typing a block causes
+  no layout pass of the text view.
 - Ink is saved by `DrawingSaveScheduler` from `PageView.onInkChanged`, which
   fires only for changes the reader made. Anything that shows or moves ink
   for the app's own reasons must not call it: a save bumps `modifiedAt`, and

@@ -37,6 +37,16 @@ final class CodeBlockOverlay {
 
     private var targets: [CodeBlockTarget] = []
 
+    /// A view the bars stay beneath: the ink layer.
+    ///
+    /// In draw mode the canvas takes every touch on the page. Bars for blocks
+    /// that existed when a note opened were added before the canvas and sat
+    /// under it, but bars added later landed on top: they caught the Pencil
+    /// on a block's top-right corner, and in draw mode some blocks' buttons
+    /// worked and others didn't. Inserted beneath this, every bar is under
+    /// the ink, and in text mode the canvas lets their taps through.
+    weak var ceiling: UIView?
+
     init(textView: UITextView) {
         self.textView = textView
     }
@@ -52,7 +62,12 @@ final class CodeBlockOverlay {
 
     /// Recomputes every visible bar's frame. Cheap enough for `layoutSubviews`:
     /// it walks the viewport's fragments, not the document's.
-    func reposition() {
+    ///
+    /// - Parameter laysOutViewport: whether it may lay the viewport out when
+    ///   TextKit hasn't. Not when called from TextKit's own viewport layout:
+    ///   with no viewport to show, laying it out calls straight back here,
+    ///   and a mode switch in a test recursed until the stack ran out.
+    func reposition(laysOutViewport: Bool = true) {
         guard let textView,
               let layoutManager = textView.textLayoutManager,
               let contentManager = layoutManager.textContentManager
@@ -71,7 +86,7 @@ final class CodeBlockOverlay {
         // viewport out here, only when it isn't ready, keeps this independent
         // of how many passes the host happens to run.
         let viewportController = layoutManager.textViewportLayoutController
-        if viewportController.viewportRange == nil {
+        if viewportController.viewportRange == nil, laysOutViewport {
             viewportController.layoutViewport()
         }
 
@@ -146,7 +161,11 @@ final class CodeBlockOverlay {
             // since the code may have changed since the bar was made.
             bar.onRun = { [weak self] in self?.run(at: index) }
             bar.onCopy = { [weak self] in self?.copy(at: index) }
-            textView.addSubview(bar)
+            if let ceiling, ceiling.superview === textView {
+                textView.insertSubview(bar, belowSubview: ceiling)
+            } else {
+                textView.addSubview(bar)
+            }
             bars.append(bar)
         }
 

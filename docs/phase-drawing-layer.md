@@ -356,11 +356,15 @@ What it turned out to involve:
   finger taps through the canvas either way. Untested: how anyone scrolls a
   long note while a finger draws — a two-finger pan should reach the text
   view's own recognizer, which allows two touches, but that needs a device.
-- **Code-block bars straddle the canvas — still open (23 Sep).** Bars for
-  blocks that exist when a note opens are added before `PageView` adds the
-  canvas (`restyle` in `DocumentTextView.makeUIView`, then `PageView(textView:)`),
-  so they sit under it and their buttons are dead in ink mode. Bars for blocks
-  added later sit above it and catch the Pencil.
+- **Code-block bars straddled the canvas — fixed 25 Sep.** Bars for blocks
+  that existed when a note opened were added before `PageView` added the
+  canvas, so they sat under it; bars for blocks added later sat above it and
+  caught the Pencil. Bars are now inserted beneath the canvas
+  (`CodeBlockOverlay.ceiling`): in draw mode a stroke that starts on a run
+  button draws, and in text mode the buttons work. Checked with real taps on
+  the simulator. The same check found a block typed into a note got its bar
+  only once something else laid the text view out; bars are now placed from
+  TextKit's viewport layout too.
 - **The wiring moves.** `EditorMode.apply(to:saved:)` takes only the text view,
   and `editor.attach` runs before `PageView` creates the canvas
   (`DocumentTextView.swift:44-45`). The canvas also needs a parent view
@@ -387,8 +391,8 @@ What it turned out to involve:
 
 **Files:** `EditorMode.swift`, `NoteEditor.swift`, `Hotbar.swift`, `+DrawingCanvas.swift`, `PageView.swift`, `DocumentTextView.swift`, `PageDetailView.swift`
 **Gate:** toggle mid-document — scroll offset unchanged, caret where you left it.
-**Status (23 Sep):** built and merged (#15, #16), except the code-block bars
-above. Its checks on the iPad are step 5's.
+**Status (25 Sep):** built; the code-block bars are fixed on branch
+`rendering-sharpness`. Its checks on the iPad are step 5's.
 
 ### 4. Persistence (Sep 22–28)
 `Page.drawingData` holds `PaperMarkup.dataRepresentation()` bytes of
