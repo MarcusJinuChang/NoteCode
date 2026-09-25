@@ -304,6 +304,25 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
 /// TextKit 2 lays out lazily, so the fragment delegate is called for every
 /// paragraph entering the viewport. Parsing each time would be O(document) per
 /// fragment; caching against the source string makes it O(document) per edit.
+extension String {
+    /// This text in Swift's own UTF-8 storage.
+    ///
+    /// `UITextView.text` hands back a String backed by the text storage's
+    /// NSString, and every character read through it is a message send:
+    /// parsing a 23KB note took about 3ms a keystroke in a Release build,
+    /// most of it in `characterAtIndex:` (sampled on the simulator, 25
+    /// September). Converting it first is one bulk copy.
+    ///
+    /// Parse and index the same converted text. Indices from one backing
+    /// used on the other are reconciled on every use — see
+    /// `DocumentStyler.applyStyling(to:source:blocks:previousSignatures:)`.
+    nonisolated var nativeUTF8: String {
+        var copy = self
+        copy.makeContiguousUTF8()
+        return copy
+    }
+}
+
 final class DocumentCache {
     private var cachedSource: String?
     private var cachedBlocks: [BlockNode] = []
@@ -316,9 +335,26 @@ final class DocumentCache {
         if cachedSource != source {
             cachedSource = source
             cachedBlocks = DocumentParser.parse(source)
+            cachedCodeRanges = nil
             parseCount += 1
         }
         return cachedBlocks
+    }
+
+    private var cachedCodeRanges: [NSRange]?
+
+    /// The code blocks' ranges, as UTF-16 ranges.
+    ///
+    /// Converted against the string the blocks were parsed from. Their
+    /// indices belong to that instance, and converting them against another,
+    /// even an equal one, forces index reconciliation on every use.
+    func codeRanges(for source: String) -> [NSRange] {
+        let blocks = blocks(for: source)
+        if let cachedCodeRanges { return cachedCodeRanges }
+        let parsed = cachedSource ?? source
+        let ranges = blocks.filter(\.isCode).map { NSRange($0.range, in: parsed) }
+        cachedCodeRanges = ranges
+        return ranges
     }
 }
 

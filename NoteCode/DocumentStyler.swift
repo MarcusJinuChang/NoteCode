@@ -117,7 +117,7 @@ enum DocumentStyler {
     /// The editor goes through the `regions:` variant so it parses once per edit.
     @discardableResult
     static func applyStyling(to textView: UITextView) -> [BlockNode] {
-        let source = textView.text ?? ""
+        let source = (textView.text ?? "").nativeUTF8
         let blocks = DocumentParser.parse(source)
         applyStyling(to: textView, source: source, blocks: blocks, previousSignatures: [])
         return blocks
@@ -171,38 +171,47 @@ enum DocumentStyler {
         // correct where the text didn't change.
         let existingColors = codeColors(in: storage, layouts: touched)
 
-        storage.beginEditing()
-        storage.setAttributes(proseAttributes, range: span)
+        // Worked out on a copy, and written only where it differs.
+        //
+        // Setting attributes is an edit even when they're the ones already
+        // there, and with page breaks as exclusion paths TextKit then lays out
+        // everything below the edited paragraph again. A keystroke in prose
+        // usually leaves its paragraph styled exactly as it was — the typed
+        // character takes the typing attributes — so restyling it cost a
+        // second full layout of the note below the caret on every keystroke
+        // (sampled on the simulator, 25 September).
+        let styled = NSMutableAttributedString(attributedString: storage)
+        styled.setAttributes(proseAttributes, range: span)
 
         for layout in touched {
             switch layout.block.kind {
             case .code:
-                storage.setAttributes(codeAttributes, range: layout.range)
+                styled.setAttributes(codeAttributes, range: layout.range)
                 // The fence lines are markers like any other, so they recede
                 // too — the code inside is what should carry the eye.
                 for marker in layout.blockMarkers {
-                    storage.addAttribute(.foregroundColor, value: markerColor, range: marker)
+                    styled.addAttribute(.foregroundColor, value: markerColor, range: marker)
                 }
 
             case .paragraph:
-                apply(layout.inlines, over: proseFont, to: storage)
+                apply(layout.inlines, over: proseFont, to: styled)
 
             case .listItem:
-                storage.addAttribute(
+                styled.addAttribute(
                     .paragraphStyle,
                     value: listParagraphStyle(for: layout.block, in: source),
                     range: layout.range
                 )
-                apply(layout.inlines, over: proseFont, to: storage)
+                apply(layout.inlines, over: proseFont, to: styled)
                 for marker in layout.blockMarkers {
-                    storage.addAttribute(.foregroundColor, value: markerColor, range: marker)
+                    styled.addAttribute(.foregroundColor, value: markerColor, range: marker)
                 }
 
             case .heading(let level, _):
-                storage.setAttributes(headingAttributes(level: level), range: layout.range)
-                apply(layout.inlines, over: headingFont(level: level), to: storage)
+                styled.setAttributes(headingAttributes(level: level), range: layout.range)
+                apply(layout.inlines, over: headingFont(level: level), to: styled)
                 for marker in layout.blockMarkers {
-                    storage.addAttribute(.foregroundColor, value: markerColor, range: marker)
+                    styled.addAttribute(.foregroundColor, value: markerColor, range: marker)
                 }
             }
         }
@@ -212,9 +221,18 @@ enum DocumentStyler {
         // uncoloured until the next highlight pass rather than inheriting the
         // colour of whatever they were typed after.
         for run in existingColors {
-            storage.addAttribute(.foregroundColor, value: run.color, range: run.range)
+            styled.addAttribute(.foregroundColor, value: run.color, range: run.range)
         }
 
+        let wanted = styled.attributedSubstring(from: span)
+        guard !wanted.isEqual(to: storage.attributedSubstring(from: span)) else {
+            return signatures
+        }
+
+        storage.beginEditing()
+        wanted.enumerateAttributes(in: NSRange(location: 0, length: wanted.length)) { attributes, range, _ in
+            storage.setAttributes(attributes, range: NSRange(location: span.location + range.location, length: range.length))
+        }
         storage.endEditing()
 
         return signatures
@@ -395,7 +413,7 @@ enum DocumentStyler {
     ///
     /// Traits are derived from the block's own font rather than a fixed one, so
     /// bold inside a heading is a bold heading, not bold body text.
-    private static func apply(_ inlines: [InlineLayout], over baseFont: UIFont, to storage: NSTextStorage) {
+    private static func apply(_ inlines: [InlineLayout], over baseFont: UIFont, to storage: NSMutableAttributedString) {
         for inline in inlines where inline.kind != .text {
             switch inline.kind {
             case .strong:

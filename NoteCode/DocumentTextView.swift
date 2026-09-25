@@ -39,6 +39,7 @@ struct DocumentTextView: UIViewRepresentable {
         // Fragment selection happens through the layout manager, not the text
         // view, so the coordinator has to be wired in as both delegates.
         textView.textLayoutManager?.delegate = context.coordinator
+        context.coordinator.observeEdits(of: textView)
         context.coordinator.attachOverlay(to: textView)
         context.coordinator.observeAppearance(of: textView)
         textView.text = text
@@ -75,7 +76,12 @@ struct DocumentTextView: UIViewRepresentable {
         // Only push text down when it actually differs. Assigning `.text`
         // unconditionally would reset the selection on every render and fight
         // the user for control of the caret while they type.
-        if textView.text != text {
+        //
+        // Compared as NSStrings, literally. Both sides are NSString-backed,
+        // and Swift's `==` compares those canonically, a character at a time
+        // through the bridge — on every keystroke, since this runs after each
+        // one.
+        if !(textView.textStorage.string as NSString).isEqual(to: text) {
             // Assigning `.text` resets the storage to plain attributes, so the
             // styling has to be reapplied every time text arrives from outside.
             // Assigning `.text` resets the storage to plain attributes, so
@@ -101,6 +107,16 @@ struct DocumentTextView: UIViewRepresentable {
 
         /// The run and copy buttons floating over each code block.
         private var overlay: CodeBlockOverlay?
+
+        /// Where the code blocks are, for the layout delegate, or `nil` once
+        /// the text has changed since they were worked out.
+        ///
+        /// TextKit asks the delegate about every paragraph it lays out, and
+        /// with page breaks as exclusion paths an edit lays out every
+        /// paragraph below it. Going through `documentCache` each time
+        /// compared the whole note's text on every call, and converted each
+        /// block's range against a different copy of the string.
+        private var layoutCodeRanges: [NSRange]?
 
         /// What the document looked like at the last styling pass, so only the
         /// blocks that actually changed get restyled.
@@ -156,6 +172,31 @@ struct DocumentTextView: UIViewRepresentable {
         /// move a block: scrolling (a scroll view lays out on every offset
         /// change), typing, rotation, and Split View. Subscribing to it means
         /// no separate scroll or bounds observers to keep in step.
+        /// Forgets `layoutCodeRanges` whenever the text storage is edited.
+        func observeEdits(of textView: UITextView) {
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(textStorageDidProcessEditing),
+                name: NSTextStorage.didProcessEditingNotification,
+                object: textView.textStorage
+            )
+        }
+
+        @objc private func textStorageDidProcessEditing(_ notification: Notification) {
+            guard let storage = notification.object as? NSTextStorage,
+                  storage.editedMask.contains(.editedCharacters)
+            else { return }
+            layoutCodeRanges = nil
+        }
+
+        /// The code blocks' ranges in `storage`, worked out once per edit.
+        fileprivate func codeRanges(in storage: NSTextStorage) -> [NSRange] {
+            if let layoutCodeRanges { return layoutCodeRanges }
+            let ranges = documentCache.codeRanges(for: storage.string.nativeUTF8)
+            layoutCodeRanges = ranges
+            return ranges
+        }
+
         func attachOverlay(to textView: DocumentUITextView) {
             let overlay = CodeBlockOverlay(textView: textView)
 
@@ -204,7 +245,7 @@ struct DocumentTextView: UIViewRepresentable {
             // Read the text exactly once. Every range below indexes into this
             // instance, and mixing instances is ruinously slow — see the note
             // on DocumentStyler.applyStyling(to:source:blocks:previousSignatures:).
-            let source = textView.text ?? ""
+            let source = (textView.text ?? "").nativeUTF8
             let blocks = documentCache.blocks(for: source)
 
             styleSignatures = DocumentStyler.applyStyling(
@@ -299,7 +340,7 @@ struct DocumentTextView: UIViewRepresentable {
         func observeAppearance(of textView: UITextView) {
             textView.registerForTraitChanges([UITraitUserInterfaceStyle.self]) { [weak self] (textView: UITextView, _) in
                 guard let self else { return }
-                let source = textView.text ?? ""
+                let source = (textView.text ?? "").nativeUTF8
                 scheduleHighlighting(for: textView, source: source, blocks: documentCache.blocks(for: source))
             }
         }
@@ -346,7 +387,7 @@ struct DocumentTextView: UIViewRepresentable {
             at caret: Int,
             suggestedActions: [UIMenuElement]
         ) -> UIMenu? {
-            let source = textView.text ?? ""
+            let source = (textView.text ?? "").nativeUTF8
             let blocks = documentCache.blocks(for: source)
 
             guard let code = CodeBlockAction.code(atCaret: caret, in: source, blocks: blocks),
@@ -390,7 +431,7 @@ struct DocumentTextView: UIViewRepresentable {
             // character should look like, even though no text changed. This
             // fires on every keystroke too, so it reads through the cache
             // rather than re-parsing.
-            let source = textView.text ?? ""
+            let source = (textView.text ?? "").nativeUTF8
             let blocks = documentCache.blocks(for: source)
             DocumentStyler.applyTypingAttributes(to: textView, source: source, blocks: blocks)
         }
@@ -461,8 +502,7 @@ extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
         let plain = NSTextLayoutFragment(textElement: textElement, range: textElement.elementRange)
 
         guard let contentManager = textLayoutManager.textContentManager,
-              let storage = contentManager as? NSTextContentStorage,
-              let source = storage.textStorage?.string,
+              let storage = (contentManager as? NSTextContentStorage)?.textStorage,
               let elementRange = textElement.elementRange
         else { return plain }
 
@@ -471,8 +511,8 @@ extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
         let length = contentManager.offset(from: elementRange.location, to: elementRange.endLocation)
         let element = NSRange(location: start, length: length)
 
-        for block in documentCache.blocks(for: source) where block.isCode {
-            guard let position = CodeBlockPosition.of(element: element, in: NSRange(block.range, in: source)) else {
+        for range in codeRanges(in: storage) {
+            guard let position = CodeBlockPosition.of(element: element, in: range) else {
                 continue
             }
             let fragment = CodeBlockLayoutFragment(textElement: textElement, range: textElement.elementRange)
