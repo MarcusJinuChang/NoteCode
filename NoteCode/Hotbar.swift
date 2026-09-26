@@ -60,6 +60,12 @@ struct Hotbar: View {
         stack {
             grip
 
+            // Outside the scroll view, so they never scroll away with the
+            // tools: undo and the mode toggle are what's reached for most,
+            // and they stay where the hand expects them.
+            pinned
+            divider
+
             // Hugs its tools when they fit, and scrolls when they don't: the
             // ink tools don't fit down the side of an 11-inch iPad in
             // landscape, and a side dock with the keyboard up is short.
@@ -75,7 +81,7 @@ struct Hotbar: View {
 
     // MARK: Sections
 
-    private var tools: some View {
+    private var pinned: some View {
         stack {
             button("Undo", "arrow.uturn.backward") { editor.undo() }
                 .disabled(!editor.canUndo)
@@ -83,19 +89,20 @@ struct Hotbar: View {
                 .disabled(!editor.canRedo)
 
             modeToggle
-            divider
+        }
+    }
 
-            // Both tool sets are always laid out, and only the current one
-            // shows. The bar then keeps the size of the larger set in either
-            // mode, so switching doesn't resize it — a centred bar that
-            // resized would slide the undo arrows and the toggle sideways,
-            // right out from under the finger that just pressed it.
-            ZStack(alignment: dock.isVertical ? .top : .leading) {
-                stack { textTools }
-                    .modeLayer(isShowing: editor.mode == .text)
-                stack { inkTools }
-                    .modeLayer(isShowing: editor.mode == .ink)
-            }
+    private var tools: some View {
+        // Both tool sets are always laid out, and only the current one
+        // shows. The bar then keeps the size of the larger set in either
+        // mode, so switching doesn't resize it — a centred bar that resized
+        // would slide the undo arrows and the toggle sideways, right out
+        // from under the finger that just pressed it.
+        ZStack(alignment: dock.isVertical ? .top : .leading) {
+            stack { textTools }
+                .modeLayer(isShowing: editor.mode == .text)
+            stack { inkTools }
+                .modeLayer(isShowing: editor.mode == .ink)
         }
     }
 
