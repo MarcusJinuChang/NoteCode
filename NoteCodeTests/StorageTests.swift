@@ -57,4 +57,23 @@ struct StorageTests {
         #expect(storage.isEphemeral == false)
         #expect(storage.reason == "store corrupted")
     }
+
+    @Test("Deleting a note reaches the store at once, not at the next autosave")
+    func deletionIsSaved() throws {
+        let container = try inMemoryContainer()
+        let context = ModelContext(container)
+        let kept = Page(title: "Kept")
+        let deleted = Page(title: "Deleted")
+        context.insert(kept)
+        context.insert(deleted)
+        try context.save()
+
+        try Page.delete([deleted], from: context)
+
+        // A context of its own sees only what the store has: what a relaunch
+        // would see. Only the main context autosaves, so this one never does.
+        let relaunched = ModelContext(container)
+        let titles = try relaunched.fetch(FetchDescriptor<Page>()).map(\.title)
+        #expect(titles == ["Kept"])
+    }
 }

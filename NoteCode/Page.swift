@@ -59,3 +59,19 @@ extension Page {
         set { pageOrientation = newValue.rawValue }
     }
 }
+
+extension Page {
+    /// Deletes notes, and saves the deletion straight away.
+    ///
+    /// The store autosaves on its own schedule, and a deletion the app was
+    /// killed before then — by a crash, or Xcode starting the next build —
+    /// came back on the next launch. The open note also saves when the app
+    /// leaves the screen, but a deleted note is closed first, and the note
+    /// list saves nothing on its own.
+    static func delete(_ pages: some Sequence<Page>, from context: ModelContext) throws {
+        for page in pages {
+            context.delete(page)
+        }
+        try context.save()
+    }
+}

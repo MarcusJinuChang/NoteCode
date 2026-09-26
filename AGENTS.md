@@ -427,6 +427,11 @@ the same arguments in the scheme's Run → Arguments.
   SwiftData traps ("backing data was detached … without resolving attribute
   faults"), since external storage leaves the attribute unloaded, and
   `isDeleted` reads false again by then — check `modelContext` too.
+- Delete notes with `Page.delete(_:from:)`, which saves at once. Other
+  changes are saved by autosave, or when the app leaves the screen with a
+  note open, and a deletion from the note list had neither: killed within
+  a few seconds — a crash, or Xcode starting the next build — the note came
+  back.
 - The action bars are positioned from TextKit 2's *viewport*, never from the
   whole document. Asking for a fragment further down forces layout all the way
   to it, which is the lazy layout the editor is built on.
