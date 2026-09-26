@@ -124,6 +124,31 @@ struct PageLayoutTests {
         #expect(sheet.maxY - (layout.bodyTop(ofPage: 5) + layout.bodyHeight) == PageLayout.margin)
     }
 
+    @Test("In print layout, the surround between and around sheets isn't on a page", arguments: PageOrientation.allCases)
+    func printSurround(orientation: PageOrientation) {
+        let layout = PageLayout(orientation: orientation, mode: .print)
+        let first = layout.sheet(ofPage: 0)
+        let second = layout.sheet(ofPage: 1)
+        let x = first.midX
+
+        #expect(layout.isOnPage(CGPoint(x: x, y: first.midY), pageCount: 2))
+        #expect(layout.isOnPage(CGPoint(x: x, y: second.minY + 1), pageCount: 2))
+        #expect(!layout.isOnPage(CGPoint(x: x, y: (first.maxY + second.minY) / 2), pageCount: 2))
+        #expect(!layout.isOnPage(CGPoint(x: x, y: first.minY - 1), pageCount: 2))
+        #expect(!layout.isOnPage(CGPoint(x: x, y: second.maxY + 1), pageCount: 2))
+        // Below the last page, where another sheet would be if there were one.
+        #expect(!layout.isOnPage(CGPoint(x: x, y: second.midY), pageCount: 1))
+    }
+
+    @Test("The continuous modes are one page surface, breaks included", arguments: [PageViewMode.seamless, .compressed])
+    func continuousIsAllPage(mode: PageViewMode) {
+        let layout = PageLayout(mode: mode)
+        let breakMiddle = layout.bodyTop(ofPage: 0) + layout.bodyHeight + layout.gap / 2
+
+        #expect(layout.isOnPage(CGPoint(x: 100, y: breakMiddle), pageCount: 2))
+        #expect(layout.isOnPage(CGPoint(x: 100, y: 1), pageCount: 2))
+    }
+
     @Test("Compressed breaks fall in the middle of their band")
     func breakLines() {
         let layout = PageLayout(mode: .compressed)

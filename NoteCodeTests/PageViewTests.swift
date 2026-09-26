@@ -774,6 +774,41 @@ struct PageViewTests {
         #expect(abs(harness.page.textView.frame.minX) < 0.5)
     }
 
+    @Test("A touch beside the page goes to the text view, which scrolls the note", arguments: PageViewMode.allCases)
+    func besideThePageScrolls(mode: PageViewMode) throws {
+        // Wider than a page fits at 1.25x, so there's room either side.
+        let harness = Harness(text: Self.severalPages, area: CGSize(width: 1300, height: 900), layout: PageLayout(mode: mode))
+        let page = harness.page
+        let frame = page.textView.frame
+        try #require(frame.minX > 20)
+
+        #expect(page.hitTest(CGPoint(x: frame.minX / 2, y: 400), with: nil) === page.textView)
+        #expect(page.hitTest(CGPoint(x: (frame.maxX + 1300) / 2, y: 400), with: nil) === page.textView)
+    }
+
+    @Test("In ink mode, print layout's surround between sheets is the text view's, and the sheets are the canvas's")
+    func surroundBetweenSheets() throws {
+        let layout = PageLayout(mode: .print)
+        let harness = Harness(text: Self.severalPages, layout: layout)
+        let page = harness.page
+        try #require(page.pageCount > 1)
+        page.canvas.isUserInteractionEnabled = true
+
+        let gapY = (layout.sheet(ofPage: 0).maxY + layout.sheet(ofPage: 1).minY) / 2
+        page.textView.contentOffset.y = gapY - 300
+        harness.layOut()
+
+        func hit(_ note: CGPoint) -> UIView? {
+            page.hitTest(page.textView.convert(note, to: page), with: nil)
+        }
+        let x = layout.pageSize.width / 2
+
+        let between = try #require(hit(CGPoint(x: x, y: gapY)))
+        #expect(!between.isDescendant(of: page.canvas))
+        let onSheet = try #require(hit(CGPoint(x: x, y: gapY + 100)))
+        #expect(onSheet.isDescendant(of: page.canvas))
+    }
+
     @Test("The outline sits on the page's edges, not the area's, and print layout's sheets carry their own")
     func outlineOnThePage() {
         // Wider than a page fits at 1.25x, so the page is narrower than its area.

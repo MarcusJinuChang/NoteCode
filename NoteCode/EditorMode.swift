@@ -108,6 +108,16 @@ struct PageScrolling: Equatable {
     /// pointer (read from the app, 25 September).
     static let standard = PageScrolling(minimumTouches: 1, touchTypes: [.direct, .pencil, .indirectPointer])
 
+    /// For a scroll that starts where the canvas takes no touches: beside
+    /// the page, between print layout's sheets, below the note's end.
+    ///
+    /// One finger, whatever it takes on the page. Nothing there draws, so
+    /// there's nothing for a one-finger scroll to race, and with a finger
+    /// drawing it's the only place one finger can move the note.
+    var offCanvas: PageScrolling {
+        PageScrolling(minimumTouches: 1, touchTypes: touchTypes)
+    }
+
     func apply(to pan: UIPanGestureRecognizer) {
         pan.minimumNumberOfTouches = minimumTouches
         pan.allowedTouchTypes = touchTypes.map { NSNumber(value: $0.rawValue) }
@@ -121,6 +131,7 @@ extension EditorMode {
     /// In ink mode the Pencil never scrolls: it's drawing, erasing, or moving
     /// what the lasso caught. Nor does one finger while a finger draws; two
     /// fingers scroll then. Locked to the Pencil, one finger scrolls again.
+    /// Off the canvas, one finger always scrolls — see `offCanvas`.
     ///
     /// - Parameter fingerDraws: whether a finger draws on the canvas.
     func scrolling(fingerDraws: Bool) -> PageScrolling {

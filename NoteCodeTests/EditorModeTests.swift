@@ -150,6 +150,14 @@ struct PageScrollingTests {
         #expect(EditorMode.ink.scrolling(fingerDraws: true).minimumTouches == 2)
         #expect(EditorMode.ink.scrolling(fingerDraws: false).minimumTouches == 1)
     }
+
+    @Test("Off the canvas, one finger scrolls, with the same kinds of touch", arguments: [EditorMode.text, .ink], [true, false])
+    func oneFingerOffTheCanvas(mode: EditorMode, fingerDraws: Bool) {
+        let scrolling = mode.scrolling(fingerDraws: fingerDraws)
+
+        #expect(scrolling.offCanvas.minimumTouches == 1)
+        #expect(scrolling.offCanvas.touchTypes == scrolling.touchTypes)
+    }
 }
 
 @Suite("Ink tools")
