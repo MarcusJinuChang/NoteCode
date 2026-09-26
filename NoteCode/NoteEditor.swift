@@ -40,6 +40,7 @@ final class NoteEditor {
         didSet {
             guard isPencilOnly != oldValue else { return }
             canvas?.allowsFingerDrawing = !isPencilOnly
+            applyScrolling()
         }
     }
 
@@ -50,14 +51,22 @@ final class NoteEditor {
     @ObservationIgnored private weak var canvas: DrawingCanvas?
     @ObservationIgnored private var savedSession: TextSession?
 
+    /// The pans that scroll the page: the text view's, up and down, and the
+    /// page's, sideways when zoomed in.
+    @ObservationIgnored private var scrollPans: [UIPanGestureRecognizer] = []
+
     /// Called by `DocumentTextView` once the page, and so the canvas, exists.
-    func attach(_ textView: UITextView, canvas: DrawingCanvas? = nil) {
+    ///
+    /// - Parameter page: the scroll view around the text view, if any.
+    func attach(_ textView: UITextView, canvas: DrawingCanvas? = nil, page: UIScrollView? = nil) {
         self.textView = textView
         self.canvas = canvas
+        scrollPans = [textView.panGestureRecognizer] + [page?.panGestureRecognizer].compactMap { $0 }
         canvas?.tool = inkTool.pencilKitTool
         canvas?.allowsFingerDrawing = !isPencilOnly
         canvas?.onUndoDidChange = { [weak self] in self?.refreshUndoState() }
         savedSession = mode.apply(to: textView, canvas: canvas, saved: nil)
+        applyScrolling()
         refreshUndoState()
     }
 
@@ -67,7 +76,16 @@ final class NoteEditor {
         if let textView {
             savedSession = newMode.apply(to: textView, canvas: canvas, saved: savedSession)
         }
+        applyScrolling()
         refreshUndoState()
+    }
+
+    /// Hands the page's pans whatever the mode and the Pencil lock leave them.
+    private func applyScrolling() {
+        let scrolling = mode.scrolling(fingerDraws: !isPencilOnly)
+        for pan in scrollPans {
+            scrolling.apply(to: pan)
+        }
     }
 
     // MARK: Formatting

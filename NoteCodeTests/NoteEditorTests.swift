@@ -24,6 +24,8 @@ struct NoteEditorTests {
         let textView = DocumentTextView.makeConfiguredTextView()
         let editor = NoteEditor()
         let canvas = DrawingCanvas(pageSize: CGSize(width: 816, height: 1056))
+        /// Stands in for `PageView`, the scroll view around the text view.
+        let page = UIScrollView()
         var coordinator: DocumentTextView.Coordinator!
 
         init(_ text: String) {
@@ -40,8 +42,10 @@ struct NoteEditorTests {
             textView.addSubview(canvas)
             window.makeKeyAndVisible()
 
-            editor.attach(textView, canvas: canvas)
+            editor.attach(textView, canvas: canvas, page: page)
         }
+
+        var pans: [UIPanGestureRecognizer] { [textView.panGestureRecognizer, page.panGestureRecognizer] }
     }
 
     @Test("A formatting button edits the text view and the page both")
@@ -140,6 +144,25 @@ struct NoteEditorTests {
 
         harness.editor.isPencilOnly = false
         #expect(harness.canvas.allowsFingerDrawing)
+    }
+
+    @Test("The page's pans follow the mode and the Pencil lock")
+    func scrollingFollowsTheMode() {
+        let harness = Harness("a word b")
+        func pencilScrolls(_ pan: UIPanGestureRecognizer) -> Bool {
+            pan.allowedTouchTypes.contains(NSNumber(value: UITouch.TouchType.pencil.rawValue))
+        }
+
+        #expect(harness.pans.allSatisfy { $0.minimumNumberOfTouches == 1 && pencilScrolls($0) })
+
+        harness.editor.setMode(.ink)
+        #expect(harness.pans.allSatisfy { $0.minimumNumberOfTouches == 2 && !pencilScrolls($0) })
+
+        harness.editor.isPencilOnly = true
+        #expect(harness.pans.allSatisfy { $0.minimumNumberOfTouches == 1 && !pencilScrolls($0) })
+
+        harness.editor.setMode(.text)
+        #expect(harness.pans.allSatisfy { $0.minimumNumberOfTouches == 1 && pencilScrolls($0) })
     }
 
     @Test("The hotbar's tool reaches the canvas")

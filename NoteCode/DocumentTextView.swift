@@ -50,7 +50,7 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.keepBars(under: page.canvas)
         // After the page: `attach` applies the current mode, which now moves a
         // canvas knob too, and the canvas is the page's.
-        editor?.attach(textView, canvas: page.canvas)
+        editor?.attach(textView, canvas: page.canvas, page: page)
         page.pageLayout = pageLayout
         // After the layout: stored ink is in print coordinates for the note's
         // own orientation, and the page starts out portrait.
