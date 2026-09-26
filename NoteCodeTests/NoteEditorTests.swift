@@ -182,6 +182,54 @@ struct NoteEditorTests {
         #expect(harness.pans.allSatisfy { $0.minimumNumberOfTouches == 1 })
     }
 
+    @Test("The eraser toggle goes to the eraser and back to the tool before it")
+    func eraserToggle() {
+        let harness = Harness("a word b")
+        harness.editor.inkTool.kind = .highlighter
+
+        harness.editor.toggleEraser()
+        #expect(harness.editor.inkTool.kind == .eraser)
+        #expect(harness.canvas.tool is PKEraserTool)
+
+        harness.editor.toggleEraser()
+        #expect(harness.editor.inkTool.kind == .highlighter)
+
+        // Chosen from the bar, then toggled: back to the pen, not nowhere.
+        let fresh = Harness("a word b")
+        fresh.editor.inkTool.kind = .eraser
+        fresh.editor.inkTool.kind = .eraser
+        fresh.editor.toggleEraser()
+        #expect(fresh.editor.inkTool.kind == .pen)
+    }
+
+    @Test("Switching to the previous tool swaps between the last two")
+    func previousTool() {
+        let harness = Harness("a word b")
+        harness.editor.inkTool.kind = .lasso
+        harness.editor.inkTool.kind = .highlighter
+
+        harness.editor.switchToPreviousTool()
+        #expect(harness.editor.inkTool.kind == .lasso)
+        harness.editor.switchToPreviousTool()
+        #expect(harness.editor.inkTool.kind == .highlighter)
+
+        // A colour change isn't a tool change.
+        harness.editor.inkTool.color = .red
+        harness.editor.switchToPreviousTool()
+        #expect(harness.editor.inkTool.kind == .lasso)
+    }
+
+    @Test("Each Pencil setting maps to what the app does")
+    func pencilSettings() {
+        #expect(PencilResponse(.switchEraser) == .toggleEraser)
+        #expect(PencilResponse(.switchPrevious) == .switchToPreviousTool)
+        #expect(PencilResponse(.showColorPalette) == .showInkTools)
+        #expect(PencilResponse(.showInkAttributes) == .showInkTools)
+        #expect(PencilResponse(.showContextualPalette) == .showInkTools)
+        #expect(PencilResponse(.runSystemShortcut) == .nothing)
+        #expect(PencilResponse(.ignore) == .nothing)
+    }
+
     @Test("The hotbar's tool reaches the canvas")
     func toolReachesTheCanvas() {
         let harness = Harness("a word b")

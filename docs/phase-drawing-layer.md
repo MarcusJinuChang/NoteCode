@@ -548,6 +548,27 @@ palm resting on the page leaves no mark (checks 3 and 10); two fingers
 landing a moment apart, as real fingers do, rather than together (check 11);
 ink latency; and the rest of the list above.
 
+**Pencil changes (26 Sep, branch `pencil-changes`).** Asked for after the
+fixes above merged, and built into this step rather than a phase of their
+own:
+
+- Undo, redo and the text/draw toggle no longer scroll away with the tools.
+- The surround scrolls with one finger and zooms with a pinch, in both
+  modes — beside the page, between print layout's sheets. It's the one
+  place one finger moves the note while a finger draws.
+- The eraser erases whole strokes or only what it passes over, at three
+  sizes or a custom one. Only PencilKit's fixed-width eraser takes a width
+  (16.4 to 80.4 points), and it's in screen points, not the page's: on the
+  simulator the gaps it cut were 16, 56 and 80 points at a 0.84x page.
+- "+" opens Apple's colour picker; a colour can be removed or moved.
+- The Pencil's double tap and squeeze do what Settings says.
+
+Checked on the simulator: all but the Pencil. The squeeze palette was
+shown there through a temporary launch hook and anchored where asked. For
+the iPad: double tap swaps to the eraser and back; squeeze shows the tools
+at the tip, and by the hotbar when the Pencil isn't hovering; the picker's
+eyedropper; and, with a finger drawing, one finger in the surround.
+
 ## Known limitation: drift
 
 Ink is anchored to the page, not the paragraph. Insert a paragraph above an

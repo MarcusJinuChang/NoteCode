@@ -179,7 +179,37 @@ struct InkToolTests {
         #expect(InkToolState(kind: .lasso).pencilKitTool is PKLassoTool)
     }
 
-    @Test("Ink colours are fixed, not dynamic", arguments: InkColor.allCases)
+    @Test("The pixel eraser erases at its size; the object eraser takes whole strokes")
+    func eraserTools() throws {
+        var settings = EraserSettings()
+        settings.size = .large
+        let partial = try #require(InkToolState(kind: .eraser, eraser: settings).pencilKitTool as? PKEraserTool)
+        #expect(partial.eraserType == .fixedWidthBitmap)
+        // PencilKit hands back its own copy, a hair off the width it was given.
+        #expect(abs(partial.width - 56) < 0.01)
+        #expect(EraserSettings.width(of: .large) == 56)
+
+        settings.size = .custom
+        settings.customWidth = 70
+        #expect(abs(settings.pencilKitTool.width - 70) < 0.01)
+
+        settings.mode = .wholeStroke
+        #expect(settings.pencilKitTool.eraserType == .vector)
+    }
+
+    @Test("Every eraser size is one PencilKit's fixed-width eraser takes")
+    func eraserWidthsInRange() {
+        let pencilKit = PKEraserTool.EraserType.fixedWidthBitmap.validWidthRange
+        #expect(abs(EraserSettings.widthRange.lowerBound - pencilKit.lowerBound) < 0.01)
+        #expect(abs(EraserSettings.widthRange.upperBound - pencilKit.upperBound) < 0.01)
+
+        let presets = EraserSettings.Size.allCases.compactMap(EraserSettings.width(of:))
+        #expect(presets.count == 3)
+        #expect(presets == presets.sorted())
+        #expect(presets.allSatisfy { EraserSettings.widthRange.contains($0) })
+    }
+
+    @Test("Ink colours are fixed, not dynamic", arguments: InkPalette.standard.colors)
     func inkColorsAreFixed(color: InkColor) {
         // A dynamic colour would be stored as whatever appearance was current
         // mid-stroke, and PencilKit would then adapt it a second time.
@@ -187,6 +217,18 @@ struct InkToolTests {
         let dark = color.inkColor.resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark))
 
         #expect(light == dark)
+    }
+
+    @Test("A colour picked on a dark page is stored as the light ink that shows as it")
+    func pickedOnDarkPage() {
+        let picked = UIColor(red: 0.95, green: 0.95, blue: 0.95, alpha: 1)
+        let stored = InkColor(chosen: picked, on: .dark)
+
+        // Stored as it was picked, near-white would draw near-black on a
+        // dark page once PencilKit adapted it.
+        #expect(stored.red < 0.5)
+        #expect(InkColor(stored.displayColor(for: .dark)).matches(InkColor(picked)))
+        #expect(InkColor(chosen: picked, on: .light).matches(InkColor(picked)))
     }
 
     @Test("Only drawing tools use a colour")

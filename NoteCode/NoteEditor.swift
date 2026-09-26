@@ -25,8 +25,30 @@ final class NoteEditor {
     var inkTool = InkToolState() {
         didSet {
             guard inkTool != oldValue else { return }
+            if inkTool.kind != oldValue.kind {
+                previousInkKind = oldValue.kind
+            }
             canvas?.tool = inkTool.pencilKitTool
         }
+    }
+
+    /// The tool in use before the current one, for the Pencil's double tap
+    /// and squeeze to switch back to.
+    private(set) var previousInkKind = InkToolKind.pen
+
+    /// Swaps between the current tool and the eraser: the Pencil's double
+    /// tap, as the system sets it up out of the box.
+    func toggleEraser() {
+        if inkTool.kind == .eraser {
+            inkTool.kind = previousInkKind == .eraser ? .pen : previousInkKind
+        } else {
+            inkTool.kind = .eraser
+        }
+    }
+
+    /// Swaps between the current tool and the one before it.
+    func switchToPreviousTool() {
+        inkTool.kind = previousInkKind
     }
 
     /// Whether only the Pencil draws.

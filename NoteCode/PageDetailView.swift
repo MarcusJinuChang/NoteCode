@@ -44,6 +44,20 @@ struct PageDetailView: View {
 
     /// The page area the hotbar docks within, for working out where a drag lands.
     @State private var pageSize: CGSize = .zero
+
+    /// How the eraser erases. Per device, like the palette: set once to the
+    /// reader's liking, not per note. The editor has the live copy.
+    @AppStorage(EraserSettings.defaultsKey)
+    private var eraser = EraserSettings()
+
+    /// What the reader has set the Pencil's double tap and squeeze to do,
+    /// in Settings.
+    @Environment(\.preferredPencilDoubleTapAction) private var doubleTapAction
+    @Environment(\.preferredPencilSqueezeAction) private var squeezeAction
+
+    /// Whether the ink tools are showing beside the Pencil, and where.
+    @State private var showsInkTools = false
+    @State private var inkToolsAnchor = UnitPoint.center
 #endif
 
     /// Gap between the hotbar and the edges around it.
@@ -169,6 +183,42 @@ struct PageDetailView: View {
         }
         .coordinateSpace(.named(Hotbar.coordinateSpace))
         .onGeometryChange(for: CGSize.self) { $0.size } action: { pageSize = $0 }
+        .onPencilDoubleTap { tap in
+            respond(to: PencilResponse(doubleTapAction), at: tap.hoverPose?.anchor)
+        }
+        .onPencilSqueeze { phase in
+            // On letting go: a squeeze held and released is one request.
+            guard case .ended(let squeeze) = phase else { return }
+            respond(to: PencilResponse(squeezeAction), at: squeeze.hoverPose?.anchor)
+        }
+        .popover(isPresented: $showsInkTools, attachmentAnchor: .point(inkToolsAnchor)) {
+            InkToolPopover(editor: editor)
+        }
+        .onAppear { editor.inkTool.eraser = eraser }
+        .onChange(of: editor.inkTool.eraser) { _, changed in eraser = changed }
+    }
+
+    /// Does what the reader has set a Pencil gesture to do, in ink mode.
+    ///
+    /// - Parameter anchor: where the Pencil is hovering over the page, if it
+    ///   is — where the ink tools show. Without it, they show by the hotbar.
+    private func respond(to response: PencilResponse, at anchor: UnitPoint?) {
+        guard editor.mode == .ink else { return }
+        switch response {
+        case .toggleEraser:
+            editor.toggleEraser()
+        case .switchToPreviousTool:
+            editor.switchToPreviousTool()
+        case .showInkTools:
+            if showsInkTools {
+                showsInkTools = false
+            } else {
+                inkToolsAnchor = anchor ?? dock.inkToolsAnchor
+                showsInkTools = true
+            }
+        case .nothing:
+            break
+        }
     }
 
     /// Snaps the bar to whichever edge it was let go nearest.
@@ -214,6 +264,15 @@ struct PageDetailView: View {
 
 private extension HotbarDock {
     var alignment: Alignment {
+        switch self {
+        case .left:   .leading
+        case .bottom: .bottom
+        case .right:  .trailing
+        }
+    }
+
+    /// Where the ink tools show when the Pencil isn't hovering: by the bar.
+    var inkToolsAnchor: UnitPoint {
         switch self {
         case .left:   .leading
         case .bottom: .bottom

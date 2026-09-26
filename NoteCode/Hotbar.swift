@@ -46,8 +46,6 @@ struct Hotbar: View {
     /// stays still, rather than on the bar, which moves under the finger.
     static let coordinateSpace = "notePage"
 
-    @Environment(\.colorScheme) private var colorScheme
-
     private var axis: Axis.Set {
         dock.isVertical ? .vertical : .horizontal
     }
@@ -100,9 +98,9 @@ struct Hotbar: View {
         // from under the finger that just pressed it.
         ZStack(alignment: dock.isVertical ? .top : .leading) {
             stack { textTools }
-                .modeLayer(isShowing: editor.mode == .text)
+                .hotbarLayer(isShowing: editor.mode == .text)
             stack { inkTools }
-                .modeLayer(isShowing: editor.mode == .ink)
+                .hotbarLayer(isShowing: editor.mode == .ink)
         }
     }
 
@@ -153,21 +151,9 @@ struct Hotbar: View {
 
     @ViewBuilder
     private var inkTools: some View {
-        ForEach(InkToolKind.allCases, id: \.self) { kind in
-            button(kind.label, kind.systemImage, isSelected: editor.inkTool.kind == kind) {
-                editor.inkTool.kind = kind
-            }
-        }
-
+        InkToolButtons(editor: editor, isVertical: dock.isVertical)
         divider
-
-        ForEach(InkColor.allCases, id: \.self) { color in
-            swatch(color)
-        }
-        // The eraser and lasso have no colour, so the swatches stand down
-        // rather than suggesting a choice that does nothing.
-        .disabled(!editor.inkTool.kind.usesColor)
-
+        InkToolOptions(editor: editor, isVertical: dock.isVertical)
         divider
 
         // Locked, a finger scrolls and selects instead of drawing. Worth a
@@ -209,10 +195,7 @@ struct Hotbar: View {
     }
 
     private var divider: some View {
-        Capsule()
-            .fill(.separator)
-            .frame(width: dock.isVertical ? 24 : 1, height: dock.isVertical ? 1 : 24)
-            .padding(dock.isVertical ? .vertical : .horizontal, 6)
+        HotbarDivider(isVertical: dock.isVertical)
     }
 
     private func button(
@@ -221,28 +204,7 @@ struct Hotbar: View {
         isSelected: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
-            HotbarIcon(systemImage: systemImage, isSelected: isSelected)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-
-    private func swatch(_ color: InkColor) -> some View {
-        let isSelected = editor.inkTool.color == color
-        // The colour as the ink will look on this page, so black doesn't
-        // disappear into a dark bar.
-        let shown = color.displayColor(for: colorScheme == .dark ? .dark : .light)
-
-        return Button {
-            editor.inkTool.color = color
-        } label: {
-            HotbarSwatch(color: Color(uiColor: shown), isSelected: isSelected)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(color.rawValue.capitalized)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        HotbarButton(label, systemImage, isSelected: isSelected, action: action)
     }
 }
 
@@ -277,16 +239,6 @@ private struct HotbarTrack: Layout {
     }
 }
 
-private extension View {
-    /// One mode's tools: present for layout in both modes, but only seen,
-    /// touched, and read aloud in its own.
-    func modeLayer(isShowing: Bool) -> some View {
-        opacity(isShowing ? 1 : 0)
-            .allowsHitTesting(isShowing)
-            .accessibilityHidden(!isShowing)
-    }
-}
-
 /// Makes a menu look like the buttons beside it. A `Menu` tints its label
 /// with the accent colour by default, which reads as "selected" in a bar
 /// where tint means exactly that.
@@ -296,71 +248,6 @@ private struct HotbarMenuStyle: ViewModifier {
             .menuStyle(.button)
             .buttonStyle(.plain)
             .menuIndicator(.hidden)
-    }
-}
-
-/// One square hotbar button face.
-private struct HotbarIcon: View {
-    var systemImage: String
-    var isSelected = false
-
-    @Environment(\.isEnabled) private var isEnabled
-
-    var body: some View {
-        Image(systemName: systemImage)
-            .font(.system(size: 17, weight: .medium))
-            .foregroundStyle(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
-            .opacity(isEnabled ? 1 : 0.3)
-            .frame(width: Hotbar.buttonSide, height: Hotbar.buttonSide)
-            .background {
-                if isSelected {
-                    Circle().fill(.tint.opacity(0.18)).padding(4)
-                }
-            }
-            .contentShape(.rect)
-    }
-}
-
-private struct HotbarSwatch: View {
-    var color: Color
-    var isSelected: Bool
-
-    @Environment(\.isEnabled) private var isEnabled
-
-    var body: some View {
-        Circle()
-            .fill(color)
-            .overlay { Circle().strokeBorder(.primary.opacity(0.2), lineWidth: 1) }
-            .frame(width: 22, height: 22)
-            .padding(4)
-            .overlay {
-                if isSelected {
-                    Circle().strokeBorder(.tint, lineWidth: 2)
-                }
-            }
-            .opacity(isEnabled ? 1 : 0.3)
-            .frame(width: Hotbar.buttonSide, height: Hotbar.buttonSide)
-            .contentShape(.rect)
-    }
-}
-
-private extension InkToolKind {
-    var label: String {
-        switch self {
-        case .pen:         "Pen"
-        case .highlighter: "Highlighter"
-        case .eraser:      "Eraser"
-        case .lasso:       "Lasso"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .pen:         "pencil.tip"
-        case .highlighter: "highlighter"
-        case .eraser:      "eraser"
-        case .lasso:       "lasso"
-        }
     }
 }
 
