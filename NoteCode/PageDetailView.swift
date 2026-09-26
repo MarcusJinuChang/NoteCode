@@ -3,6 +3,7 @@
 //  NoteCode
 //
 
+import SwiftData
 import SwiftUI
 
 /// One note: a header with its title, then the page, with the hotbar docked
@@ -27,6 +28,12 @@ struct PageDetailView: View {
 #if canImport(UIKit)
     @State private var editor = NoteEditor()
 
+    /// Saves this note's ink. One per open note, like the editor.
+    @State private var inkSaver: DrawingSaveScheduler
+
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.modelContext) private var modelContext
+
     @AppStorage(HotbarDock.defaultsKey)
     private var dock: HotbarDock = .default
 
@@ -42,10 +49,29 @@ struct PageDetailView: View {
     /// Gap between the hotbar and the edges around it.
     private static let hotbarMargin: CGFloat = 12
 
+    init(page: Page, toggleSidebar: (() -> Void)? = nil) {
+        self.page = page
+        self.toggleSidebar = toggleSidebar
+#if canImport(UIKit)
+        // Cheap: the ink is read when the page is made, not here. SwiftUI
+        // builds this view far more often than it keeps a new state.
+        _inkSaver = State(initialValue: DrawingSaveScheduler(page: page))
+#endif
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
             Divider()
+#if canImport(UIKit)
+            if let problem = inkSaver.problem {
+                Label(problem, systemImage: "exclamationmark.triangle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 8)
+            }
+#endif
             content
         }
 #if os(iOS)
@@ -55,6 +81,23 @@ struct PageDetailView: View {
 #endif
         .onChange(of: page.title) { page.modifiedAt = .now }
         .onChange(of: page.content) { page.modifiedAt = .now }
+#if canImport(UIKit)
+        // Ink drawn just before leaving would otherwise wait out the pause
+        // after the page is gone.
+        .onDisappear { [inkSaver] in
+            Task { await inkSaver.flush() }
+        }
+        // Not only on reaching the background. Swiping the app away in the
+        // switcher goes from inactive straight to terminated.
+        .onChange(of: scenePhase) { _, phase in
+            guard phase != .active else { return }
+            inkSaver.flushBeforeSuspending { [modelContext] in
+                // The store autosaves on its own schedule, which may not come
+                // round again before the app is suspended or killed.
+                try? modelContext.save()
+            }
+        }
+#endif
     }
 
     // MARK: Header
@@ -110,7 +153,8 @@ struct PageDetailView: View {
                     [page.runDestination, appDefaultDestination]
                 ),
                 editor: editor,
-                pageLayout: PageLayout(orientation: page.orientation, mode: viewMode)
+                pageLayout: PageLayout(orientation: page.orientation, mode: viewMode),
+                inkSaver: inkSaver
             )
             // The page draws its own border, on the page's edges rather than
             // the area's — see PageView.outline. Clipping keeps anything that

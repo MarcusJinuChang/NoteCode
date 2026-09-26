@@ -595,6 +595,69 @@ struct PageViewTests {
         #expect(canvas.undoManager?.canUndo == false)
     }
 
+    // MARK: Saving ink
+
+    @Test("Drawing hands the ink over to be saved, in print coordinates")
+    func drawingReportsInk() {
+        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
+        var reported: [PaperMarkup] = []
+        harness.page.onInkChanged = { reported.append($0) }
+
+        Self.draw([Self.stroke(at: PageLayout(mode: .seamless).bodyTop(ofPage: 2) + 50)], on: harness)
+
+        #expect(reported.count == 1)
+        let saved = reported.last?.subelements.strokes.first?.renderBounds.midY
+        #expect(abs((saved ?? 0) - (Self.printPortrait.bodyTop(ofPage: 2) + 50)) < 0.5)
+    }
+
+    /// A save bumps the note to the top of the list, so one that only
+    /// looked at ink would reorder the list for opening a note.
+    @Test("Showing ink, on opening or for a mode switch, hands nothing over")
+    func showingInkReportsNothing() {
+        let harness = Harness(text: Self.severalPages)
+        var reports = 0
+        harness.page.onInkChanged = { _ in reports += 1 }
+
+        harness.setInk(PKDrawing(strokes: [Self.stroke(at: 1500)]))
+        for mode in [PageViewMode.print, .compressed, .seamless] {
+            harness.switchTo(PageLayout(mode: mode))
+        }
+        // PaperKit also calls its delegate when nothing the reader did
+        // changed anything.
+        harness.page.canvas.onMarkupChanged?()
+
+        #expect(reports == 0)
+    }
+
+    /// Opened the way the app opens a note: a fresh page, given the note's
+    /// layout, then its stored ink. Checked against the words under the
+    /// stroke when it was drawn, not against page geometry.
+    @Test(
+        "Saved ink reopens on the same words",
+        arguments: PageOrientation.allCases, PageViewMode.allCases
+    )
+    func savedInkReopensOnItsWords(orientation: PageOrientation, mode: PageViewMode) async throws {
+        let drawnIn = PageLayout(orientation: orientation, mode: .seamless)
+        let drawn = Harness(text: Self.severalPages, layout: drawnIn)
+        let drawnAt = drawnIn.bodyTop(ofPage: 2) + 40
+        let words = try #require(drawn.lines.first { $0.frame.minY <= drawnAt && drawnAt < $0.frame.maxY }?.range)
+        Self.draw([Self.stroke(at: drawnAt)], on: drawn)
+
+        let data = try await DrawingCodec.encode(drawn.page.ink)
+        guard case .ink(let stored) = DrawingCodec.decode(data) else {
+            Issue.record("saved ink didn't read back")
+            return
+        }
+
+        let reopened = Harness(text: Self.severalPages, layout: PageLayout(orientation: orientation, mode: mode))
+        reopened.page.setInk(stored)
+        reopened.layOut()
+
+        let line = try #require(reopened.lines.first { $0.range == words }?.frame)
+        let shown = try #require(reopened.shownInkY)
+        #expect(line.minY <= shown && shown < line.maxY, "stroke at \(shown), its words at \(line.minY)–\(line.maxY)")
+    }
+
     // MARK: Decorations
 
     @Test("Print layout draws a sheet per page, exactly where each prints")

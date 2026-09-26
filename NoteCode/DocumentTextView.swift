@@ -27,6 +27,10 @@ struct DocumentTextView: UIViewRepresentable {
     /// The note's page orientation and the device's view mode.
     var pageLayout = PageLayout()
 
+    /// Loads the note's ink as the page is made, and saves it as it changes.
+    /// Optional, like `editor`, so the editor still stands alone.
+    var inkSaver: DrawingSaveScheduler? = nil
+
     // MARK: UIViewRepresentable
 
     func makeUIView(context: Context) -> PageView {
@@ -46,6 +50,14 @@ struct DocumentTextView: UIViewRepresentable {
         // canvas knob too, and the canvas is the page's.
         editor?.attach(textView, canvas: page.canvas)
         page.pageLayout = pageLayout
+        // After the layout: stored ink is in print coordinates for the note's
+        // own orientation, and the page starts out portrait.
+        if let inkSaver {
+            if let stored = inkSaver.loadInk() {
+                page.setInk(stored)
+            }
+            page.onInkChanged = { [weak inkSaver] ink in inkSaver?.inkDidChange(ink) }
+        }
         return page
     }
 

@@ -338,9 +338,9 @@ What it turned out to involve:
   the text view's, whether or not the text view is first responder, so ink
   landed on the text stack. PaperKit's controller is `public`, not `open`, so
   `DrawingCanvas` is the view between it and the text view, and vends its own.
-  `NoteEditor` picks the stack the mode is using. Still to do: `showInk()`
-  assigns the markup on every mode switch, which leaves that stack pointing at
-  strokes in the old mode's positions, so it needs clearing there.
+  `NoteEditor` picks the stack the mode is using. `showInk()` re-places the
+  markup on every mode switch, which left that stack pointing at strokes in
+  the old mode's positions, so it clears the stack there (20 Sep).
 - **Scroll position is safe, content insets are not.** Dismissing the keyboard
   changes `adjustedContentInset`, which can shift visible content anyway.
 - **A finger reaches the canvas, and now draws there.** Locked to the Pencil,
@@ -349,11 +349,11 @@ What it turned out to involve:
   finger taps through the canvas either way. Untested: how anyone scrolls a
   long note while a finger draws — a two-finger pan should reach the text
   view's own recognizer, which allows two touches, but that needs a device.
-- **Code-block bars straddle the canvas.** Bars for blocks that exist when a
-  note opens are added before `PageView` adds the canvas
-  (`DocumentTextView.swift:42` vs `:45`), so they sit under it and their
-  buttons are dead in ink mode. Bars for blocks added later sit above it and
-  catch the Pencil.
+- **Code-block bars straddle the canvas — still open (23 Sep).** Bars for
+  blocks that exist when a note opens are added before `PageView` adds the
+  canvas (`restyle` in `DocumentTextView.makeUIView`, then `PageView(textView:)`),
+  so they sit under it and their buttons are dead in ink mode. Bars for blocks
+  added later sit above it and catch the Pencil.
 - **The wiring moves.** `EditorMode.apply(to:saved:)` takes only the text view,
   and `editor.attach` runs before `PageView` creates the canvas
   (`DocumentTextView.swift:44-45`). The canvas also needs a parent view
@@ -380,19 +380,21 @@ What it turned out to involve:
 
 **Files:** `EditorMode.swift`, `NoteEditor.swift`, `Hotbar.swift`, `+DrawingCanvas.swift`, `PageView.swift`, `DocumentTextView.swift`, `PageDetailView.swift`
 **Gate:** toggle mid-document — scroll offset unchanged, caret where you left it.
+**Status (23 Sep):** built and merged (#15, #16), except the code-block bars
+above. Its checks on the iPad are step 5's.
 
 ### 4. Persistence (Sep 22–28)
-`Page.drawingData` already exists, so no schema change; it holds
-`PaperMarkup.dataRepresentation()` bytes. Save from
-`paperMarkupViewControllerDidChangeMarkup`, since PaperKit has no end-of-stroke
-callback. It also fires — twice, synchronously — when the app assigns the
-markup itself, so `DrawingCanvas` marks those and the page ignores them.
-Capture already hangs off the same callback, so saving joins it there. Encoding is async, 73ms for 1,000
-strokes on the simulator, so it runs off the main actor. A save started as the
-app goes to the background needs a background task to finish in.
+`Page.drawingData` holds `PaperMarkup.dataRepresentation()` bytes of
+`PageView.ink`, in print coordinates, and is empty for a note never drawn on.
+It has `@Attribute(.externalStorage)`, so a note's ink isn't loaded with its
+title every time the list is fetched.
 
-Give `drawingData` `@Attribute(.externalStorage)` before any ink is saved, so
-multi-megabyte drawings don't sit inline in every page record.
+Save from `paperMarkupViewControllerDidChangeMarkup`, since PaperKit has no
+end-of-stroke callback. It also fires — twice, synchronously — when the app
+assigns the markup itself, so `DrawingCanvas` marks those and the page ignores
+them. Encoding is async, 73ms for 1,000 strokes on the simulator, so it runs
+off the main actor. A save started as the app leaves the screen needs a
+background task to finish in.
 
 Drawing changes must bump `page.modifiedAt`, or a page you only drew on sinks
 to the bottom of the list.
@@ -412,8 +414,47 @@ semester of notes.
   `incompatibleFormatTooNew`, gets the warning like corrupt bytes, never an
   overwrite.
 
-**Files:** `+DrawingCodec.swift`, `+DrawingSaveScheduler.swift`, `Page.swift`
+**Built 23 Sep.** `DrawingCodec` reads and writes the bytes;
+`DrawingSaveScheduler`, one per open note, decides when.
+
+- **Only a change the reader made is saved.** `PageView.captureInk` hands the
+  ink over once it has found one. Showing ink — on opening, or moved for a
+  mode switch — hands nothing over, so looking at a note never moves it up the
+  list.
+- **Half a second after drawing pauses**, one save at a time, each taking the
+  newest ink. Run side by side, a slow encode finished after a newer, faster
+  one and wrote older ink over it (`newestInkWins`, with saves concurrent).
+- **Off the main actor, on purpose.** With approachable concurrency on, a plain
+  `nonisolated async` function runs on its caller's actor, so
+  `DrawingCodec.encode` is `@concurrent`.
+- **At once when the note closes, and when the scene stops being active** —
+  not only on reaching the background, because swiping the app away in the
+  switcher never gets there. That save runs under a background task and then
+  saves the model context, since autosave may not come round again before the
+  app is suspended or killed.
+- **Reading is on the main actor**, as the page is made: 1,000 ten-point
+  strokes come to 665KB and read back in 29ms (simulator).
+- **Unreadable ink** shows a warning under the header, and saving stays off
+  for that note.
+- **A note deleted while its ink encodes** isn't written to.
+- **Erasing everything** stores no bytes, so the note reads as never drawn on.
+
+**Files:** `DrawingCodec.swift`, `DrawingSaveScheduler.swift`, `Page.swift`,
+`PageView.swift`, `DocumentTextView.swift`, `PageDetailView.swift`
+**Tests:** `DrawingCodecTests`, `DrawingSaveSchedulerTests`, and in
+`PageViewTests` — drawing hands ink over in print coordinates; showing it
+hands nothing over; saved ink reopens on the same words in both orientations
+and all three modes.
 **Gate:** draw, background, force-quit, reopen — ink intact on the right page.
+**Gate passed 23 Sep, on the simulator.** On a store written by the previous
+build — which also showed `.externalStorage` migrates without a mapping — a
+stroke was drawn, the app sent home with the Home button, terminated,
+relaunched and the note reopened. The stroke came back on the same pixels (none
+differed across the page), and `modifiedAt` kept the drawing's time, not the
+reopening's. Not checked yet: the app killed inside the half-second pause
+without leaving the screen first, which is what a crash does; and the flush as
+a note closes, which only the unit tests reach. Step 5 repeats the gate on the
+iPad.
 
 ### 5. Device pass (Sep 29 – Oct 10)
 Ink latency, palm rejection, and Pencil-versus-finger routing are all

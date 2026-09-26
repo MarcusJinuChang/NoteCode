@@ -10,7 +10,15 @@ import SwiftData
 final class Page {
     var title: String
     var content: String
-    var drawingData: Data
+
+    /// The note's ink as `PaperMarkup` bytes, in print layout's coordinates;
+    /// empty for a note never drawn on. Read and written through
+    /// `DrawingCodec` and `DrawingSaveScheduler`.
+    ///
+    /// Kept outside the store's own records: 1,000 strokes come to 1.1MB, and
+    /// the note list would otherwise load each note's ink along with its
+    /// title.
+    @Attribute(.externalStorage) var drawingData: Data
     var createdAt: Date
     var modifiedAt: Date
 
