@@ -513,12 +513,46 @@ Answered on the simulator:
 - Check 10: locked to the Pencil, one finger scrolls and leaves no mark.
 - Check 11: with a finger drawing, two fingers scroll and draw nothing.
   Pinch zoom still works in ink mode.
+- Check 1 (26 Sep): with the caret in a code block and the keyboard up,
+  ink and back left the scroll offset, the caret and the syntax colours as
+  they were, and the keyboard came back.
+- Check 4: ink in the strip below the last page's text added a page, and
+  the note scrolled onto it. Below the end of a note shorter than the
+  screen, the page's background carries on but takes no ink — one for the
+  UI design.
+- Check 4a: an underline on page 2 stayed under its line in seamless,
+  compressed and print layout, and back. The page broke inside the same
+  paragraph in all three.
+- Check 6: pinched to 1.85x and down to 0.5x, the underline tracked its
+  line and the text stayed sharp.
+- Check 7: a line typed above the underline moved the text down and left
+  the ink where it was — the known drift.
+- Check 5 wasn't run: this Mac's simulator runs without its window, so
+  there's nothing to rotate it with.
+
+**Found, not fixed: after scrolling past a page break, the text on screen
+can sit about two lines below where TextKit has it.** On the ten-page
+debug note in seamless, scrolled about 770pt, the end of Line 36 was drawn
+32pt below its caret rect. Relaying out the viewport moved the text onto
+the caret rect, and laying out the whole note didn't move the rect, so the
+layout is right and the drawing is stale. What it does: a tap lands where
+the layout puts the line, two lines below the one tapped; the text jumps
+when the keyboard comes up; and ink drawn meanwhile is stored two lines
+below its words, and shows there once the text catches up. The same on the
+build before 25 Sep's rendering work, and without `-debug-report`, so it
+isn't new. Scrolled only within page 1, taps landed where they should.
+The next thing to fix. To reproduce: `-debug-note pages -debug-mode
+seamless`, drag the page up about 300pt with one finger, and tap a line
+of the code block — the caret lands two lines down. lldb attached to the
+simulator's app can read the layout's side of it: `caretRectForPosition:`
+converted to the window, against the screenshot.
 
 Left for the iPad, since the simulator can't produce them: anything with
 the Pencil — that it never scrolls, draws or drags a selection, and that a
 palm resting on the page leaves no mark (checks 3 and 10); two fingers
 landing a moment apart, as real fingers do, rather than together (check 11);
-ink latency; and the rest of the list above.
+rotation and Split View (check 5); ink latency; and the rest of the list
+above.
 
 ## Known limitation: drift
 

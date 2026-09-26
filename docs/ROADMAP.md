@@ -33,6 +33,11 @@ requests.
   Two smaller bugs found on the way are fixed on the same branch: a deleted
   note came back if the app was killed within a few seconds, and the empty
   line after a note's closing fence was shaded as code.
+  The simulator's share of the device checklist is done (26 Sep, branch
+  `device-pass`): dragging a lasso selection and scrolling with two fingers
+  while a finger draws are fixed. It also found an older bug, next to fix:
+  after scrolling past a page break, text can be drawn two lines below its
+  real place, so taps land low and ink can end up on the wrong line.
   Latency, palm rejection and Pencil-versus-finger routing are still to
   judge on the device.
 - **Nothing is started for signing in and shipping.** Builds still sign with
