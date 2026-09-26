@@ -527,32 +527,26 @@ Answered on the simulator:
   line and the text stayed sharp.
 - Check 7: a line typed above the underline moved the text down and left
   the ink where it was — the known drift.
-- Check 5 wasn't run: this Mac's simulator runs without its window, so
-  there's nothing to rotate it with.
+- Check 5 passed on the iPad (26 Sep, by hand): rotation and Split View.
+  This Mac's simulator runs without its window, so it couldn't be driven
+  from here.
 
-**Found, not fixed: after scrolling past a page break, the text on screen
-can sit about two lines below where TextKit has it.** On the ten-page
-debug note in seamless, scrolled about 770pt, the end of Line 36 was drawn
-32pt below its caret rect. Relaying out the viewport moved the text onto
-the caret rect, and laying out the whole note didn't move the rect, so the
-layout is right and the drawing is stale. What it does: a tap lands where
-the layout puts the line, two lines below the one tapped; the text jumps
-when the keyboard comes up; and ink drawn meanwhile is stored two lines
-below its words, and shows there once the text catches up. The same on the
-build before 25 Sep's rendering work, and without `-debug-report`, so it
-isn't new. Scrolled only within page 1, taps landed where they should.
-The next thing to fix. To reproduce: `-debug-note pages -debug-mode
-seamless`, drag the page up about 300pt with one finger, and tap a line
-of the code block — the caret lands two lines down. lldb attached to the
-simulator's app can read the layout's side of it: `caretRectForPosition:`
-converted to the window, against the screenshot.
+**A false alarm, recorded so it isn't chased again.** On 25–26 Sep the
+text on screen looked drawn about two lines below where TextKit had it
+after a scroll, and taps seemed to land two lines low. It was the
+measurement: the simulator control tool's drag ends in a fling, and the
+page was still decelerating in the screenshot taken a second later, while
+the layout was read after it stopped. Screenshots 1s and 4s after one drag
+differed; 4s and 6s matched. Aimed from a settled screenshot, a tap put the
+caret exactly where it landed, and forcing a viewport layout moved nothing.
+Wait until two screenshots a couple of seconds apart match before
+measuring anything after a drag.
 
 Left for the iPad, since the simulator can't produce them: anything with
 the Pencil — that it never scrolls, draws or drags a selection, and that a
 palm resting on the page leaves no mark (checks 3 and 10); two fingers
 landing a moment apart, as real fingers do, rather than together (check 11);
-rotation and Split View (check 5); ink latency; and the rest of the list
-above.
+ink latency; and the rest of the list above.
 
 ## Known limitation: drift
 

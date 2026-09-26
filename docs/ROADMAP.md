@@ -35,9 +35,7 @@ requests.
   line after a note's closing fence was shaded as code.
   The simulator's share of the device checklist is done (26 Sep, branch
   `device-pass`): dragging a lasso selection and scrolling with two fingers
-  while a finger draws are fixed. It also found an older bug, next to fix:
-  after scrolling past a page break, text can be drawn two lines below its
-  real place, so taps land low and ink can end up on the wrong line.
+  while a finger draws are fixed. Rotation and Split View passed on the iPad.
   Latency, palm rejection and Pencil-versus-finger routing are still to
   judge on the device.
 - **Nothing is started for signing in and shipping.** Builds still sign with
