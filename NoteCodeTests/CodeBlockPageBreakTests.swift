@@ -99,16 +99,10 @@ struct CodeBlockPageBreakTests {
     @Test("A code line pushed onto the next page has no panel in the break", arguments: [true, false])
     func panelStaysOffTheBreak(fenceFirst: Bool) throws {
         let rig = try #require(Self.rigWithCodeAcrossBreak(fenceFirst: fenceFirst))
-        let breaks = rig.bandRects.map { $0.minY...$0.maxY }
 
+        #expect(!rig.bandRects.isEmpty)
         for fragment in rig.codeFragments {
-            let frame = fragment.layoutFragmentFrame
-            let lines = fragment.textLineFragments.map {
-                (frame.minY + $0.typographicBounds.minY)...(frame.minY + $0.typographicBounds.maxY)
-            }
-            let runs = CodeBlockLayoutFragment.panelRuns(frame: frame, lines: lines, breaks: breaks, position: fragment.position)
-
-            for run in runs {
+            for run in fragment.laidOutPanelRuns {
                 for band in rig.bandRects {
                     #expect(run.bottom <= band.minY + 0.5 || run.top >= band.maxY - 0.5,
                             "panel \(run.top)...\(run.bottom) crosses the break \(band.minY)...\(band.maxY)")

@@ -249,6 +249,11 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   break, so the frame spans it. Code panels (`CodeBlockLayoutFragment.panelRuns`)
   and run/copy buttons (`CodeBlockOverlay`) use the text lines' own bounds;
   from the frame, a panel painted across the gap between two sheets.
+  The note's empty last line counts as a line too: after a final newline,
+  TextKit puts it in the last paragraph's fragment, so a note ending on a
+  closing fence had its caret line shaded as code (25 Sep).
+  `CodeBlockLayoutFragment.laidOutPanelRuns` leaves it out after a closing
+  fence, and only there: after an unclosed block that line is still code.
 - **The reader's place survives a switch.** Switching mode converts the scroll
   position by page, which is exact because every mode paginates the same; a
   top edge in a margin or break shows that page from its top edge

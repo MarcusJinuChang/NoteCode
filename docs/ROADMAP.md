@@ -15,12 +15,13 @@ Revised 25 September 2026.
 
 ## Where things stand (25 Sep)
 
-Everything up to the drawing layer's toggle is built and merged: the TextKit 2
-editor with code blocks, run and copy, Letter-sized pages in three view modes
-with pinch zoom, the note page and its hotbar, and a PaperKit canvas that a
-finger or the Pencil draws on, with ink undo of its own. 17 pull requests.
+Everything up to saving ink is built and merged: the TextKit 2 editor with
+code blocks, run and copy, Letter-sized pages in three view modes with pinch
+zoom, the note page and its hotbar, and a PaperKit canvas that a finger or the
+Pencil draws on, with ink undo of its own, saved with the note. 18 pull
+requests.
 
-- **Ink is saved** (23 Sep, branch `ink-persistence`): half a second after
+- **Ink is saved** (23 Sep, merged 25 Sep): half a second after
   drawing pauses, and at once when the note closes or the app leaves the
   screen. It survived a force-quit on the simulator. 410 tests.
 - **The iPad pass has started.** First findings (25 Sep): ink and the line
@@ -29,6 +30,9 @@ finger or the Pencil draws on, with ink undo of its own. 17 pull requests.
   simulator, and a keystroke costs about a third less (branch
   `rendering-sharpness`). Typing near the top of a long note still costs
   about two frames; the rest of that is pagination by exclusion paths.
+  Two smaller bugs found on the way are fixed on the same branch: a deleted
+  note came back if the app was killed within a few seconds, and the empty
+  line after a note's closing fence was shaded as code.
   Latency, palm rejection and Pencil-versus-finger routing are still to
   judge on the device.
 - **Nothing is started for signing in and shipping.** Builds still sign with

@@ -215,6 +215,76 @@ struct CodeBlockPanelTests {
         #expect(runs == [Run(top: frame.minY, bottom: frame.maxY, position: .middle)])
     }
 
+    // MARK: The note's last line
+
+    /// The last code fragment of `text`, laid out by TextKit.
+    private static func lastCodeFragment(of text: String) throws -> (CodeBlockLayoutFragment, retaining: [AnyObject]) {
+        final class Box { var value = "" }
+        let box = Box()
+        let coordinator = DocumentTextView.Coordinator(text: Binding(get: { box.value }, set: { box.value = $0 }))
+
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1100, height: 1400))
+        let textView = DocumentTextView.makeConfiguredTextView()
+        textView.delegate = coordinator
+        textView.textLayoutManager?.delegate = coordinator
+        textView.text = text
+        coordinator.restyle(textView)
+
+        let page = PageView(textView: textView)
+        page.frame = CGRect(x: 0, y: 0, width: 872, height: 1200)
+        window.addSubview(page)
+        window.makeKeyAndVisible()
+        page.layoutIfNeeded()
+        textView.layoutIfNeeded()
+
+        let manager = try #require(textView.textLayoutManager)
+        let content = try #require(manager.textContentManager)
+        var last: CodeBlockLayoutFragment?
+        manager.enumerateTextLayoutFragments(from: content.documentRange.location, options: [.ensuresLayout]) { fragment in
+            if let code = fragment as? CodeBlockLayoutFragment { last = code }
+            return true
+        }
+        return (try #require(last), [window, page, coordinator])
+    }
+
+    @Test("The empty line after a note's closing fence is outside the panel")
+    func lineAfterClosingFence() throws {
+        // TextKit puts the note's empty last line in the closing fence's
+        // fragment, so the fragment is two lines tall.
+        let (fence, retaining) = try Self.lastCodeFragment(of: "Intro\n```cpp\nint x;\n```\n")
+        defer { withExtendedLifetime(retaining) {} }
+        let lines = fence.textLineFragments
+        try #require(lines.count == 2)
+        let fenceBottom = fence.layoutFragmentFrame.minY + lines[0].typographicBounds.maxY
+
+        let runs = fence.laidOutPanelRuns
+
+        #expect(runs.count == 1)
+        #expect(abs((runs.last?.bottom ?? 0) - fenceBottom) < 0.01,
+                "panel ends at \(runs.last?.bottom ?? 0), the fence at \(fenceBottom)")
+        #expect(runs.last?.position == .last)
+    }
+
+    @Test("An unclosed block at the end of a note still covers the line being typed")
+    func lineAfterUnclosedBlock() throws {
+        // The line after an unclosed block's last line is code: the block
+        // runs to the end of the note.
+        let (line, retaining) = try Self.lastCodeFragment(of: "Intro\n```cpp\nint x;\n")
+        defer { withExtendedLifetime(retaining) {} }
+        try #require(line.textLineFragments.count == 2)
+
+        #expect(line.laidOutPanelRuns.last?.bottom == line.layoutFragmentFrame.maxY)
+    }
+
+    @Test("A closing fence with more after it is one line, as before")
+    func closingFenceMidNote() throws {
+        let (fence, retaining) = try Self.lastCodeFragment(of: "Intro\n```cpp\nint x;\n```\nAfter")
+        defer { withExtendedLifetime(retaining) {} }
+
+        #expect(fence.textLineFragments.count == 1)
+        #expect(fence.laidOutPanelRuns == [Run(top: fence.layoutFragmentFrame.minY, bottom: fence.layoutFragmentFrame.maxY, position: .last)])
+    }
+
     // MARK: Unchanged behaviour
 
     @Test("The block's outer edges keep their inset exactly", arguments: [2.0, 3.0] as [CGFloat])

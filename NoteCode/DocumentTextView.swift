@@ -117,7 +117,7 @@ struct DocumentTextView: UIViewRepresentable {
         /// paragraph below it. Going through `documentCache` each time
         /// compared the whole note's text on every call, and converted each
         /// block's range against a different copy of the string.
-        private var layoutCodeRanges: [NSRange]?
+        private var layoutCodeRanges: [CodeRange]?
 
         /// What the document looked like at the last styling pass, so only the
         /// blocks that actually changed get restyled.
@@ -185,7 +185,7 @@ struct DocumentTextView: UIViewRepresentable {
         }
 
         /// The code blocks' ranges in `storage`, worked out once per edit.
-        fileprivate func codeRanges(in storage: NSTextStorage) -> [NSRange] {
+        fileprivate func codeRanges(in storage: NSTextStorage) -> [CodeRange] {
             if let layoutCodeRanges { return layoutCodeRanges }
             let ranges = documentCache.codeRanges(for: storage.string.nativeUTF8)
             layoutCodeRanges = ranges
@@ -522,12 +522,13 @@ extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
         let length = contentManager.offset(from: elementRange.location, to: elementRange.endLocation)
         let element = NSRange(location: start, length: length)
 
-        for range in codeRanges(in: storage) {
-            guard let position = CodeBlockPosition.of(element: element, in: range) else {
+        for code in codeRanges(in: storage) {
+            guard let position = CodeBlockPosition.of(element: element, in: code.range) else {
                 continue
             }
             let fragment = CodeBlockLayoutFragment(textElement: textElement, range: textElement.elementRange)
             fragment.position = position
+            fragment.closesBlock = code.isClosed && position.roundsBottom
             return fragment
         }
 
