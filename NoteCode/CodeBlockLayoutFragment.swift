@@ -59,6 +59,13 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
 
     var position: CodeBlockPosition = .middle
 
+    /// Whether this paragraph is the fence that closes its block.
+    ///
+    /// The line after it isn't code. That includes the empty line TextKit
+    /// puts in this fragment when the note ends with a newline straight after
+    /// the fence, the line the caret sits on once a block is closed.
+    var closesBlock = false
+
     /// Width of the panel, resolved lazily.
     ///
     /// Deliberately *not* captured when the fragment is created: during the
@@ -245,15 +252,29 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
 
     // MARK: Drawing
 
-    private func drawPanel(at point: CGPoint, in context: CGContext) {
-        let frame = layoutFragmentFrame
-        let lines = textLineFragments.map { line in
+    /// The stretches this fragment's panel covers, in container coordinates,
+    /// from where TextKit laid out its lines.
+    var laidOutPanelRuns: [PanelRun] {
+        var frame = layoutFragmentFrame
+        var textLines = textLineFragments
+        // The note's empty last line, after a closing fence. It's the only
+        // line with no characters, and it stretches the frame by a line.
+        if closesBlock, textLines.count > 1, let last = textLines.last, last.characterRange.length == 0 {
+            textLines.removeLast()
+            frame.size.height = textLines[textLines.count - 1].typographicBounds.maxY
+        }
+        let lines = textLines.map { line in
             (frame.minY + line.typographicBounds.minY)...(frame.minY + line.typographicBounds.maxY)
         }
         let breaks = (textLayoutManager?.textContainer?.exclusionPaths ?? [])
             .map { $0.bounds.minY...$0.bounds.maxY }
 
-        let runs = Self.panelRuns(frame: frame, lines: lines, breaks: breaks, position: position)
+        return Self.panelRuns(frame: frame, lines: lines, breaks: breaks, position: position)
+    }
+
+    private func drawPanel(at point: CGPoint, in context: CGContext) {
+        let frame = layoutFragmentFrame
+        let runs = laidOutPanelRuns
         let scale = Self.pixelScale(of: context)
 
         context.saveGState()
@@ -304,6 +325,25 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
 /// TextKit 2 lays out lazily, so the fragment delegate is called for every
 /// paragraph entering the viewport. Parsing each time would be O(document) per
 /// fragment; caching against the source string makes it O(document) per edit.
+extension String {
+    /// This text in Swift's own UTF-8 storage.
+    ///
+    /// `UITextView.text` hands back a String backed by the text storage's
+    /// NSString, and every character read through it is a message send:
+    /// parsing a 23KB note took about 3ms a keystroke in a Release build,
+    /// most of it in `characterAtIndex:` (sampled on the simulator, 25
+    /// September). Converting it first is one bulk copy.
+    ///
+    /// Parse and index the same converted text. Indices from one backing
+    /// used on the other are reconciled on every use — see
+    /// `DocumentStyler.applyStyling(to:source:blocks:previousSignatures:)`.
+    nonisolated var nativeUTF8: String {
+        var copy = self
+        copy.makeContiguousUTF8()
+        return copy
+    }
+}
+
 final class DocumentCache {
     private var cachedSource: String?
     private var cachedBlocks: [BlockNode] = []
@@ -316,10 +356,39 @@ final class DocumentCache {
         if cachedSource != source {
             cachedSource = source
             cachedBlocks = DocumentParser.parse(source)
+            cachedCodeRanges = nil
             parseCount += 1
         }
         return cachedBlocks
     }
+
+    private var cachedCodeRanges: [CodeRange]?
+
+    /// The code blocks, as UTF-16 ranges.
+    ///
+    /// Converted against the string the blocks were parsed from. Their
+    /// indices belong to that instance, and converting them against another,
+    /// even an equal one, forces index reconciliation on every use.
+    func codeRanges(for source: String) -> [CodeRange] {
+        let blocks = blocks(for: source)
+        if let cachedCodeRanges { return cachedCodeRanges }
+        let parsed = cachedSource ?? source
+        let ranges = blocks.compactMap { block in
+            block.codeBlock.map { CodeRange(range: NSRange(block.range, in: parsed), isClosed: $0.isClosed) }
+        }
+        cachedCodeRanges = ranges
+        return ranges
+    }
+}
+
+/// Where a code block is, for layout.
+struct CodeRange: Equatable {
+    /// UTF-16, fences included.
+    var range: NSRange
+
+    /// Whether a fence closes it. An unclosed block runs to the end of the
+    /// note, and the line after it is still code.
+    var isClosed: Bool
 }
 
 #endif

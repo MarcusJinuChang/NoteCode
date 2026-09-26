@@ -219,6 +219,30 @@ final class DrawingCanvas: UIView {
         }
     }
 
+    /// The zoom PaperKit draws ink at, which `PageView` sets to the scale
+    /// the page is shown at, up to the same cap as text.
+    ///
+    /// The canvas sits inside the text view, whose transform scales the page
+    /// to fit. PaperKit draws finished ink into tiles at the screen's density,
+    /// so under a 1.25x page every tile was stretched a quarter and ink was
+    /// visibly softer than in Notes (on the iPad, 25 September; the tiles'
+    /// scale read 2.0 on a 2x screen). Zooming PaperKit itself, and shrinking
+    /// the canvas by the same factor so the two cancel, has it draw the tiles
+    /// at the density they're shown at. Where the canvas sits on the note
+    /// doesn't change — see `cover(_:)` and `fitMarkupToNote()`.
+    var renderScale: CGFloat = 1 {
+        didSet {
+            guard renderScale != oldValue, renderScale > 0 else { return }
+            controller.zoomRange = renderScale...renderScale
+            controller.scrollConfiguration.zoomScale = renderScale
+            fitMarkupToNote()
+            cover(covered)
+        }
+    }
+
+    /// The part of the note the canvas was last told to cover.
+    private var covered: CGRect = .zero
+
     /// Covers `visible`, part of the note, and draws the ink that falls there.
     ///
     /// The canvas used to be as tall as the note. PencilKit sizes the buffer a
@@ -235,32 +259,58 @@ final class DrawingCanvas: UIView {
     /// Both happen in the text view's layout, before anything is drawn, so
     /// the ink never lags the words.
     ///
+    /// Its own points are `renderScale` times the note's: a transform of the
+    /// inverse brings it back to `visible` in the text view's coordinates,
+    /// and PaperKit, zoomed by `renderScale`, draws that much of the note
+    /// across it.
+    ///
     /// - Parameter visible: in note coordinates, within `noteSize`.
     func cover(_ visible: CGRect) {
-        if frame != visible {
-            let resized = frame.size != visible.size
-            frame = visible
-            // PaperKit centres the frame it's given in its viewport as it
-            // stands. Until layout reaches its scroll view, that's the old
-            // size: a canvas cut from 1,056 to 600 points showed 1,200 at
-            // 972 (unit test, 23 September), ink half the difference off.
-            if resized {
-                layoutIfNeeded()
-            }
+        covered = visible
+        let size = CGSize(width: visible.width * renderScale, height: visible.height * renderScale)
+        let resized = bounds.size != size
+        if resized {
+            bounds.size = size
+        }
+        let shrink = CGAffineTransform(scaleX: 1 / renderScale, y: 1 / renderScale)
+        if transform != shrink {
+            transform = shrink
+        }
+        let middle = CGPoint(x: visible.midX, y: visible.midY)
+        if center != middle {
+            center = middle
+        }
+        // PaperKit centres the frame it's given in its viewport as it
+        // stands. Until layout reaches its scroll view, that's the old
+        // size: a canvas cut from 1,056 to 600 points showed 1,200 at
+        // 972 (unit test, 23 September), ink half the difference off.
+        if resized {
+            layoutIfNeeded()
         }
         if controller.contentVisibleFrame != visible {
             controller.contentVisibleFrame = visible
         }
     }
 
-    /// Keeps the markup's bounds on the note's.
+    /// Keeps the markup's bounds on the note's, times `renderScale`.
     ///
     /// PaperKit positions content against the markup's bounds, not the view's.
     /// Resizing the view alone shifted what was drawn until the markup was
     /// assigned again (simulator, 18 September), and the note gains or loses
     /// a page as it's written.
+    ///
+    /// Zoomed, PaperKit sizes its content as the markup's bounds *divided* by
+    /// the zoom, in the markup's own coordinates. Given the note's size at
+    /// 1.25x, it took the note to be 816 points wide where it drew 1,020,
+    /// centred it, and every element landed 81.6 points right of its words
+    /// (unit test, 25 September). Bounds of the note's size times the zoom
+    /// put a shape at exactly its note coordinates at 1x, 1.25x and 3x. Only
+    /// the canvas's copy has these bounds; stored ink keeps the note's.
     private func fitMarkupToNote() {
-        let bounds = CGRect(origin: .zero, size: noteSize)
+        let bounds = CGRect(
+            origin: .zero,
+            size: CGSize(width: noteSize.width * renderScale, height: noteSize.height * renderScale)
+        )
         guard noteSize.width > 0, noteSize.height > 0,
               var markup = controller.markup, markup.bounds != bounds
         else { return }

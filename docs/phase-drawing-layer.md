@@ -309,8 +309,15 @@ tracked.
 Checked 18 Sep on the simulator: PencilKit does not render sharply under the
 transform. At 1.25x the canvas's tiles stay at 2x and the ink is visibly soft.
 Giving the canvas a matching `zoomScale` or counter-scaling it didn't fix it.
-PaperKit draws with the same tiled view and wasn't measured separately.
-Whether it's acceptable on the iPad is a step 5 call.
+
+**Fixed 25 Sep, on PaperKit,** after the iPad showed ink softer than Notes'.
+Zooming PaperKit to the page's scale *and* shrinking the canvas by the same
+factor (`DrawingCanvas.renderScale`) has it draw its tiles at the density
+they're shown at: 2.48 where they were 2.0, and one partly covered pixel row
+at a stroke's edge where there were two. It needed a third change, which a
+test caught: PaperKit sizes its content as the markup's bounds divided by the
+zoom, so the canvas's copy of the markup has the note's size times the zoom,
+or every element lands 81.6 points right of its words at 1.25x.
 
 **Files:** `PageLayout.swift`, `CanvasGeometry.swift`, `PageView.swift`, `PageViewMenu.swift`, `DocumentTextView.swift`
 **Tests:** `PageLayoutTests`, `CanvasGeometryTests` (fit, zoom, focus, reserve)
@@ -349,11 +356,15 @@ What it turned out to involve:
   finger taps through the canvas either way. Untested: how anyone scrolls a
   long note while a finger draws — a two-finger pan should reach the text
   view's own recognizer, which allows two touches, but that needs a device.
-- **Code-block bars straddle the canvas — still open (23 Sep).** Bars for
-  blocks that exist when a note opens are added before `PageView` adds the
-  canvas (`restyle` in `DocumentTextView.makeUIView`, then `PageView(textView:)`),
-  so they sit under it and their buttons are dead in ink mode. Bars for blocks
-  added later sit above it and catch the Pencil.
+- **Code-block bars straddled the canvas — fixed 25 Sep.** Bars for blocks
+  that existed when a note opened were added before `PageView` added the
+  canvas, so they sat under it; bars for blocks added later sat above it and
+  caught the Pencil. Bars are now inserted beneath the canvas
+  (`CodeBlockOverlay.ceiling`): in draw mode a stroke that starts on a run
+  button draws, and in text mode the buttons work. Checked with real taps on
+  the simulator. The same check found a block typed into a note got its bar
+  only once something else laid the text view out; bars are now placed from
+  TextKit's viewport layout too.
 - **The wiring moves.** `EditorMode.apply(to:saved:)` takes only the text view,
   and `editor.attach` runs before `PageView` creates the canvas
   (`DocumentTextView.swift:44-45`). The canvas also needs a parent view
@@ -380,8 +391,8 @@ What it turned out to involve:
 
 **Files:** `EditorMode.swift`, `NoteEditor.swift`, `Hotbar.swift`, `+DrawingCanvas.swift`, `PageView.swift`, `DocumentTextView.swift`, `PageDetailView.swift`
 **Gate:** toggle mid-document — scroll offset unchanged, caret where you left it.
-**Status (23 Sep):** built and merged (#15, #16), except the code-block bars
-above. Its checks on the iPad are step 5's.
+**Status (25 Sep):** built; the code-block bars are fixed on branch
+`rendering-sharpness`. Its checks on the iPad are step 5's.
 
 ### 4. Persistence (Sep 22–28)
 `Page.drawingData` holds `PaperMarkup.dataRepresentation()` bytes of
@@ -466,7 +477,13 @@ main actor. The debounce is there to coalesce saves, not to hide their cost.
 Confirm on the iPad. Also on the iPad:
 
 - tile memory on a long inked note (see the geometry amendment);
-- ink sharpness under the page scale;
+- ink sharpness under the page scale — fixed on the simulator 25 Sep, see
+  the geometry step; confirm against Notes on the iPad;
+- typing on a long note — a keystroke near the top of an eight-page note
+  still cost 16ms (Release) to 20ms (Debug) on a busy Mac's simulator after
+  25 Sep's fixes, against a 120Hz frame of 8.3ms; about half is the one
+  layout below the caret that exclusion paths cost. Judge it on the iPad in
+  a Release build — Xcode's Run button installs Debug;
 - that the eraser and lasso work through `drawingTool`.
 
 ## Known limitation: drift

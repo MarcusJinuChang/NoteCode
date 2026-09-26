@@ -92,6 +92,19 @@ nonisolated enum CanvasGeometry {
         min(displayScale, maximumRenderingScale) * screenScale
     }
 
+    /// The zoom PaperKit draws ink at, for a scale — see
+    /// `DrawingCanvas.renderScale`.
+    ///
+    /// Never below 1. PaperKit takes input only inside the markup's bounds,
+    /// which the canvas sets to the note's size times this, so below 1 they
+    /// were narrower than the note: at 0.84x nothing could be drawn in the
+    /// rightmost 134 points of a page, where the run and copy buttons sit
+    /// (simulator, 25 September). Ink drawn at 1x and shown smaller is no
+    /// softer for it.
+    static func inkRenderScale(displayScale: CGFloat) -> CGFloat {
+        max(1, min(displayScale, maximumRenderingScale))
+    }
+
     // MARK: Frame
 
     /// The page's frame within its area, once drawn at `scale`.

@@ -48,6 +48,28 @@ struct DocumentStylerTests {
         #expect(!struck(0))
     }
 
+    /// Setting attributes is an edit even when they're the ones already
+    /// there, and with page breaks TextKit then lays out everything below it
+    /// again — a second full layout on every keystroke, before restyling
+    /// compared first.
+    @Test("Restyling text that's already styled leaves the storage alone")
+    func restyleWithoutChangeIsNotAnEdit() {
+        let textView = styledTextView("# Heading\nprose with **bold** and `code`\n- item\n```cpp\nint x;\n```\nafter")
+        var edits = 0
+        let observer = NotificationCenter.default.addObserver(
+            forName: NSTextStorage.didProcessEditingNotification,
+            object: textView.textStorage,
+            queue: nil
+        ) { _ in edits += 1 }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        // Everything, from scratch, over styling that's already right.
+        DocumentStyler.applyStyling(to: textView)
+
+        #expect(edits == 0)
+        #expect(font(textView, at: 2) == DocumentStyler.headingFont(level: 1))
+    }
+
     @Test("Removing the markers removes the strike")
     func strikethroughClearsOnRestyle() {
         let textView = styledTextView("a ~~gone~~ b")

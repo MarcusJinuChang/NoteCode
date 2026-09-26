@@ -133,13 +133,14 @@ struct ContentView: View {
     }
 
     private func deletePages(offsets: IndexSet) {
+        let deleted = offsets.map { pages[$0] }
+        if let selection, deleted.contains(selection) {
+            self.selection = nil
+        }
         withAnimation {
-            for index in offsets {
-                if pages[index] == selection {
-                    selection = nil
-                }
-                modelContext.delete(pages[index])
-            }
+            // If saving fails, the deletion is still pending in the context,
+            // and autosave tries again.
+            try? Page.delete(deleted, from: modelContext)
         }
     }
 }

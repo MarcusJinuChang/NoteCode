@@ -170,8 +170,20 @@ note against 11ms scrolling, and 5.5 seconds at 2000 lines. So instead:
   while scaled below 1x takes its line width from the shrunken frame, and
   portrait and landscape then break lines differently.
 - Text is drawn at the density it is shown at, by raising `contentScaleFactor`
-  through the text view's subviews after each layout pass, capped at 3x the
-  drawn scale. During a pinch it waits for the gesture to end.
+  through the text view's subviews, capped at 3x the drawn scale. It runs
+  after each layout pass of the text view *and* after each TextKit viewport
+  layout (`textViewportLayoutControllerDidLayout`, public from iOS 27): an
+  edit redraws its paragraph in a new view with no layout pass of the text
+  view, and the line being typed stayed soft (25 Sep). During a pinch it
+  waits for the gesture to end.
+- Ink is drawn at that density too, by zooming PaperKit rather than scaling
+  its views: `DrawingCanvas.renderScale` zooms it by the page's scale and
+  shrinks the canvas by the same factor. PaperKit then sizes its content as
+  the markup's bounds divided by the zoom, so the canvas's copy of the
+  markup has the note's size *times* the zoom; with the note's own size,
+  every element sat 81.6pt right of its words at 1.25x. The zoom never goes
+  below 1 (`CanvasGeometry.inkRenderScale`): PaperKit takes input only
+  inside the markup's bounds, and below 1 they were narrower than the note.
 - Pinch zoom is a user factor on the same transform (`PageView.setZoom`), which
   keeps the page point between the fingers still.
 - Zoomed in, a pan goes sideways or up and down, not diagonally: the text view
@@ -237,6 +249,11 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   break, so the frame spans it. Code panels (`CodeBlockLayoutFragment.panelRuns`)
   and run/copy buttons (`CodeBlockOverlay`) use the text lines' own bounds;
   from the frame, a panel painted across the gap between two sheets.
+  The note's empty last line counts as a line too: after a final newline,
+  TextKit puts it in the last paragraph's fragment, so a note ending on a
+  closing fence had its caret line shaded as code (25 Sep).
+  `CodeBlockLayoutFragment.laidOutPanelRuns` leaves it out after a closing
+  fence, and only there: after an unclosed block that line is still code.
 - **The reader's place survives a switch.** Switching mode converts the scroll
   position by page, which is exact because every mode paginates the same; a
   top edge in a margin or break shows that page from its top edge
@@ -274,10 +291,14 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
 - **Cost.** Once any exclusion path exists, TextKit 2 lays out everything below
   an edit. A keystroke near the top of a note, measured on the simulator: 100
   lines 2.8ms → 13.7ms, 250 lines 5.5ms → 33.8ms, 500 lines 9.7ms → 66ms.
-  `PageViewTests.typingCost` bounds it. If long notes lag on a real iPad, the
-  alternative is pushing paragraphs with paragraph spacing, computed lazily —
-  whole paragraphs rather than lines, and it has to coexist with the styler's
-  own paragraph styles.
+  `PageViewTests.typingCost` bounds it. So anything that edits the text
+  storage after a keystroke costs another full layout below the caret —
+  including setting attributes that are already there, which is why the
+  styler compares before it writes (25 Sep). That one layout is about half
+  of what a keystroke costs now. Long notes did stutter on the iPad; the
+  alternative is pushing paragraphs with paragraph spacing, computed lazily
+  — whole paragraphs rather than lines, and it has to coexist with the
+  styler's own paragraph styles.
 - **Printing** isn't built, but print layout is the printed page exactly:
   `PageLayout.sheet(ofPage:)` in page points, times 72/96 for the printer. A
   `UIPrintPageRenderer` drawing each sheet's rect of the text view, code panels
@@ -393,16 +414,29 @@ the same arguments in the scheme's Run → Arguments.
   view's own recognisers claims the touch, UIKit cancels the one the button was
   tracking and it never fires, so `DocumentUITextView` refuses to let those
   recognisers begin on an action bar. Changes near this need a real tap test —
-  `sendActions` in a unit test cannot see the conflict.
+  `sendActions` in a unit test cannot see the conflict. Bars are inserted
+  beneath the ink canvas (`CodeBlockOverlay.ceiling`), so in draw mode the
+  canvas takes every touch over them, and they're placed from TextKit's
+  viewport layout as well as the text view's, since typing a block causes
+  no layout pass of the text view.
 - Ink is saved by `DrawingSaveScheduler` from `PageView.onInkChanged`, which
   fires only for changes the reader made. Anything that shows or moves ink
   for the app's own reasons must not call it: a save bumps `modifiedAt`, and
   opening a note would reorder the list. See step 4 of
   docs/phase-drawing-layer.md.
+- Parse and index `(textView.text ?? "").nativeUTF8`, never `textView.text`
+  itself. That String is backed by the text storage's NSString, and reading
+  it a character at a time is a message send per character: the parser took
+  3ms a keystroke on a 23KB note, in Release too.
 - Never read `Page.drawingData` from a page whose deletion has been saved.
   SwiftData traps ("backing data was detached … without resolving attribute
   faults"), since external storage leaves the attribute unloaded, and
   `isDeleted` reads false again by then — check `modelContext` too.
+- Delete notes with `Page.delete(_:from:)`, which saves at once. Other
+  changes are saved by autosave, or when the app leaves the screen with a
+  note open, and a deletion from the note list had neither: killed within
+  a few seconds — a crash, or Xcode starting the next build — the note came
+  back.
 - The action bars are positioned from TextKit 2's *viewport*, never from the
   whole document. Asking for a fragment further down forces layout all the way
   to it, which is the lazy layout the editor is built on.
