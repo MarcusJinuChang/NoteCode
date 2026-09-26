@@ -12,8 +12,9 @@ import UIKit
 /// Which layer of the page takes input.
 ///
 /// Both layers stay visible in either mode: this switches who *edits*, not
-/// what is shown. Scrolling belongs to neither — in ink mode a finger still
-/// scrolls, or a lecture turns into toggling modes every few lines.
+/// what is shown. Scrolling belongs to neither — in ink mode the page still
+/// scrolls, or a lecture turns into toggling modes every few lines. See
+/// `scrolling(fingerDraws:)` for which touches do it.
 enum EditorMode: String, CaseIterable, Sendable {
     case text
     case ink
@@ -81,6 +82,53 @@ extension EditorMode {
                 textView.becomeFirstResponder()
             }
             return nil
+        }
+    }
+}
+
+// MARK: - Scrolling
+
+/// Which touches scroll the page.
+///
+/// A scroll view's pan takes one touch, from a finger, the Pencil or a
+/// pointer. In ink mode the Pencil and, unless the canvas is locked to it, a
+/// finger belong to the canvas, and the text view's pan raced PaperKit's own
+/// gestures for them. Drawing won, since PencilKit's recogniser starts at
+/// touch-down. Dragging a lasso selection didn't: the selection stayed put
+/// and the page scrolled instead (simulator, 25 September; with the pan
+/// needing two fingers, the same drag moved it).
+struct PageScrolling: Equatable {
+    /// Fingers a scroll needs.
+    var minimumTouches: Int
+
+    /// Which kinds of touch scroll at all.
+    var touchTypes: [UITouch.TouchType]
+
+    /// A scroll view's own: one touch, from a finger, the Pencil or a
+    /// pointer (read from the app, 25 September).
+    static let standard = PageScrolling(minimumTouches: 1, touchTypes: [.direct, .pencil, .indirectPointer])
+
+    func apply(to pan: UIPanGestureRecognizer) {
+        pan.minimumNumberOfTouches = minimumTouches
+        pan.allowedTouchTypes = touchTypes.map { NSNumber(value: $0.rawValue) }
+    }
+}
+
+extension EditorMode {
+
+    /// Which touches scroll the page in this mode.
+    ///
+    /// In ink mode the Pencil never scrolls: it's drawing, erasing, or moving
+    /// what the lasso caught. Nor does one finger while a finger draws; two
+    /// fingers scroll then. Locked to the Pencil, one finger scrolls again.
+    ///
+    /// - Parameter fingerDraws: whether a finger draws on the canvas.
+    func scrolling(fingerDraws: Bool) -> PageScrolling {
+        switch self {
+        case .text:
+            .standard
+        case .ink:
+            PageScrolling(minimumTouches: fingerDraws ? 2 : 1, touchTypes: [.direct, .indirectPointer])
         }
     }
 }

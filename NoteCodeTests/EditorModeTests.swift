@@ -119,6 +119,39 @@ struct EditorModeTests {
     }
 }
 
+@Suite("Page scrolling")
+@MainActor
+struct PageScrollingTests {
+
+    private static func touchTypes(_ pan: UIPanGestureRecognizer) -> Set<Int> {
+        Set(pan.allowedTouchTypes.map(\.intValue))
+    }
+
+    @Test("Text mode scrolls the way a scroll view does out of the box", arguments: [true, false])
+    func textModeIsStandard(fingerDraws: Bool) {
+        let pan = UIScrollView().panGestureRecognizer
+        let standard = EditorMode.text.scrolling(fingerDraws: fingerDraws)
+
+        #expect(standard == .standard)
+        #expect(pan.minimumNumberOfTouches == standard.minimumTouches)
+        #expect(Self.touchTypes(pan) == Set(standard.touchTypes.map(\.rawValue)))
+    }
+
+    @Test("In ink mode the Pencil never scrolls", arguments: [true, false])
+    func pencilNeverScrollsInInk(fingerDraws: Bool) {
+        let scrolling = EditorMode.ink.scrolling(fingerDraws: fingerDraws)
+
+        #expect(!scrolling.touchTypes.contains(.pencil))
+        #expect(scrolling.touchTypes.contains(.direct))
+    }
+
+    @Test("While a finger draws, two fingers scroll; locked to the Pencil, one does")
+    func fingersInInk() {
+        #expect(EditorMode.ink.scrolling(fingerDraws: true).minimumTouches == 2)
+        #expect(EditorMode.ink.scrolling(fingerDraws: false).minimumTouches == 1)
+    }
+}
+
 @Suite("Ink tools")
 @MainActor
 struct InkToolTests {
