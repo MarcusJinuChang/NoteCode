@@ -174,6 +174,7 @@ final class DrawingCanvas: UIView {
     private func applyTouchMode() {
         controller.directTouchAutomaticallyDraws = false
         controller.directTouchMode = allowsFingerDrawing ? .drawing : .selection
+        releaseTwoFingerDrags()
 
         let policy: PKCanvasViewDrawingPolicy = allowsFingerDrawing ? .anyInput : .pencilOnly
         guard let pencilKitCanvas = Self.pencilKitCanvas(in: controller.view),
@@ -184,6 +185,35 @@ final class DrawingCanvas: UIView {
             return
         }
         pencilKitCanvas.setValue(policy.rawValue, forKey: "drawingPolicy")
+    }
+
+    /// Leaves two-finger drags to the text view, which scrolls the note.
+    ///
+    /// PaperKit's canvas sits on a scroll view of its own, with scrolling off
+    /// (`scrollConfiguration`). Its pan wants two fingers, and once a lasso
+    /// selection had been dragged, PaperKit switched it on and left it on: it
+    /// took every two-finger drag on the canvas with nowhere to scroll it, so
+    /// in ink mode, with a finger drawing, nothing scrolled the note. Allowed
+    /// no touches at all, it stays out of the way whether PaperKit has it on
+    /// or not, and two fingers scroll the note and draw nothing (simulator,
+    /// 25 September; switching it off lasted only until the next drag).
+    ///
+    /// Found by walking the view tree, since PaperKit doesn't expose the
+    /// scroll view; `UIScrollView` and its pan are public API.
+    private func releaseTwoFingerDrags() {
+        for scrollView in Self.scrollViews(in: controller.view) {
+            scrollView.panGestureRecognizer.allowedTouchTypes = []
+        }
+    }
+
+    private static func scrollViews(in view: UIView) -> [UIScrollView] {
+        let own = (view as? UIScrollView).map { [$0] } ?? []
+        return own + view.subviews.flatMap(scrollViews(in:))
+    }
+
+    /// PaperKit's own scroll views' pans. For tests.
+    var paperKitPans: [UIPanGestureRecognizer] {
+        Self.scrollViews(in: controller.view).map(\.panGestureRecognizer)
     }
 
     /// PencilKit's canvas view inside PaperKit's, found by class name.

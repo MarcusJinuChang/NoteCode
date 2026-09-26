@@ -51,6 +51,25 @@ struct DrawingCanvasTests {
         #expect(harness.canvas.controller.zoomRange == 1...1)
     }
 
+    @Test("PaperKit's own scroll view leaves two-finger drags to the text view")
+    func noTwoFingerDragsOfItsOwn() throws {
+        let harness = Harness()
+        let pans = harness.canvas.paperKitPans
+        try #require(!pans.isEmpty)
+
+        // PaperKit switches its pan on after a lasso selection is dragged
+        // (simulator, 25 September), so being off is no protection.
+        for pan in pans {
+            pan.isEnabled = true
+        }
+        harness.canvas.renderScale = 1.5
+        harness.canvas.allowsFingerDrawing = false
+        harness.canvas.allowsFingerDrawing = true
+        harness.window.layoutIfNeeded()
+
+        #expect(pans.allSatisfy { $0.allowedTouchTypes.isEmpty })
+    }
+
     @Test("The canvas is transparent")
     func transparent() {
         let harness = Harness()

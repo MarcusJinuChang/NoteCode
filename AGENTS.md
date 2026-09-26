@@ -189,6 +189,13 @@ note against 11ms scrolling, and 5.5 seconds at 2000 lines. So instead:
 - Zoomed in, a pan goes sideways or up and down, not diagonally: the text view
   scrolls vertically and `PageView` sideways. The text view can't do both —
   measured, `UITextView` forces its content width back to its own width.
+- In ink mode the Pencil never scrolls, and while a finger draws, two fingers
+  do (`EditorMode.scrolling(fingerDraws:)`, which `NoteEditor` applies to
+  both pans). Left at one touch, the text view's pan raced PaperKit's
+  gestures and a dragged lasso selection stayed put. PaperKit's own scroll
+  view has a two-finger pan too, which it switches back on after a
+  selection is dragged; it took every two-finger drag with nowhere to
+  scroll, so `DrawingCanvas` allows it no touches at all (25 Sep).
 
 ## Pages
 

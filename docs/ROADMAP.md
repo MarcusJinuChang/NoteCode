@@ -57,7 +57,7 @@ See [phase-drawing-layer.md](phase-drawing-layer.md) for the build plan.
 | 2. Geometry | 8–14 Sep | Done, and grew into pages and view modes |
 | 3. The toggle | 15–21 Sep | Done; the code-block buttons' overlap with the canvas fixed 25 Sep |
 | 4. Saving ink | 22–28 Sep | Done 23 Sep; gate passed on the simulator |
-| 5. Device pass | 29 Sep – 10 Oct | Started early, 25 Sep: rendering density fixed, typing cost cut |
+| 5. Device pass | 29 Sep – 10 Oct | Started early, 25 Sep: rendering density fixed, typing cost cut; the simulator's share of the checks done, and the lasso and two-finger scrolling fixed |
 
 **Fallback if it runs long:** the phase doc's cut list — stop adding pages for
 ink, then PencilKit's canvas instead of PaperKit's. Saving is never cut.

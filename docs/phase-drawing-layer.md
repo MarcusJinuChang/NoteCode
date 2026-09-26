@@ -353,9 +353,8 @@ What it turned out to involve:
 - **A finger reaches the canvas, and now draws there.** Locked to the Pencil,
   a finger drag scrolls the text view instead, and the canvas's tap and
   long-press recognizers can select an element. The text view still sees
-  finger taps through the canvas either way. Untested: how anyone scrolls a
-  long note while a finger draws — a two-finger pan should reach the text
-  view's own recognizer, which allows two touches, but that needs a device.
+  finger taps through the canvas either way. With a finger drawing, two
+  fingers scroll — see step 5.
 - **Code-block bars straddled the canvas — fixed 25 Sep.** Bars for blocks
   that existed when a note opened were added before `PageView` added the
   canvas, so they sat under it; bars for blocks added later sat above it and
@@ -485,6 +484,41 @@ Confirm on the iPad. Also on the iPad:
   layout below the caret that exclusion paths cost. Judge it on the iPad in
   a Release build — Xcode's Run button installs Debug;
 - that the eraser and lasso work through `drawingTool`.
+
+**Started 25 Sep, on the simulator,** with the checks it can answer: its
+touches are a finger's, and a finger draws. Found and fixed (branch
+`device-pass`):
+
+- **A lasso selection couldn't be dragged.** The text view's pan took one
+  finger or the Pencil in ink mode and won the drag from PaperKit, so the
+  page tried to scroll instead. In ink mode the Pencil no longer scrolls,
+  and while a finger draws, scrolling takes two fingers
+  (`EditorMode.scrolling(fingerDraws:)`).
+- **Nothing scrolled a note while a finger drew.** Two fingers didn't reach
+  the text view: PaperKit's own scroll view, scrolling off, kept a
+  two-finger pan and took the drag. It was off when a note opened and came
+  on for good the first time a selection was dragged, so switching it off
+  didn't last; `DrawingCanvas` now allows it no touches. Found by reading
+  the recognisers' state from the running app with lldb.
+
+Answered on the simulator:
+
+- **The eraser and lasso work through `drawingTool`**, so the cut list's
+  PencilKit fallback isn't needed for them. The pixel eraser splits a
+  stroke; the lasso selects, and brings up PaperKit's own menu (colour,
+  duplicate, delete, more).
+- Check 9: pen, highlighter, eraser and lasso each do their job. The
+  highlighter takes the selected colour, and the default black hides the
+  words under it; the palette has no yellow. A question for the UI design.
+- Check 10: locked to the Pencil, one finger scrolls and leaves no mark.
+- Check 11: with a finger drawing, two fingers scroll and draw nothing.
+  Pinch zoom still works in ink mode.
+
+Left for the iPad, since the simulator can't produce them: anything with
+the Pencil — that it never scrolls, draws or drags a selection, and that a
+palm resting on the page leaves no mark (checks 3 and 10); two fingers
+landing a moment apart, as real fingers do, rather than together (check 11);
+ink latency; and the rest of the list above.
 
 ## Known limitation: drift
 
