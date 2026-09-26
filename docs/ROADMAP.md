@@ -19,7 +19,7 @@ Everything up to saving ink is built and merged: the TextKit 2 editor with
 code blocks, run and copy, Letter-sized pages in three view modes with pinch
 zoom, the note page and its hotbar, and a PaperKit canvas that a finger or the
 Pencil draws on, with ink undo of its own, saved with the note and drawn at
-the screen's density. 19 pull requests.
+the screen's density. 20 pull requests.
 
 - **Ink is saved** (23 Sep, merged 25 Sep): half a second after
   drawing pauses, and at once when the note closes or the app leaves the
@@ -35,7 +35,7 @@ the screen's density. 19 pull requests.
   line after a note's closing fence was shaded as code.
   The simulator's share of the device checklist is done (26 Sep, branch
   `device-pass`): dragging a lasso selection and scrolling with two fingers
-  while a finger draws are fixed, in review. Rotation and Split View passed
+  while a finger draws are fixed (merged 26 Sep). Rotation and Split View passed
   on the iPad.
   Latency, palm rejection and Pencil-versus-finger routing are still to
   judge on the device.
