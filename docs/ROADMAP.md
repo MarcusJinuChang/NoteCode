@@ -39,6 +39,13 @@ the screen's density. 20 pull requests.
   on the iPad.
   Latency, palm rejection and Pencil-versus-finger routing are still to
   judge on the device.
+- **Pencil changes** (26 Sep, PR #21, in review): the eraser erases whole
+  strokes or only what it passes over, at three sizes or a custom one; "+"
+  adds a colour from Apple's colour picker, and a colour can be removed or
+  moved; the Pencil's double tap and squeeze do what Settings says; the
+  surround around the page scrolls with one finger and zooms; and undo,
+  redo and the mode toggle no longer scroll away with the hotbar's tools.
+  All but the Pencil checked on the simulator. 448 tests.
 - **Nothing is started for signing in and shipping.** Builds still sign with
   the free Personal Team, whose profiles last seven days. As of 11 Sep the
   paid Developer Program membership wasn't showing on the account. That has
@@ -61,7 +68,7 @@ See [phase-drawing-layer.md](phase-drawing-layer.md) for the build plan.
 | 2. Geometry | 8–14 Sep | Done, and grew into pages and view modes |
 | 3. The toggle | 15–21 Sep | Done; the code-block buttons' overlap with the canvas fixed 25 Sep |
 | 4. Saving ink | 22–28 Sep | Done 23 Sep; gate passed on the simulator |
-| 5. Device pass | 29 Sep – 10 Oct | Started early, 25 Sep: rendering density fixed, typing cost cut; the simulator's share of the checks done, and the lasso and two-finger scrolling fixed |
+| 5. Device pass | 29 Sep – 10 Oct | Started early, 25 Sep: rendering density fixed, typing cost cut; the simulator's share of the checks done, and the lasso and two-finger scrolling fixed; Pencil changes in review (PR #21) |
 
 **Fallback if it runs long:** the phase doc's cut list — stop adding pages for
 ink, then PencilKit's canvas instead of PaperKit's. Saving is never cut.
