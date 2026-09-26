@@ -4,7 +4,7 @@ Source of truth. The published version at
 <https://claude.ai/code/artifact/2490317a-7eaf-44ae-9389-f0fb92d7471a>
 is a rendering of this file — edit here, ask for the artifact to be regenerated.
 
-Revised 25 September 2026.
+Revised 26 September 2026.
 
 | | |
 |---|---|
@@ -13,13 +13,13 @@ Revised 25 September 2026.
 | App Store submission | Nov 2026 |
 | Second version | AI + feedback, Mar 2027 |
 
-## Where things stand (25 Sep)
+## Where things stand (26 Sep)
 
 Everything up to saving ink is built and merged: the TextKit 2 editor with
 code blocks, run and copy, Letter-sized pages in three view modes with pinch
 zoom, the note page and its hotbar, and a PaperKit canvas that a finger or the
-Pencil draws on, with ink undo of its own, saved with the note. 18 pull
-requests.
+Pencil draws on, with ink undo of its own, saved with the note and drawn at
+the screen's density. 19 pull requests.
 
 - **Ink is saved** (23 Sep, merged 25 Sep): half a second after
   drawing pauses, and at once when the note closes or the app leaves the
@@ -27,15 +27,16 @@ requests.
 - **The iPad pass has started.** First findings (25 Sep): ink and the line
   being typed were drawn at a lower density than the screen, and typing
   stuttered now and then. Both density bugs are fixed and measured on the
-  simulator, and a keystroke costs about a third less (branch
-  `rendering-sharpness`). Typing near the top of a long note still costs
+  simulator, and a keystroke costs about a third less (merged 25 Sep).
+  Typing near the top of a long note still costs
   about two frames; the rest of that is pagination by exclusion paths.
-  Two smaller bugs found on the way are fixed on the same branch: a deleted
+  Two smaller bugs found on the way are fixed too: a deleted
   note came back if the app was killed within a few seconds, and the empty
   line after a note's closing fence was shaded as code.
   The simulator's share of the device checklist is done (26 Sep, branch
   `device-pass`): dragging a lasso selection and scrolling with two fingers
-  while a finger draws are fixed. Rotation and Split View passed on the iPad.
+  while a finger draws are fixed, in review. Rotation and Split View passed
+  on the iPad.
   Latency, palm rejection and Pencil-versus-finger routing are still to
   judge on the device.
 - **Nothing is started for signing in and shipping.** Builds still sign with
