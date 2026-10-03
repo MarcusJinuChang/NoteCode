@@ -102,31 +102,6 @@ struct NoteList: View {
             Button("Cancel", role: .cancel) {}
             Button(naming?.confirmation ?? "OK") { finishNaming() }
         }
-        .confirmationDialog(
-            "Delete “\(deleting?.name ?? "")”?",
-            isPresented: isDeleting,
-            titleVisibility: .visible,
-            presenting: deleting
-        ) { folder in
-            let count = folder.pages?.count ?? 0
-            if count == 0 {
-                Button("Delete Folder", role: .destructive) {
-                    delete(folder, .keepingNotes)
-                }
-            } else {
-                Button("Delete Folder and ^[\(count) Note](inflect: true)", role: .destructive) {
-                    delete(folder, .withNotes)
-                }
-                Button("Delete Folder, Keep Notes") {
-                    delete(folder, .keepingNotes)
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: { folder in
-            if folder.pages?.isEmpty == false {
-                Text("Kept notes move out of the folder, to the top of the list.")
-            }
-        }
     }
 
     // MARK: Rows
@@ -149,13 +124,40 @@ struct NoteList: View {
     }
 
     private func folderRow(_ section: NoteListSections.FolderSection) -> some View {
-        HStack {
-            Label(section.folder.name, systemImage: "folder")
+        let folder = section.folder
+        return HStack {
+            Label(folder.name, systemImage: "folder")
             Spacer()
             Text(section.notes.count, format: .number)
                 .foregroundStyle(.secondary)
         }
-        .contextMenu { folderMenu(section.folder) }
+        .contextMenu { folderMenu(folder) }
+        // On the row, not the list: on an iPad the dialog is a popover, and
+        // attached to the list it pointed at the middle of the list's edge.
+        .confirmationDialog(
+            "Delete “\(folder.name)”?",
+            isPresented: isDeleting(folder),
+            titleVisibility: .visible
+        ) {
+            let count = folder.pages?.count ?? 0
+            if count == 0 {
+                Button("Delete Folder", role: .destructive) {
+                    delete(folder, .keepingNotes)
+                }
+            } else {
+                Button("Delete Folder and ^[\(count) Note](inflect: true)", role: .destructive) {
+                    delete(folder, .withNotes)
+                }
+                Button("Delete Folder, Keep Notes") {
+                    delete(folder, .keepingNotes)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            if folder.pages?.isEmpty == false {
+                Text("Kept notes move out of the folder, to the top of the list.")
+            }
+        }
     }
 
     // MARK: Menus
@@ -256,8 +258,8 @@ struct NoteList: View {
         Binding { folder.runDestination } set: { folder.runDestination = $0 }
     }
 
-    private var isDeleting: Binding<Bool> {
-        Binding { deleting != nil } set: { if !$0 { deleting = nil } }
+    private func isDeleting(_ folder: Folder) -> Binding<Bool> {
+        Binding { deleting == folder } set: { if !$0 { deleting = nil } }
     }
 
     // MARK: Changes
