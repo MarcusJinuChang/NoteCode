@@ -361,13 +361,20 @@ Laid out from the 12 September mockup.
   insert/delete, inline predictions) are on in prose and off on a code
   block's lines and fences and in inline code, where they'd silently turn
   `int lo` into `In too`. An unclosed fence or backtick counts as code,
-  since the closing one is typed last (`TextRewritingPolicy.at`). The
-  coordinator switches on each caret move, but only when the caret crosses
-  from one to the other, since `reloadInputViews()` redraws the suggestion
-  bar, and never while text is being composed (marked text), where a reload
-  could disturb the character. Spell checking stays off everywhere: its
-  underlines cover all the text on screen, so they'd mark code identifiers
-  while the caret is in prose.
+  since the closing one is typed last (`TextRewritingPolicy.at`). So does
+  the word just after a closing backtick, until a space ends it: the
+  keyboard corrects the word a space ends, and its word runs through the
+  backtick, so a space after `` `int lo` `` turned it into `` `int lot ``,
+  the closing backtick eaten. The coordinator switches on each caret move,
+  but only when the caret crosses from one to the other, since
+  `reloadInputViews()` redraws the suggestion bar, and never while text is
+  being composed (marked text), where a reload could disturb the character.
+  It also picks as editing begins, since a tap into an empty note moves no
+  caret, and the note's first letter stayed lowercase. XCUITest's `typeText`
+  skips autocorrect entirely, so a typing check has to tap the keyboard's
+  keys. Spell checking stays off everywhere: its underlines cover all the
+  text on screen, so they'd mark code identifiers while the caret is in
+  prose.
 - **`NoteEditor` is the bridge.** SwiftUI owns the hotbar and UIKit owns the
   text view, and neither can reach the other. The hotbar talks to `NoteEditor`,
   and the text view registers with it.

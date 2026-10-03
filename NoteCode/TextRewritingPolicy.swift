@@ -37,7 +37,8 @@ nonisolated enum TextRewritingPolicy: Equatable, Sendable {
     /// What a new editor starts with, before the caret has been placed.
     ///
     /// Nothing rewrites until the editor knows where typing will go: the
-    /// first caret move picks the policy for the place it lands.
+    /// coordinator picks the policy for the caret as editing begins, and
+    /// again as it moves.
     static let initial: TextRewritingPolicy = .code
 
     /// The policy for typing at a UTF-16 offset in `source`, whose blocks are
@@ -46,6 +47,7 @@ nonisolated enum TextRewritingPolicy: Equatable, Sendable {
     /// Code is a fenced block's lines, its fences included, and inline code
     /// in a line of prose. An unclosed fence or backtick counts too, since the
     /// closing one is typed last: `int lo` would be corrected before it came.
+    /// So does the word just after a closing backtick, until a space ends it.
     static func at(_ utf16Offset: Int, in source: String, blocks: [BlockNode]) -> TextRewritingPolicy {
         guard let caret = Range(NSRange(location: utf16Offset, length: 0), in: source)?.lowerBound else {
             return .code
@@ -72,7 +74,19 @@ nonisolated enum TextRewritingPolicy: Equatable, Sendable {
 
         guard let block else { return .prose }
         if block.isCode { return .code }
+        if endsWordTouchingBacktick(caret, in: source) { return .code }
         return isInInlineCode(caret, block: block, source: source) ? .code : .prose
+    }
+
+    /// Whether the word that ends at `caret` has a backtick in it.
+    ///
+    /// The keyboard corrects the word before the caret when a space ends it,
+    /// and its word runs straight through a backtick: right after inline
+    /// code, "use `int lo` " became "use `int lot ", the backtick eaten
+    /// (measured 3 Oct). So the word stays code until a space ends it, and
+    /// the space is typed with nothing on to correct it.
+    private static func endsWordTouchingBacktick(_ caret: String.Index, in source: String) -> Bool {
+        source[..<caret].reversed().prefix { !$0.isWhitespace }.contains("`")
     }
 
     /// Whether `caret` is in inline code within a line of prose: between a

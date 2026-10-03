@@ -451,6 +451,18 @@ struct DocumentTextView: UIViewRepresentable {
             applyRewritingPolicy(to: textView, source: source, blocks: blocks)
         }
 
+        /// Sets the keyboard up for where the caret is, before it appears.
+        ///
+        /// A tap that leaves the caret where it was, as every tap into an
+        /// empty note does, changes no selection, so the editor kept its
+        /// starting code traits and a new note's first letter wasn't
+        /// capitalised (measured 3 Oct).
+        func textViewShouldBeginEditing(_ textView: UITextView) -> Bool {
+            let source = (textView.text ?? "").nativeUTF8
+            applyRewritingPolicy(to: textView, source: source, blocks: documentCache.blocks(for: source))
+            return true
+        }
+
         /// Gives prose autocorrect and smart punctuation, and code neither,
         /// by where the caret is.
         ///

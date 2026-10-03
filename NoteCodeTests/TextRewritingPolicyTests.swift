@@ -116,10 +116,22 @@ struct TextRewritingPolicyTests {
         #expect(policy("use `vec|tor` here") == .code)
         #expect(policy("use `|vector` here") == .code)     // right after the opening backtick
         #expect(policy("use `vector|` here") == .code)     // right before the closing one
-        #expect(policy("use `vector`| here") == .prose)    // after the closing one
+        #expect(policy("use `vector` |here") == .prose)    // past the closing one and a space
         #expect(policy("use |`vector` here") == .prose)    // before the opening one
         #expect(policy("use `vector` and `ma|p`") == .code)
         #expect(policy("use `vector` and |`map`") == .prose)
+    }
+
+    @Test("The word after inline code stays code until a space ends it")
+    func wordTouchingInlineCode() {
+        // The keyboard corrects the word a space ends, and its word runs
+        // through a backtick: "use `int lo` " became "use `int lot " (3 Oct).
+        #expect(policy("use `int lo`|") == .code)
+        #expect(policy("use `vector`s|") == .code)
+        #expect(policy("use `vector`| here") == .code)
+        #expect(policy("use `vector` |") == .prose)
+        #expect(policy("use `vector` teh|") == .prose)
+        #expect(policy("use `vector`\n|") == .prose)       // a new line
     }
 
     @Test("Inline code being typed is code before its closing backtick")
@@ -164,6 +176,21 @@ struct TextRewritingPolicyTests {
 
         textView.selectedRange = NSRange(location: (textView.text as NSString).length, length: 0)
         coordinator.textViewDidChangeSelection(textView)
+        #expect(coordinator.rewritingPolicy == .prose)
+        #expect(textView.autocapitalizationType == .sentences)
+    }
+
+    @Test("Starting to type in an empty note is prose, though the caret never moved")
+    func editorBeginsInEmptyNote() {
+        // A tap into an empty note leaves the caret where it was, so no
+        // selection change says where typing will go.
+        final class Box { var value = "" }
+        let box = Box()
+        let coordinator = DocumentTextView.Coordinator(text: Binding(get: { box.value }, set: { box.value = $0 }))
+        let textView = DocumentTextView.makeConfiguredTextView()
+        textView.delegate = coordinator
+
+        #expect(coordinator.textViewShouldBeginEditing(textView))
         #expect(coordinator.rewritingPolicy == .prose)
         #expect(textView.autocapitalizationType == .sentences)
     }
