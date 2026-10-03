@@ -26,7 +26,9 @@ drawn at the screen's density. 22 pull requests, all merged.
   and the app's. The model is versioned from here on, and this first
   migration also carries the pins for pinning, so sorting and note info need
   no model change. Its versions include every shape earlier builds wrote:
-  with only the latest, stores from before 23 Sep wouldn't open.
+  with only the latest, stores from before 23 Sep wouldn't open. 459 tests;
+  copies of four simulators' stores, from 12 Sep to 25 Sep, open with every
+  note intact.
 - **The device pass is closed** (3 Oct). Marcus has used the app on the iPad
   and reports it works, so latency, palm rejection and Pencil-versus-finger
   routing are taken as passed rather than measured.
