@@ -297,7 +297,11 @@ struct PageViewTests {
         }
         let shape = try #require(shapeView(in: harness.page.canvas))
         let drawn = shape.convert(shape.bounds, to: harness.page.textView)
-        #expect(Self.close(drawn, placed), "shape drawn at \(drawn)")
+        // PaperKit puts the shape's edges on the screen's pixels at the
+        // canvas's zoom, so they can land a fraction of a pixel from the
+        // note's: 50pt at 1.25x on a 3x iPhone is 187.5 pixels, drawn as 188.
+        let pixel = 1 / (harness.page.traitCollection.displayScale * harness.page.canvas.renderScale)
+        #expect(Self.close(drawn, placed, within: pixel), "shape drawn at \(drawn)")
     }
 
     // MARK: Zoom
