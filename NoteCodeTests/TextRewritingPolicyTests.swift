@@ -74,7 +74,7 @@ struct TextRewritingPolicyTests {
 
     @Test("Prose, headings and list items are prose")
     func proseLines() {
-        #expect(policy("") == .prose)
+        #expect(policy("|") == .prose)                      // an empty note
         #expect(policy("the pointer| holds") == .prose)
         #expect(policy("# Lect|ure") == .prose)
         #expect(policy("- first ite|m\n") == .prose)
