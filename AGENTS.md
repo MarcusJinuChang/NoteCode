@@ -41,8 +41,8 @@ A destination that can't take a language hands the block to one that can rather
 than failing, which is why `RunRequest` reports where it actually went.
 
 The destination resolves through levels, most specific first — page, then
-app-wide. Folders slot in between as one more element of the array `resolve`
-walks, not another branch.
+its folder, then app-wide (`Page.runDestinationLevels`). The folder is one
+more element of the array `resolve` walks, not another branch.
 
 ## Tech stack
 
@@ -367,17 +367,50 @@ Laid out from the 12 September mockup.
 
 ## Organising notes
 
-A flat, date-sorted list of pages does not survive a semester of coursework.
-Folders are wanted: pages grouped by class — CS133, algorithm practice — rather
-than one undifferentiated stream.
+A flat, date-sorted list of pages does not survive a semester of coursework,
+so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
 
-Not yet built. The likely shape is a `Folder` `@Model` with a to-many
-relationship to `Page` and a nullable inverse, so a page can sit at the top
-level while folders are optional.
+- **One folder per note, or none** (decided 3 Oct). `Folder.pages` is
+  to-many with a nullable inverse, `Page.folder`, so a note can sit at the top
+  of the list. Several folders per note would make "move" and deleting a
+  folder with its notes ambiguous, and grouping by class doesn't need it.
+  Folders don't nest.
+- **Folders open and close in place** in the list (`NoteList`), rather than
+  leading to a column of their own: the list slides over the page, and a
+  second column would cover more of it. Open state is per launch.
+- **Deleting a folder asks** whether its notes go too, or move to the top.
+  `Folder.delete` saves at once, like `Page.delete`.
+- **Moving a note isn't an edit.** It keeps its date modified, or filing a
+  week of notes would make them all look written today.
+- The list's grouping and order are pure (`NoteListSections`): notes keep the
+  order the query gives, folders sort by name with numbers compared as
+  numbers.
 
-Favouriting, sorting and note info are on the before-November candidate list
-(docs/ROADMAP.md) and change the model too; favouriting folders needs folders.
-They are cheaper as one migration than as four.
+Pinning, sorting and note info come next. The pins (`Page.isPinned`,
+`Folder.isPinned`) are already in the model, so all four share one
+migration; sorting is a per-device preference and note info is derived, so
+neither needs the model.
+
+## The model and its versions
+
+The store's model is versioned (`NoteSchema.swift`, since 3 Oct). Everything
+else says `Page` and `Folder`, which are typealiases for the current version.
+
+- **Never edit a version that has shipped.** A model change is a new
+  `VersionedSchema` with its own copies of the classes, the old one stays
+  frozen, and a stage joins `NoteMigrationPlan`. SwiftData matches a store to
+  its version by the shape of its entities, so a frozen copy that drifts —
+  a renamed attribute, a dropped `.externalStorage` — stops old stores
+  opening.
+- **A failed migration looks like lost notes.** `Storage` falls back to an
+  in-memory store with a warning; the file is untouched, but the app can't see
+  it. `SchemaMigrationTests` writes a store with the previous version and
+  opens it through `Storage`, never a container built some other way.
+- **Shaped for CloudKit**, so iCloud sync later needs no migration of its own:
+  every relationship optional, every attribute optional or with a default,
+  nothing `.unique`.
+- Version 1 is the model as it was before versions; every store from before
+  3 Oct is one.
 
 ## Build/test
 
@@ -479,8 +512,6 @@ into a section above once they are settled.
 
 - Where text-anchored ink lands in the schedule. Wanted for its own sake, but
   it is a phase, not a step, and November is committed.
-- Folders: does a page live in exactly one folder, or can it be in several?
-  One-to-many is far simpler and probably right for coursework.
 - Per-region text rewriting: `TextRewritingPolicy` is `.code` everywhere today,
   costing prose its autocorrect. Switching per region is designed but unbuilt.
 - What goes in before November. The candidate list in docs/ROADMAP.md is
