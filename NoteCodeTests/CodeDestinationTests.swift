@@ -286,9 +286,8 @@ struct RunDestinationPreferenceTests {
         #expect(RunDestinationPreference.resolve([nil, "onlinegdb"]) == .onlineGDB)
     }
 
-    /// Folders don't exist yet. The point of the array is that adding that
-    /// level is adding an element, not another branch — so the ordering has to
-    /// hold for three levels before there are three.
+    /// The folder's level. Adding it was adding an element, not another
+    /// branch, so the ordering held for three levels before there were three.
     @Test("A middle level is used only when the one above it is unset")
     func middleLevelFillsIn() {
         #expect(RunDestinationPreference.resolve([nil, "godbolt", "onlinegdb"]) == .compilerExplorer)

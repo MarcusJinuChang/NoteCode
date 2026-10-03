@@ -4,23 +4,34 @@ Source of truth. The published version at
 <https://claude.ai/code/artifact/2490317a-7eaf-44ae-9389-f0fb92d7471a>
 is a rendering of this file — edit here, ask for the artifact to be regenerated.
 
-Revised 26 September 2026.
+Revised 3 October 2026.
 
 | | |
 |---|---|
-| Drawing layer due | **10 Oct 2026** (hard stop) |
+| Drawing layer due | **10 Oct 2026** (hard stop) — done 3 Oct |
 | Using it day to day | now — ink is saved as of 23 Sep |
 | App Store submission | Nov 2026 |
 | Second version | AI + feedback, Mar 2027 |
 
-## Where things stand (26 Sep)
+## Where things stand (3 Oct)
 
-Everything up to saving ink is built and merged: the TextKit 2 editor with
-code blocks, run and copy, Letter-sized pages in three view modes with pinch
-zoom, the note page and its hotbar, and a PaperKit canvas that a finger or the
-Pencil draws on, with ink undo of its own, saved with the note and drawn at
-the screen's density. 20 pull requests.
+The drawing layer is done, a week inside its deadline: the TextKit 2 editor
+with code blocks, run and copy, Letter-sized pages in three view modes with
+pinch zoom, the note page and its hotbar, and a PaperKit canvas that a finger
+or the Pencil draws on, with ink undo of its own, saved with the note and
+drawn at the screen's density. 22 pull requests, all merged.
 
+- **Folders** (3 Oct, in review): notes file into folders that open and
+  close in the list, each with its own run destination between the note's
+  and the app's. The model is versioned from here on, and this first
+  migration also carries the pins for pinning, so sorting and note info need
+  no model change. Its versions include every shape earlier builds wrote:
+  with only the latest, stores from before 23 Sep wouldn't open. 459 tests;
+  copies of four simulators' stores, from 12 Sep to 25 Sep, open with every
+  note intact.
+- **The device pass is closed** (3 Oct). Marcus has used the app on the iPad
+  and reports it works, so latency, palm rejection and Pencil-versus-finger
+  routing are taken as passed rather than measured.
 - **Ink is saved** (23 Sep, merged 25 Sep): half a second after
   drawing pauses, and at once when the note closes or the app leaves the
   screen. It survived a force-quit on the simulator. 410 tests.
@@ -37,9 +48,7 @@ the screen's density. 20 pull requests.
   `device-pass`): dragging a lasso selection and scrolling with two fingers
   while a finger draws are fixed (merged 26 Sep). Rotation and Split View passed
   on the iPad.
-  Latency, palm rejection and Pencil-versus-finger routing are still to
-  judge on the device.
-- **Pencil changes** (26 Sep, PR #21, in review): the eraser erases whole
+- **Pencil changes** (26 Sep, PR #21, merged 2 Oct): the eraser erases whole
   strokes or only what it passes over, at three sizes or a custom one; "+"
   adds a colour from Apple's colour picker, and a colour can be removed or
   moved; the Pencil's double tap and squeeze do what Settings says; the
@@ -54,12 +63,16 @@ the screen's density. 20 pull requests.
 
 ## Plan
 
-Not set in stone. Once the drawing layer is done, the before-November list
-gets planned properly — what fits and in what order — along with a proper UI
-design. Using the app for real can start now that ink is saved, and what that
-turns up feeds both.
+Not set in stone. With the drawing layer done, the before-November list is
+being planned (3 Oct): folders came first, since the list was the thing
+least likely to last the semester and model changes are safest before
+anyone else's notes depend on them. The proposed order after that is
+pinning and sorting, note info, note search, autocorrect for prose (a
+deferred item, below), ship prep, printing, then the UI design and polish,
+TestFlight and submission. Scrolling direction, infinite canvas and Sign in
+with Apple are proposed for Later. Not yet agreed.
 
-### Now — the drawing layer on PaperKit (to 10 Oct)
+### Done — the drawing layer on PaperKit (to 10 Oct)
 See [phase-drawing-layer.md](phase-drawing-layer.md) for the build plan.
 
 | Step | Planned | Status |
@@ -68,7 +81,7 @@ See [phase-drawing-layer.md](phase-drawing-layer.md) for the build plan.
 | 2. Geometry | 8–14 Sep | Done, and grew into pages and view modes |
 | 3. The toggle | 15–21 Sep | Done; the code-block buttons' overlap with the canvas fixed 25 Sep |
 | 4. Saving ink | 22–28 Sep | Done 23 Sep; gate passed on the simulator |
-| 5. Device pass | 29 Sep – 10 Oct | Started early, 25 Sep: rendering density fixed, typing cost cut; the simulator's share of the checks done, and the lasso and two-finger scrolling fixed; Pencil changes in review (PR #21) |
+| 5. Device pass | 29 Sep – 10 Oct | Done 3 Oct: rendering density fixed, typing cost cut; the simulator's share of the checks done, and the lasso and two-finger scrolling fixed; Pencil changes merged 2 Oct (PR #21); Marcus reports it works on the iPad |
 
 **Fallback if it runs long:** the phase doc's cut list — stop adding pages for
 ink, then PencilKit's canvas instead of PaperKit's. Saving is never cut.
@@ -87,8 +100,8 @@ code already has something to say.
    than a mode of this one.
 4. **Note search.** Text is plain in `Page.content`. PaperKit's
    `PaperMarkup.indexableContent` may reach text boxes in ink (untested).
-5. **Favouriting / pinning / starring** notes and folders. Folders come first
-   — not built yet, see the deferred table.
+5. **Favouriting / pinning / starring** notes and folders. Folders are built
+   (3 Oct, in review), and the pins are already in the model.
 6. **Note sorting.** The list sorts by date modified, and nothing else.
 7. **Note info / properties.**
 8. **Printing.** Print layout is already the printed page — see the deferred
@@ -100,8 +113,9 @@ code already has something to say.
 12. **App Store submission.** First submissions bounce on formality, so leave
     review-cycle buffer, not zero margin.
 
-Folders, 5, 6 and 7 all change the `Page` model. Doing them as one migration is
-cheaper than four.
+Folders, 5, 6 and 7 were planned as one model change, and are: version 5 of
+the model (3 Oct) carries folders and the pins, and sorting and note info turn
+out to need nothing stored.
 
 ### Later
 - Note templates
@@ -181,10 +195,9 @@ Referenced by name from `TextRewritingPolicy.swift` and `DocumentTextView.swift`
 | `PageView.swift` | **Typing cost on long paged notes.** Page breaks are exclusion paths, and TextKit 2 then lays out everything below an edit: 34ms a keystroke near the top of a 250-line note on the simulator. If it lags on the iPad, push whole paragraphs with paragraph spacing instead, computed lazily. |
 | `PageView.swift` | **Diagonal panning when zoomed in.** The text view scrolls vertically and `PageView` sideways, so a pan picks one. |
 | `Page.swift` | **Text-anchored ink.** Wanted for its own sake, not just as a drift fix. Anchor each stroke to an `NSTextLocation` plus an offset, translate the group on relayout. Its own phase. |
-| `ContentView.swift` | **Folders.** A flat date-sorted list does not survive a semester. Touches the model, so do it with favourites, sorting and note info (before-November items 5–7), which need it. Brings a folder-level run destination with it. |
 | `CodeDestination.swift` | **Pinned Compiler Explorer compilers.** `g142` and `python313`, chosen because the site has 1,197 compilers and no "latest" alias. A retired id still shows the code with the compiler pane complaining, so this is a maintenance item, not a risk. |
 | `PageDetailView.swift` | **The macOS editor.** Still a plain `TextEditor` — no fences, no highlighting, no ink. |
-| `Storage.swift` | **iCloud sync.** CloudKit via SwiftData, deferred past MVP by design. |
+| `Storage.swift` | **iCloud sync.** CloudKit via SwiftData, deferred past MVP by design. The model is shaped for CloudKit since 3 Oct (optional relationships, defaults, nothing unique), so turning it on needs no migration of its own. |
 | Layout | **iPhone Duo.** Apple's foldable, out 23 Oct 2026, runs standard iOS 27.1, so it's covered by the iPhone target. Apple asks apps to resize with the scene rather than the screen, keep controls out of the fold (`reservedRegions`), and let bars run vertically down the side. Testing needs Xcode 27.1, which carries the Duo simulator. It takes the USB-C Apple Pencil (one report says not until after launch), so ink on any iPhone relies on a finger drawing, which works on PaperKit as of 23 Sep. Checked 2 Oct on the Xcode 27.1 beta (27A9269): main builds with no new warnings, and all 448 tests pass on the Duo simulator once the ink placement test allows a screen pixel, since a 3x screen puts PaperKit's shapes on its own pixels. The beta's iOS 27.1 runtime runs only the Duo, so iPads are still tested on 27.0. |
 
 ## Habits that are paying off

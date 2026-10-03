@@ -309,9 +309,9 @@ extension CodeDestination {
 /// Which destination a code block actually goes to.
 ///
 /// The levels are ordered most specific first, and resolution is just "the
-/// first one that names a destination we recognise". Folders don't exist yet;
-/// when they do, a folder's setting is one more element in the array rather
-/// than another branch here.
+/// first one that names a destination we recognise". A folder's setting is
+/// one more element in the array rather than another branch here — see
+/// `Page.runDestinationLevels(appDefault:)`.
 nonisolated enum RunDestinationPreference {
 
     /// Where the app-wide default lives. The last level, and the only one that
@@ -319,7 +319,7 @@ nonisolated enum RunDestinationPreference {
     static let appDefaultKey = "runDestination.appDefault"
 
     /// - Parameter levels: the setting at each level, most specific first —
-    ///   today the page, then the app-wide default. `nil` means "not set here",
+    ///   the page, its folder, then the app-wide default. `nil` means "not set here",
     ///   which is the normal state of every level but the last.
     static func resolve(_ levels: [String?]) -> CodeDestination {
         for id in levels.compactMap({ $0 }) {

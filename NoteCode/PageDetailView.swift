@@ -133,6 +133,7 @@ struct PageDetailView: View {
 
                 RunDestinationMenu(
                     pageSetting: $page.runDestination,
+                    folder: page.folder,
                     appDefault: $appDefaultDestination
                 )
 
@@ -164,7 +165,7 @@ struct PageDetailView: View {
             DocumentTextView(
                 text: $page.content,
                 runDestination: RunDestinationPreference.resolve(
-                    [page.runDestination, appDefaultDestination]
+                    page.runDestinationLevels(appDefault: appDefaultDestination)
                 ),
                 editor: editor,
                 pageLayout: PageLayout(orientation: page.orientation, mode: viewMode),

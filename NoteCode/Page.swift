@@ -6,50 +6,63 @@
 import Foundation
 import SwiftData
 
-@Model
-final class Page {
-    var title: String
-    var content: String
+extension NoteSchemaV5 {
 
-    /// The note's ink as `PaperMarkup` bytes, in print layout's coordinates;
-    /// empty for a note never drawn on. Read and written through
-    /// `DrawingCodec` and `DrawingSaveScheduler`.
-    ///
-    /// Kept outside the store's own records: 1,000 strokes come to 1.1MB, and
-    /// the note list would otherwise load each note's ink along with its
-    /// title.
-    @Attribute(.externalStorage) var drawingData: Data
-    var createdAt: Date
-    var modifiedAt: Date
+    @Model
+    final class Page {
+        var title: String = "Untitled"
+        var content: String = ""
 
-    /// Which online compiler this page's run buttons open — a
-    /// `CodeDestination.id`, or `nil` to follow the app-wide default.
-    ///
-    /// Optional so that existing pages migrate without a mapping, and because
-    /// "not set" is a real state: a page that never chooses should follow the
-    /// default as it changes rather than freeze whatever it was on the day the
-    /// page was written. A folder's setting slots in between the two when
-    /// folders exist — see `RunDestinationPreference`.
-    var runDestination: String?
+        /// The note's ink as `PaperMarkup` bytes, in print layout's coordinates;
+        /// empty for a note never drawn on. Read and written through
+        /// `DrawingCodec` and `DrawingSaveScheduler`.
+        ///
+        /// Kept outside the store's own records: 1,000 strokes come to 1.1MB, and
+        /// the note list would otherwise load each note's ink along with its
+        /// title.
+        @Attribute(.externalStorage) var drawingData: Data = Data()
+        var createdAt: Date = Date.now
+        var modifiedAt: Date = Date.now
 
-    /// Which way up this note's pages are — a `PageOrientation` raw value, or
-    /// `nil` for a note that has never chosen, which is portrait.
-    ///
-    /// Stored as a string, like `runDestination`, so existing notes migrate
-    /// without a mapping. Unlike that setting, a note keeps whatever it is
-    /// given rather than following a default: orientation sets where lines
-    /// wrap, and a default that changed would re-wrap every note that had
-    /// never chosen.
-    var pageOrientation: String?
+        /// Which online compiler this page's run buttons open — a
+        /// `CodeDestination.id`, or `nil` to follow its folder, and then the
+        /// app-wide default.
+        ///
+        /// Optional so that existing pages migrate without a mapping, and because
+        /// "not set" is a real state: a page that never chooses should follow the
+        /// default as it changes rather than freeze whatever it was on the day the
+        /// page was written. See `runDestinationLevels(appDefault:)`.
+        var runDestination: String?
 
-    init(title: String = "Untitled", content: String = "", drawingData: Data = Data(), createdAt: Date = .now) {
-        self.title = title
-        self.content = content
-        self.drawingData = drawingData
-        self.createdAt = createdAt
-        self.modifiedAt = createdAt
-        self.runDestination = nil
-        self.pageOrientation = nil
+        /// Which way up this note's pages are — a `PageOrientation` raw value, or
+        /// `nil` for a note that has never chosen, which is portrait.
+        ///
+        /// Stored as a string, like `runDestination`, so existing notes migrate
+        /// without a mapping. Unlike that setting, a note keeps whatever it is
+        /// given rather than following a default: orientation sets where lines
+        /// wrap, and a default that changed would re-wrap every note that had
+        /// never chosen.
+        var pageOrientation: String?
+
+        /// The folder this note is filed in, or `nil` for a note at the top of
+        /// the list. A note is in one folder at most: grouping by class wants
+        /// nothing more, and a note in several folders would make "move" and
+        /// deleting a folder with its notes ambiguous. The other side, and the
+        /// delete rule, are on `Folder.pages`.
+        var folder: Folder?
+
+        /// Whether the note is pinned to the top of the list.
+        var isPinned: Bool = false
+
+        init(title: String = "Untitled", content: String = "", drawingData: Data = Data(), createdAt: Date = .now) {
+            self.title = title
+            self.content = content
+            self.drawingData = drawingData
+            self.createdAt = createdAt
+            self.modifiedAt = createdAt
+            self.runDestination = nil
+            self.pageOrientation = nil
+        }
     }
 }
 
@@ -57,6 +70,13 @@ extension Page {
     var orientation: PageOrientation {
         get { pageOrientation.flatMap(PageOrientation.init(rawValue:)) ?? .default }
         set { pageOrientation = newValue.rawValue }
+    }
+
+    /// Where this note's code blocks could run, most specific first, for
+    /// `RunDestinationPreference.resolve`: the note's own choice, its
+    /// folder's, then the app-wide default.
+    func runDestinationLevels(appDefault: String) -> [String?] {
+        [runDestination, folder?.runDestination, appDefault]
     }
 }
 
