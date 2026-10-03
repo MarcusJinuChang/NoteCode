@@ -22,8 +22,9 @@ or the Pencil draws on, with ink undo of its own, saved with the note and
 drawn at the screen's density. 23 pull requests, all merged.
 
 - **Pinning and sorting** (3 Oct, in review): a long press pins a note or
-  a folder to a Pinned section at the top of the list, and a sort menu
-  orders notes by date modified, date created or title, either way round.
+  a folder to a Pinned section at the top of the list, and Sort By, in
+  the list's ••• menu, orders notes by date modified, date created or
+  title, either way round.
   The sort is a per-device setting; folders stay in name order. No model
   change: the pins came with folders. Not yet built or tested on the Mac.
 - **Folders** (3 Oct, merged 3 Oct, PR #23): notes file into folders that open and

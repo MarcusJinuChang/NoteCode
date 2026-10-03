@@ -397,6 +397,9 @@ so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
   in every section; folders stay in name order. Rows show the date the list
   is sorted by. Ties fall back to title, then creation, so the order never
   shuffles between launches.
+- **The list's toolbar holds two items**, ••• and +. Edit and Sort By share
+  the ••• menu on iPad, and Done takes its place while editing: with Edit,
+  Sort and New side by side, the sidebar had no room left for its title.
 
 Pinning and sorting needed no model change: the pins (`Page.isPinned`,
 `Folder.isPinned`) came in with folders. Note info comes next, and is

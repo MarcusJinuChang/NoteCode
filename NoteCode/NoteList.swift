@@ -47,6 +47,12 @@ struct NoteList: View {
     /// The folder whose deletion is waiting on the reader's choice.
     @State private var deleting: Folder?
 
+#if os(iOS)
+    /// Held here rather than left to an `EditButton`, since editing starts
+    /// from the list's menu and ends at the Done that replaces it.
+    @State private var editMode: EditMode = .inactive
+#endif
+
     var body: some View {
         let sections = NoteListSections(pages: pages, folders: folders, sort: sort)
 
@@ -88,13 +94,20 @@ struct NoteList: View {
         .navigationSplitViewColumnWidth(min: 180, ideal: 220)
 #endif
         .toolbar {
-#if os(iOS)
-            ToolbarItem(placement: .navigationBarTrailing) {
-                EditButton()
-            }
-#endif
+            // Two items at most, so the sidebar keeps room for its title:
+            // with Edit, Sort and New side by side, "NoteCode" didn't show.
             ToolbarItem {
-                sortMenu
+#if os(iOS)
+                if editMode.isEditing {
+                    Button("Done") {
+                        withAnimation { editMode = .inactive }
+                    }
+                } else {
+                    listMenu
+                }
+#else
+                listMenu
+#endif
             }
             ToolbarItem {
                 Menu {
@@ -108,6 +121,9 @@ struct NoteList: View {
                 }
             }
         }
+#if os(iOS)
+        .environment(\.editMode, $editMode)
+#endif
         .alert(naming?.title ?? "", isPresented: $showsNameAlert) {
             TextField("Name", text: $typedName)
             Button("Cancel", role: .cancel) {}
@@ -196,6 +212,20 @@ struct NoteList: View {
 
     // MARK: Menus
 
+    /// Edit and Sort By, in one menu the way Notes and Files have them.
+    private var listMenu: some View {
+        Menu {
+#if os(iOS)
+            Button("Edit", systemImage: "pencil") {
+                withAnimation { editMode = .active }
+            }
+#endif
+            sortMenu
+        } label: {
+            Label("More", systemImage: "ellipsis")
+        }
+    }
+
     private var sortMenu: some View {
         Menu {
             Picker("Sort By", selection: sortKey) {
@@ -213,7 +243,7 @@ struct NoteList: View {
                 }
             }
         } label: {
-            Label("Sort", systemImage: "arrow.up.arrow.down")
+            Label("Sort By", systemImage: "arrow.up.arrow.down")
         }
     }
 
