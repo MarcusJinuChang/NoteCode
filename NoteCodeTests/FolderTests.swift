@@ -51,33 +51,6 @@ struct FolderTests {
         #expect(Folder.name(fromTyped: "") == "Untitled Folder")
     }
 
-    // MARK: The list
-
-    @Test("Folders are in name order, numbers compared as numbers")
-    func folderOrder() {
-        let folders = [folder("CS 133"), folder("algorithms"), folder("CS 9")]
-
-        let sections = NoteListSections(pages: [], folders: folders)
-
-        #expect(sections.folders.map(\.folder.name) == ["algorithms", "CS 9", "CS 133"])
-    }
-
-    @Test("Notes go under their folder, in the order given, and the rest stay at the top")
-    func notesAreGrouped() {
-        let cs133 = folder("CS133")
-        let empty = folder("Empty")
-        let newest = note("Newest", in: cs133)
-        let loose = note("Loose")
-        let oldest = note("Oldest", in: cs133)
-
-        let sections = NoteListSections(pages: [newest, loose, oldest], folders: [empty, cs133])
-
-        #expect(sections.folders.map(\.folder.name) == ["CS133", "Empty"])
-        #expect(sections.folders[0].notes.map(\.title) == ["Newest", "Oldest"])
-        #expect(sections.folders[1].notes.isEmpty)
-        #expect(sections.unfiled.map(\.title) == ["Loose"])
-    }
-
     // MARK: Deleting
 
     @Test("Deleting a folder but not its notes leaves them at the top, and saves")

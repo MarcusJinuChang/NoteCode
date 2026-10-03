@@ -382,14 +382,28 @@ so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
   `Folder.delete` saves at once, like `Page.delete`.
 - **Moving a note isn't an edit.** It keeps its date modified, or filing a
   week of notes would make them all look written today.
-- The list's grouping and order are pure (`NoteListSections`): notes keep the
-  order the query gives, folders sort by name with numbers compared as
-  numbers.
+- The list's grouping and order are pure (`NoteListSections`): folders sort
+  by name with numbers compared as numbers, and notes by the reader's sort.
 
-Pinning, sorting and note info come next. The pins (`Page.isPinned`,
-`Folder.isPinned`) are already in the model, so all four share one
-migration; sorting is a per-device preference and note info is derived, so
-neither needs the model.
+- **Pinned goes to the top** (3 Oct). Pinned folders and pinned notes, from
+  any folder, sit in a Pinned section above the folders. A pinned note is
+  listed there and not again in its folder, so no note has two rows (a
+  selectable list would highlight both), and a folder's count is the notes
+  under its own row; a pinned note's row names its folder instead. Pinning,
+  like moving, isn't an edit and keeps the date.
+- **Sorting is per device** (`NoteSort`, `@AppStorage`, 3 Oct): date
+  modified, date created or title, either way round, and picking a key picks
+  the way round that reads naturally — newest first, A to Z. It orders notes
+  in every section; folders stay in name order. Rows show the date the list
+  is sorted by. Ties fall back to title, then creation, so the order never
+  shuffles between launches.
+- **The list's toolbar holds two items**, ••• and +. Edit and Sort By share
+  the ••• menu on iPad, and Done takes its place while editing: with Edit,
+  Sort and New side by side, the sidebar had no room left for its title.
+
+Pinning and sorting needed no model change: the pins (`Page.isPinned`,
+`Folder.isPinned`) came in with folders. Note info comes next, and is
+derived, so it doesn't either.
 
 ## The model and its versions
 

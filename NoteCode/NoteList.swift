@@ -13,7 +13,8 @@ import SwiftUI
 /// Folders open and close in place rather than leading to a list of their
 /// own. The list slides over the page, and a second column for folders would
 /// cover even more of it; with one level of folders, a disclosure row is all
-/// the navigation there is.
+/// the navigation there is. What goes in which section, and in what order, is
+/// `NoteListSections`.
 struct NoteList: View {
     /// True when the on-disk store failed and edits live only in memory.
     var storageIsEphemeral = false
@@ -23,6 +24,10 @@ struct NoteList: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Page.modifiedAt, order: .reverse) private var pages: [Page]
     @Query private var folders: [Folder]
+
+    /// How notes are ordered. Per device, like the view mode: it's how this
+    /// reader likes to look at the list, and changes nothing in a note.
+    @AppStorage(NoteSort.defaultsKey) private var sort: NoteSort = .default
 
     /// Where code blocks run when nothing more specific says, for the
     /// folder menu's "Default" row.
@@ -42,8 +47,14 @@ struct NoteList: View {
     /// The folder whose deletion is waiting on the reader's choice.
     @State private var deleting: Folder?
 
+#if os(iOS)
+    /// Held here rather than left to an `EditButton`, since editing starts
+    /// from the list's menu and ends at the Done that replaces it.
+    @State private var editMode: EditMode = .inactive
+#endif
+
     var body: some View {
-        let sections = NoteListSections(pages: pages, folders: folders)
+        let sections = NoteListSections(pages: pages, folders: folders, sort: sort)
 
         List(selection: $selection) {
             if storageIsEphemeral {
@@ -55,16 +66,19 @@ struct NoteList: View {
                 .foregroundStyle(.orange)
             }
 
-            if sections.folders.isEmpty {
+            if !sections.hasPinned && sections.folders.isEmpty {
                 noteRows(sections.unfiled)
             } else {
-                Section("Folders") {
-                    ForEach(sections.folders) { section in
-                        DisclosureGroup(isExpanded: isOpen(section.folder)) {
-                            noteRows(section.notes)
-                        } label: {
-                            folderRow(section)
-                        }
+                if sections.hasPinned {
+                    Section("Pinned") {
+                        folderRows(sections.pinnedFolders)
+                        noteRows(sections.pinnedNotes, showsFolder: true)
+                    }
+                }
+
+                if !sections.folders.isEmpty {
+                    Section("Folders") {
+                        folderRows(sections.folders)
                     }
                 }
 
@@ -80,11 +94,21 @@ struct NoteList: View {
         .navigationSplitViewColumnWidth(min: 180, ideal: 220)
 #endif
         .toolbar {
+            // Two items at most, so the sidebar keeps room for its title:
+            // with Edit, Sort and New side by side, "NoteCode" didn't show.
+            ToolbarItem {
 #if os(iOS)
-            ToolbarItem(placement: .navigationBarTrailing) {
-                EditButton()
-            }
+                if editMode.isEditing {
+                    Button("Done") {
+                        withAnimation { editMode = .inactive }
+                    }
+                } else {
+                    listMenu
+                }
+#else
+                listMenu
 #endif
+            }
             ToolbarItem {
                 Menu {
                     newNoteButtons(in: nil)
@@ -97,6 +121,9 @@ struct NoteList: View {
                 }
             }
         }
+#if os(iOS)
+        .environment(\.editMode, $editMode)
+#endif
         .alert(naming?.title ?? "", isPresented: $showsNameAlert) {
             TextField("Name", text: $typedName)
             Button("Cancel", role: .cancel) {}
@@ -106,20 +133,43 @@ struct NoteList: View {
 
     // MARK: Rows
 
-    private func noteRows(_ notes: [Page]) -> some View {
+    /// - Parameter showsFolder: whether each row names its folder, for the
+    ///   Pinned section, where notes from every folder sit together.
+    private func noteRows(_ notes: [Page], showsFolder: Bool = false) -> some View {
         ForEach(notes) { page in
             VStack(alignment: .leading) {
                 Text(page.title)
                     .font(.headline)
-                Text(page.modifiedAt, format: Date.FormatStyle(date: .abbreviated, time: .shortened))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    if showsFolder, let folder = page.folder {
+                        Text(folder.name)
+                        Text("·")
+                    }
+                    // The date the list is sorted by, so the order can be read
+                    // off the rows.
+                    Text(
+                        sort.displayedDate(modified: page.modifiedAt, created: page.createdAt),
+                        format: Date.FormatStyle(date: .abbreviated, time: .shortened)
+                    )
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
             .tag(page)
             .contextMenu { noteMenu(page) }
         }
         .onDelete { offsets in
             deletePages(offsets.map { notes[$0] })
+        }
+    }
+
+    private func folderRows(_ sections: [NoteListSections.FolderSection]) -> some View {
+        ForEach(sections) { section in
+            DisclosureGroup(isExpanded: isOpen(section.folder)) {
+                noteRows(section.notes)
+            } label: {
+                folderRow(section)
+            }
         }
     }
 
@@ -162,6 +212,41 @@ struct NoteList: View {
 
     // MARK: Menus
 
+    /// Edit and Sort By, in one menu the way Notes and Files have them.
+    private var listMenu: some View {
+        Menu {
+#if os(iOS)
+            Button("Edit", systemImage: "pencil") {
+                withAnimation { editMode = .active }
+            }
+#endif
+            sortMenu
+        } label: {
+            Label("More", systemImage: "ellipsis")
+        }
+    }
+
+    private var sortMenu: some View {
+        Menu {
+            Picker("Sort By", selection: sortKey) {
+                ForEach(NoteSort.Key.allCases, id: \.self) { key in
+                    Text(key.title).tag(key)
+                }
+            }
+            // The way round that reads naturally for the key comes first:
+            // newest first for dates, A to Z for titles.
+            Picker("Order", selection: $sort.ascending) {
+                let natural = sort.key.naturallyAscending
+                ForEach([natural, !natural], id: \.self) { ascending in
+                    Text(ascending ? sort.orderTitles.ascending : sort.orderTitles.descending)
+                        .tag(ascending)
+                }
+            }
+        } label: {
+            Label("Sort By", systemImage: "arrow.up.arrow.down")
+        }
+    }
+
     @ViewBuilder
     private func newNoteButtons(in folder: Folder?) -> some View {
         // Which way up a note's pages are is chosen here, once. Changing it
@@ -178,12 +263,15 @@ struct NoteList: View {
 
     @ViewBuilder
     private func noteMenu(_ page: Page) -> some View {
+        Button(page.isPinned ? "Unpin" : "Pin", systemImage: page.isPinned ? "pin.slash" : "pin") {
+            withAnimation { page.isPinned.toggle() }
+        }
         Menu("Move to Folder", systemImage: "folder") {
-            ForEach(NoteListSections(pages: [], folders: folders).folders) { section in
-                Button(section.folder.name) {
-                    move(page, to: section.folder)
+            ForEach(NoteListSections(pages: [], folders: folders).allFolders) { folder in
+                Button(folder.name) {
+                    move(page, to: folder)
                 }
-                .disabled(page.folder == section.folder)
+                .disabled(page.folder == folder)
             }
             Divider()
             Button("New Folder…", systemImage: "folder.badge.plus") {
@@ -203,6 +291,12 @@ struct NoteList: View {
 
     @ViewBuilder
     private func folderMenu(_ folder: Folder) -> some View {
+        Button(
+            folder.isPinned ? "Unpin Folder" : "Pin Folder",
+            systemImage: folder.isPinned ? "pin.slash" : "pin"
+        ) {
+            withAnimation { folder.isPinned.toggle() }
+        }
         Menu("New Note", systemImage: "square.and.pencil") {
             newNoteButtons(in: folder)
         }
@@ -252,6 +346,11 @@ struct NoteList: View {
                 closedFolders.insert(folder.persistentModelID)
             }
         }
+    }
+
+    /// Picking a key also picks the way round that reads naturally for it.
+    private var sortKey: Binding<NoteSort.Key> {
+        Binding { sort.key } set: { sort = sort.with(key: $0) }
     }
 
     private func runDestination(of folder: Folder) -> Binding<String?> {
