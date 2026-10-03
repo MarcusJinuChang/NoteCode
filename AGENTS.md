@@ -324,8 +324,9 @@ Laid out from the 12 September mockup.
 
 - **Header.** ☰ opens the note list, which slides over the page
   (`.prominentDetail`) instead of narrowing it, so opening the list never
-  re-wraps the note. The title sits below; the run destination and account
-  icons sit on the right. Account is a placeholder until Sign in with Apple.
+  re-wraps the note. The title sits below; the run destination, note info
+  and account icons sit on the right. Account is a placeholder until Sign
+  in with Apple.
 - **Hotbar.** One bar, dragged by its grip to the left, bottom or right edge,
   snapping to whichever is nearest (`HotbarDock.nearest`). Undo, redo and the
   text/draw toggle never move; after the divider come the current mode's tools.
@@ -400,10 +401,17 @@ so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
 - **The list's toolbar holds two items**, ••• and +. Edit and Sort By share
   the ••• menu on iPad, and Done takes its place while editing: with Edit,
   Sort and New side by side, the sidebar had no room left for its title.
+- **Note info is derived, never stored** (3 Oct). `NoteInfo` works out
+  words and code blocks by language from the text, through
+  `DocumentParser`, each time the sheet opens: nothing to keep in step
+  with typing, and no model change. Code isn't words, and markdown markers
+  around prose aren't either. Get Info in the list's note menu leaves out
+  the page count, since only a laid-out note knows it (`PageView.pageCount`)
+  and laying out a closed note costs what opening it does; the info button
+  in an open note's header adds it.
 
-Pinning and sorting needed no model change: the pins (`Page.isPinned`,
-`Folder.isPinned`) came in with folders. Note info comes next, and is
-derived, so it doesn't either.
+Pinning, sorting and note info needed no model change: the pins
+(`Page.isPinned`, `Folder.isPinned`) came in with folders.
 
 ## The model and its versions
 

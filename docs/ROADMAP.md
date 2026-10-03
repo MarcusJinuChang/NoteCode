@@ -19,9 +19,16 @@ The drawing layer is done, a week inside its deadline: the TextKit 2 editor
 with code blocks, run and copy, Letter-sized pages in three view modes with
 pinch zoom, the note page and its hotbar, and a PaperKit canvas that a finger
 or the Pencil draws on, with ink undo of its own, saved with the note and
-drawn at the screen's density. 23 pull requests, all merged.
+drawn at the screen's density. 24 pull requests, all merged.
 
-- **Pinning and sorting** (3 Oct, in review): a long press pins a note or
+- **Note info** (3 Oct, in review): Get Info, in a note's long-press menu
+  in the list, or the info button in an open note's header, shows when the
+  note was made and last changed, its folder and orientation, its words,
+  and its code blocks by language with their lines. Opened from the note,
+  it adds the page count, which only a laid-out note knows. Worked out from
+  the text through `DocumentParser` each time it opens, so nothing is
+  stored. Not yet built or tested on the Mac.
+- **Pinning and sorting** (3 Oct, merged 3 Oct, PR #24): a long press pins a note or
   a folder to a Pinned section at the top of the list, and Sort By, in
   the list's ••• menu, orders notes by date modified, date created or
   title, either way round.
@@ -72,11 +79,11 @@ drawn at the screen's density. 23 pull requests, all merged.
 ## Plan
 
 Not set in stone. With the drawing layer done, the before-November list is
-being planned (3 Oct): folders came first (merged 3 Oct), then pinning and
-sorting, since the list was the thing
+being planned (3 Oct): folders came first, then pinning and sorting (both
+merged 3 Oct), since the list was the thing
 least likely to last the semester and model changes are safest before
-anyone else's notes depend on them. The proposed order after that is
-note info, note search, autocorrect for prose (a
+anyone else's notes depend on them. Note info is in review. The proposed
+order after that is note search, autocorrect for prose (a
 deferred item, below), ship prep, printing, then the UI design and polish,
 TestFlight and submission. Scrolling direction, infinite canvas and Sign in
 with Apple are proposed for Later. Not yet agreed.
@@ -110,10 +117,12 @@ code already has something to say.
 4. **Note search.** Text is plain in `Page.content`. PaperKit's
    `PaperMarkup.indexableContent` may reach text boxes in ink (untested).
 5. **Favouriting / pinning / starring** notes and folders. Folders merged
-   3 Oct (PR #23); pinning built 3 Oct, in review.
-6. **Note sorting.** Built 3 Oct, in review: date modified, date created or
+   3 Oct (PR #23); pinning merged 3 Oct (PR #24).
+6. **Note sorting.** Merged 3 Oct (PR #24): date modified, date created or
    title, either way round, saved per device.
-7. **Note info / properties.**
+7. **Note info / properties.** Built 3 Oct, in review: dates, folder,
+   orientation, words, and code blocks by language, plus pages when the note
+   is open.
 8. **Printing.** Print layout is already the printed page — see the deferred
    table.
 9. **UI polish**, from the UI design.

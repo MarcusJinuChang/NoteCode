@@ -32,6 +32,15 @@ nonisolated enum CodeLanguage: String, CaseIterable, Sendable {
         }
     }
 
+    /// The language's name as people write it, for menus and note info.
+    var displayName: String {
+        switch self {
+        case .cpp:    "C++"
+        case .java:   "Java"
+        case .python: "Python"
+        }
+    }
+
     /// The language's canonical lowercase name, as online compilers spell it.
     ///
     /// Named after the Piston API originally, which the cut run phase was going

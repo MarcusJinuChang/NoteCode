@@ -60,6 +60,8 @@ struct PageDetailView: View {
     @State private var inkToolsAnchor = UnitPoint.center
 #endif
 
+    @State private var showsInfo = false
+
     /// Gap between the hotbar and the edges around it.
     private static let hotbarMargin: CGFloat = 12
 
@@ -137,6 +139,12 @@ struct PageDetailView: View {
                     appDefault: $appDefaultDestination
                 )
 
+                Button {
+                    showsInfo = true
+                } label: {
+                    Label("Note Info", systemImage: "info.circle")
+                }
+
                 // Sign in with Apple lands with the App Store release. The
                 // button holds its place so the header doesn't reshuffle then.
                 Button {} label: {
@@ -155,6 +163,18 @@ struct PageDetailView: View {
         .padding(.horizontal, 24)
         .padding(.top, 8)
         .padding(.bottom, 12)
+        .sheet(isPresented: $showsInfo) {
+            NoteInfoView(page: page, pageCount: openPageCount)
+        }
+    }
+
+    /// The open note's pages, which only the laid-out page knows.
+    private var openPageCount: Int? {
+#if canImport(UIKit)
+        editor.pageCount
+#else
+        nil
+#endif
     }
 
     // MARK: Page

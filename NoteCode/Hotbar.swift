@@ -251,14 +251,4 @@ private struct HotbarMenuStyle: ViewModifier {
     }
 }
 
-private extension CodeLanguage {
-    var displayName: String {
-        switch self {
-        case .cpp:    "C++"
-        case .java:   "Java"
-        case .python: "Python"
-        }
-    }
-}
-
 #endif
