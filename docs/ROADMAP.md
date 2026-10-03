@@ -26,7 +26,9 @@ drawn at the screen's density. 23 pull requests, all merged.
   the list's ••• menu, orders notes by date modified, date created or
   title, either way round.
   The sort is a per-device setting; folders stay in name order. No model
-  change: the pins came with folders. Not yet built or tested on the Mac.
+  change: the pins came with folders. 468 tests; checked in the iPad
+  simulator in light and dark, where the first build's Sort button pushed
+  the list's title out, so Edit and Sort By now share a ••• menu.
 - **Folders** (3 Oct, merged 3 Oct, PR #23): notes file into folders that open and
   close in the list, each with its own run destination between the note's
   and the app's. The model is versioned from here on, and this first
