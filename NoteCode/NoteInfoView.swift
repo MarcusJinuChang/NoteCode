@@ -31,9 +31,6 @@ struct NoteInfoView: View {
                     if let folder = page.folder {
                         LabeledContent("Folder", value: folder.name)
                     }
-                }
-
-                Section {
                     LabeledContent("Orientation", value: page.orientation.title)
                     if let pageCount {
                         LabeledContent("Pages", value: pageCount, format: .number)
@@ -51,6 +48,14 @@ struct NoteInfoView: View {
                 }
             }
             .formStyle(.grouped)
+#if os(iOS)
+            // Two sections, closely spaced, so a form sheet holds every row
+            // of a note with code in up to three languages. A page-sized
+            // sheet held them all but left most of itself empty, and a sheet
+            // fitted to its rows collapsed to its title bar: a Form reports
+            // no height of its own (measured 3 Oct).
+            .listSectionSpacing(.compact)
+#endif
             .navigationTitle(page.title)
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -61,12 +66,6 @@ struct NoteInfoView: View {
                 }
             }
         }
-#if os(iOS)
-        // A form sheet is too short for every row: in landscape on a 13-inch
-        // iPad, a note with code in four languages hid its last rows below
-        // the sheet's edge. A page-sized sheet holds them all.
-        .presentationSizing(.page)
-#endif
 #if os(macOS)
         .frame(minWidth: 320, minHeight: 380)
 #endif

@@ -408,7 +408,11 @@ so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
   around prose aren't either. Get Info in the list's note menu leaves out
   the page count, since only a laid-out note knows it (`PageView.pageCount`)
   and laying out a closed note costs what opening it does; the info button
-  in an open note's header adds it.
+  in an open note's header adds it. The sheet is a standard form sheet with
+  two closely spaced sections, which holds every row for code in up to
+  three languages. Page size left most of the sheet empty, and
+  `.presentationSizing(.form.fitted(...))` collapsed it to its title bar,
+  since a Form reports no height of its own (measured 3 Oct).
 
 Pinning, sorting and note info needed no model change: the pins
 (`Page.isPinned`, `Folder.isPinned`) came in with folders.

@@ -27,9 +27,9 @@ drawn at the screen's density. 24 pull requests, all merged.
   and its code blocks by language with their lines. Opened from the note,
   it adds the page count, which only a laid-out note knows. Worked out from
   the text through `DocumentParser` each time it opens, so nothing is
-  stored. 476 tests; checked in the iPad simulator in light and dark,
-  where in landscape a form sheet hid its last rows, so it opens at page
-  size instead.
+  stored. 476 tests; checked in the iPad simulator in light and dark.
+  The sheet is the standard one, holding every row for code in up to
+  three languages; a fourth scrolls.
 - **Pinning and sorting** (3 Oct, merged 3 Oct, PR #24): a long press pins a note or
   a folder to a Pinned section at the top of the list, and Sort By, in
   the list's ••• menu, orders notes by date modified, date created or
