@@ -463,6 +463,24 @@ struct DocumentTextView: UIViewRepresentable {
             return true
         }
 
+        /// Turns away the keyboard's rewrites of code behind the caret.
+        ///
+        /// The keyboard's own corrections are the edits that replace text
+        /// other than the selection. Typing and pasting replace the
+        /// selection, deleting leaves nothing, composition replaces its own
+        /// marked text, and a formatting button knows what it's changing, so
+        /// all of those go through untouched.
+        func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+            guard range.length > 0, !text.isEmpty, range != textView.selectedRange,
+                  textView.markedTextRange == nil, editor?.isFormatting != true
+            else { return true }
+
+            let source = (textView.text ?? "").nativeUTF8
+            return !TextRewritingPolicy.rewriteChangesCode(
+                range, with: text, in: source, blocks: documentCache.blocks(for: source)
+            )
+        }
+
         /// Gives prose autocorrect and smart punctuation, and code neither,
         /// by where the caret is.
         ///

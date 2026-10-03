@@ -89,6 +89,47 @@ nonisolated enum TextRewritingPolicy: Equatable, Sendable {
         source[..<caret].reversed().prefix { !$0.isWhitespace }.contains("`")
     }
 
+    /// Whether the keyboard replacing `range` of `source` with `replacement`
+    /// would change code.
+    ///
+    /// The traits can't stop every rewrite. The keyboard also goes back over
+    /// words behind the caret: after "use `int lo` now" and a space, it
+    /// replaced "lo` now" with "log now", eating the backtick, with the caret
+    /// in prose by then (measured 3 Oct). Only what actually differs counts,
+    /// so a rewrite that spans inline code but changes only the prose after
+    /// it still goes through.
+    static func rewriteChangesCode(
+        _ range: NSRange,
+        with replacement: String,
+        in source: String,
+        blocks: [BlockNode]
+    ) -> Bool {
+        guard let replaced = Range(range, in: source) else { return false }
+        let old = source[replaced]
+
+        // Trim what the rewrite leaves as it was, from both ends.
+        let prefix = zip(old, replacement).prefix { $0 == $1 }.count
+        let suffix = min(
+            zip(old.reversed(), replacement.reversed()).prefix { $0 == $1 }.count,
+            min(old.count, replacement.count) - prefix
+        )
+        let changed = old.index(old.startIndex, offsetBy: prefix)..<old.index(old.endIndex, offsetBy: -suffix)
+
+        if source[changed].contains("`") { return true }
+
+        return blocks.contains { block in
+            guard block.range.overlaps(replaced) || block.range.contains(replaced.lowerBound) else { return false }
+            let code = block.isCode
+                ? [block.range]
+                : block.inlines.filter { $0.kind == .inlineCode }.map(\.range)
+            return code.contains { span in
+                changed.isEmpty
+                    ? span.lowerBound < changed.lowerBound && changed.lowerBound < span.upperBound
+                    : span.overlaps(changed)
+            }
+        }
+    }
+
     /// Whether `caret` is in inline code within a line of prose: between a
     /// span's backticks, or after a backtick nothing closes yet.
     private static func isInInlineCode(_ caret: String.Index, block: BlockNode, source: String) -> Bool {

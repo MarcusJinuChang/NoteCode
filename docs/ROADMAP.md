@@ -29,10 +29,12 @@ drawn at the screen's density. 25 pull requests, all merged.
   crosses from one to the other, and is set up as typing begins. Spell
   checking stays off everywhere, since it would mark identifiers typed in
   code. Typed through on the iPad simulator's keyboard and checked in light
-  and dark. That found two bugs, fixed here and unit-tested but not typed
-  through again: a space after inline code let autocorrect rewrite its last
-  word and eat the backtick, and a new note's first letter wasn't
-  capitalised.
+  and dark. That found a new note's first letter left lowercase, fixed and
+  checked, and autocorrect rewriting inline code's last word and eating its
+  backtick, either as the space after it was typed or when the keyboard went
+  back over it from the next word. Both inline code fixes are unit-tested
+  but not typed through again: the simulator's keyboard checks were stopped
+  as too slow.
 - **Note info** (3 Oct, merged 3 Oct, PR #25): Get Info, in a note's long-press menu
   in the list, or the info button in an open note's header, shows when the
   note was made and last changed, its folder and orientation, its words,

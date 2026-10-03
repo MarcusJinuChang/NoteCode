@@ -152,6 +152,36 @@ struct TextRewritingPolicyTests {
         #expect(policy("```cpp\r\nint lo|;\r\n```\r\nAfter") == .code)
     }
 
+    // MARK: Rewrites behind the caret
+
+    /// Whether the keyboard replacing the «marked» text with `replacement`
+    /// would change code.
+    private func rewrite(_ marked: String, to replacement: String) -> Bool {
+        let open = marked.range(of: "«")!, close = marked.range(of: "»")!
+        let range = NSRange(
+            location: NSRange(open, in: marked).location,
+            length: NSRange(open.upperBound..<close.lowerBound, in: marked).length
+        )
+        let source = marked.replacingOccurrences(of: "«", with: "").replacingOccurrences(of: "»", with: "")
+        return TextRewritingPolicy.rewriteChangesCode(range, with: replacement, in: source, blocks: DocumentParser.parse(source))
+    }
+
+    @Test("The keyboard can't rewrite code behind the caret")
+    func rewritesOfCode() {
+        // A space after "now" turned "lo` now" into "log now" (3 Oct).
+        #expect(rewrite("use `int «lo` now»", to: "log now"))
+        #expect(rewrite("use `int «lo`»", to: "lot"))
+        #expect(rewrite("use `«int» lo` now", to: "Int"))                // inside the span
+        #expect(rewrite("```cpp\nint «lo»\n```\nAfter", to: "log"))       // inside a block
+    }
+
+    @Test("The keyboard can still rewrite prose, beside code or not")
+    func rewritesOfProse() {
+        #expect(!rewrite("«teh» cat", to: "the"))
+        #expect(!rewrite("use `int «lo` nwo»", to: "lo` now"))             // only the prose word differs
+        #expect(!rewrite("```cpp\nint lo\n```\n«teh»", to: "the"))
+    }
+
     // MARK: The editor
 
     @Test("The editor switches as the caret crosses into code and back")
@@ -178,6 +208,29 @@ struct TextRewritingPolicyTests {
         coordinator.textViewDidChangeSelection(textView)
         #expect(coordinator.rewritingPolicy == .prose)
         #expect(textView.autocapitalizationType == .sentences)
+    }
+
+    @Test("The editor turns away the keyboard's rewrites of code, and only those")
+    func editorFiltersRewrites() {
+        final class Box { var value = "" }
+        let box = Box()
+        let coordinator = DocumentTextView.Coordinator(text: Binding(get: { box.value }, set: { box.value = $0 }))
+        let textView = DocumentTextView.makeConfiguredTextView()
+        textView.delegate = coordinator
+        textView.text = "use `int lo` nwo"
+        textView.selectedRange = NSRange(location: 16, length: 0)
+
+        func allows(_ location: Int, _ length: Int, _ replacement: String) -> Bool {
+            coordinator.textView(textView, shouldChangeTextIn: NSRange(location: location, length: length), replacementText: replacement)
+        }
+
+        #expect(!allows(9, 7, "log now"))   // going back over the span
+        #expect(allows(13, 3, "now"))       // correcting the prose word after it
+        #expect(allows(16, 0, " "))         // typing
+        #expect(allows(15, 1, ""))          // deleting
+
+        textView.selectedRange = NSRange(location: 4, length: 8)
+        #expect(allows(4, 8, "x"))          // typing over a selected span
     }
 
     @Test("Starting to type in an empty note is prose, though the caret never moved")

@@ -365,16 +365,23 @@ Laid out from the 12 September mockup.
   the word just after a closing backtick, until a space ends it: the
   keyboard corrects the word a space ends, and its word runs through the
   backtick, so a space after `` `int lo` `` turned it into `` `int lot ``,
-  the closing backtick eaten. The coordinator switches on each caret move,
-  but only when the caret crosses from one to the other, since
-  `reloadInputViews()` redraws the suggestion bar, and never while text is
-  being composed (marked text), where a reload could disturb the character.
-  It also picks as editing begins, since a tap into an empty note moves no
-  caret, and the note's first letter stayed lowercase. XCUITest's `typeText`
-  skips autocorrect entirely, so a typing check has to tap the keyboard's
-  keys. Spell checking stays off everywhere: on in prose, it marks every
-  word typed this session anywhere in the note, so an identifier typed in
-  a code block turned red as soon as the caret moved back to prose.
+  the closing backtick eaten. The keyboard also goes back over words behind
+  the caret, which no trait stops: a space after the next word turned
+  `` lo` now `` into `log now`. So the coordinator turns away any edit that
+  replaces text other than the selection and changes code
+  (`TextRewritingPolicy.rewriteChangesCode`), which is what the keyboard's
+  corrections look like; typing, pasting, deleting, composition and the
+  formatting buttons (`NoteEditor.isFormatting`) all pass. The coordinator
+  switches on each caret move, but only when the caret crosses from one to
+  the other, since `reloadInputViews()` redraws the suggestion bar, and
+  never while text is being composed (marked text), where a reload could
+  disturb the character. It also picks as editing begins, since a tap into
+  an empty note moves no caret, and the note's first letter stayed
+  lowercase. XCUITest's `typeText` skips autocorrect entirely, so a typing
+  check has to tap the keyboard's keys. Spell checking stays off everywhere:
+  on in prose, it marks every word typed this session anywhere in the note,
+  so an identifier typed in a code block turned red as soon as the caret
+  moved back to prose.
 - **`NoteEditor` is the bridge.** SwiftUI owns the hotbar and UIKit owns the
   text view, and neither can reach the other. The hotbar talks to `NoteEditor`,
   and the text view registers with it.
