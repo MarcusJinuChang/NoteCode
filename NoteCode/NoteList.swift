@@ -47,6 +47,9 @@ struct NoteList: View {
     /// The folder whose deletion is waiting on the reader's choice.
     @State private var deleting: Folder?
 
+    /// The note whose info is showing.
+    @State private var infoPage: Page?
+
 #if os(iOS)
     /// Held here rather than left to an `EditButton`, since editing starts
     /// from the list's menu and ends at the Done that replaces it.
@@ -124,6 +127,9 @@ struct NoteList: View {
 #if os(iOS)
         .environment(\.editMode, $editMode)
 #endif
+        .sheet(item: $infoPage) { page in
+            NoteInfoView(page: page)
+        }
         .alert(naming?.title ?? "", isPresented: $showsNameAlert) {
             TextField("Name", text: $typedName)
             Button("Cancel", role: .cancel) {}
@@ -282,6 +288,9 @@ struct NoteList: View {
             Button("Remove from Folder", systemImage: "folder.badge.minus") {
                 move(page, to: nil)
             }
+        }
+        Button("Get Info", systemImage: "info.circle") {
+            infoPage = page
         }
         Divider()
         Button("Delete", systemImage: "trash", role: .destructive) {

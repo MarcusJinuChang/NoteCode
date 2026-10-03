@@ -74,6 +74,13 @@ final class NoteEditor {
     @ObservationIgnored private weak var page: PageView?
     @ObservationIgnored private var savedSession: TextSession?
 
+    /// How many pages the open note runs to, for its info. Read when asked
+    /// rather than observed: the count changes as the note is typed, and
+    /// nothing on screen shows it.
+    var pageCount: Int? {
+        page?.pageCount
+    }
+
     /// Called by `DocumentTextView` once the page, and so the canvas, exists.
     ///
     /// - Parameter page: the page around the text view, if any.
