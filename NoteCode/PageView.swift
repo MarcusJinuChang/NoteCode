@@ -102,6 +102,23 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     private let pinch = UIPinchGestureRecognizer()
     private var zoomAtPinchStart: CGFloat = 1
 
+    /// Which touches scroll the note on the canvas, for the mode. Set by
+    /// `NoteEditor`; off the canvas, `offCanvas` applies instead.
+    var scrolling = PageScrolling.standard {
+        didSet {
+            guard scrolling != oldValue else { return }
+            for pan in pans {
+                scrolling.apply(to: pan)
+            }
+        }
+    }
+
+    /// The pans that scroll the note: the text view's, up and down, and this
+    /// view's, sideways when zoomed in.
+    private var pans: [UIPanGestureRecognizer] {
+        [textView.panGestureRecognizer, panGestureRecognizer]
+    }
+
     init(textView: DocumentUITextView) {
         let layout = PageLayout()
         self.textView = textView
@@ -159,6 +176,10 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         // Scrolling, transparency and who may draw are the canvas's own
         // business — see DrawingCanvas.
         canvas.onMarkupChanged = { [weak self] in self?.captureInk() }
+        canvas.takesTouch = { [weak self] point in
+            guard let self else { return true }
+            return pageLayout.isOnPage(point, pageCount: pageCount)
+        }
         textView.addSubview(canvas)
 
         pinch.addTarget(self, action: #selector(handlePinch(_:)))
@@ -708,6 +729,39 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             matchRenderingScale()
         default:
             break
+        }
+    }
+
+    // MARK: Touches
+
+    /// Sends a touch beside the page to the text view, and sets how many
+    /// fingers a scroll from there needs.
+    ///
+    /// Beside the page is this view's own space, and this view scrolls only
+    /// sideways, so a drag there moved nothing — in either mode. Handed to
+    /// the text view, it scrolls the note; the pinch, on this view, still
+    /// sees it.
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let found = super.hitTest(point, with: event)
+        guard event?.type != .hover else { return found }
+        let hit = found === self ? textView : found
+        if event?.type == .touches {
+            touchWillLand(on: hit)
+        }
+        return hit
+    }
+
+    /// Picks the scroll rule for a touch that lands on `view`.
+    ///
+    /// One finger scrolls wherever the canvas takes no touch, and the mode's
+    /// rule applies on it. Decided as the first finger lands, before any pan
+    /// has a touch: a second finger joins whatever gesture the first began.
+    func touchWillLand(on view: UIView?) {
+        guard pans.allSatisfy({ $0.numberOfTouches == 0 }) else { return }
+        let onCanvas = view?.isDescendant(of: canvas) ?? false
+        let rule = onCanvas ? scrolling : scrolling.offCanvas
+        for pan in pans {
+            rule.apply(to: pan)
         }
     }
 

@@ -159,6 +159,17 @@ nonisolated struct PageLayout: Equatable, Sendable {
         )
     }
 
+    /// Whether a point in the note is on a page, rather than in the surround
+    /// between print layout's sheets or around them.
+    ///
+    /// The continuous modes are one surface, breaks included, so every point
+    /// of the note is on it.
+    func isOnPage(_ point: CGPoint, pageCount: Int) -> Bool {
+        guard mode == .print else { return true }
+        let index = min(pageIndex(atY: point.y), max(pageCount, 1) - 1)
+        return sheet(ofPage: index).contains(point)
+    }
+
     /// Where compressed layout draws the break after page `index`.
     func breakLineY(afterPage index: Int) -> CGFloat {
         bodyTop(ofPage: index) + bodyHeight + gap / 2

@@ -196,6 +196,13 @@ note against 11ms scrolling, and 5.5 seconds at 2000 lines. So instead:
   view has a two-finger pan too, which it switches back on after a
   selection is dragged; it took every two-finger drag with nowhere to
   scroll, so `DrawingCanvas` allows it no touches at all (25 Sep).
+- Off the canvas, one finger always scrolls, and a pinch zooms (26 Sep):
+  beside the page, between print layout's sheets, below a short note's
+  end. Beside the page is `PageView`'s own space, which scrolls only
+  sideways, so its hit test hands those touches to the text view; between
+  sheets, `DrawingCanvas.takesTouch` turns them away. How many fingers a
+  scroll needs is set as each first finger lands (`PageView.touchWillLand`),
+  so `NoteEditor` hands the mode's rule to the page, not to the pans.
 
 ## Pages
 
@@ -322,9 +329,26 @@ Laid out from the 12 September mockup.
 - **Hotbar.** One bar, dragged by its grip to the left, bottom or right edge,
   snapping to whichever is nearest (`HotbarDock.nearest`). Undo, redo and the
   text/draw toggle never move; after the divider come the current mode's tools.
+  Only the tools scroll when the bar is too short for them; the arrows and the
+  toggle sit outside the scroll view.
   The page keeps both side edges clear, whichever one the bar is on, so moving
   it never resizes or shifts the page.
   It replaces `PKToolPicker` — see docs/phase-drawing-layer.md.
+- **Ink tools** (`InkToolbar.swift`), shared by the hotbar and the palette
+  the Pencil's squeeze brings up, so the two can't disagree. After the tools
+  come the current tool's options: colours for the pen and highlighter, or
+  the eraser's mode (pixel or whole stroke) and size (three, or custom from a
+  slider). The palette (`InkPalette`) and the eraser (`EraserSettings`) are
+  stored per device, like the dock. "+" opens Apple's
+  `UIColorPickerViewController` from UIKit (`InkColorPicker`), not from a
+  SwiftUI popover, where it's a child controller and its eyedropper and
+  close button expect to be the presented one. Hold a colour to remove it;
+  hold and drag to move it. A colour picked on a dark page is stored as the
+  light ink that shows as it (`InkColor(chosen:on:)`).
+- **Pencil double tap and squeeze** do what the reader set in Settings ›
+  Apple Pencil (`PencilResponse`), in ink mode only: swap to the eraser and
+  back, swap to the previous tool, or show the ink tools beside the Pencil.
+  Hardware only — the simulator has no Pencil.
 - **Formatting is markdown in the source.** A button computes a `TextEdit` in
   `MarkdownFormatting`, which is pure and defers to the parsers, so a button
   never writes markers the styler won't draw. `NoteEditor` applies the edit

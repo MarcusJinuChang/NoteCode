@@ -15,32 +15,32 @@ import UIKit
 @MainActor
 struct NoteEditorTests {
 
-    /// A text view wired the way `DocumentTextView` wires it, with the page's
-    /// stored text behind a binding the test can read.
+    /// A text view wired the way `DocumentTextView` wires it, in its page,
+    /// with the page's stored text behind a binding the test can read.
     @MainActor
     private final class Harness {
         var stored: String
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
         let textView = DocumentTextView.makeConfiguredTextView()
         let editor = NoteEditor()
-        let canvas = DrawingCanvas(pageSize: CGSize(width: 816, height: 1056))
-        /// Stands in for `PageView`, the scroll view around the text view.
-        let page = UIScrollView()
+        let page: PageView
+        var canvas: DrawingCanvas { page.canvas }
         var coordinator: DocumentTextView.Coordinator!
 
         init(_ text: String) {
             stored = text
+            page = PageView(textView: textView)
             coordinator = DocumentTextView.Coordinator(
                 text: Binding(get: { [unowned self] in stored }, set: { [unowned self] in stored = $0 })
             )
             coordinator.editor = editor
 
-            textView.frame = window.bounds
             textView.delegate = coordinator
             textView.text = text
-            window.addSubview(textView)
-            textView.addSubview(canvas)
+            page.frame = window.bounds
+            window.addSubview(page)
             window.makeKeyAndVisible()
+            page.layoutIfNeeded()
 
             editor.attach(textView, canvas: canvas, page: page)
         }
@@ -163,6 +163,71 @@ struct NoteEditorTests {
 
         harness.editor.setMode(.text)
         #expect(harness.pans.allSatisfy { $0.minimumNumberOfTouches == 1 && pencilScrolls($0) })
+    }
+
+    @Test("A touch off the canvas scrolls with one finger while a finger draws")
+    func oneFingerScrollsOffTheCanvas() {
+        let harness = Harness("a word b")
+        harness.editor.setMode(.ink)
+
+        harness.page.touchWillLand(on: harness.textView)
+        #expect(harness.pans.allSatisfy { $0.minimumNumberOfTouches == 1 })
+
+        harness.page.touchWillLand(on: harness.canvas.controller.view)
+        #expect(harness.pans.allSatisfy { $0.minimumNumberOfTouches == 2 })
+
+        // Back in text mode, one finger scrolls everywhere.
+        harness.editor.setMode(.text)
+        harness.page.touchWillLand(on: harness.canvas.controller.view)
+        #expect(harness.pans.allSatisfy { $0.minimumNumberOfTouches == 1 })
+    }
+
+    @Test("The eraser toggle goes to the eraser and back to the tool before it")
+    func eraserToggle() {
+        let harness = Harness("a word b")
+        harness.editor.inkTool.kind = .highlighter
+
+        harness.editor.toggleEraser()
+        #expect(harness.editor.inkTool.kind == .eraser)
+        #expect(harness.canvas.tool is PKEraserTool)
+
+        harness.editor.toggleEraser()
+        #expect(harness.editor.inkTool.kind == .highlighter)
+
+        // Chosen from the bar, then toggled: back to the pen, not nowhere.
+        let fresh = Harness("a word b")
+        fresh.editor.inkTool.kind = .eraser
+        fresh.editor.inkTool.kind = .eraser
+        fresh.editor.toggleEraser()
+        #expect(fresh.editor.inkTool.kind == .pen)
+    }
+
+    @Test("Switching to the previous tool swaps between the last two")
+    func previousTool() {
+        let harness = Harness("a word b")
+        harness.editor.inkTool.kind = .lasso
+        harness.editor.inkTool.kind = .highlighter
+
+        harness.editor.switchToPreviousTool()
+        #expect(harness.editor.inkTool.kind == .lasso)
+        harness.editor.switchToPreviousTool()
+        #expect(harness.editor.inkTool.kind == .highlighter)
+
+        // A colour change isn't a tool change.
+        harness.editor.inkTool.color = .red
+        harness.editor.switchToPreviousTool()
+        #expect(harness.editor.inkTool.kind == .lasso)
+    }
+
+    @Test("Each Pencil setting maps to what the app does")
+    func pencilSettings() {
+        #expect(PencilResponse(.switchEraser) == .toggleEraser)
+        #expect(PencilResponse(.switchPrevious) == .switchToPreviousTool)
+        #expect(PencilResponse(.showColorPalette) == .showInkTools)
+        #expect(PencilResponse(.showInkAttributes) == .showInkTools)
+        #expect(PencilResponse(.showContextualPalette) == .showInkTools)
+        #expect(PencilResponse(.runSystemShortcut) == .nothing)
+        #expect(PencilResponse(.ignore) == .nothing)
     }
 
     @Test("The hotbar's tool reaches the canvas")

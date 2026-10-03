@@ -25,8 +25,30 @@ final class NoteEditor {
     var inkTool = InkToolState() {
         didSet {
             guard inkTool != oldValue else { return }
+            if inkTool.kind != oldValue.kind {
+                previousInkKind = oldValue.kind
+            }
             canvas?.tool = inkTool.pencilKitTool
         }
+    }
+
+    /// The tool in use before the current one, for the Pencil's double tap
+    /// and squeeze to switch back to.
+    private(set) var previousInkKind = InkToolKind.pen
+
+    /// Swaps between the current tool and the eraser: the Pencil's double
+    /// tap, as the system sets it up out of the box.
+    func toggleEraser() {
+        if inkTool.kind == .eraser {
+            inkTool.kind = previousInkKind == .eraser ? .pen : previousInkKind
+        } else {
+            inkTool.kind = .eraser
+        }
+    }
+
+    /// Swaps between the current tool and the one before it.
+    func switchToPreviousTool() {
+        inkTool.kind = previousInkKind
     }
 
     /// Whether only the Pencil draws.
@@ -49,19 +71,16 @@ final class NoteEditor {
 
     @ObservationIgnored private weak var textView: UITextView?
     @ObservationIgnored private weak var canvas: DrawingCanvas?
+    @ObservationIgnored private weak var page: PageView?
     @ObservationIgnored private var savedSession: TextSession?
-
-    /// The pans that scroll the page: the text view's, up and down, and the
-    /// page's, sideways when zoomed in.
-    @ObservationIgnored private var scrollPans: [UIPanGestureRecognizer] = []
 
     /// Called by `DocumentTextView` once the page, and so the canvas, exists.
     ///
-    /// - Parameter page: the scroll view around the text view, if any.
-    func attach(_ textView: UITextView, canvas: DrawingCanvas? = nil, page: UIScrollView? = nil) {
+    /// - Parameter page: the page around the text view, if any.
+    func attach(_ textView: UITextView, canvas: DrawingCanvas? = nil, page: PageView? = nil) {
         self.textView = textView
         self.canvas = canvas
-        scrollPans = [textView.panGestureRecognizer] + [page?.panGestureRecognizer].compactMap { $0 }
+        self.page = page
         canvas?.tool = inkTool.pencilKitTool
         canvas?.allowsFingerDrawing = !isPencilOnly
         canvas?.onUndoDidChange = { [weak self] in self?.refreshUndoState() }
@@ -81,10 +100,15 @@ final class NoteEditor {
     }
 
     /// Hands the page's pans whatever the mode and the Pencil lock leave them.
+    ///
+    /// Through the page when there is one: it picks between this rule and
+    /// one finger as each touch lands, by whether the canvas takes it.
     private func applyScrolling() {
         let scrolling = mode.scrolling(fingerDraws: !isPencilOnly)
-        for pan in scrollPans {
-            scrolling.apply(to: pan)
+        if let page {
+            page.scrolling = scrolling
+        } else if let textView {
+            scrolling.apply(to: textView.panGestureRecognizer)
         }
     }
 

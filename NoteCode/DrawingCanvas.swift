@@ -82,6 +82,20 @@ final class DrawingCanvas: UIView {
         }
     }
 
+    /// Whether a touch at a point of the note, in note coordinates, is the
+    /// canvas's. `nil` takes every touch.
+    ///
+    /// `PageView` leaves print layout's surround out, so a touch between
+    /// sheets goes past the canvas to the text view and scrolls the note.
+    var takesTouch: ((CGPoint) -> Bool)?
+
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        guard super.point(inside: point, with: event) else { return false }
+        guard let takesTouch, let superview else { return true }
+        // The superview is the text view, whose content is the note.
+        return takesTouch(convert(point, to: superview))
+    }
+
     /// Called when ink's undo stack gains or loses something the hotbar's
     /// arrows should reflect.
     var onUndoDidChange: (() -> Void)?
