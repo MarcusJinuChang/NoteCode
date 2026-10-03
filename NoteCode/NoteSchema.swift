@@ -10,12 +10,12 @@ import SwiftData
 
 /// The model the app uses now. Everything outside this file says `Page` and
 /// `Folder` and never names a version.
-typealias Page = NoteSchemaV2.Page
-typealias Folder = NoteSchemaV2.Folder
+typealias Page = NoteSchemaV5.Page
+typealias Folder = NoteSchemaV5.Folder
 
 /// The store's model as it stands, for every container the app opens.
 enum NoteSchema {
-    static var current: Schema { Schema(versionedSchema: NoteSchemaV2.self) }
+    static var current: Schema { Schema(versionedSchema: NoteSchemaV5.self) }
 }
 
 /// How a store written by an earlier version reaches the current one.
@@ -28,48 +28,61 @@ enum NoteSchema {
 /// A change to the model is a new version here, a frozen copy of the old one
 /// stays, and a stage joins the plan.
 ///
+/// A store is matched to a version by the shape of its entities, and one it
+/// can't match doesn't open at all. Versions 1 to 4 are every shape a build
+/// wrote before versions existed, recovered from the history of Page.swift,
+/// so a store last opened by any of those builds still opens. With only the
+/// last of them, stores from before 23 September failed (measured on 3
+/// October, on copies of the simulators' stores).
+///
 /// A store that fails to migrate isn't lost. `Storage` falls back to an
 /// in-memory store and says so, and the file on disk is left as it was.
 nonisolated enum NoteMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        [NoteSchemaV1.self, NoteSchemaV2.self]
+        [NoteSchemaV1.self, NoteSchemaV2.self, NoteSchemaV3.self, NoteSchemaV4.self, NoteSchemaV5.self]
     }
 
     static var stages: [MigrationStage] {
-        // Only additions, all optional or with defaults: SwiftData moves the
-        // notes across unchanged.
-        [.lightweight(fromVersion: NoteSchemaV1.self, toVersion: NoteSchemaV2.self)]
+        // Only additions, all optional or with defaults, and one attribute
+        // moving to external storage: SwiftData carries the notes across
+        // unchanged at every step.
+        [
+            .lightweight(fromVersion: NoteSchemaV1.self, toVersion: NoteSchemaV2.self),
+            .lightweight(fromVersion: NoteSchemaV2.self, toVersion: NoteSchemaV3.self),
+            .lightweight(fromVersion: NoteSchemaV3.self, toVersion: NoteSchemaV4.self),
+            .lightweight(fromVersion: NoteSchemaV4.self, toVersion: NoteSchemaV5.self),
+        ]
     }
 }
 
-// MARK: - Version 2: folders
+// MARK: - Version 5: folders (3 October 2026)
 
-/// Folders, and a pin on notes and folders (3 October 2026).
+/// Folders, and a pin on notes and folders. The first version written as a
+/// version.
 ///
 /// Shaped for iCloud sync, which is deferred but will need it: CloudKit wants
 /// every relationship optional, every attribute optional or with a default,
 /// and nothing unique. Meeting that now saves a second migration then.
 ///
 /// The models themselves are in Page.swift and Folder.swift.
-nonisolated enum NoteSchemaV2: VersionedSchema {
-    static var versionIdentifier: Schema.Version { Schema.Version(2, 0, 0) }
+nonisolated enum NoteSchemaV5: VersionedSchema {
+    static var versionIdentifier: Schema.Version { Schema.Version(5, 0, 0) }
 
     static var models: [any PersistentModel.Type] {
         [Page.self, Folder.self]
     }
 }
 
-// MARK: - Version 1: notes only
+// MARK: - Versions 1 to 4: before versions, frozen
 
-/// The model as it was before versions, frozen.
-///
-/// This is what every store written before 3 October 2026 holds, and a store
-/// is matched to its version by the shape of its entities, so this copy must
-/// stay exactly as it was: same names, same types, same optionality, same
-/// external storage. It's never used to make notes, only to recognise old
-/// stores.
-nonisolated enum NoteSchemaV1: VersionedSchema {
-    static var versionIdentifier: Schema.Version { Schema.Version(1, 0, 0) }
+// Each is a copy of `Page` as a build stored it, and must stay exactly that:
+// same names, same types, same optionality, same external storage. They're
+// never used to make notes, only to recognise old stores.
+
+/// Ink kept outside the store's records (23 September 2026, "Save ink with
+/// the note"). The shape of every store from then until versions.
+nonisolated enum NoteSchemaV4: VersionedSchema {
+    static var versionIdentifier: Schema.Version { Schema.Version(4, 0, 0) }
 
     static var models: [any PersistentModel.Type] {
         [Page.self]
@@ -93,6 +106,93 @@ nonisolated enum NoteSchemaV1: VersionedSchema {
             self.modifiedAt = createdAt
             self.runDestination = nil
             self.pageOrientation = nil
+        }
+    }
+}
+
+/// A note's page orientation (13 September 2026, "Paginate notes, add pinch
+/// zoom and a view menu").
+nonisolated enum NoteSchemaV3: VersionedSchema {
+    static var versionIdentifier: Schema.Version { Schema.Version(3, 0, 0) }
+
+    static var models: [any PersistentModel.Type] {
+        [Page.self]
+    }
+
+    @Model
+    final class Page {
+        var title: String
+        var content: String
+        var drawingData: Data
+        var createdAt: Date
+        var modifiedAt: Date
+        var runDestination: String?
+        var pageOrientation: String?
+
+        init(title: String = "Untitled", content: String = "", drawingData: Data = Data(), createdAt: Date = .now) {
+            self.title = title
+            self.content = content
+            self.drawingData = drawingData
+            self.createdAt = createdAt
+            self.modifiedAt = createdAt
+            self.runDestination = nil
+            self.pageOrientation = nil
+        }
+    }
+}
+
+/// A note's run destination (11 September 2026, "Let a note choose where its
+/// code runs").
+nonisolated enum NoteSchemaV2: VersionedSchema {
+    static var versionIdentifier: Schema.Version { Schema.Version(2, 0, 0) }
+
+    static var models: [any PersistentModel.Type] {
+        [Page.self]
+    }
+
+    @Model
+    final class Page {
+        var title: String
+        var content: String
+        var drawingData: Data
+        var createdAt: Date
+        var modifiedAt: Date
+        var runDestination: String?
+
+        init(title: String = "Untitled", content: String = "", drawingData: Data = Data(), createdAt: Date = .now) {
+            self.title = title
+            self.content = content
+            self.drawingData = drawingData
+            self.createdAt = createdAt
+            self.modifiedAt = createdAt
+            self.runDestination = nil
+        }
+    }
+}
+
+/// The first `Page` (15 August 2026, "Replace SwiftData template with Page
+/// model scaffold").
+nonisolated enum NoteSchemaV1: VersionedSchema {
+    static var versionIdentifier: Schema.Version { Schema.Version(1, 0, 0) }
+
+    static var models: [any PersistentModel.Type] {
+        [Page.self]
+    }
+
+    @Model
+    final class Page {
+        var title: String
+        var content: String
+        var drawingData: Data
+        var createdAt: Date
+        var modifiedAt: Date
+
+        init(title: String = "Untitled", content: String = "", drawingData: Data = Data(), createdAt: Date = .now) {
+            self.title = title
+            self.content = content
+            self.drawingData = drawingData
+            self.createdAt = createdAt
+            self.modifiedAt = createdAt
         }
     }
 }

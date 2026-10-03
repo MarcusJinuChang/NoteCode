@@ -409,8 +409,16 @@ else says `Page` and `Folder`, which are typealiases for the current version.
 - **Shaped for CloudKit**, so iCloud sync later needs no migration of its own:
   every relationship optional, every attribute optional or with a default,
   nothing `.unique`.
-- Version 1 is the model as it was before versions; every store from before
-  3 Oct is one.
+- **Versions 1 to 4 are every shape a build wrote before versions** (15 Aug,
+  11 Sep, 13 Sep, 23 Sep), recovered from the history of Page.swift; version
+  5 adds folders. With only the 23 Sep shape, stores last opened by a build
+  from before 23 Sep failed — `.externalStorage` changes the entity's shape
+  without changing a column (measured 3 Oct on copies of the simulators'
+  stores). `SchemaMigrationTests` writes a store in each shape.
+- **Older builds don't know version 5.** A build from before 3 Oct opens the
+  store without versions and would likely migrate it back to its own shape,
+  dropping folders and pins. Don't run an older branch on a device whose
+  notes are filed.
 
 ## Build/test
 

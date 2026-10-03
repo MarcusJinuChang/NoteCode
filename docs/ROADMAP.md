@@ -25,7 +25,8 @@ drawn at the screen's density. 22 pull requests, all merged.
   close in the list, each with its own run destination between the note's
   and the app's. The model is versioned from here on, and this first
   migration also carries the pins for pinning, so sorting and note info need
-  no model change. Not yet built or tested on the Mac.
+  no model change. Its versions include every shape earlier builds wrote:
+  with only the latest, stores from before 23 Sep wouldn't open.
 - **The device pass is closed** (3 Oct). Marcus has used the app on the iPad
   and reports it works, so latency, palm rejection and Pencil-versus-finger
   routing are taken as passed rather than measured.
@@ -110,7 +111,7 @@ code already has something to say.
 12. **App Store submission.** First submissions bounce on formality, so leave
     review-cycle buffer, not zero margin.
 
-Folders, 5, 6 and 7 were planned as one model change, and are: version 2 of
+Folders, 5, 6 and 7 were planned as one model change, and are: version 5 of
 the model (3 Oct) carries folders and the pins, and sorting and note info turn
 out to need nothing stored.
 

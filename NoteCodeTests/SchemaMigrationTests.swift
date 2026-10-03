@@ -8,17 +8,26 @@ import SwiftData
 import Testing
 @testable import NoteCode
 
-/// Notes written before folders existed have to open after.
+/// Notes written by any earlier build have to open in this one.
 ///
-/// Each test writes a store on disk with the model as it was before versions
-/// (`NoteSchemaV1`, opened without a version, the way every build before
-/// 3 October 2026 opened it), then opens it the way the app does now. A store
-/// that fails to migrate doesn't crash: `Storage` falls back to memory, and
-/// the notes look gone. So these check `Storage` itself, not a container
-/// opened some other way.
+/// Each test writes a store on disk with one of the shapes builds wrote
+/// before versions existed (`NoteSchemaV1` to `NoteSchemaV4`, opened without
+/// a version, the way those builds opened them), then opens it the way the
+/// app does now. A store that fails to migrate doesn't crash: `Storage` falls
+/// back to memory, and the notes look gone. So these check `Storage` itself,
+/// not a container opened some other way.
 @Suite("Migrating the store")
 @MainActor
 struct SchemaMigrationTests {
+
+    /// The shapes a store can have been written in, by the version that
+    /// recognises them.
+    enum EarlierShape: Int, CaseIterable, Sendable {
+        case firstPage = 1
+        case runDestination
+        case pageOrientation
+        case externalInk
+    }
 
     /// A folder of its own per test: the store, its write-ahead log, and the
     /// external storage folder ink goes in all sit next to each other.
@@ -31,32 +40,51 @@ struct SchemaMigrationTests {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }
 
-    /// Big enough that SwiftData keeps it outside the store's records, the
-    /// way real ink is kept.
+    /// Big enough that SwiftData keeps it outside the store's records where
+    /// the shape says to, the way real ink is kept.
     private static let ink = Data((0..<300_000).map { UInt8($0 % 251) })
+    private static let content = "# Pointers\n```cpp\nint *p;\n```\n"
 
-    /// Writes a store the way builds before versions did, and closes it.
-    private func writeUnversionedStore() throws {
-        let schema = Schema([NoteSchemaV1.Page.self])
+    /// Writes a store with two notes the way a build before versions did,
+    /// and closes it. `make` builds a note: title, content, ink, created.
+    private func writeUnversionedStore<P: PersistentModel>(
+        _ type: P.Type,
+        make: (String, String, Data, Date) -> P,
+        adjust: (P) -> Void = { _ in }
+    ) throws {
+        let schema = Schema([P.self])
         let container = try ModelContainer(
             for: schema,
             configurations: [ModelConfiguration(schema: schema, url: storeURL)]
         )
         let context = ModelContext(container)
 
-        let drawn = NoteSchemaV1.Page(
-            title: "Lecture 1",
-            content: "# Pointers\n```cpp\nint *p;\n```\n",
-            drawingData: Self.ink,
-            createdAt: Date(timeIntervalSince1970: 1_000)
-        )
-        drawn.runDestination = "godbolt"
-        drawn.pageOrientation = "landscape"
-        drawn.modifiedAt = Date(timeIntervalSince1970: 2_000)
+        let drawn = make("Lecture 1", Self.content, Self.ink, Date(timeIntervalSince1970: 1_000))
+        adjust(drawn)
         context.insert(drawn)
-
-        context.insert(NoteSchemaV1.Page(title: "Plain", createdAt: Date(timeIntervalSince1970: 3_000)))
+        context.insert(make("Plain", "", Data(), Date(timeIntervalSince1970: 3_000)))
         try context.save()
+    }
+
+    private func writeUnversionedStore(_ shape: EarlierShape) throws {
+        switch shape {
+        case .firstPage:
+            try writeUnversionedStore(NoteSchemaV1.Page.self) {
+                NoteSchemaV1.Page(title: $0, content: $1, drawingData: $2, createdAt: $3)
+            }
+        case .runDestination:
+            try writeUnversionedStore(NoteSchemaV2.Page.self) {
+                NoteSchemaV2.Page(title: $0, content: $1, drawingData: $2, createdAt: $3)
+            }
+        case .pageOrientation:
+            try writeUnversionedStore(NoteSchemaV3.Page.self) {
+                NoteSchemaV3.Page(title: $0, content: $1, drawingData: $2, createdAt: $3)
+            }
+        case .externalInk:
+            try writeUnversionedStore(NoteSchemaV4.Page.self) {
+                NoteSchemaV4.Page(title: $0, content: $1, drawingData: $2, createdAt: $3)
+            }
+        }
     }
 
     private func openedNotes(_ storage: Storage) throws -> [Page] {
@@ -66,10 +94,10 @@ struct SchemaMigrationTests {
         )
     }
 
-    @Test("Notes from before folders open with everything they had")
-    func unversionedStoreMigrates() throws {
+    @Test("A store from any earlier build opens with its notes and ink", arguments: EarlierShape.allCases)
+    func earlierStoreMigrates(_ shape: EarlierShape) throws {
         defer { try? FileManager.default.removeItem(at: directory) }
-        try writeUnversionedStore()
+        try writeUnversionedStore(shape)
 
         let storage = Storage.open(at: storeURL)
 
@@ -80,23 +108,40 @@ struct SchemaMigrationTests {
         #expect(notes.map(\.title) == ["Lecture 1", "Plain"])
 
         let drawn = try #require(notes.first)
-        #expect(drawn.content == "# Pointers\n```cpp\nint *p;\n```\n")
+        #expect(drawn.content == Self.content)
         #expect(drawn.drawingData == Self.ink)
         #expect(drawn.createdAt == Date(timeIntervalSince1970: 1_000))
-        #expect(drawn.modifiedAt == Date(timeIntervalSince1970: 2_000))
-        #expect(drawn.runDestination == "godbolt")
-        #expect(drawn.orientation == .landscape)
+        #expect(drawn.modifiedAt == Date(timeIntervalSince1970: 1_000))
 
-        // What the new version adds starts empty.
+        // What later versions add starts empty.
         #expect(notes.allSatisfy { $0.folder == nil && !$0.isPinned })
         #expect(notes[1].drawingData.isEmpty)
         #expect(notes[1].orientation == .portrait)
     }
 
+    @Test("The settings a store from just before versions holds come across")
+    func settingsSurvive() throws {
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writeUnversionedStore(NoteSchemaV4.Page.self) {
+            NoteSchemaV4.Page(title: $0, content: $1, drawingData: $2, createdAt: $3)
+        } adjust: { drawn in
+            drawn.runDestination = "godbolt"
+            drawn.pageOrientation = "landscape"
+            drawn.modifiedAt = Date(timeIntervalSince1970: 2_000)
+        }
+
+        let notes = try openedNotes(Storage.open(at: storeURL))
+
+        let drawn = try #require(notes.first)
+        #expect(drawn.runDestination == "godbolt")
+        #expect(drawn.orientation == .landscape)
+        #expect(drawn.modifiedAt == Date(timeIntervalSince1970: 2_000))
+    }
+
     @Test("A migrated store keeps folders across a relaunch")
     func foldersSurviveRelaunch() throws {
         defer { try? FileManager.default.removeItem(at: directory) }
-        try writeUnversionedStore()
+        try writeUnversionedStore(.externalInk)
 
         do {
             let storage = Storage.open(at: storeURL)

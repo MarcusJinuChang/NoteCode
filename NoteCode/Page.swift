@@ -6,7 +6,7 @@
 import Foundation
 import SwiftData
 
-extension NoteSchemaV2 {
+extension NoteSchemaV5 {
 
     @Model
     final class Page {
