@@ -356,6 +356,18 @@ Laid out from the 12 September mockup.
   with `replace(_:withText:)`, the path typing takes, so it is undoable and
   restyles like typed text. Assigning `.text` loses undo, the selection, and
   the delegate callback that writes the change back to the page.
+- **Prose is autocorrected, code isn't** (3 Oct). The keyboard's rewriting
+  traits (autocorrect, capitals, smart quotes and dashes, smart
+  insert/delete, inline predictions) are on in prose and off on a code
+  block's lines and fences and in inline code, where they'd silently turn
+  `int lo` into `In too`. An unclosed fence or backtick counts as code,
+  since the closing one is typed last (`TextRewritingPolicy.at`). The
+  coordinator switches on each caret move, but only when the caret crosses
+  from one to the other, since `reloadInputViews()` redraws the suggestion
+  bar, and never while text is being composed (marked text), where a reload
+  could disturb the character. Spell checking stays off everywhere: its
+  underlines cover all the text on screen, so they'd mark code identifiers
+  while the caret is in prose.
 - **`NoteEditor` is the bridge.** SwiftUI owns the hotbar and UIKit owns the
   text view, and neither can reach the other. The hotbar talks to `NoteEditor`,
   and the text view registers with it.
@@ -546,8 +558,6 @@ into a section above once they are settled.
 
 - Where text-anchored ink lands in the schedule. Wanted for its own sake, but
   it is a phase, not a step, and November is committed.
-- Per-region text rewriting: `TextRewritingPolicy` is `.code` everywhere today,
-  costing prose its autocorrect. Switching per region is designed but unbuilt.
 - What goes in before November. The candidate list in docs/ROADMAP.md is
   planned properly once the drawing layer is done, alongside a UI design.
 - Side-by-side pages (a scrolling-direction setting): the text view scrolls
