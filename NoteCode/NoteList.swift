@@ -228,7 +228,7 @@ struct NoteList: View {
     }
 
     private func customDestinations(for folder: Folder) -> [CodeDestination] {
-        [folder.runDestination, appDefaultDestination].compactMap { id in
+        [folder.runDestination, appDefaultDestination].compactMap { id -> CodeDestination? in
             guard let id, let destination = CodeDestination(id: id),
                   case .custom = destination else { return nil }
             return destination
