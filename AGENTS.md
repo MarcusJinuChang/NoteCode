@@ -372,9 +372,9 @@ Laid out from the 12 September mockup.
   It also picks as editing begins, since a tap into an empty note moves no
   caret, and the note's first letter stayed lowercase. XCUITest's `typeText`
   skips autocorrect entirely, so a typing check has to tap the keyboard's
-  keys. Spell checking stays off everywhere: its underlines cover all the
-  text on screen, so they'd mark code identifiers while the caret is in
-  prose.
+  keys. Spell checking stays off everywhere: on in prose, it marks every
+  word typed this session anywhere in the note, so an identifier typed in
+  a code block turned red as soon as the caret moved back to prose.
 - **`NoteEditor` is the bridge.** SwiftUI owns the hotbar and UIKit owns the
   text view, and neither can reach the other. The hotbar talks to `NoteEditor`,
   and the text view registers with it.

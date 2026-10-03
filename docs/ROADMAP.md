@@ -24,9 +24,15 @@ drawn at the screen's density. 25 pull requests, all merged.
 - **Autocorrect for prose** (3 Oct, in review): prose gets the keyboard's
   autocorrect, capitals, smart quotes and dashes, and inline predictions
   back; code keeps them off, on a block's lines and fences and in inline
-  code, an unclosed fence or backtick included. The keyboard switches as
-  the caret crosses from one to the other. Spell checking stays off
-  everywhere. Not yet built or tested on the Mac.
+  code, an unclosed fence or backtick included, and on the word just after
+  inline code until a space ends it. The keyboard switches as the caret
+  crosses from one to the other, and is set up as typing begins. Spell
+  checking stays off everywhere, since it would mark identifiers typed in
+  code. Typed through on the iPad simulator's keyboard and checked in light
+  and dark. That found two bugs, fixed here and unit-tested but not typed
+  through again: a space after inline code let autocorrect rewrite its last
+  word and eat the backtick, and a new note's first letter wasn't
+  capitalised.
 - **Note info** (3 Oct, merged 3 Oct, PR #25): Get Info, in a note's long-press menu
   in the list, or the info button in an open note's header, shows when the
   note was made and last changed, its folder and orientation, its words,

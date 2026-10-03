@@ -118,10 +118,10 @@ nonisolated enum TextRewritingPolicy: Equatable, Sendable {
 extension TextRewritingPolicy {
     /// Applies this policy's traits to `textView`.
     ///
-    /// Spell checking stays off for both. Its underlines are drawn across
-    /// all the text on screen, not the part the caret is in, so with the
-    /// caret in prose they'd mark the identifiers in every code block nearby,
-    /// and come and go as the caret crossed a fence.
+    /// Spell checking stays off for both. Its underlines aren't confined to
+    /// the part the caret is in: on in prose, it marks every word typed this
+    /// session anywhere in the note, so an identifier typed in a code block
+    /// turned red as soon as the caret moved back to prose (measured 3 Oct).
     ///
     /// - Parameter reloadingInputViews: pass `true` when switching policy while
     ///   the keyboard is already on screen. UIKit reads these traits when it
