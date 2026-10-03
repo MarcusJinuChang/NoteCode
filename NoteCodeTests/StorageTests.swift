@@ -13,7 +13,7 @@ import Testing
 struct StorageTests {
 
     private func inMemoryContainer() throws -> ModelContainer {
-        let schema = Schema([Page.self])
+        let schema = NoteSchema.current
         return try ModelContainer(
             for: schema,
             configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)]

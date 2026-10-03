@@ -10,9 +10,6 @@ struct ContentView: View {
     /// True when the on-disk store failed and edits live only in memory.
     var storageIsEphemeral = false
 
-    @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Page.modifiedAt, order: .reverse) private var pages: [Page]
-
     /// The open note. Held as the model object rather than its
     /// `persistentModelID`, which changes from a temporary ID to a permanent
     /// one on first save — a new note would close itself a moment after
@@ -36,55 +33,7 @@ struct ContentView: View {
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            List(selection: $selection) {
-                if storageIsEphemeral {
-                    Label(
-                        "Storage is unavailable, so changes made now won't be saved.",
-                        systemImage: "exclamationmark.triangle.fill"
-                    )
-                    .font(.footnote)
-                    .foregroundStyle(.orange)
-                }
-
-                ForEach(pages) { page in
-                    VStack(alignment: .leading) {
-                        Text(page.title)
-                            .font(.headline)
-                        Text(page.modifiedAt, format: Date.FormatStyle(date: .abbreviated, time: .shortened))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .tag(page)
-                }
-                .onDelete(perform: deletePages)
-            }
-            .navigationTitle("NoteCode")
-#if os(macOS)
-            .navigationSplitViewColumnWidth(min: 180, ideal: 220)
-#endif
-            .toolbar {
-#if os(iOS)
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-#endif
-                ToolbarItem {
-                    // Which way up a note's pages are is chosen here, once.
-                    // Changing it later would re-wrap the text at another
-                    // width and move every line out from under its ink.
-                    Menu {
-                        ForEach(PageOrientation.allCases, id: \.self) { orientation in
-                            Button {
-                                addPage(orientation)
-                            } label: {
-                                Label("\(orientation.title) Pages", systemImage: orientation.systemImage)
-                            }
-                        }
-                    } label: {
-                        Label("New Note", systemImage: "plus")
-                    }
-                }
-            }
+            NoteList(storageIsEphemeral: storageIsEphemeral, selection: $selection)
         } detail: {
             if let page = selection {
                 PageDetailView(page: page, toggleSidebar: sidebarToggle)
@@ -122,30 +71,9 @@ struct ContentView: View {
         return nil
 #endif
     }
-
-    private func addPage(_ orientation: PageOrientation) {
-        let page = Page()
-        page.orientation = orientation
-        withAnimation {
-            modelContext.insert(page)
-        }
-        selection = page
-    }
-
-    private func deletePages(offsets: IndexSet) {
-        let deleted = offsets.map { pages[$0] }
-        if let selection, deleted.contains(selection) {
-            self.selection = nil
-        }
-        withAnimation {
-            // If saving fails, the deletion is still pending in the context,
-            // and autosave tries again.
-            try? Page.delete(deleted, from: modelContext)
-        }
-    }
 }
 
 #Preview {
     ContentView()
-        .modelContainer(for: Page.self, inMemory: true)
+        .modelContainer(for: [Page.self, Folder.self], inMemory: true)
 }

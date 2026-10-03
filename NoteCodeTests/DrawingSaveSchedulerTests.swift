@@ -55,7 +55,7 @@ struct DrawingSaveSchedulerTests {
 
         init() throws {
             container = try ModelContainer(
-                for: Page.self,
+                for: NoteSchema.current,
                 configurations: ModelConfiguration(isStoredInMemoryOnly: true)
             )
         }

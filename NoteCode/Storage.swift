@@ -28,12 +28,23 @@ enum Storage {
     case unavailable(reason: String)
 
     static func open() -> Storage {
-        let schema = Schema([Page.self])
+        open(at: nil)
+    }
+
+    /// - Parameter url: where the store is, or `nil` for the app's own. Tests
+    ///   pass a file of their own.
+    static func open(at url: URL?) -> Storage {
+        let schema = NoteSchema.current
+        let disk = url.map { ModelConfiguration(schema: schema, url: $0) }
+            ?? ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
+            // The plan carries a store written by an earlier version of the
+            // model across; see NoteSchema.swift.
             let container = try ModelContainer(
                 for: schema,
-                configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)]
+                migrationPlan: NoteMigrationPlan.self,
+                configurations: [disk]
             )
             return .persistent(container)
         } catch let diskError {

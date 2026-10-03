@@ -325,7 +325,7 @@ enum DebugLaunch {
     static func seededStorage(_ options: DebugLaunchOptions, session: DebugSession) -> (storage: Storage, page: Page)? {
         guard let note = options.note else { return nil }
 
-        let schema = Schema([Page.self])
+        let schema = NoteSchema.current
         let container: ModelContainer
         do {
             container = try ModelContainer(
