@@ -19,9 +19,14 @@ The drawing layer is done, a week inside its deadline: the TextKit 2 editor
 with code blocks, run and copy, Letter-sized pages in three view modes with
 pinch zoom, the note page and its hotbar, and a PaperKit canvas that a finger
 or the Pencil draws on, with ink undo of its own, saved with the note and
-drawn at the screen's density. 22 pull requests, all merged.
+drawn at the screen's density. 23 pull requests, all merged.
 
-- **Folders** (3 Oct, in review): notes file into folders that open and
+- **Pinning and sorting** (3 Oct, in review): a long press pins a note or
+  a folder to a Pinned section at the top of the list, and a sort menu
+  orders notes by date modified, date created or title, either way round.
+  The sort is a per-device setting; folders stay in name order. No model
+  change: the pins came with folders. Not yet built or tested on the Mac.
+- **Folders** (3 Oct, merged 3 Oct, PR #23): notes file into folders that open and
   close in the list, each with its own run destination between the note's
   and the app's. The model is versioned from here on, and this first
   migration also carries the pins for pinning, so sorting and note info need
@@ -64,10 +69,11 @@ drawn at the screen's density. 22 pull requests, all merged.
 ## Plan
 
 Not set in stone. With the drawing layer done, the before-November list is
-being planned (3 Oct): folders came first, since the list was the thing
+being planned (3 Oct): folders came first (merged 3 Oct), then pinning and
+sorting, since the list was the thing
 least likely to last the semester and model changes are safest before
 anyone else's notes depend on them. The proposed order after that is
-pinning and sorting, note info, note search, autocorrect for prose (a
+note info, note search, autocorrect for prose (a
 deferred item, below), ship prep, printing, then the UI design and polish,
 TestFlight and submission. Scrolling direction, infinite canvas and Sign in
 with Apple are proposed for Later. Not yet agreed.
@@ -100,9 +106,10 @@ code already has something to say.
    than a mode of this one.
 4. **Note search.** Text is plain in `Page.content`. PaperKit's
    `PaperMarkup.indexableContent` may reach text boxes in ink (untested).
-5. **Favouriting / pinning / starring** notes and folders. Folders are built
-   (3 Oct, in review), and the pins are already in the model.
-6. **Note sorting.** The list sorts by date modified, and nothing else.
+5. **Favouriting / pinning / starring** notes and folders. Folders merged
+   3 Oct (PR #23); pinning built 3 Oct, in review.
+6. **Note sorting.** Built 3 Oct, in review: date modified, date created or
+   title, either way round, saved per device.
 7. **Note info / properties.**
 8. **Printing.** Print layout is already the printed page — see the deferred
    table.
