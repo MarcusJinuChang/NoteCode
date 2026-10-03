@@ -19,9 +19,21 @@ The drawing layer is done, a week inside its deadline: the TextKit 2 editor
 with code blocks, run and copy, Letter-sized pages in three view modes with
 pinch zoom, the note page and its hotbar, and a PaperKit canvas that a finger
 or the Pencil draws on, with ink undo of its own, saved with the note and
-drawn at the screen's density. 24 pull requests, all merged.
+drawn at the screen's density. 25 pull requests, all merged.
 
-- **Note info** (3 Oct, in review): Get Info, in a note's long-press menu
+- **Autocorrect for prose** (3 Oct, in review): prose gets the keyboard's
+  autocorrect, capitals, smart quotes and dashes, and inline predictions
+  back; code keeps them off, on a block's lines and fences and in inline
+  code, an unclosed fence or backtick included, and on the word just after
+  inline code until a space ends it. The keyboard switches as the caret
+  crosses from one to the other, and is set up as typing begins. Spell
+  checking stays off everywhere, since it would mark identifiers typed in
+  code. Typed through on the iPad simulator's keyboard and checked in light
+  and dark. That found two bugs, fixed here and unit-tested but not typed
+  through again: a space after inline code let autocorrect rewrite its last
+  word and eat the backtick, and a new note's first letter wasn't
+  capitalised.
+- **Note info** (3 Oct, merged 3 Oct, PR #25): Get Info, in a note's long-press menu
   in the list, or the info button in an open note's header, shows when the
   note was made and last changed, its folder and orientation, its words,
   and its code blocks by language with their lines. Opened from the note,
@@ -81,12 +93,12 @@ drawn at the screen's density. 24 pull requests, all merged.
 ## Plan
 
 Not set in stone. With the drawing layer done, the before-November list is
-being planned (3 Oct): folders came first, then pinning and sorting (both
-merged 3 Oct), since the list was the thing
+being planned (3 Oct): folders came first, then pinning and sorting, then
+note info (all merged 3 Oct), since the list was the thing
 least likely to last the semester and model changes are safest before
-anyone else's notes depend on them. Note info is in review. The proposed
-order after that is note search, autocorrect for prose (a
-deferred item, below), ship prep, printing, then the UI design and polish,
+anyone else's notes depend on them. Marcus picked autocorrect for prose
+next, ahead of note search; it's in review. The proposed order after that
+is note search, ship prep, printing, then the UI design and polish,
 TestFlight and submission. Scrolling direction, infinite canvas and Sign in
 with Apple are proposed for Later. Not yet agreed.
 
@@ -122,7 +134,7 @@ code already has something to say.
    3 Oct (PR #23); pinning merged 3 Oct (PR #24).
 6. **Note sorting.** Merged 3 Oct (PR #24): date modified, date created or
    title, either way round, saved per device.
-7. **Note info / properties.** Built 3 Oct, in review: dates, folder,
+7. **Note info / properties.** Merged 3 Oct (PR #25): dates, folder,
    orientation, words, and code blocks by language, plus pages when the note
    is open.
 8. **Printing.** Print layout is already the printed page — see the deferred
@@ -206,11 +218,10 @@ from the text's.
 
 ## Deferred work
 
-Referenced by name from `TextRewritingPolicy.swift` and `DocumentTextView.swift`.
+Referenced by name from the code.
 
 | Where | What |
 |---|---|
-| `TextRewritingPolicy.swift` | **Per-region text rewriting.** All five keyboard traits are `.code` everywhere, so prose loses autocorrect. Plan: `.prose` outside a fence, `.code` inside, with `reloadInputViews()`. |
 | `DocumentStyler.swift` | **Markers that recede.** Markdown markers stay visible in `tertiaryLabel`. Hiding them when the caret is elsewhere is the Obsidian behaviour. |
 | `PageLayout.swift` | **Printing** (before-November item 8). Print layout is the printed page exactly — `sheet(ofPage:)` times 72/96. A `UIPrintPageRenderer` drawing each sheet's rect of the text view is what's left. A4 is one more paper size. Ink renders through `PaperMarkup.draw(in:frame:options:)`, which is async; whether it stays vector in a PDF context is untested. PencilKit's `draw(in:)` crashed there (18 Sep). |
 | `PageView.swift` | **Typing cost on long paged notes.** Page breaks are exclusion paths, and TextKit 2 then lays out everything below an edit: 34ms a keystroke near the top of a 250-line note on the simulator. If it lags on the iPad, push whole paragraphs with paragraph spacing instead, computed lazily. |
@@ -228,7 +239,7 @@ Referenced by name from `TextRewritingPolicy.swift` and `DocumentTextView.swift`
   reading as a note opens is fine.
 - **Isolate risk.** Spike the hard part standalone. A failed spike costs an
   afternoon; a failed integration costs a week.
-- **Settings travel together.** `TextRewritingPolicy` groups five traits into
+- **Settings travel together.** `TextRewritingPolicy` groups six traits into
   one type with one `apply(to:)` so they cannot drift. `EditorMode` does the
   same for the drawing toggle.
 - **Degrade, don't crash.** `Storage` falls back to an in-memory store and says

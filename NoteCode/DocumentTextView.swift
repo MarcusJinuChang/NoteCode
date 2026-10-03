@@ -109,6 +109,9 @@ struct DocumentTextView: UIViewRepresentable {
         /// The run and copy buttons floating over each code block.
         private var overlay: CodeBlockOverlay?
 
+        /// The keyboard traits the text view has now: prose or code.
+        private(set) var rewritingPolicy = TextRewritingPolicy.initial
+
         /// Where the code blocks are, for the layout delegate, or `nil` once
         /// the text has changed since they were worked out.
         ///
@@ -445,6 +448,36 @@ struct DocumentTextView: UIViewRepresentable {
             let source = (textView.text ?? "").nativeUTF8
             let blocks = documentCache.blocks(for: source)
             DocumentStyler.applyTypingAttributes(to: textView, source: source, blocks: blocks)
+            applyRewritingPolicy(to: textView, source: source, blocks: blocks)
+        }
+
+        /// Sets the keyboard up for where the caret is, before it appears.
+        ///
+        /// A tap that leaves the caret where it was, as every tap into an
+        /// empty note does, changes no selection, so the editor kept its
+        /// starting code traits and a new note's first letter wasn't
+        /// capitalised (measured 3 Oct).
+        func textViewShouldBeginEditing(_ textView: UITextView) -> Bool {
+            let source = (textView.text ?? "").nativeUTF8
+            applyRewritingPolicy(to: textView, source: source, blocks: documentCache.blocks(for: source))
+            return true
+        }
+
+        /// Gives prose autocorrect and smart punctuation, and code neither,
+        /// by where the caret is.
+        ///
+        /// Only on crossing from one to the other: reloading the keyboard
+        /// redraws its suggestion bar, and this runs on every keystroke.
+        private func applyRewritingPolicy(to textView: UITextView, source: String, blocks: [BlockNode]) {
+            // Mid-composition (Korean, Japanese, Chinese), a keyboard reload
+            // could disturb the character being composed. The first caret move
+            // after it's committed catches up.
+            guard textView.markedTextRange == nil else { return }
+
+            let policy = TextRewritingPolicy.at(textView.selectedRange.location, in: source, blocks: blocks)
+            guard policy != rewritingPolicy else { return }
+            rewritingPolicy = policy
+            policy.apply(to: textView, reloadingInputViews: textView.isFirstResponder)
         }
     }
 
@@ -490,10 +523,10 @@ struct DocumentTextView: UIViewRepresentable {
         textView.font = UIFont.preferredFont(forTextStyle: .body)
         textView.adjustsFontForContentSizeCategory = true
 
-        // All five text-rewriting traits live in TextRewritingPolicy so that
-        // switching them per region later is one call. `.code` (everything off)
-        // is today's behavior — see the roadmap's deferred-work section.
-        TextRewritingPolicy.current.apply(to: textView)
+        // All the text-rewriting traits live in TextRewritingPolicy, so
+        // switching them as the caret moves between prose and code is one
+        // call. Off until the caret is placed.
+        TextRewritingPolicy.initial.apply(to: textView)
 
         return textView
     }

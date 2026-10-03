@@ -356,6 +356,25 @@ Laid out from the 12 September mockup.
   with `replace(_:withText:)`, the path typing takes, so it is undoable and
   restyles like typed text. Assigning `.text` loses undo, the selection, and
   the delegate callback that writes the change back to the page.
+- **Prose is autocorrected, code isn't** (3 Oct). The keyboard's rewriting
+  traits (autocorrect, capitals, smart quotes and dashes, smart
+  insert/delete, inline predictions) are on in prose and off on a code
+  block's lines and fences and in inline code, where they'd silently turn
+  `int lo` into `In too`. An unclosed fence or backtick counts as code,
+  since the closing one is typed last (`TextRewritingPolicy.at`). So does
+  the word just after a closing backtick, until a space ends it: the
+  keyboard corrects the word a space ends, and its word runs through the
+  backtick, so a space after `` `int lo` `` turned it into `` `int lot ``,
+  the closing backtick eaten. The coordinator switches on each caret move,
+  but only when the caret crosses from one to the other, since
+  `reloadInputViews()` redraws the suggestion bar, and never while text is
+  being composed (marked text), where a reload could disturb the character.
+  It also picks as editing begins, since a tap into an empty note moves no
+  caret, and the note's first letter stayed lowercase. XCUITest's `typeText`
+  skips autocorrect entirely, so a typing check has to tap the keyboard's
+  keys. Spell checking stays off everywhere: on in prose, it marks every
+  word typed this session anywhere in the note, so an identifier typed in
+  a code block turned red as soon as the caret moved back to prose.
 - **`NoteEditor` is the bridge.** SwiftUI owns the hotbar and UIKit owns the
   text view, and neither can reach the other. The hotbar talks to `NoteEditor`,
   and the text view registers with it.
@@ -546,8 +565,6 @@ into a section above once they are settled.
 
 - Where text-anchored ink lands in the schedule. Wanted for its own sake, but
   it is a phase, not a step, and November is committed.
-- Per-region text rewriting: `TextRewritingPolicy` is `.code` everywhere today,
-  costing prose its autocorrect. Switching per region is designed but unbuilt.
 - What goes in before November. The candidate list in docs/ROADMAP.md is
   planned properly once the drawing layer is done, alongside a UI design.
 - Side-by-side pages (a scrolling-direction setting): the text view scrolls
