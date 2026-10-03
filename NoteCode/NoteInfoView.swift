@@ -61,6 +61,12 @@ struct NoteInfoView: View {
                 }
             }
         }
+#if os(iOS)
+        // A form sheet is too short for every row: in landscape on a 13-inch
+        // iPad, a note with code in four languages hid its last rows below
+        // the sheet's edge. A page-sized sheet holds them all.
+        .presentationSizing(.page)
+#endif
 #if os(macOS)
         .frame(minWidth: 320, minHeight: 380)
 #endif
