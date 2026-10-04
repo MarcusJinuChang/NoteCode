@@ -446,6 +446,30 @@ else says `Page` and `Folder`, which are typealiases for the current version.
   dropping folders and pins. Don't run an older branch on a device whose
   notes are filed.
 
+## Shipping
+
+What an upload checks before a person sees the app (4 Oct).
+`AppStoreReadinessTests` checks each of these in the built app.
+
+- **The privacy manifest** (`PrivacyInfo.xcprivacy`) has to list a reason
+  for every required-reason API the app calls, or the upload is rejected.
+  Today that's only UserDefaults, through `@AppStorage`, for the app's own
+  settings (`CA92.1`). Calling one from another category — file
+  timestamps, system boot time, disk space, active keyboards — means adding
+  its reason. `CACurrentMediaTime` isn't on Apple's list. Notes never leave
+  the device, so nothing is collected or tracked; a server would change
+  that.
+- **Exempt encryption.** `ITSAppUsesNonExemptEncryption` is `NO` in
+  Info.plist: the only network traffic is the system opening a compiler's
+  page over HTTPS. Encryption of the app's own would change the answer.
+- **No background modes or entitlements it doesn't use.** Xcode's template
+  declared push as a background mode and had an unused entitlements file
+  for iCloud and push; both went on 4 Oct, since a mode the app never uses
+  is a question in review. iCloud sync brings them back, through Signing &
+  Capabilities.
+- **Still missing:** the app icon (the icon set has no images, which also
+  fails an upload) and the paid Developer Program.
+
 ## Build/test
 
 Scheme `NoteCode`; targets `NoteCode`, `NoteCodeTests`, `NoteCodeUITests`.
