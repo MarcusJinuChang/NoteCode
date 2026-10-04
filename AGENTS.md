@@ -340,6 +340,13 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   invalid context" (4 Oct). So each sheet's elements, moved to the sheet's
   origin, are drawn into a bitmap cropped to where the sheet has ink, and
   that goes on the page. Text stays text.
+- **What PaperKit's drawing does, measured** (probe, 4 Oct). It draws the
+  markup's coordinates straight through the context's transform, so a
+  bitmap has to be flipped to UIKit's way up first, and scaled by the
+  transform: `frame` doesn't scale anything. And assigning a set to a new
+  markup's `subelements` keeps nothing — a markup only updates elements it
+  already has from an assigned set — so building one means
+  `updateOrAppend` an element at a time, as `PageView.captureInk` does.
 
 ## The note page
 

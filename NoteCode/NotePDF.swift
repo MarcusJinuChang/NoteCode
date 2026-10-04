@@ -108,24 +108,28 @@ enum NotePDF {
     /// Only the sheet's own elements, moved to the sheet's origin, in a
     /// markup the sheet's size. Drawing all of a long note's ink for every
     /// page would cost as many times over as there are pages.
+    ///
+    /// Added one at a time with `updateOrAppend`, the way `PageView` takes
+    /// ink from the canvas. Assigning a set to a new markup's `subelements`
+    /// keeps none of it: a markup only updates the elements it already has
+    /// from an assigned set (probe on the simulator, 4 October), and the
+    /// PDF's ink came out blank.
     private static func drawInk(_ ink: PaperMarkup, onSheet sheet: CGRect, in context: CGContext) async {
         let page = CGRect(origin: .zero, size: sheet.size)
         let toSheet = CGAffineTransform(translationX: -sheet.minX, y: -sheet.minY)
 
-        var elements = MarkupOrderedSet()
+        var markup = PaperMarkup(bounds: page)
         var inked = CGRect.null
         for element in ink.subelements where element.renderFrame.intersects(sheet) {
             var element = element
             element.applyTransform(toSheet)
             inked = inked.union(element.renderFrame)
-            elements.append(element)
+            markup.subelements.updateOrAppend(element)
         }
         // A little room around the frames, for a stroke's soft edge.
         let area = inked.insetBy(dx: -4, dy: -4).intersection(page).integral
         guard !area.isNull, !area.isEmpty else { return }
 
-        var markup = PaperMarkup(bounds: page)
-        markup.subelements = elements
         guard let image = await bitmap(of: markup, in: page, cropping: area) else { return }
 
         context.saveGState()
@@ -159,6 +163,12 @@ enum NotePDF {
         else { return nil }
 
         // UIKit's way up, in page points, with `area`'s corner at the origin.
+        //
+        // PaperKit draws the markup's coordinates straight into the
+        // context's, through its transform: into an unflipped bitmap a
+        // stroke 300pt down the page came out 300pt up from the bottom, and
+        // a frame three times the page's size didn't scale it, where the
+        // transform did (probe, 4 October).
         context.translateBy(x: 0, y: CGFloat(height))
         context.scaleBy(x: scale, y: -scale)
         context.translateBy(x: -area.minX, y: -area.minY)
