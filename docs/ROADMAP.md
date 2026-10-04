@@ -27,7 +27,8 @@ drawn at the screen's density. 24 pull requests, all merged.
   bold, title matches first. Opening one scrolls the note to its first match
   and highlights every match until you type. The magnifying glass in an open
   note's header, or ⌘F with a keyboard, finds and replaces within the note.
-  Ink isn't searched. Not yet built or tested on the Mac.
+  Ink isn't searched. Builds for iPad and Mac, and 493 tests pass; not yet
+  checked in the simulator or on the iPad.
 - **Note info** (3 Oct, in review): Get Info, in a note's long-press menu
   in the list, or the info button in an open note's header, shows when the
   note was made and last changed, its folder and orientation, its words,
