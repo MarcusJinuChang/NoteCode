@@ -414,7 +414,24 @@ so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
   `.presentationSizing(.form.fitted(...))` collapsed it to its title bar,
   since a Form reports no height of its own (measured 3 Oct).
 
-Pinning, sorting and note info needed no model change: the pins
+- **Search is every word, anywhere** (4 Oct, `NoteSearch`): each word
+  typed has to be in the title or the text, in any order, ignoring case and
+  accents and word boundaries. Results replace the sections while the field
+  holds words, as one flat list: title matches first, then the reader's
+  sort, since a search is for one note and sections of one row each read
+  slower. Each row shows the line of its first match. Ink isn't searched.
+- **A note opened from a result shows where it matched.** `ContentView`
+  takes the search as the selection changes, not live, so typing in the
+  field doesn't redraw the note under the list; `PageView.reveal` waits for
+  the first layout, lays out down to the first match (as scrolling there
+  would), scrolls it a quarter of the way down, and highlights every match
+  through the text view's own find decorations (`decorate(foundTextRange:)`),
+  which sit on the text at any zoom. The highlights go at the first edit.
+- **Find within a note is UIKit's** (`isFindInteractionEnabled`): ⌘F, or
+  the header's magnifying glass, which switches to text mode first, since
+  the text takes no selection while ink has the page.
+
+Pinning, sorting, note info and search needed no model change: the pins
 (`Page.isPinned`, `Folder.isPinned`) came in with folders.
 
 ## The model and its versions

@@ -59,6 +59,10 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// The reader's zoom, relative to fitting the page's width to the area.
     private(set) var zoom: CGFloat = 1
 
+    /// A search result's matches, waiting for the note's first layout: the
+    /// first to scroll to, and all of them to highlight.
+    private var pendingReveal: (first: NSRange, all: [NSRange])?
+
     /// The scale the page is drawn at right now.
     private(set) var displayScale: CGFloat = 1
 
@@ -308,6 +312,42 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         if pinch.state != .changed {
             matchRenderingScale()
         }
+        if let reveal = pendingReveal, textView.bounds.height > 0 {
+            pendingReveal = nil
+            // After this layout pass rather than inside it.
+            DispatchQueue.main.async { [weak self] in self?.show(reveal) }
+        }
+    }
+
+    // MARK: Search
+
+    /// Shows a search result once the note is laid out: scrolled so the
+    /// first match sits near the top, and every match highlighted until the
+    /// text changes.
+    func reveal(_ first: NSRange, highlighting all: [NSRange]) {
+        pendingReveal = (first, all)
+    }
+
+    private func show(_ reveal: (first: NSRange, all: [NSRange])) {
+        guard let manager = textView.textLayoutManager,
+              let content = manager.textContentManager,
+              let match = content.location(content.documentRange.location, offsetBy: reveal.first.location),
+              let above = NSTextRange(location: content.documentRange.location, end: match)
+        else { return }
+
+        // Lay out down to the match, the way scrolling there by hand would,
+        // so its line is placed below every page break above it. Not the
+        // whole note: what's below can wait for the reader to get there.
+        manager.ensureLayout(for: above)
+        textView.setNeedsLayout()
+        textView.layoutIfNeeded()
+
+        if let top = lineTop(atCharacter: reveal.first.location) {
+            // A quarter of the way down, so the lines leading up to the match
+            // show too.
+            textView.contentOffset.y = clampedOffset(top - textView.bounds.height / 4)
+        }
+        textView.highlightSearchMatches(reveal.all, current: reveal.first)
     }
 
     // MARK: Pages

@@ -36,6 +36,36 @@ final class DocumentUITextView: UITextView {
     /// the same reason `layoutObservers` is.
     var blankLineLayout: BlankLineLayout?
 
+    // MARK: Search matches
+
+    /// Whether a search result's matches are highlighted. Zeroed memory is
+    /// `false` (see `layoutObservers`).
+    private(set) var showsSearchMatches = false
+
+    /// Highlights a search result's matches, `current` the most strongly.
+    ///
+    /// Drawn the way the find bar draws its matches, through this view's own
+    /// find decorations, so they sit on the text at any zoom and in any view
+    /// mode without laying anything out again.
+    func highlightSearchMatches(_ ranges: [NSRange], current: NSRange) {
+        for range in ranges {
+            guard let start = position(from: beginningOfDocument, offset: range.location),
+                  let end = position(from: start, offset: range.length),
+                  let match = textRange(from: start, to: end)
+            else { continue }
+            decorate(foundTextRange: match, document: nil, usingStyle: range == current ? .highlighted : .found)
+            showsSearchMatches = true
+        }
+    }
+
+    /// Takes a search result's highlights away. Only those: while nothing
+    /// has been highlighted, this leaves the find bar's own alone.
+    func clearSearchHighlights() {
+        guard showsSearchMatches else { return }
+        showsSearchMatches = false
+        clearAllDecoratedFoundText()
+    }
+
     // MARK: Blank lines
 
     /// Where and when the last touch landed on this view, for
