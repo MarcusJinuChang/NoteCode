@@ -28,7 +28,8 @@ drawn at the screen's density. 24 pull requests, all merged.
   it. Always light, on white paper, whatever the device's appearance. Text
   stays text, so it can be searched and selected in the PDF; ink goes on as
   a picture at 288 dots per inch, since PaperKit draws only into bitmaps.
-  Not yet built or tested on the Mac.
+  Builds for iPad and Mac, and 486 tests pass; not yet checked in the
+  simulator or on the iPad.
 - **Note info** (3 Oct, in review): Get Info, in a note's long-press menu
   in the list, or the info button in an open note's header, shows when the
   note was made and last changed, its folder and orientation, its words,
