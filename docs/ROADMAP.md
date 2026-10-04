@@ -29,7 +29,8 @@ drawn at the screen's density. 24 pull requests, all merged.
   be drawn. The note remembers it: a new model version, 6, with migration
   tests from version 5. Locked notes show a small lock in the list. Locking
   isn't an edit, so the date stays. Not the Face ID kind, which is "Note
-  locking" in Later.
+  locking" in Later. Builds for iPad and Mac, and 486 tests pass; not yet
+  checked in the simulator or on the iPad.
 - **Note info** (3 Oct, in review): Get Info, in a note's long-press menu
   in the list, or the info button in an open note's header, shows when the
   note was made and last changed, its folder and orientation, its words,
