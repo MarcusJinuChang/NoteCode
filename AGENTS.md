@@ -365,6 +365,23 @@ Laid out from the 12 September mockup.
   can't be subclassed, so `DrawingCanvas` is the view between them and vends
   its own; `NoteEditor` routes the hotbar's arrows to the stack the mode uses.
   Ink's stack is cleared whenever the page re-places ink for a mode switch.
+- **Text lock** (4 Oct). The lock beside note info in the header, or Lock
+  Text in the list's note menu, sets `Page.isTextLocked`: the text and title
+  can be read, selected and copied, but not changed. Read-only rather than
+  hidden behind Face ID, which is "Note locking" in Later. It belongs to the
+  note, so it lasts until unlocked, and like pinning it isn't an edit.
+  - It is one more input to `EditorMode.apply`, which already sets
+    `isEditable` and `isSelectable` per mode. Set anywhere else, the next
+    switch back to text would undo it. Text mode, locked: selectable, not
+    editable, keyboard away, and no keyboard back from ink either. Ink
+    mode is the same locked or not, so a locked note can still be drawn on.
+  - `NoteEditor` keeps a copy (`setTextLocked`) and applies it in `attach`,
+    so a lock set before the page exists still lands. Formatting does
+    nothing while locked, and text mode's undo arrows stand down, since
+    undoing typing would change locked text. Ink keeps its undo.
+  - Unlocking doesn't raise the keyboard: the reader was reading.
+  - The title is shown as plain text while locked, not a disabled field,
+    which would grey it. The Mac's stand-in editor is simply disabled.
 
 ## Organising notes
 
@@ -437,14 +454,20 @@ else says `Page` and `Folder`, which are typealiases for the current version.
   nothing `.unique`.
 - **Versions 1 to 4 are every shape a build wrote before versions** (15 Aug,
   11 Sep, 13 Sep, 23 Sep), recovered from the history of Page.swift; version
-  5 adds folders. With only the 23 Sep shape, stores last opened by a build
-  from before 23 Sep failed — `.externalStorage` changes the entity's shape
-  without changing a column (measured 3 Oct on copies of the simulators'
-  stores). `SchemaMigrationTests` writes a store in each shape.
-- **Older builds don't know version 5.** A build from before 3 Oct opens the
-  store without versions and would likely migrate it back to its own shape,
-  dropping folders and pins. Don't run an older branch on a device whose
-  notes are filed.
+  5 adds folders, and version 6 the text lock (4 Oct). With only the 23 Sep
+  shape, stores last opened by a build from before 23 Sep failed —
+  `.externalStorage` changes the entity's shape without changing a column
+  (measured 3 Oct on copies of the simulators' stores). `SchemaMigrationTests`
+  writes a store in each shape, version 5 included.
+- **Version 5 is frozen in NoteSchema.swift** (4 Oct), like 1 to 4, and the
+  live classes in Page.swift and Folder.swift are version 6's. `Folder` didn't
+  change, but a version lists its own classes, so it moved up with `Page`.
+- **Older builds don't know the newest version.** A build from before 3 Oct
+  opens the store without versions and would likely migrate it back to its
+  own shape, dropping folders and pins. A build with version 5 but not 6
+  may drop text locks the same way, or fail to open the store and show no
+  notes, with the file left as it was; neither is measured. Don't run an
+  older branch on a device whose notes use what it doesn't know.
 
 ## Build/test
 

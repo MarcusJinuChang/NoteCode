@@ -6,7 +6,7 @@
 import Foundation
 import SwiftData
 
-extension NoteSchemaV5 {
+extension NoteSchemaV6 {
 
     @Model
     final class Page {
@@ -53,6 +53,15 @@ extension NoteSchemaV5 {
 
         /// Whether the note is pinned to the top of the list.
         var isPinned: Bool = false
+
+        /// Whether the note's text is locked: it can be read, selected and
+        /// copied, but not typed into, and tapping it brings up no keyboard.
+        /// For reading old notes without changing them by accident. Ink is
+        /// left alone, so a locked note can still be drawn on.
+        ///
+        /// Part of the note, not the device, so it stays locked until it's
+        /// unlocked. Like pinning, locking isn't an edit and keeps the date.
+        var isTextLocked: Bool = false
 
         init(title: String = "Untitled", content: String = "", drawingData: Data = Data(), createdAt: Date = .now) {
             self.title = title

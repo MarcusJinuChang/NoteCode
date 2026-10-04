@@ -98,6 +98,11 @@ struct PageDetailView: View {
         .onChange(of: page.title) { page.modifiedAt = .now }
         .onChange(of: page.content) { page.modifiedAt = .now }
 #if canImport(UIKit)
+        // Before the text view exists as well as after: the editor keeps
+        // the setting and applies it when the page attaches.
+        .onChange(of: page.isTextLocked, initial: true) { _, locked in
+            editor.setTextLocked(locked)
+        }
         // Ink drawn just before leaving would otherwise wait out the pause
         // after the page is gone.
         .onDisappear { [inkSaver] in
@@ -145,6 +150,15 @@ struct PageDetailView: View {
                     Label("Note Info", systemImage: "info.circle")
                 }
 
+                Button {
+                    page.isTextLocked.toggle()
+                } label: {
+                    Label(
+                        page.isTextLocked ? "Unlock Text" : "Lock Text",
+                        systemImage: page.isTextLocked ? "lock.fill" : "lock.open"
+                    )
+                }
+
                 // Sign in with Apple lands with the App Store release. The
                 // button holds its place so the header doesn't reshuffle then.
                 Button {} label: {
@@ -156,9 +170,21 @@ struct PageDetailView: View {
             .font(.title3)
             .buttonStyle(.borderless)
 
-            TextField("Title", text: $page.title)
-                .font(.largeTitle.bold())
-                .textFieldStyle(.plain)
+            // The title is text too, so it locks with the rest. Shown as
+            // plain text rather than a disabled field, which would grey it.
+            Group {
+                if page.isTextLocked {
+                    // An empty title shows the field's placeholder, as it
+                    // would unlocked.
+                    Text(page.title.isEmpty ? "Title" : page.title)
+                        .foregroundStyle(page.title.isEmpty ? .tertiary : .primary)
+                        .lineLimit(1)
+                } else {
+                    TextField("Title", text: $page.title)
+                        .textFieldStyle(.plain)
+                }
+            }
+            .font(.largeTitle.bold())
         }
         .padding(.horizontal, 24)
         .padding(.top, 8)
@@ -279,6 +305,7 @@ struct PageDetailView: View {
         TextEditor(text: $page.content)
             .font(.body)
             .padding(.horizontal, 8)
+            .disabled(page.isTextLocked)
     }
 #endif
 }

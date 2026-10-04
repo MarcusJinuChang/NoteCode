@@ -48,11 +48,23 @@ extension EditorMode {
     /// recognisers are set up once, in `DrawingCanvas`. What moves per mode is
     /// who accepts touches at all.
     ///
-    /// - Parameter saved: what the previous call returned.
+    /// The note's text lock joins it for the same reason: it decides two of
+    /// the same settings, and a lock applied anywhere else would be undone
+    /// by the next switch to text.
+    ///
+    /// - Parameters:
+    ///   - saved: what the previous call returned.
+    ///   - textLocked: whether the note's text is locked. Text mode then
+    ///     reads rather than edits; ink mode is the same either way.
     /// - Returns: what to pass next time. Entering ink captures a session and
     ///   returning to text spends it.
     @discardableResult
-    func apply(to textView: UITextView, canvas: DrawingCanvas? = nil, saved: TextSession?) -> TextSession? {
+    func apply(
+        to textView: UITextView,
+        canvas: DrawingCanvas? = nil,
+        saved: TextSession?,
+        textLocked: Bool = false
+    ) -> TextSession? {
         // Not `isHidden`: both layers stay visible in both modes, and only
         // one of them accepts touches.
         canvas?.isUserInteractionEnabled = self == .ink
@@ -73,12 +85,19 @@ extension EditorMode {
             return session
 
         case .text:
+            // Locked, the keyboard goes before editing does, as in ink.
+            if textLocked {
+                textView.resignFirstResponder()
+            }
+            // Selectable even when locked: a locked note is for reading, and
+            // reading includes selecting a line to copy or look up.
             textView.isSelectable = true
-            textView.isEditable = true
+            textView.isEditable = !textLocked
 
             // Someone who was reading, not typing, shouldn't be handed a
-            // keyboard for having drawn something.
-            if saved?.wasEditing == true {
+            // keyboard for having drawn something. Nor should anyone whose
+            // text is locked: there is nothing it could type.
+            if saved?.wasEditing == true, !textLocked {
                 textView.becomeFirstResponder()
             }
             return nil

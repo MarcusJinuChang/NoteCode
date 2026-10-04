@@ -6,7 +6,7 @@
 import Foundation
 import SwiftData
 
-extension NoteSchemaV5 {
+extension NoteSchemaV6 {
 
     /// A group of notes in the list, such as one class's.
     ///

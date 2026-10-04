@@ -97,7 +97,10 @@ struct Hotbar: View {
         // would slide the undo arrows and the toggle sideways, right out
         // from under the finger that just pressed it.
         ZStack(alignment: dock.isVertical ? .top : .leading) {
+            // Greyed out while the text is locked: still where the hand
+            // expects them, but plainly unavailable.
             stack { textTools }
+                .disabled(editor.isTextLocked)
                 .hotbarLayer(isShowing: editor.mode == .text)
             stack { inkTools }
                 .hotbarLayer(isShowing: editor.mode == .ink)
