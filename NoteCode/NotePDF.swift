@@ -26,9 +26,10 @@ import UIKit
 /// collection, so `.label` and the code panels resolve to their light
 /// colours even when the device is dark.
 ///
-/// **Vector.** Text is drawn by TextKit straight into the PDF's context, so
-/// it stays selectable and sharp at any zoom; ink is drawn by PaperKit into
-/// the same context.
+/// **Text stays text.** TextKit draws it straight into the PDF's context,
+/// so it can be searched and selected and is sharp at any zoom. Ink goes
+/// on as a picture at print resolution, since PaperKit draws only into
+/// bitmaps — see `drawInk`.
 enum NotePDF {
 
     /// What's needed to draw a note.
@@ -92,8 +93,17 @@ enum NotePDF {
         return data as Data
     }
 
+    /// Pixels per page point for ink on paper: 288 dots per inch.
+    static let inkPixelsPerPagePoint: CGFloat = 3
+
     /// Draws the ink on one sheet, into a context whose origin is the
     /// sheet's top left, in page points.
+    ///
+    /// **As a picture, at print resolution.** PaperKit draws only into a
+    /// bitmap context. Handed the PDF's own context, it drew nothing and
+    /// logged "CGBitmapContextGetColorSpace: invalid context" (simulator,
+    /// 4 October). So the ink is drawn into a bitmap at 288 dots per inch,
+    /// cropped to where the sheet has ink, and that goes on the page.
     ///
     /// Only the sheet's own elements, moved to the sheet's origin, in a
     /// markup the sheet's size. Drawing all of a long note's ink for every
@@ -103,22 +113,58 @@ enum NotePDF {
         let toSheet = CGAffineTransform(translationX: -sheet.minX, y: -sheet.minY)
 
         var elements = MarkupOrderedSet()
-        var count = 0
+        var inked = CGRect.null
         for element in ink.subelements where element.renderFrame.intersects(sheet) {
             var element = element
             element.applyTransform(toSheet)
+            inked = inked.union(element.renderFrame)
             elements.append(element)
-            count += 1
         }
-        guard count > 0 else { return }
+        // A little room around the frames, for a stroke's soft edge.
+        let area = inked.insetBy(dx: -4, dy: -4).intersection(page).integral
+        guard !area.isNull, !area.isEmpty else { return }
 
         var markup = PaperMarkup(bounds: page)
         markup.subelements = elements
+        guard let image = await bitmap(of: markup, in: page, cropping: area) else { return }
 
         context.saveGState()
         context.clip(to: page)
-        await markup.draw(in: context, frame: page)
+        UIGraphicsPushContext(context)
+        // UIKit draws the image the right way up in a context flipped the
+        // way this one is.
+        UIImage(cgImage: image).draw(in: area)
+        UIGraphicsPopContext()
         context.restoreGState()
+    }
+
+    /// The part of `markup` inside `area`, drawn at print resolution, with
+    /// a transparent background.
+    ///
+    /// - Parameter page: the frame the markup is drawn into, in page points.
+    private static func bitmap(of markup: PaperMarkup, in page: CGRect, cropping area: CGRect) async -> CGImage? {
+        let scale = inkPixelsPerPagePoint
+        let width = Int((area.width * scale).rounded(.up))
+        let height = Int((area.height * scale).rounded(.up))
+        guard width > 0, height > 0,
+              let context = CGContext(
+                data: nil,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: CGColorSpace(name: CGColorSpace.displayP3) ?? CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              )
+        else { return nil }
+
+        // UIKit's way up, in page points, with `area`'s corner at the origin.
+        context.translateBy(x: 0, y: CGFloat(height))
+        context.scaleBy(x: scale, y: -scale)
+        context.translateBy(x: -area.minX, y: -area.minY)
+
+        await markup.draw(in: context, frame: page)
+        return context.makeImage()
     }
 
     // MARK: Files

@@ -333,10 +333,13 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   panel's overhang stays behind the line above, as it does on screen. A
   paragraph split by a page break spans both pages, and drawing it whole
   on each, clipped, would put its text in the PDF twice: once off the
-  page, where a search or a copy still finds it. Ink is drawn a sheet's
-  elements at a time, moved to the sheet's origin, by
-  `PaperMarkup.draw(in:frame:)`: drawing all of a long note's ink on every
-  page would cost it once per page.
+  page, where a search or a copy still finds it.
+- **Ink prints as a picture, at 288 dots per inch** (`NotePDF.drawInk`).
+  `PaperMarkup.draw(in:frame:)` draws only into a bitmap context: handed
+  the PDF's, it drew nothing and logged "CGBitmapContextGetColorSpace:
+  invalid context" (4 Oct). So each sheet's elements, moved to the sheet's
+  origin, are drawn into a bitmap cropped to where the sheet has ink, and
+  that goes on the page. Text stays text.
 
 ## The note page
 

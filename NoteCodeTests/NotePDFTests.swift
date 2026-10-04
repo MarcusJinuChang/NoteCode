@@ -183,27 +183,38 @@ struct NotePDFTests {
         #expect(first.darkest(in: stroke) > 0.95)
     }
 
-    @Test("Ink stays vector in the PDF, not a picture of itself")
-    func inkIsVector() async throws {
+    @Test("Ink goes on the page as a picture at print resolution, and text doesn't")
+    func inkResolution() async throws {
         let layout = PageLayout(orientation: .portrait, mode: .print)
-        let ink = TestInk.markup(strokesAt: [layout.sheet(ofPage: 0).minY + 300])
+        let ink = TestInk.markup(strokesAt: [layout.sheet(ofPage: 1).minY + 300])
+        let stroke = try #require(ink.subelements.first).renderFrame
 
-        let pdf = try await Self.pdf("Ink below", ink: ink)
-        let page = try #require(pdf.page(at: 0)?.pageRef)
-        #expect(Self.imageCount(on: page) == 0)
+        let pdf = try await Self.pdf("Text on the first page, ink on the second", ink: ink)
+        try #require(pdf.pageCount == 2)
+        let textPage = try #require(pdf.page(at: 0)?.pageRef)
+        let inkPage = try #require(pdf.page(at: 1)?.pageRef)
+
+        #expect(Self.imageWidths(on: textPage).isEmpty)
+        // Cropped to the stroke, give or take its edges, at three pixels a
+        // page point: 288 dots per inch.
+        let widths = Self.imageWidths(on: inkPage)
+        try #require(widths.count == 1, "images on the inked page: \(widths)")
+        let expected = Int(stroke.width * NotePDF.inkPixelsPerPagePoint)
+        #expect(widths[0] >= expected && widths[0] <= expected + 40, "image \(widths[0]) pixels wide for a stroke \(stroke.width) points wide")
     }
 
-    /// Images a PDF page draws, including inside its form objects.
-    private static func imageCount(on page: CGPDFPage) -> Int {
-        guard let dictionary = page.dictionary else { return 0 }
+    /// The pixel width of each image a PDF page draws, including inside its
+    /// form objects.
+    private static func imageWidths(on page: CGPDFPage) -> [Int] {
+        guard let dictionary = page.dictionary else { return [] }
         var resources: CGPDFDictionaryRef?
-        guard CGPDFDictionaryGetDictionary(dictionary, "Resources", &resources), let resources else { return 0 }
-        return imageCount(in: resources)
+        guard CGPDFDictionaryGetDictionary(dictionary, "Resources", &resources), let resources else { return [] }
+        return imageWidths(in: resources)
     }
 
-    private static func imageCount(in resources: CGPDFDictionaryRef) -> Int {
+    private static func imageWidths(in resources: CGPDFDictionaryRef) -> [Int] {
         var objects: CGPDFDictionaryRef?
-        guard CGPDFDictionaryGetDictionary(resources, "XObject", &objects), let objects else { return 0 }
+        guard CGPDFDictionaryGetDictionary(resources, "XObject", &objects), let objects else { return [] }
 
         var streams: [CGPDFStreamRef] = []
         CGPDFDictionaryApplyBlock(objects, { _, object, _ in
@@ -214,24 +225,26 @@ struct NotePDFTests {
             return true
         }, nil)
 
-        var count = 0
+        var widths: [Int] = []
         for stream in streams {
             guard let dictionary = CGPDFStreamGetDictionary(stream) else { continue }
             var subtype: UnsafePointer<CChar>?
             guard CGPDFDictionaryGetName(dictionary, "Subtype", &subtype), let subtype else { continue }
             switch String(cString: subtype) {
             case "Image":
-                count += 1
+                var width: CGPDFInteger = 0
+                _ = CGPDFDictionaryGetInteger(dictionary, "Width", &width)
+                widths.append(width)
             case "Form":
                 var nested: CGPDFDictionaryRef?
                 if CGPDFDictionaryGetDictionary(dictionary, "Resources", &nested), let nested {
-                    count += imageCount(in: nested)
+                    widths += imageWidths(in: nested)
                 }
             default:
                 break
             }
         }
-        return count
+        return widths
     }
 
     // MARK: Files

@@ -26,8 +26,9 @@ drawn at the screen's density. 24 pull requests, all merged.
   exactly as print layout shows them, ink, code panels and syntax colours
   included, and opens the share sheet to print it, save it to Files or send
   it. Always light, on white paper, whatever the device's appearance. Text
-  stays text, so it can be searched and selected in the PDF. Not yet built
-  or tested on the Mac.
+  stays text, so it can be searched and selected in the PDF; ink goes on as
+  a picture at 288 dots per inch, since PaperKit draws only into bitmaps.
+  Not yet built or tested on the Mac.
 - **Note info** (3 Oct, in review): Get Info, in a note's long-press menu
   in the list, or the info button in an open note's header, shows when the
   note was made and last changed, its folder and orientation, its words,
