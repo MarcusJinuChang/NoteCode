@@ -344,6 +344,13 @@ struct DocumentTextView: UIViewRepresentable {
             }
         }
 
+        /// Returns once the colouring pass in flight, if any, has painted.
+        ///
+        /// Printing waits on this: paper gets no second chance to be coloured.
+        func highlightingFinished() async {
+            await highlightTask?.value
+        }
+
         /// Re-colours the code when the view switches between light and dark.
         ///
         /// Nothing else would: highlighting only runs after an edit, so a note

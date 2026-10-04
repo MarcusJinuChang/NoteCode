@@ -313,10 +313,30 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   alternative is pushing paragraphs with paragraph spacing, computed lazily
   — whole paragraphs rather than lines, and it has to coexist with the
   styler's own paragraph styles.
-- **Printing** isn't built, but print layout is the printed page exactly:
-  `PageLayout.sheet(ofPage:)` in page points, times 72/96 for the printer. A
-  `UIPrintPageRenderer` drawing each sheet's rect of the text view, code panels
-  and ink included, is what's left.
+- **Printing goes through a PDF** (4 Oct). The share button in the note's
+  header makes one and opens the share sheet, where Print, Save to Files
+  and the rest are; there's no print button of its own. A PDF page is a
+  sheet of print layout, `PageLayout.sheet(ofPage:)` in page points times
+  72/96: US Letter.
+- **The PDF is laid out afresh, never read off the screen** (`NotePDF`,
+  `PrintedNote`). TextKit only lays out what's on screen, so the page being
+  read has nothing to draw for the rest. `PrintedNote` is a second text
+  view from `makeConfiguredTextView`, styled by its own
+  `DocumentTextView.Coordinator` so code gets its fragments and colours,
+  in print layout, forced light: syntax colours come from the light theme,
+  and drawing runs under a light trait collection so `.label` and the code
+  panels are their light colours on a dark device. It starts from the open
+  note's page count and adds page breaks until no text runs past the last.
+  Ink is `PageView.ink`, so strokes not yet saved print too.
+- **A sheet is drawn a line at a time** (`NSTextLineFragment.draw`), with
+  code panels through `CodeBlockLayoutFragment.drawPanel`, bottom up so a
+  panel's overhang stays behind the line above, as it does on screen. A
+  paragraph split by a page break spans both pages, and drawing it whole
+  on each, clipped, would put its text in the PDF twice: once off the
+  page, where a search or a copy still finds it. Ink is drawn a sheet's
+  elements at a time, moved to the sheet's origin, by
+  `PaperMarkup.draw(in:frame:)`: drawing all of a long note's ink on every
+  page would cost it once per page.
 
 ## The note page
 
@@ -324,8 +344,8 @@ Laid out from the 12 September mockup.
 
 - **Header.** ☰ opens the note list, which slides over the page
   (`.prominentDetail`) instead of narrowing it, so opening the list never
-  re-wraps the note. The title sits below; the run destination, note info
-  and account icons sit on the right. Account is a placeholder until Sign
+  re-wraps the note. The title sits below; the run destination, share,
+  note info and account icons sit on the right. Account is a placeholder until Sign
   in with Apple.
 - **Hotbar.** One bar, dragged by its grip to the left, bottom or right edge,
   snapping to whichever is nearest (`HotbarDock.nearest`). Undo, redo and the

@@ -139,6 +139,10 @@ struct PageDetailView: View {
                     appDefault: $appDefaultDestination
                 )
 
+#if canImport(UIKit)
+                NoteShareButton(editor: editor, title: page.title)
+#endif
+
                 Button {
                     showsInfo = true
                 } label: {

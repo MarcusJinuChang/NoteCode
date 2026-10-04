@@ -272,7 +272,9 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
         return Self.panelRuns(frame: frame, lines: lines, breaks: breaks, position: position)
     }
 
-    private func drawPanel(at point: CGPoint, in context: CGContext) {
+    /// Paints the panel. Called from `draw(at:in:)`, and by printing, which
+    /// draws a page's lines one at a time rather than the whole fragment.
+    func drawPanel(at point: CGPoint, in context: CGContext) {
         let frame = layoutFragmentFrame
         let runs = laidOutPanelRuns
         let scale = Self.pixelScale(of: context)
