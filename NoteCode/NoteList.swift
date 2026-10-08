@@ -161,6 +161,10 @@ struct NoteList: View {
                 Text(page.title)
                     .font(.headline)
                 HStack(spacing: 4) {
+                    if page.isTextLocked {
+                        Image(systemName: "lock.fill")
+                            .accessibilityLabel("Text Locked")
+                    }
                     if showsFolder, let folder = page.folder {
                         Text(folder.name)
                         Text("·")
@@ -316,6 +320,13 @@ struct NoteList: View {
     private func noteMenu(_ page: Page) -> some View {
         Button(page.isPinned ? "Unpin" : "Pin", systemImage: page.isPinned ? "pin.slash" : "pin") {
             withAnimation { page.isPinned.toggle() }
+        }
+        // Like pinning, not an edit: the date stays.
+        Button(
+            page.isTextLocked ? "Unlock Text" : "Lock Text",
+            systemImage: page.isTextLocked ? "lock.open" : "lock"
+        ) {
+            page.isTextLocked.toggle()
         }
         Menu("Move to Folder", systemImage: "folder") {
             ForEach(NoteListSections(pages: [], folders: folders).allFolders) { folder in

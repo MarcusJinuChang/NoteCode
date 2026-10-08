@@ -38,6 +38,16 @@ drawn at the screen's density. 24 pull requests, all merged.
   a picture at 288 dots per inch, since PaperKit draws only into bitmaps.
   Builds for iPad and Mac, and 486 tests pass; not yet checked in the
   simulator or on the iPad.
+- **Text lock** (4 Oct, in review): the lock in an open note's header, or
+  Lock Text in its long-press menu in the list, makes the note's text and
+  title read-only until it's unlocked. Tapping it brings up no keyboard,
+  the formatting buttons grey out and undo stands down, but text can still
+  be selected and copied, code blocks still run and copy, and ink can still
+  be drawn. The note remembers it: a new model version, 6, with migration
+  tests from version 5. Locked notes show a small lock in the list. Locking
+  isn't an edit, so the date stays. Not the Face ID kind, which is "Note
+  locking" in Later. Builds for iPad and Mac, and 486 tests pass; not yet
+  checked in the simulator or on the iPad.
 - **Note info** (3 Oct, in review): Get Info, in a note's long-press menu
   in the list, or the info button in an open note's header, shows when the
   note was made and last changed, its folder and orientation, its words,
@@ -135,7 +145,8 @@ code already has something to say.
    side. The text view scrolls itself, and only vertically: `UITextView`
    forces its content width back to its own (measured 12 Sep). Side-by-side
    pages changes who owns scrolling rather than adding a setting.
-2. **Text locking.**
+2. **Text locking.** Built 4 Oct, in review: a per-note read-only lock on
+   the text, kept with the note. Ink stays drawable.
 3. **Infinite canvas.** Notes are Letter pages, and ink is stored in page
    coordinates. An unbounded canvas is probably a second kind of note rather
    than a mode of this one.

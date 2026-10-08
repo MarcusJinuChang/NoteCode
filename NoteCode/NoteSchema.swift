@@ -10,12 +10,12 @@ import SwiftData
 
 /// The model the app uses now. Everything outside this file says `Page` and
 /// `Folder` and never names a version.
-typealias Page = NoteSchemaV5.Page
-typealias Folder = NoteSchemaV5.Folder
+typealias Page = NoteSchemaV6.Page
+typealias Folder = NoteSchemaV6.Folder
 
 /// The store's model as it stands, for every container the app opens.
 enum NoteSchema {
-    static var current: Schema { Schema(versionedSchema: NoteSchemaV5.self) }
+    static var current: Schema { Schema(versionedSchema: NoteSchemaV6.self) }
 }
 
 /// How a store written by an earlier version reaches the current one.
@@ -39,7 +39,10 @@ enum NoteSchema {
 /// in-memory store and says so, and the file on disk is left as it was.
 nonisolated enum NoteMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        [NoteSchemaV1.self, NoteSchemaV2.self, NoteSchemaV3.self, NoteSchemaV4.self, NoteSchemaV5.self]
+        [
+            NoteSchemaV1.self, NoteSchemaV2.self, NoteSchemaV3.self, NoteSchemaV4.self,
+            NoteSchemaV5.self, NoteSchemaV6.self,
+        ]
     }
 
     static var stages: [MigrationStage] {
@@ -51,25 +54,82 @@ nonisolated enum NoteMigrationPlan: SchemaMigrationPlan {
             .lightweight(fromVersion: NoteSchemaV2.self, toVersion: NoteSchemaV3.self),
             .lightweight(fromVersion: NoteSchemaV3.self, toVersion: NoteSchemaV4.self),
             .lightweight(fromVersion: NoteSchemaV4.self, toVersion: NoteSchemaV5.self),
+            .lightweight(fromVersion: NoteSchemaV5.self, toVersion: NoteSchemaV6.self),
         ]
     }
 }
 
-// MARK: - Version 5: folders (3 October 2026)
+// MARK: - Version 6: text lock (4 October 2026)
+
+/// A lock on a note's text, so it can be read without being changed
+/// (`Page.isTextLocked`).
+///
+/// The models themselves are in Page.swift and Folder.swift. `Folder` is
+/// unchanged, but each version names its own classes, so it moves up too.
+nonisolated enum NoteSchemaV6: VersionedSchema {
+    static var versionIdentifier: Schema.Version { Schema.Version(6, 0, 0) }
+
+    static var models: [any PersistentModel.Type] {
+        [Page.self, Folder.self]
+    }
+}
+
+// MARK: - Version 5: folders (3 October 2026), frozen
 
 /// Folders, and a pin on notes and folders. The first version written as a
-/// version.
+/// version, and in every store opened by a build from 3 October on.
 ///
 /// Shaped for iCloud sync, which is deferred but will need it: CloudKit wants
 /// every relationship optional, every attribute optional or with a default,
 /// and nothing unique. Meeting that now saves a second migration then.
 ///
-/// The models themselves are in Page.swift and Folder.swift.
+/// A copy of the models as they were, like versions 1 to 4 below: same
+/// names, types, defaults, external storage and relationship. Inside this
+/// enum, `Page` and `Folder` are these copies, not the current models.
 nonisolated enum NoteSchemaV5: VersionedSchema {
     static var versionIdentifier: Schema.Version { Schema.Version(5, 0, 0) }
 
     static var models: [any PersistentModel.Type] {
         [Page.self, Folder.self]
+    }
+
+    @Model
+    final class Page {
+        var title: String = "Untitled"
+        var content: String = ""
+        @Attribute(.externalStorage) var drawingData: Data = Data()
+        var createdAt: Date = Date.now
+        var modifiedAt: Date = Date.now
+        var runDestination: String?
+        var pageOrientation: String?
+        var folder: Folder?
+        var isPinned: Bool = false
+
+        init(title: String = "Untitled", content: String = "", drawingData: Data = Data(), createdAt: Date = .now) {
+            self.title = title
+            self.content = content
+            self.drawingData = drawingData
+            self.createdAt = createdAt
+            self.modifiedAt = createdAt
+            self.runDestination = nil
+            self.pageOrientation = nil
+        }
+    }
+
+    @Model
+    final class Folder {
+        var name: String = ""
+        var createdAt: Date = Date.now
+        var isPinned: Bool = false
+        var runDestination: String?
+
+        @Relationship(deleteRule: .nullify, inverse: \Page.folder)
+        var pages: [Page]? = []
+
+        init(name: String, createdAt: Date = .now) {
+            self.name = name
+            self.createdAt = createdAt
+        }
     }
 }
 

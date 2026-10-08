@@ -12,8 +12,8 @@ import Testing
 ///
 /// Each test writes a store on disk with one of the shapes builds wrote
 /// before versions existed (`NoteSchemaV1` to `NoteSchemaV4`, opened without
-/// a version, the way those builds opened them), then opens it the way the
-/// app does now. A store that fails to migrate doesn't crash: `Storage` falls
+/// a version, the way those builds opened them), or with version 5, the
+/// first written as a version, then opens it the way the app does now. A store that fails to migrate doesn't crash: `Storage` falls
 /// back to memory, and the notes look gone. So these check `Storage` itself,
 /// not a container opened some other way.
 @Suite("Migrating the store")
@@ -114,7 +114,7 @@ struct SchemaMigrationTests {
         #expect(drawn.modifiedAt == Date(timeIntervalSince1970: 1_000))
 
         // What later versions add starts empty.
-        #expect(notes.allSatisfy { $0.folder == nil && !$0.isPinned })
+        #expect(notes.allSatisfy { $0.folder == nil && !$0.isPinned && !$0.isTextLocked })
         #expect(notes[1].drawingData.isEmpty)
         #expect(notes[1].orientation == .portrait)
     }
@@ -136,6 +136,85 @@ struct SchemaMigrationTests {
         #expect(drawn.runDestination == "godbolt")
         #expect(drawn.orientation == .landscape)
         #expect(drawn.modifiedAt == Date(timeIntervalSince1970: 2_000))
+    }
+
+    /// Writes a store the way a build from 3 October on did, with version 5:
+    /// one note filed, pinned and drawn on in a pinned folder, one plain.
+    private func writeVersionFiveStore() throws {
+        let schema = Schema(versionedSchema: NoteSchemaV5.self)
+        let container = try ModelContainer(
+            for: schema,
+            configurations: [ModelConfiguration(schema: schema, url: storeURL)]
+        )
+        let context = ModelContext(container)
+
+        let cs133 = NoteSchemaV5.Folder(name: "CS133", createdAt: Date(timeIntervalSince1970: 500))
+        cs133.isPinned = true
+        cs133.runDestination = "godbolt"
+        context.insert(cs133)
+
+        let drawn = NoteSchemaV5.Page(
+            title: "Lecture 1", content: Self.content, drawingData: Self.ink,
+            createdAt: Date(timeIntervalSince1970: 1_000)
+        )
+        drawn.pageOrientation = "landscape"
+        drawn.modifiedAt = Date(timeIntervalSince1970: 2_000)
+        drawn.isPinned = true
+        context.insert(drawn)
+        drawn.folder = cs133
+
+        context.insert(NoteSchemaV5.Page(title: "Plain", createdAt: Date(timeIntervalSince1970: 3_000)))
+        try context.save()
+    }
+
+    @Test("A store with folders opens with its notes, folders, pins and ink, and nothing locked")
+    func versionFiveStoreMigrates() throws {
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writeVersionFiveStore()
+
+        let storage = Storage.open(at: storeURL)
+
+        #expect(storage.reason == nil)
+        #expect(storage.isEphemeral == false)
+
+        let notes = try openedNotes(storage)
+        #expect(notes.map(\.title) == ["Lecture 1", "Plain"])
+
+        let drawn = try #require(notes.first)
+        #expect(drawn.content == Self.content)
+        #expect(drawn.drawingData == Self.ink)
+        #expect(drawn.orientation == .landscape)
+        #expect(drawn.modifiedAt == Date(timeIntervalSince1970: 2_000))
+        #expect(drawn.isPinned)
+
+        let folder = try #require(drawn.folder)
+        #expect(folder.name == "CS133")
+        #expect(folder.isPinned)
+        #expect(folder.runDestination == "godbolt")
+        #expect(folder.pages?.map(\.title) == ["Lecture 1"])
+
+        #expect(notes[1].folder == nil)
+        #expect(notes.allSatisfy { !$0.isTextLocked })
+    }
+
+    @Test("A note's text lock is still on after a relaunch")
+    func textLockSurvivesRelaunch() throws {
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writeVersionFiveStore()
+
+        do {
+            let storage = Storage.open(at: storeURL)
+            let container = try #require(storage.container)
+            let context = ModelContext(container)
+            let notes = try context.fetch(FetchDescriptor<Page>(sortBy: [SortDescriptor(\.createdAt)]))
+            notes[0].isTextLocked = true
+            try context.save()
+        }
+
+        let relaunched = try openedNotes(Storage.open(at: storeURL))
+        #expect(relaunched[0].isTextLocked)
+        #expect(!relaunched[1].isTextLocked)
+        #expect(relaunched[0].folder?.name == "CS133")
     }
 
     @Test("A migrated store keeps folders across a relaunch")

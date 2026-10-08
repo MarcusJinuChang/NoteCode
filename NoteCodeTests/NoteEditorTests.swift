@@ -27,7 +27,9 @@ struct NoteEditorTests {
         var canvas: DrawingCanvas { page.canvas }
         var coordinator: DocumentTextView.Coordinator!
 
-        init(_ text: String) {
+        /// - Parameter lockedFirst: locks the text before the editor has a
+        ///   text view, the way a locked note's page opens.
+        init(_ text: String, lockedFirst: Bool = false) {
             stored = text
             page = PageView(textView: textView)
             coordinator = DocumentTextView.Coordinator(
@@ -42,6 +44,9 @@ struct NoteEditorTests {
             window.makeKeyAndVisible()
             page.layoutIfNeeded()
 
+            if lockedFirst {
+                editor.setTextLocked(true)
+            }
             editor.attach(textView, canvas: canvas, page: page)
         }
 
@@ -86,6 +91,83 @@ struct NoteEditorTests {
         harness.editor.toggle(.bold)
 
         #expect(harness.textView.text == "a word b")
+    }
+
+    @Test("Formatting does nothing while the text is locked")
+    func noFormattingWhileLocked() {
+        let harness = Harness("a word b")
+        harness.textView.selectedRange = NSRange(location: 2, length: 4)
+
+        harness.editor.setTextLocked(true)
+        harness.editor.toggle(.bold)
+        harness.editor.insertCodeBlock(language: .cpp)
+
+        #expect(harness.textView.text == "a word b")
+        #expect(harness.stored == "a word b")
+    }
+
+    @Test("Locking puts the keyboard away, and unlocking doesn't bring it back")
+    func lockingPutsTheKeyboardAway() {
+        let harness = Harness("a word b")
+        harness.textView.becomeFirstResponder()
+
+        harness.editor.setTextLocked(true)
+        #expect(!harness.textView.isFirstResponder)
+        #expect(!harness.textView.isEditable)
+        #expect(harness.textView.isSelectable)
+
+        harness.editor.setTextLocked(false)
+        #expect(harness.textView.isEditable)
+        #expect(!harness.textView.isFirstResponder)
+    }
+
+    @Test("A note locked before its page exists opens locked")
+    func lockedBeforeAttach() {
+        let harness = Harness("a word b", lockedFirst: true)
+
+        #expect(harness.editor.isTextLocked)
+        #expect(!harness.textView.isEditable)
+    }
+
+    @Test("Switching modes keeps the text locked")
+    func lockSurvivesModeSwitch() {
+        let harness = Harness("a word b")
+        harness.editor.setTextLocked(true)
+
+        harness.editor.setMode(.ink)
+        harness.editor.setMode(.text)
+
+        #expect(!harness.textView.isEditable)
+        #expect(harness.textView.isSelectable)
+    }
+
+    @Test("Locked text has nothing to undo until it's unlocked, and ink keeps its undo")
+    func undoWhileLocked() throws {
+        let harness = Harness("a word b")
+        harness.textView.selectedRange = NSRange(location: 2, length: 4)
+        harness.editor.toggle(.bold)
+
+        harness.editor.setTextLocked(true)
+        // Something on the text view's stack for certain, whatever UIKit
+        // does with it as the keyboard goes: the arrows still leave it be.
+        let textUndo = try #require(harness.textView.undoManager)
+        textUndo.registerUndo(withTarget: harness.textView) { _ in }
+        harness.editor.refreshUndoState()
+        #expect(!harness.editor.canUndo)
+        harness.editor.undo()
+        #expect(harness.textView.text == "a **word** b")
+
+        // The lock is on text only: ink's own stack still works.
+        harness.editor.setMode(.ink)
+        harness.canvas.undoManager?.registerUndo(withTarget: harness.canvas) { _ in }
+        harness.editor.refreshUndoState()
+        #expect(harness.editor.canUndo)
+
+        harness.editor.setMode(.text)
+        #expect(!harness.editor.canUndo)
+
+        harness.editor.setTextLocked(false)
+        #expect(harness.editor.canUndo)
     }
 
     @Test("Switching to ink and back restores the caret")
