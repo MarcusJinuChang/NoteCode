@@ -286,6 +286,31 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   (`CanvasGeometry.printGutter`), so they read as paper rather than one slab
   with grey bars across it. Text is a little smaller there than in the
   continuous modes, which fit edge to edge.
+- **The page against its surround** (8 Oct, phase 2 of
+  `docs/ui-design-v2-implementation.md`). In every mode the page is
+  `systemBackground` and whatever isn't the page is `secondarySystemBackground`
+  (`PageView.pageColor`, `surroundColor`): `PageView` itself and the SwiftUI
+  area behind it (`PageDetailView.content`, so the hotbar's reserved strips
+  and the margins show it too) are the surround. In the continuous modes the
+  **text view paints the page column**, not a view of its own: the column is
+  exactly the text view's bounds, its background sits under the text, the
+  break decorations and the canvas (all its subviews), and it follows the
+  corner radius `placeOutline()` already sets. Print layout leaves the text
+  view clear, since its sheets carry the page colour and the surround has to
+  show between them. `placeOutline()` sets all of it, so a mode switch can't
+  leave one behind. Compressed paints its 24pt gap as a surround-coloured
+  band across the page's width (`PageDecorationView.gaps`, beneath the
+  dashed line); seamless's 1pt band is unchanged. The gap is drawn, not
+  excluded from touches: `isOnPage` still counts the continuous modes as one
+  surface, so a stroke can cross a break.
+  The tests render the page and read pixels, in both appearances
+  (`PageViewTests.pageAgainstSurround` and neighbours). **Set
+  `overrideUserInterfaceStyle` on the page view, not the test's window**: a
+  window made outside a scene ignores it when drawing, so the first version
+  rendered the simulator's appearance under both labels and its light cases
+  "passed" in dark. Checked in the simulator in light and dark, compressed,
+  at a page break; the 11-inch portrait, landscape notes and a keyboard up
+  weren't.
 - **Whole pages are enforced where TextKit sets the height.**
   `DocumentUITextView` overrides `contentSize` and rounds each height TextKit
   sets up to whole pages, through `PageView.noteHeight(forTextHeight:)`.

@@ -251,6 +251,11 @@ struct PageDetailView: View {
                 .padding(Self.hotbarMargin)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: dock.alignment)
         }
+        // The surround, behind the hotbar's reserved strips and the margins
+        // around the page view too: what isn't the page is the surround, not
+        // the window's own colour. Extends under the keyboard and home
+        // indicator, which the page layer ignores as well.
+        .background(Color(PageView.surroundColor))
         .coordinateSpace(.named(Hotbar.coordinateSpace))
         .onGeometryChange(for: CGSize.self) { $0.size } action: { pageSize = $0 }
         .onPencilDoubleTap { tap in

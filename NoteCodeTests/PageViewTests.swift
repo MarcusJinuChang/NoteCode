@@ -911,6 +911,147 @@ struct PageViewTests {
         #expect(harness.page.decorations.sheetFrames.isEmpty)
     }
 
+    // MARK: The page against its surround
+
+    /// A pixel of `view` as drawn, as sRGB bytes.
+    private static func pixel(of view: UIView, at point: CGPoint) throws -> [Int] {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        var drawn = false
+        let image = UIGraphicsImageRenderer(size: view.bounds.size, format: format).image { _ in
+            drawn = view.drawHierarchy(in: view.bounds, afterScreenUpdates: true)
+        }
+        try #require(drawn)
+        let cg = try #require(image.cgImage)
+        var bytes = [UInt8](repeating: 0, count: 4)
+        let context = try #require(CGContext(
+            data: &bytes, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        context.draw(cg, in: CGRect(x: -point.x.rounded(.down), y: -(CGFloat(cg.height) - point.y.rounded(.down) - 1), width: CGFloat(cg.width), height: CGFloat(cg.height)))
+        return bytes.prefix(3).map(Int.init)
+    }
+
+    /// What a dynamic colour is in an appearance, as sRGB bytes.
+    private static func bytes(_ color: UIColor, in style: UIUserInterfaceStyle) -> [Int] {
+        var (r, g, b, a) = (CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0))
+        color.resolvedColor(with: UITraitCollection(userInterfaceStyle: style)).getRed(&r, green: &g, blue: &b, alpha: &a)
+        return [r, g, b].map { Int(($0 * 255).rounded()) }
+    }
+
+    private static func near(_ a: [Int], _ b: [Int]) -> Bool {
+        zip(a, b).allSatisfy { abs($0 - $1) <= 2 }
+    }
+
+    @Test(
+        "Seamless and compressed show the page against the surround, either side of it",
+        arguments: [PageViewMode.seamless, .compressed], [UIUserInterfaceStyle.light, .dark]
+    )
+    func pageAgainstSurround(mode: PageViewMode, style: UIUserInterfaceStyle) throws {
+        // Wider than a page fits at 1.25x, so there is surround either side.
+        let harness = Harness(text: Self.severalPages, area: CGSize(width: 1300, height: 900), layout: PageLayout(mode: mode))
+        harness.page.overrideUserInterfaceStyle = style
+        harness.layOut()
+        let page = harness.page
+        let frame = page.textView.frame
+        try #require(frame.minX > 40)
+
+        // Beside the page, and inside it where there is no text: the margin.
+        let beside = try Self.pixel(of: page, at: CGPoint(x: frame.minX / 2, y: 450))
+        let marginX = frame.minX + 20 * page.displayScale
+        let onPage = try Self.pixel(of: page, at: CGPoint(x: marginX, y: 450))
+
+        #expect(Self.near(beside, Self.bytes(.secondarySystemBackground, in: style)), "beside: \(beside)")
+        #expect(Self.near(onPage, Self.bytes(.systemBackground, in: style)), "on the page: \(onPage)")
+        // The page's column runs the full height of the area, not just the
+        // note: the corners are the only part of it that gives way.
+        let below = try Self.pixel(of: page, at: CGPoint(x: marginX, y: 880))
+        #expect(Self.near(below, Self.bytes(.systemBackground, in: style)), "below: \(below)")
+    }
+
+    @Test("Print layout keeps the surround between its sheets and the page colour on them", arguments: [UIUserInterfaceStyle.light, .dark])
+    func printAgainstSurround(style: UIUserInterfaceStyle) throws {
+        let layout = PageLayout(mode: .print)
+        let harness = Harness(text: Self.severalPages, area: CGSize(width: 1300, height: 900), layout: layout)
+        harness.page.overrideUserInterfaceStyle = style
+        let page = harness.page
+        try #require(page.pageCount > 1)
+
+        // Scrolled so the gap between the first two sheets is on screen.
+        let gapY = (layout.sheet(ofPage: 0).maxY + layout.sheet(ofPage: 1).minY) / 2
+        page.textView.contentOffset.y = gapY - 300
+        harness.layOut()
+
+        let inGap = page.textView.convert(CGPoint(x: layout.pageSize.width / 2, y: gapY), to: page)
+        let onSheet = page.textView.convert(CGPoint(x: PageLayout.margin / 2, y: gapY + 100), to: page)
+
+        #expect(Self.near(try Self.pixel(of: page, at: inGap), Self.bytes(.secondarySystemBackground, in: style)))
+        #expect(Self.near(try Self.pixel(of: page, at: onSheet), Self.bytes(.systemBackground, in: style)))
+    }
+
+    @Test("Compressed layout's gap between pages is the surround across the page's width", arguments: [UIUserInterfaceStyle.light, .dark])
+    func compressedGapIsSurround(style: UIUserInterfaceStyle) throws {
+        let layout = PageLayout(mode: .compressed)
+        let harness = Harness(text: Self.severalPages, area: CGSize(width: 1300, height: 900), layout: layout)
+        harness.page.overrideUserInterfaceStyle = style
+        let page = harness.page
+        try #require(page.pageCount > 1)
+
+        // One gap per break, exactly where the text flows around.
+        #expect(page.decorations.gapFrames == (0..<(page.pageCount - 1)).map {
+            CGRect(x: 0, y: layout.bodyTop(ofPage: $0) + layout.bodyHeight, width: layout.pageSize.width, height: PageLayout.compressedGap)
+        })
+
+        let top = layout.bodyTop(ofPage: 0) + layout.bodyHeight
+        page.textView.contentOffset.y = top - 300
+        harness.layOut()
+
+        // Both ends of the gap, clear of the dashed line in its middle, and
+        // either side of the text's margin.
+        for x in [PageLayout.margin / 2, layout.pageSize.width / 2, layout.pageSize.width - PageLayout.margin / 2] {
+            for y in [top + 3, top + PageLayout.compressedGap - 3] {
+                let point = page.textView.convert(CGPoint(x: x, y: y), to: page)
+                let got = try Self.pixel(of: page, at: point)
+                #expect(Self.near(got, Self.bytes(.secondarySystemBackground, in: style)), "gap at \(x),\(y): \(got)")
+            }
+        }
+        // And the page above and below it is still the page.
+        let above = page.textView.convert(CGPoint(x: PageLayout.margin / 2, y: top - 10), to: page)
+        let below = page.textView.convert(CGPoint(x: PageLayout.margin / 2, y: top + PageLayout.compressedGap + 10), to: page)
+        #expect(Self.near(try Self.pixel(of: page, at: above), Self.bytes(.systemBackground, in: style)))
+        #expect(Self.near(try Self.pixel(of: page, at: below), Self.bytes(.systemBackground, in: style)))
+    }
+
+    @Test("Only compressed layout paints gaps between pages")
+    func onlyCompressedPaintsGaps() {
+        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .compressed))
+        #expect(!harness.page.decorations.gapFrames.isEmpty)
+
+        harness.switchTo(PageLayout(mode: .seamless))
+        #expect(harness.page.decorations.gapFrames.isEmpty)
+        harness.switchTo(PageLayout(mode: .print))
+        #expect(harness.page.decorations.gapFrames.isEmpty)
+        harness.switchTo(PageLayout(mode: .compressed))
+        #expect(!harness.page.decorations.gapFrames.isEmpty)
+    }
+
+    @Test("Switching modes repaints the page column and the surround each time")
+    func switchingKeepsPaintInStep() {
+        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .print))
+        let page = harness.page
+        #expect(page.textView.backgroundColor == .clear)
+        #expect(page.backgroundColor == PageView.surroundColor)
+
+        harness.switchTo(PageLayout(mode: .seamless))
+        #expect(page.textView.backgroundColor == PageView.pageColor)
+        #expect(page.backgroundColor == PageView.surroundColor)
+
+        harness.switchTo(PageLayout(mode: .print))
+        #expect(page.textView.backgroundColor == .clear)
+    }
+
     // MARK: Ink and the note's length
 
     @Test("The canvas covers what's on screen, and its ink spans every page")
