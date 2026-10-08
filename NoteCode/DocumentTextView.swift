@@ -131,6 +131,11 @@ struct DocumentTextView: UIViewRepresentable {
         /// block's range against a different copy of the string.
         private var layoutCodeRanges: [CodeRange]?
 
+        /// The parts of the selection currently painted over code panels, so
+        /// the next selection change can take them back off. See
+        /// `CodeSelectionHighlight`.
+        var paintedCodeSelection: [NSRange] = []
+
         /// What the document looked like at the last styling pass, so only the
         /// blocks that actually changed get restyled.
         private var styleSignatures: [DocumentStyler.BlockSignature] = []
@@ -468,6 +473,7 @@ struct DocumentTextView: UIViewRepresentable {
             let blocks = documentCache.blocks(for: source)
             DocumentStyler.applyTypingAttributes(to: textView, source: source, blocks: blocks)
             applyRewritingPolicy(to: textView, source: source, blocks: blocks)
+            updateCodeSelectionHighlight(in: textView)
         }
 
         /// Sets the keyboard up for where the caret is, before it appears.
@@ -602,6 +608,9 @@ extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
             let fragment = CodeBlockLayoutFragment(textElement: textElement, range: textElement.elementRange)
             fragment.position = position
             fragment.closesBlock = code.isClosed && position.roundsBottom
+            fragment.selectedRanges = { [weak self, weak contentManager] in
+                self?.paintedTextRanges(in: contentManager) ?? []
+            }
             return fragment
         }
 
