@@ -35,6 +35,74 @@ struct PageViewTests {
         }
         .joined(separator: "\n")
 
+    // MARK: Keyboard
+
+    @Test("The keyboard insets the text view and leaves the page where it was")
+    func keyboardInsetsWithoutResizing() throws {
+        let harness = Harness()
+        let page = harness.page
+        // A real window fills its screen; the harness's is larger, and frames
+        // don't round-trip between a window and a smaller screen.
+        harness.window.frame = harness.window.screen.bounds
+        page.windowFrameForScreenFrame = { frame, _ in frame }
+        page.layoutIfNeeded()
+
+        let before = (page.textView.frame, page.displayScale, page.textView.bounds.size)
+        #expect(page.textView.contentInset.bottom == 0)
+
+        // A docked keyboard covering the bottom 300 points of the page's area.
+        let window = harness.window
+        let areaOnScreen = page.convert(page.bounds, to: window)
+        let keyboardTop = areaOnScreen.maxY - 300
+        let keyboard = CGRect(x: 0, y: keyboardTop, width: window.bounds.width, height: 400)
+        NotificationCenter.default.post(
+            name: UIResponder.keyboardWillChangeFrameNotification,
+            object: nil,
+            userInfo: [UIResponder.keyboardFrameEndUserInfoKey: NSValue(cgRect: keyboard)]
+        )
+        page.layoutIfNeeded()
+
+        // The inset is in the text view's own points: the screen distance over the scale.
+        #expect(abs(page.textView.contentInset.bottom - 300 / page.displayScale) < 0.5)
+        #expect(page.textView.frame == before.0)
+        #expect(page.displayScale == before.1)
+        #expect(page.textView.bounds.size == before.2)
+
+        // And taken back off when the keyboard goes.
+        NotificationCenter.default.post(
+            name: UIResponder.keyboardWillChangeFrameNotification,
+            object: nil,
+            userInfo: [UIResponder.keyboardFrameEndUserInfoKey: NSValue(cgRect: CGRect(x: 0, y: window.bounds.height, width: window.bounds.width, height: 0))]
+        )
+        #expect(page.textView.contentInset.bottom == 0)
+    }
+
+    @Test("A hotbar docked at the bottom adds its height to what the text keeps clear")
+    func keyboardClearanceFollowsTheHotbar() throws {
+        let harness = Harness()
+        let page = harness.page
+        harness.window.frame = harness.window.screen.bounds
+        page.windowFrameForScreenFrame = { frame, _ in frame }
+        page.layoutIfNeeded()
+
+        let window = harness.window
+        let areaOnScreen = page.convert(page.bounds, to: window)
+        let keyboard = CGRect(x: 0, y: areaOnScreen.maxY - 300, width: window.bounds.width, height: 400)
+        NotificationCenter.default.post(
+            name: UIResponder.keyboardWillChangeFrameNotification,
+            object: nil,
+            userInfo: [UIResponder.keyboardFrameEndUserInfoKey: NSValue(cgRect: keyboard)]
+        )
+        let bare = page.textView.contentInset.bottom
+
+        // Docking the bar at the bottom while the keyboard is up.
+        page.keyboardClearance = 80
+        #expect(abs(page.textView.contentInset.bottom - (bare + 80 / page.displayScale)) < 0.5)
+
+        page.keyboardClearance = 0
+        #expect(abs(page.textView.contentInset.bottom - bare) < 0.5)
+    }
+
     @MainActor
     private final class Harness {
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1400, height: 1400))

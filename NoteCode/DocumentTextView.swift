@@ -27,6 +27,10 @@ struct DocumentTextView: UIViewRepresentable {
     /// The note's page orientation and the device's view mode.
     var pageLayout = PageLayout()
 
+    /// Room to leave above the keyboard for a hotbar riding up with it. See
+    /// `PageView.keyboardClearance`.
+    var keyboardClearance: CGFloat = 0
+
     /// Loads the note's ink as the page is made, and saves it as it changes.
     /// Optional, like `editor`, so the editor still stands alone.
     var inkSaver: DrawingSaveScheduler? = nil
@@ -57,6 +61,7 @@ struct DocumentTextView: UIViewRepresentable {
         // canvas knob too, and the canvas is the page's.
         editor?.attach(textView, canvas: page.canvas, page: page)
         page.pageLayout = pageLayout
+        page.keyboardClearance = keyboardClearance
         // After the layout: stored ink is in print coordinates for the note's
         // own orientation, and the page starts out portrait.
         if let inkSaver {
@@ -75,6 +80,7 @@ struct DocumentTextView: UIViewRepresentable {
     func updateUIView(_ page: PageView, context: Context) {
         let textView = page.textView
         page.pageLayout = pageLayout
+        page.keyboardClearance = keyboardClearance
 
         // The struct is recreated on every SwiftUI render but the Coordinator
         // persists, so hand it the current binding or it will keep writing

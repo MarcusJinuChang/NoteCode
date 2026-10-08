@@ -139,8 +139,10 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         ))
         super.init(frame: .zero)
 
-        // Neither scroll view should invent insets of its own. SwiftUI already
-        // keeps this view clear of the keyboard and the safe area.
+        // Neither scroll view should invent insets of its own. SwiftUI keeps
+        // this view clear of the safe area, but not of the keyboard: the page
+        // area ignores that, so the page never resizes for it, and
+        // `keyboardWillChangeFrame` insets the text view by what's covered.
         contentInsetAdjustmentBehavior = .never
         textView.contentInsetAdjustmentBehavior = .never
 
@@ -207,9 +209,79 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             matchRenderingScale()
         }
 
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(keyboardWillChangeFrame),
+            name: UIResponder.keyboardWillChangeFrameNotification,
+            object: nil
+        )
+
 #if DEBUG
         DebugSession.shared.attach(self)
 #endif
+    }
+
+    // MARK: Keyboard
+
+    /// The keyboard's last frame, in screen coordinates.
+    private var keyboardFrame: CGRect?
+
+    /// Brings a screen-coordinates frame into a window's. Replaceable because
+    /// a window made outside a scene, as in a test, has no screen space to
+    /// convert from and answers with a zero rect.
+    var windowFrameForScreenFrame: (CGRect, UIWindow) -> CGRect = { frame, window in
+        window.convert(frame, from: window.screen.coordinateSpace)
+    }
+
+    /// Room to leave above the keyboard, in screen points: the hotbar's, when
+    /// it is docked at the bottom, since it rides up with the keyboard over
+    /// the page.
+    var keyboardClearance: CGFloat = 0 {
+        didSet {
+            guard keyboardClearance != oldValue else { return }
+            applyKeyboardInset(duration: 0.25)
+        }
+    }
+
+    /// Keeps the caret clear of the keyboard without resizing the page.
+    ///
+    /// Fires for showing, hiding, and the keyboard changing height (the
+    /// shortcut bar, the emoji keyboard, undocking). The inset moves with the
+    /// keyboard's own animation.
+    @objc private func keyboardWillChangeFrame(_ notification: Notification) {
+        guard let end = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue
+        else { return }
+        keyboardFrame = end
+
+        let duration = (notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double) ?? 0.25
+        let curve = (notification.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? Int) ?? 7
+        applyKeyboardInset(duration: duration, options: UIView.AnimationOptions(rawValue: UInt(curve) << 16))
+    }
+
+    /// Insets the text view for whatever of the page the keyboard covers.
+    private func applyKeyboardInset(duration: TimeInterval, options: UIView.AnimationOptions = []) {
+        guard let window, let keyboardFrame else { return }
+
+        let inset = CanvasGeometry.keyboardInset(
+            keyboard: windowFrameForScreenFrame(keyboardFrame, window),
+            area: convert(bounds, to: window),
+            screenWidth: window.bounds.width,
+            displayScale: displayScale,
+            clearance: keyboardClearance
+        )
+        guard textView.contentInset.bottom != inset else { return }
+        let growing = inset > textView.contentInset.bottom
+
+        UIView.animate(withDuration: duration, delay: 0, options: options.union(.beginFromCurrentState)) {
+            self.textView.contentInset.bottom = inset
+            self.textView.verticalScrollIndicatorInsets.bottom = inset
+        }
+
+        // A keyboard coming up over the line being typed on: bring it back
+        // into view, as a text view that insets itself would.
+        if growing, textView.isFirstResponder {
+            textView.scrollRangeToVisible(textView.selectedRange)
+        }
     }
 
     @available(*, unavailable)
