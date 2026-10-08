@@ -89,6 +89,44 @@ struct EditorModeTests {
         #expect(EditorMode.text.apply(to: harness.textView, saved: saved) == nil)
     }
 
+    @Test("Locked text can be selected but not edited, and the keyboard goes away")
+    func lockedTextReads() {
+        let harness = Harness()
+        harness.textView.becomeFirstResponder()
+
+        EditorMode.text.apply(to: harness.textView, saved: nil, textLocked: true)
+
+        #expect(!harness.textView.isEditable)
+        #expect(harness.textView.isSelectable)
+        #expect(!harness.textView.isFirstResponder)
+    }
+
+    @Test("Coming back from ink to locked text doesn't raise the keyboard, even if it was up")
+    func lockedTextAfterInk() {
+        let harness = Harness()
+        harness.textView.becomeFirstResponder()
+
+        let saved = EditorMode.ink.apply(to: harness.textView, saved: nil, textLocked: true)
+        EditorMode.text.apply(to: harness.textView, saved: saved, textLocked: true)
+
+        #expect(!harness.textView.isFirstResponder)
+        #expect(!harness.textView.isEditable)
+        #expect(harness.textView.isSelectable)
+    }
+
+    @Test("Ink mode is the same with the text locked", arguments: [false, true])
+    func inkIgnoresTheLock(textLocked: Bool) {
+        let harness = Harness()
+        let canvas = DrawingCanvas(pageSize: CGSize(width: 816, height: 1056))
+        harness.textView.addSubview(canvas)
+
+        EditorMode.ink.apply(to: harness.textView, canvas: canvas, saved: nil, textLocked: textLocked)
+
+        #expect(canvas.isUserInteractionEnabled)
+        #expect(!harness.textView.isEditable)
+        #expect(!harness.textView.isSelectable)
+    }
+
     @Test("Ink mode hands input to the canvas, and text mode takes it back")
     func canvasTakesInput() {
         let harness = Harness()

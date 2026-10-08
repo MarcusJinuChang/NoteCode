@@ -19,6 +19,10 @@ struct PageDetailView: View {
     /// button does this job.
     var toggleSidebar: (() -> Void)? = nil
 
+    /// The search this note was opened from, whose matches it shows as it
+    /// opens. Empty when it wasn't opened from a search.
+    var revealing = NoteSearch("")
+
     /// Where code blocks run when a page hasn't chosen for itself. Not in the
     /// model: it is a preference about this device, not a property of a note,
     /// and it has to have a value before any page exists.
@@ -65,9 +69,10 @@ struct PageDetailView: View {
     /// Gap between the hotbar and the edges around it.
     private static let hotbarMargin: CGFloat = 12
 
-    init(page: Page, toggleSidebar: (() -> Void)? = nil) {
+    init(page: Page, toggleSidebar: (() -> Void)? = nil, revealing: NoteSearch = NoteSearch("")) {
         self.page = page
         self.toggleSidebar = toggleSidebar
+        self.revealing = revealing
 #if canImport(UIKit)
         // Cheap: the ink is read when the page is made, not here. SwiftUI
         // builds this view far more often than it keeps a new state.
@@ -98,6 +103,11 @@ struct PageDetailView: View {
         .onChange(of: page.title) { page.modifiedAt = .now }
         .onChange(of: page.content) { page.modifiedAt = .now }
 #if canImport(UIKit)
+        // Before the text view exists as well as after: the editor keeps
+        // the setting and applies it when the page attaches.
+        .onChange(of: page.isTextLocked, initial: true) { _, locked in
+            editor.setTextLocked(locked)
+        }
         // Ink drawn just before leaving would otherwise wait out the pause
         // after the page is gone.
         .onDisappear { [inkSaver] in
@@ -130,6 +140,12 @@ struct PageDetailView: View {
                 Spacer()
 
 #if canImport(UIKit)
+                Button {
+                    editor.showFind()
+                } label: {
+                    Label("Find in Note", systemImage: "magnifyingglass")
+                }
+
                 PageViewMenu(mode: $viewMode)
 #endif
 
@@ -139,10 +155,23 @@ struct PageDetailView: View {
                     appDefault: $appDefaultDestination
                 )
 
+#if canImport(UIKit)
+                NoteShareButton(editor: editor, title: page.title)
+#endif
+
                 Button {
                     showsInfo = true
                 } label: {
                     Label("Note Info", systemImage: "info.circle")
+                }
+
+                Button {
+                    page.isTextLocked.toggle()
+                } label: {
+                    Label(
+                        page.isTextLocked ? "Unlock Text" : "Lock Text",
+                        systemImage: page.isTextLocked ? "lock.fill" : "lock.open"
+                    )
                 }
 
                 // Sign in with Apple lands with the App Store release. The
@@ -156,9 +185,21 @@ struct PageDetailView: View {
             .font(.title3)
             .buttonStyle(.borderless)
 
-            TextField("Title", text: $page.title)
-                .font(.largeTitle.bold())
-                .textFieldStyle(.plain)
+            // The title is text too, so it locks with the rest. Shown as
+            // plain text rather than a disabled field, which would grey it.
+            Group {
+                if page.isTextLocked {
+                    // An empty title shows the field's placeholder, as it
+                    // would unlocked.
+                    Text(page.title.isEmpty ? "Title" : page.title)
+                        .foregroundStyle(page.title.isEmpty ? .tertiary : .primary)
+                        .lineLimit(1)
+                } else {
+                    TextField("Title", text: $page.title)
+                        .textFieldStyle(.plain)
+                }
+            }
+            .font(.largeTitle.bold())
         }
         .padding(.horizontal, 24)
         .padding(.top, 8)
@@ -189,7 +230,8 @@ struct PageDetailView: View {
                 ),
                 editor: editor,
                 pageLayout: PageLayout(orientation: page.orientation, mode: viewMode),
-                inkSaver: inkSaver
+                inkSaver: inkSaver,
+                revealing: revealing
             )
             // The page draws its own border, on the page's edges rather than
             // the area's — see PageView.outline. Clipping keeps anything that
@@ -279,6 +321,7 @@ struct PageDetailView: View {
         TextEditor(text: $page.content)
             .font(.body)
             .padding(.horizontal, 8)
+            .disabled(page.isTextLocked)
     }
 #endif
 }

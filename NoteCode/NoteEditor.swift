@@ -66,6 +66,12 @@ final class NoteEditor {
         }
     }
 
+    /// Whether the note's text is locked (`Page.isTextLocked`), so text mode
+    /// reads rather than edits: no keyboard, no formatting, no undo. The page
+    /// holds the setting; this is the copy the text view and the hotbar
+    /// follow, set by `setTextLocked(_:)`.
+    private(set) var isTextLocked = false
+
     private(set) var canUndo = false
     private(set) var canRedo = false
 
@@ -85,6 +91,22 @@ final class NoteEditor {
         page?.pageCount
     }
 
+    /// The open note as a PDF, a page for each of its pages, ink and all.
+    /// `nil` until the page exists.
+    ///
+    /// The ink is the page's own copy, so strokes drawn moments ago and not
+    /// yet saved are on the paper too.
+    func pdf(title: String) async -> Data? {
+        guard let page else { return nil }
+        return await NotePDF.render(NotePDF.Note(
+            title: title,
+            text: page.textView.text ?? "",
+            ink: page.ink,
+            orientation: page.pageLayout.orientation,
+            pageCount: page.pageCount
+        ))
+    }
+
     /// Called by `DocumentTextView` once the page, and so the canvas, exists.
     ///
     /// - Parameter page: the page around the text view, if any.
@@ -95,7 +117,7 @@ final class NoteEditor {
         canvas?.tool = inkTool.pencilKitTool
         canvas?.allowsFingerDrawing = !isPencilOnly
         canvas?.onUndoDidChange = { [weak self] in self?.refreshUndoState() }
-        savedSession = mode.apply(to: textView, canvas: canvas, saved: nil)
+        savedSession = mode.apply(to: textView, canvas: canvas, saved: nil, textLocked: isTextLocked)
         applyScrolling()
         refreshUndoState()
     }
@@ -104,9 +126,25 @@ final class NoteEditor {
         guard newMode != mode else { return }
         mode = newMode
         if let textView {
-            savedSession = newMode.apply(to: textView, canvas: canvas, saved: savedSession)
+            savedSession = newMode.apply(to: textView, canvas: canvas, saved: savedSession, textLocked: isTextLocked)
         }
         applyScrolling()
+        refreshUndoState()
+    }
+
+    /// Locks or unlocks the note's text.
+    ///
+    /// Locking puts the keyboard away. Unlocking doesn't bring it back: the
+    /// reader was reading, and a tap is all it takes to start typing. In ink
+    /// mode nothing changes until text mode comes back, and a keyboard that
+    /// was up before ink only returns then if the text is unlocked by then.
+    /// Works before the text view exists too, and `attach` applies it.
+    func setTextLocked(_ locked: Bool) {
+        guard locked != isTextLocked else { return }
+        isTextLocked = locked
+        if let textView {
+            savedSession = mode.apply(to: textView, canvas: canvas, saved: savedSession, textLocked: locked)
+        }
         refreshUndoState()
     }
 
@@ -121,6 +159,18 @@ final class NoteEditor {
         } else if let textView {
             scrolling.apply(to: textView.panGestureRecognizer)
         }
+    }
+
+    // MARK: Find
+
+    /// Shows the find bar for the note, as ⌘F does.
+    ///
+    /// In text mode, since finding means selecting the matches, and the text
+    /// takes no selection while ink has the page. Coming from ink, the
+    /// reader is going to the text anyway.
+    func showFind() {
+        setMode(.text)
+        textView?.findInteraction?.presentFindNavigator(showingReplace: false)
     }
 
     // MARK: Formatting
@@ -148,7 +198,7 @@ final class NoteEditor {
     /// page, exactly as if it had been typed. Assigning `.text` would do
     /// neither, and would throw away the selection besides.
     private func perform(_ makeEdit: (String, NSRange) -> TextEdit) {
-        guard mode == .text, let textView else { return }
+        guard mode == .text, !isTextLocked, let textView else { return }
 
         let edit = makeEdit(textView.text ?? "", textView.selectedRange)
 
@@ -177,8 +227,14 @@ final class NoteEditor {
     /// text are separate kinds of edit, and undoing a stroke by accident while
     /// typing is worse than an arrow that only undoes what the current mode
     /// did, so `DrawingCanvas` vends its own and this picks between them.
+    ///
+    /// None while the text is locked: undoing typing would change locked
+    /// text. Ink keeps its stack, since the lock leaves ink alone.
     private var activeUndoManager: UndoManager? {
-        mode == .text ? textView?.undoManager : canvas?.undoManager
+        switch mode {
+        case .text: isTextLocked ? nil : textView?.undoManager
+        case .ink:  canvas?.undoManager
+        }
     }
 
     func undo() {
