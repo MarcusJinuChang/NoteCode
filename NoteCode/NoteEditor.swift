@@ -135,6 +135,18 @@ final class NoteEditor {
         }
     }
 
+    // MARK: Find
+
+    /// Shows the find bar for the note, as ⌘F does.
+    ///
+    /// In text mode, since finding means selecting the matches, and the text
+    /// takes no selection while ink has the page. Coming from ink, the
+    /// reader is going to the text anyway.
+    func showFind() {
+        setMode(.text)
+        textView?.findInteraction?.presentFindNavigator(showingReplace: false)
+    }
+
     // MARK: Formatting
 
     func toggle(_ style: MarkdownFormatting.InlineStyle) {

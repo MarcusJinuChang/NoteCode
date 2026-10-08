@@ -31,6 +31,11 @@ struct DocumentTextView: UIViewRepresentable {
     /// Optional, like `editor`, so the editor still stands alone.
     var inkSaver: DrawingSaveScheduler? = nil
 
+    /// The search the note was opened from. Its matches are shown once, as
+    /// the page is made: a new search typed while the note is open is the
+    /// list's business, not the page's.
+    var revealing = NoteSearch("")
+
     // MARK: UIViewRepresentable
 
     func makeUIView(context: Context) -> PageView {
@@ -59,6 +64,10 @@ struct DocumentTextView: UIViewRepresentable {
                 page.setInk(stored)
             }
             page.onInkChanged = { [weak inkSaver] ink in inkSaver?.inkDidChange(ink) }
+        }
+        let matches = revealing.matches(in: text)
+        if let first = matches.first {
+            page.reveal(first, highlighting: matches)
         }
         return page
     }
@@ -372,6 +381,9 @@ struct DocumentTextView: UIViewRepresentable {
         }
 
         func textViewDidChange(_ textView: UITextView) {
+            // A search result's highlights are for finding the place, and go
+            // once the reader starts working there.
+            (textView as? DocumentUITextView)?.clearSearchHighlights()
             restyle(textView)
             text.wrappedValue = textView.text
             editor?.refreshUndoState()
@@ -477,6 +489,9 @@ struct DocumentTextView: UIViewRepresentable {
 
         textView.isEditable = true
         textView.isScrollEnabled = true
+        // Find and replace within the note: ⌘F with a keyboard, or the
+        // header's magnifying glass.
+        textView.isFindInteractionEnabled = true
         // Pasting rich text would drop foreign fonts and colours into the
         // storage that fight the styling pass. Off means paste arrives plain.
         textView.allowsEditingTextAttributes = false
