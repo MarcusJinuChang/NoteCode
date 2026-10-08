@@ -127,6 +127,42 @@ nonisolated enum CanvasGeometry {
         CGSize(width: pageWidth, height: scale > 0 ? area.height / scale : area.height)
     }
 
+    // MARK: Keyboard
+
+    /// How far to inset the bottom of the text view so the keyboard doesn't
+    /// hide the text being typed, in the text view's own (page) points.
+    ///
+    /// The page area is not shrunk for the keyboard (7 Oct): shrinking it
+    /// re-fit the page and resized the note under the reader's hands. So the
+    /// keyboard covers the lower part of a page that stays put, and the text
+    /// view scrolls the caret clear of it by an inset instead.
+    ///
+    /// - Parameters:
+    ///   - keyboard: the keyboard's frame, in the same space as `area`.
+    ///   - area: the page area's frame on screen.
+    ///   - screenWidth: only a keyboard as wide as the screen is docked at its
+    ///     bottom. A floating one sits over the page like a window and says
+    ///     nothing about where the bottom is, so it insets nothing.
+    ///   - displayScale: the text view is drawn through this scale, so a
+    ///     screen distance is that much shorter in its own points.
+    ///   - clearance: room to leave above the keyboard. The hotbar rides up
+    ///     with the keyboard when it's docked at the bottom, so over the page
+    ///     it covers the lines just above the keyboard as well.
+    static func keyboardInset(
+        keyboard: CGRect,
+        area: CGRect,
+        screenWidth: CGFloat,
+        displayScale: CGFloat,
+        clearance: CGFloat = 0
+    ) -> CGFloat {
+        guard displayScale > 0,
+              keyboard.height > 0,
+              keyboard.width >= screenWidth - 1
+        else { return 0 }
+        let covered = area.maxY - max(keyboard.minY - clearance, area.minY)
+        return max(0, min(covered, area.height)) / displayScale
+    }
+
     // MARK: Zoom
 
     /// Where the page is scrolled to, and how large it is drawn.

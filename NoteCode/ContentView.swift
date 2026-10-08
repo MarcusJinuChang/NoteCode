@@ -42,6 +42,9 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             NoteList(storageIsEphemeral: storageIsEphemeral, selection: opening, searchText: $searchText)
+                // Searching the list brings the keyboard up; the list stays its
+                // size and the keyboard covers its lower rows.
+                .ignoresSafeArea(.keyboard)
         } detail: {
             if let page = selection {
                 PageDetailView(page: page, toggleSidebar: sidebarToggle, revealing: openedSearch)

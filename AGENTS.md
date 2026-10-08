@@ -235,6 +235,28 @@ note against 11ms scrolling, and 5.5 seconds at 2000 lines. So instead:
   scroll needs is set as each first finger lands (`PageView.touchWillLand`),
   so `NoteEditor` hands the mode's rule to the page, not to the pans.
 
+- **The keyboard covers the page; it doesn't resize it** (7 Oct). SwiftUI
+  used to shrink the detail for the keyboard's safe area, which gave the page
+  a shorter area and cut its outline off at the keyboard, and shrank the note
+  list when its search field was focused. Now the page layer
+  (`PageDetailView.content`, the text view and canvas) and the list column
+  both `.ignoresSafeArea(.keyboard)`. The hotbar is the page layer's sibling
+  and keeps the keyboard's safe area, so it still rides above the keyboard.
+  Nothing then kept the caret in view, since `PageView` turns
+  `contentInsetAdjustmentBehavior` off, so `PageView` listens for
+  `keyboardWillChangeFrame` and insets the text view's bottom by what the
+  keyboard covers (`CanvasGeometry.keyboardInset`, pure). Three details
+  that matter: the inset is in the text view's own points, so it is divided
+  by the display scale; a floating keyboard insets nothing, since only a
+  keyboard as wide as the screen says where the bottom is; and a bar docked
+  at the bottom rides up with the keyboard over the page, so
+  `keyboardClearance` adds its height, and the inset updates when the bar
+  is docked elsewhere. `PageView.windowFrameForScreenFrame` exists because a
+  window made outside a scene (every test) answers a screen-space conversion
+  with a zero rect. Checked in the simulator on a ten-page note: the page
+  stays full size and the caret line sits above the hotbar. The list change
+  is checked by build only.
+
 ## Pages
 
 Notes are Letter-sized pages, Notability-style. The geometry is all in

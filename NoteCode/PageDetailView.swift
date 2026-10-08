@@ -230,6 +230,7 @@ struct PageDetailView: View {
                 ),
                 editor: editor,
                 pageLayout: PageLayout(orientation: page.orientation, mode: viewMode),
+                keyboardClearance: dock == .bottom ? Hotbar.thickness + Self.hotbarMargin : 0,
                 inkSaver: inkSaver,
                 revealing: revealing
             )
@@ -239,6 +240,12 @@ struct PageDetailView: View {
             // hotbar's space, and rounds print layout's surround.
             .clipShape(.rect(cornerRadius: PageView.outlineCornerRadius))
             .padding(pageInsets)
+            // The keyboard covers the page; it doesn't resize it. Shrinking
+            // the page's area re-fit the page to a shorter space and moved
+            // the text under the reader. The hotbar, a sibling, keeps the
+            // keyboard's safe area and rides above it. `PageView` insets the
+            // text so the caret stays clear of the keyboard.
+            .ignoresSafeArea(.keyboard)
 
             Hotbar(editor: editor, dock: $dock, onDrop: drop)
                 .padding(Self.hotbarMargin)
