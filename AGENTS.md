@@ -313,10 +313,40 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   alternative is pushing paragraphs with paragraph spacing, computed lazily
   — whole paragraphs rather than lines, and it has to coexist with the
   styler's own paragraph styles.
-- **Printing** isn't built, but print layout is the printed page exactly:
-  `PageLayout.sheet(ofPage:)` in page points, times 72/96 for the printer. A
-  `UIPrintPageRenderer` drawing each sheet's rect of the text view, code panels
-  and ink included, is what's left.
+- **Printing goes through a PDF** (4 Oct). The share button in the note's
+  header makes one and opens the share sheet, where Print, Save to Files
+  and the rest are; there's no print button of its own. A PDF page is a
+  sheet of print layout, `PageLayout.sheet(ofPage:)` in page points times
+  72/96: US Letter.
+- **The PDF is laid out afresh, never read off the screen** (`NotePDF`,
+  `PrintedNote`). TextKit only lays out what's on screen, so the page being
+  read has nothing to draw for the rest. `PrintedNote` is a second text
+  view from `makeConfiguredTextView`, styled by its own
+  `DocumentTextView.Coordinator` so code gets its fragments and colours,
+  in print layout, forced light: syntax colours come from the light theme,
+  and drawing runs under a light trait collection so `.label` and the code
+  panels are their light colours on a dark device. It starts from the open
+  note's page count and adds page breaks until no text runs past the last.
+  Ink is `PageView.ink`, so strokes not yet saved print too.
+- **A sheet is drawn a line at a time** (`NSTextLineFragment.draw`), with
+  code panels through `CodeBlockLayoutFragment.drawPanel`, bottom up so a
+  panel's overhang stays behind the line above, as it does on screen. A
+  paragraph split by a page break spans both pages, and drawing it whole
+  on each, clipped, would put its text in the PDF twice: once off the
+  page, where a search or a copy still finds it.
+- **Ink prints as a picture, at 288 dots per inch** (`NotePDF.drawInk`).
+  `PaperMarkup.draw(in:frame:)` draws only into a bitmap context: handed
+  the PDF's, it drew nothing and logged "CGBitmapContextGetColorSpace:
+  invalid context" (4 Oct). So each sheet's elements, moved to the sheet's
+  origin, are drawn into a bitmap cropped to where the sheet has ink, and
+  that goes on the page. Text stays text.
+- **What PaperKit's drawing does, measured** (probe, 4 Oct). It draws the
+  markup's coordinates straight through the context's transform, so a
+  bitmap has to be flipped to UIKit's way up first, and scaled by the
+  transform: `frame` doesn't scale anything. And assigning a set to a new
+  markup's `subelements` keeps nothing — a markup only updates elements it
+  already has from an assigned set — so building one means
+  `updateOrAppend` an element at a time, as `PageView.captureInk` does.
 
 ## The note page
 
@@ -324,8 +354,8 @@ Laid out from the 12 September mockup.
 
 - **Header.** ☰ opens the note list, which slides over the page
   (`.prominentDetail`) instead of narrowing it, so opening the list never
-  re-wraps the note. The title sits below; the run destination, note info
-  and account icons sit on the right. Account is a placeholder until Sign
+  re-wraps the note. The title sits below; the run destination, share,
+  note info and account icons sit on the right. Account is a placeholder until Sign
   in with Apple.
 - **Hotbar.** One bar, dragged by its grip to the left, bottom or right edge,
   snapping to whichever is nearest (`HotbarDock.nearest`). Undo, redo and the
@@ -431,7 +461,24 @@ so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
   `.presentationSizing(.form.fitted(...))` collapsed it to its title bar,
   since a Form reports no height of its own (measured 3 Oct).
 
-Pinning, sorting and note info needed no model change: the pins
+- **Search is every word, anywhere** (4 Oct, `NoteSearch`): each word
+  typed has to be in the title or the text, in any order, ignoring case and
+  accents and word boundaries. Results replace the sections while the field
+  holds words, as one flat list: title matches first, then the reader's
+  sort, since a search is for one note and sections of one row each read
+  slower. Each row shows the line of its first match. Ink isn't searched.
+- **A note opened from a result shows where it matched.** `ContentView`
+  takes the search as the selection changes, not live, so typing in the
+  field doesn't redraw the note under the list; `PageView.reveal` waits for
+  the first layout, lays out down to the first match (as scrolling there
+  would), scrolls it a quarter of the way down, and highlights every match
+  through the text view's own find decorations (`decorate(foundTextRange:)`),
+  which sit on the text at any zoom. The highlights go at the first edit.
+- **Find within a note is UIKit's** (`isFindInteractionEnabled`): ⌘F, or
+  the header's magnifying glass, which switches to text mode first, since
+  the text takes no selection while ink has the page.
+
+Pinning, sorting, note info and search needed no model change: the pins
 (`Page.isPinned`, `Folder.isPinned`) came in with folders.
 
 ## The model and its versions
@@ -468,6 +515,30 @@ else says `Page` and `Folder`, which are typealiases for the current version.
   may drop text locks the same way, or fail to open the store and show no
   notes, with the file left as it was; neither is measured. Don't run an
   older branch on a device whose notes use what it doesn't know.
+
+## Shipping
+
+What an upload checks before a person sees the app (4 Oct).
+`AppStoreReadinessTests` checks each of these in the built app.
+
+- **The privacy manifest** (`PrivacyInfo.xcprivacy`) has to list a reason
+  for every required-reason API the app calls, or the upload is rejected.
+  Today that's only UserDefaults, through `@AppStorage`, for the app's own
+  settings (`CA92.1`). Calling one from another category — file
+  timestamps, system boot time, disk space, active keyboards — means adding
+  its reason. `CACurrentMediaTime` isn't on Apple's list. Notes never leave
+  the device, so nothing is collected or tracked; a server would change
+  that.
+- **Exempt encryption.** `ITSAppUsesNonExemptEncryption` is `NO` in
+  Info.plist: the only network traffic is the system opening a compiler's
+  page over HTTPS. Encryption of the app's own would change the answer.
+- **No background modes or entitlements it doesn't use.** Xcode's template
+  declared push as a background mode and had an unused entitlements file
+  for iCloud and push; both went on 4 Oct, since a mode the app never uses
+  is a question in review. iCloud sync brings them back, through Signing &
+  Capabilities.
+- **Still missing:** the app icon (the icon set has no images, which also
+  fails an upload) and the paid Developer Program.
 
 ## Build/test
 

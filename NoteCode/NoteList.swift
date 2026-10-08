@@ -21,6 +21,10 @@ struct NoteList: View {
 
     @Binding var selection: Page?
 
+    /// What the search field holds. While it holds words, the list shows the
+    /// notes that match instead of its folders.
+    @Binding var searchText: String
+
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Page.modifiedAt, order: .reverse) private var pages: [Page]
     @Query private var folders: [Folder]
@@ -57,7 +61,9 @@ struct NoteList: View {
 #endif
 
     var body: some View {
+        let search = NoteSearch(searchText)
         let sections = NoteListSections(pages: pages, folders: folders, sort: sort)
+        let results = search.results(in: pages, sort: sort)
 
         List(selection: $selection) {
             if storageIsEphemeral {
@@ -69,7 +75,9 @@ struct NoteList: View {
                 .foregroundStyle(.orange)
             }
 
-            if !sections.hasPinned && sections.folders.isEmpty {
+            if !search.isEmpty {
+                resultRows(results, for: search)
+            } else if !sections.hasPinned && sections.folders.isEmpty {
                 noteRows(sections.unfiled)
             } else {
                 if sections.hasPinned {
@@ -92,6 +100,12 @@ struct NoteList: View {
                 }
             }
         }
+        .overlay {
+            if !search.isEmpty && results.isEmpty {
+                ContentUnavailableView.search(text: searchText)
+            }
+        }
+        .searchable(text: $searchText, prompt: "Search Notes")
         .navigationTitle("NoteCode")
 #if os(macOS)
         .navigationSplitViewColumnWidth(min: 180, ideal: 220)
@@ -170,6 +184,37 @@ struct NoteList: View {
         }
         .onDelete { offsets in
             deletePages(offsets.map { notes[$0] })
+        }
+    }
+
+    /// A search's results: each note's title, the line it matched on, and
+    /// where it's filed, with the words searched for in bold.
+    private func resultRows(_ results: [NoteSearch.Result], for search: NoteSearch) -> some View {
+        ForEach(results) { result in
+            let page = result.page
+            VStack(alignment: .leading, spacing: 2) {
+                Text(search.highlighted(page.title))
+                    .font(.headline)
+                if let excerpt = result.match.excerpt {
+                    Text(search.highlighted(excerpt))
+                        .font(.subheadline)
+                        .lineLimit(2)
+                }
+                HStack(spacing: 4) {
+                    if let folder = page.folder {
+                        Text(folder.name)
+                        Text("·")
+                    }
+                    Text(
+                        sort.displayedDate(modified: page.modifiedAt, created: page.createdAt),
+                        format: Date.FormatStyle(date: .abbreviated, time: .shortened)
+                    )
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+            .tag(page)
+            .contextMenu { noteMenu(page) }
         }
     }
 

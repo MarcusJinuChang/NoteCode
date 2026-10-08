@@ -21,6 +21,23 @@ pinch zoom, the note page and its hotbar, and a PaperKit canvas that a finger
 or the Pencil draws on, with ink undo of its own, saved with the note and
 drawn at the screen's density. 24 pull requests, all merged.
 
+- **Note search** (4 Oct, in review): a search field at the top of the note
+  list finds notes by every word typed, in the title or the text, ignoring
+  case and accents. Results show the line that matched, with the words in
+  bold, title matches first. Opening one scrolls the note to its first match
+  and highlights every match until you type. The magnifying glass in an open
+  note's header, or ⌘F with a keyboard, finds and replaces within the note.
+  Ink isn't searched. Builds for iPad and Mac, and 493 tests pass; not yet
+  checked in the simulator or on the iPad.
+- **Printing and PDF export** (4 Oct, in review): the share button in an
+  open note's header makes a PDF of the note, a page for each of its pages
+  exactly as print layout shows them, ink, code panels and syntax colours
+  included, and opens the share sheet to print it, save it to Files or send
+  it. Always light, on white paper, whatever the device's appearance. Text
+  stays text, so it can be searched and selected in the PDF; ink goes on as
+  a picture at 288 dots per inch, since PaperKit draws only into bitmaps.
+  Builds for iPad and Mac, and 486 tests pass; not yet checked in the
+  simulator or on the iPad.
 - **Text lock** (4 Oct, in review): the lock in an open note's header, or
   Lock Text in its long-press menu in the list, makes the note's text and
   title read-only until it's unlocked. Tapping it brings up no keyboard,
@@ -82,11 +99,17 @@ drawn at the screen's density. 24 pull requests, all merged.
   surround around the page scrolls with one finger and zooms; and undo,
   redo and the mode toggle no longer scroll away with the hotbar's tools.
   All but the Pencil checked on the simulator. 448 tests.
-- **Nothing is started for signing in and shipping.** Builds still sign with
-  the free Personal Team, whose profiles last seven days. As of 11 Sep the
-  paid Developer Program membership wasn't showing on the account. That has
-  to be sorted before TestFlight — and before the app can stay on the iPad for
-  more than a week at a time.
+- **Ship prep** (4 Oct, in review): the app carries the privacy manifest
+  App Store Connect requires, saying it tracks and collects nothing and
+  reads UserDefaults only for its own settings. It says it uses no
+  encryption of its own, so uploads skip the export question, and it no
+  longer declares a push background mode or iCloud and push entitlements,
+  left over from Xcode's template and never used. Still missing before an
+  upload: the app icon, which needs a design, and signing. Builds still
+  sign with the free Personal Team, whose profiles last seven days. As of
+  11 Sep the paid Developer Program membership wasn't showing on the
+  account. That has to be sorted before TestFlight — and before the app can
+  stay on the iPad for more than a week at a time.
 
 ## Plan
 
@@ -127,8 +150,10 @@ code already has something to say.
 3. **Infinite canvas.** Notes are Letter pages, and ink is stored in page
    coordinates. An unbounded canvas is probably a second kind of note rather
    than a mode of this one.
-4. **Note search.** Text is plain in `Page.content`. PaperKit's
-   `PaperMarkup.indexableContent` may reach text boxes in ink (untested).
+4. **Note search.** Built 4 Oct, in review: across notes from the list,
+   and find within a note. Text is plain in `Page.content`. PaperKit's
+   `PaperMarkup.indexableContent` may reach text boxes in ink (untested), so
+   ink isn't searched yet.
 5. **Favouriting / pinning / starring** notes and folders. Folders merged
    3 Oct (PR #23); pinning merged 3 Oct (PR #24).
 6. **Note sorting.** Merged 3 Oct (PR #24): date modified, date created or
@@ -136,12 +161,13 @@ code already has something to say.
 7. **Note info / properties.** Built 3 Oct, in review: dates, folder,
    orientation, words, and code blocks by language, plus pages when the note
    is open.
-8. **Printing.** Print layout is already the printed page — see the deferred
-   table.
+8. **Printing.** Built 4 Oct, in review: the note header's share button
+   makes a PDF of the note's pages, to print, save or send.
 9. **UI polish**, from the UI design.
 10. **Accounts and Sign in with Apple.** No backend: as the only login option
     it also sidesteps Apple's rule requiring it alongside third-party sign-in.
-11. **TestFlight.** Needs the paid team (see above) and a privacy manifest.
+11. **TestFlight.** Needs the paid team (see above) and an app icon. The
+    privacy manifest is in review (4 Oct).
 12. **App Store submission.** First submissions bounce on formality, so leave
     review-cycle buffer, not zero margin.
 
@@ -223,7 +249,7 @@ Referenced by name from `TextRewritingPolicy.swift` and `DocumentTextView.swift`
 |---|---|
 | `TextRewritingPolicy.swift` | **Per-region text rewriting.** All five keyboard traits are `.code` everywhere, so prose loses autocorrect. Plan: `.prose` outside a fence, `.code` inside, with `reloadInputViews()`. |
 | `DocumentStyler.swift` | **Markers that recede.** Markdown markers stay visible in `tertiaryLabel`. Hiding them when the caret is elsewhere is the Obsidian behaviour. |
-| `PageLayout.swift` | **Printing** (before-November item 8). Print layout is the printed page exactly — `sheet(ofPage:)` times 72/96. A `UIPrintPageRenderer` drawing each sheet's rect of the text view is what's left. A4 is one more paper size. Ink renders through `PaperMarkup.draw(in:frame:options:)`, which is async; whether it stays vector in a PDF context is untested. PencilKit's `draw(in:)` crashed there (18 Sep). |
+| `PageLayout.swift` | **A4.** Notes print on US Letter only. A4 is one more paper size here, but a different width re-wraps the text, so it would be a property of the note, chosen when it's made, like orientation. |
 | `PageView.swift` | **Typing cost on long paged notes.** Page breaks are exclusion paths, and TextKit 2 then lays out everything below an edit: 34ms a keystroke near the top of a 250-line note on the simulator. If it lags on the iPad, push whole paragraphs with paragraph spacing instead, computed lazily. |
 | `PageView.swift` | **Diagonal panning when zoomed in.** The text view scrolls vertically and `PageView` sideways, so a pan picks one. |
 | `Page.swift` | **Text-anchored ink.** Wanted for its own sake, not just as a drift fix. Anchor each stroke to an `NSTextLocation` plus an offset, translate the group on relayout. Its own phase. |
