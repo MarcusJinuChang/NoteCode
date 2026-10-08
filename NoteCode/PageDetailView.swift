@@ -19,6 +19,10 @@ struct PageDetailView: View {
     /// button does this job.
     var toggleSidebar: (() -> Void)? = nil
 
+    /// The search this note was opened from, whose matches it shows as it
+    /// opens. Empty when it wasn't opened from a search.
+    var revealing = NoteSearch("")
+
     /// Where code blocks run when a page hasn't chosen for itself. Not in the
     /// model: it is a preference about this device, not a property of a note,
     /// and it has to have a value before any page exists.
@@ -65,9 +69,10 @@ struct PageDetailView: View {
     /// Gap between the hotbar and the edges around it.
     private static let hotbarMargin: CGFloat = 12
 
-    init(page: Page, toggleSidebar: (() -> Void)? = nil) {
+    init(page: Page, toggleSidebar: (() -> Void)? = nil, revealing: NoteSearch = NoteSearch("")) {
         self.page = page
         self.toggleSidebar = toggleSidebar
+        self.revealing = revealing
 #if canImport(UIKit)
         // Cheap: the ink is read when the page is made, not here. SwiftUI
         // builds this view far more often than it keeps a new state.
@@ -130,6 +135,12 @@ struct PageDetailView: View {
                 Spacer()
 
 #if canImport(UIKit)
+                Button {
+                    editor.showFind()
+                } label: {
+                    Label("Find in Note", systemImage: "magnifyingglass")
+                }
+
                 PageViewMenu(mode: $viewMode)
 #endif
 
@@ -189,7 +200,8 @@ struct PageDetailView: View {
                 ),
                 editor: editor,
                 pageLayout: PageLayout(orientation: page.orientation, mode: viewMode),
-                inkSaver: inkSaver
+                inkSaver: inkSaver,
+                revealing: revealing
             )
             // The page draws its own border, on the page's edges rather than
             // the area's — see PageView.outline. Clipping keeps anything that

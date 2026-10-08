@@ -19,6 +19,14 @@ struct ContentView: View {
     /// Starts with the list showing, since there's no note open yet.
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
+    /// What the list's search field holds.
+    @State private var searchText = ""
+
+    /// The search the open note was opened from, so it can show where it
+    /// matched. Taken as a note opens rather than read live, so typing in
+    /// the search field doesn't redraw the note under the list.
+    @State private var openedSearch = NoteSearch("")
+
 #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
@@ -33,10 +41,10 @@ struct ContentView: View {
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            NoteList(storageIsEphemeral: storageIsEphemeral, selection: $selection)
+            NoteList(storageIsEphemeral: storageIsEphemeral, selection: opening, searchText: $searchText)
         } detail: {
             if let page = selection {
-                PageDetailView(page: page, toggleSidebar: sidebarToggle)
+                PageDetailView(page: page, toggleSidebar: sidebarToggle, revealing: openedSearch)
                     // A fresh editor per note. Reusing one would carry the last
                     // note's undo stack across, and undo would type it back in.
                     .id(ObjectIdentifier(page))
@@ -55,6 +63,20 @@ struct ContentView: View {
             if selection != nil {
                 withAnimation { columnVisibility = .detailOnly }
             }
+        }
+    }
+
+    /// The list's selection, noting the search each note is opened from.
+    ///
+    /// While there's a search the list shows only its results, so a note
+    /// opened from the list then was opened from a result. Set together with
+    /// the selection, so the note's page is made knowing it.
+    private var opening: Binding<Page?> {
+        Binding {
+            selection
+        } set: { page in
+            openedSearch = NoteSearch(searchText)
+            selection = page
         }
     }
 

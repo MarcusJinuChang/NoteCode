@@ -21,6 +21,14 @@ pinch zoom, the note page and its hotbar, and a PaperKit canvas that a finger
 or the Pencil draws on, with ink undo of its own, saved with the note and
 drawn at the screen's density. 24 pull requests, all merged.
 
+- **Note search** (4 Oct, in review): a search field at the top of the note
+  list finds notes by every word typed, in the title or the text, ignoring
+  case and accents. Results show the line that matched, with the words in
+  bold, title matches first. Opening one scrolls the note to its first match
+  and highlights every match until you type. The magnifying glass in an open
+  note's header, or ⌘F with a keyboard, finds and replaces within the note.
+  Ink isn't searched. Builds for iPad and Mac, and 493 tests pass; not yet
+  checked in the simulator or on the iPad.
 - **Note info** (3 Oct, in review): Get Info, in a note's long-press menu
   in the list, or the info button in an open note's header, shows when the
   note was made and last changed, its folder and orientation, its words,
@@ -116,8 +124,10 @@ code already has something to say.
 3. **Infinite canvas.** Notes are Letter pages, and ink is stored in page
    coordinates. An unbounded canvas is probably a second kind of note rather
    than a mode of this one.
-4. **Note search.** Text is plain in `Page.content`. PaperKit's
-   `PaperMarkup.indexableContent` may reach text boxes in ink (untested).
+4. **Note search.** Built 4 Oct, in review: across notes from the list,
+   and find within a note. Text is plain in `Page.content`. PaperKit's
+   `PaperMarkup.indexableContent` may reach text boxes in ink (untested), so
+   ink isn't searched yet.
 5. **Favouriting / pinning / starring** notes and folders. Folders merged
    3 Oct (PR #23); pinning merged 3 Oct (PR #24).
 6. **Note sorting.** Merged 3 Oct (PR #24): date modified, date created or
