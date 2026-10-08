@@ -59,6 +59,14 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
 
     var position: CodeBlockPosition = .middle
 
+    /// The selected stretches of code, asked for each time the fragment draws.
+    ///
+    /// Not read from `textLayoutManager.textSelections`: measured 7 Oct, that
+    /// holds the caret's range and not a selection `UITextView` made, so the
+    /// fragment found nothing selected while a selection showed on screen. The
+    /// coordinator knows the text view's own selection and hands it over.
+    var selectedRanges: () -> [NSTextRange] = { [] }
+
     /// Whether this paragraph is the fence that closes its block.
     ///
     /// The line after it isn't code. That includes the empty line TextKit
@@ -115,7 +123,36 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
 
     override func draw(at point: CGPoint, in context: CGContext) {
         drawPanel(at: point, in: context)
+        drawSelection(at: point, in: context)
         super.draw(at: point, in: context)
+    }
+
+    /// Fills the selected part of this fragment, over the panel.
+    ///
+    /// UIKit's own highlight is behind the fragment views and so behind the
+    /// panel; see `CodeSelectionHighlight`. Not part of `drawPanel`, which
+    /// printing also calls: a selection isn't printed.
+    private func drawSelection(at point: CGPoint, in context: CGContext) {
+        guard let layoutManager = textLayoutManager else { return }
+
+        let fragmentRange = rangeInElement
+        let selected = selectedRanges()
+            .compactMap { $0.intersection(fragmentRange) }
+            .filter { !$0.isEmpty }
+        guard !selected.isEmpty else { return }
+
+        let frame = layoutFragmentFrame
+        context.saveGState()
+        context.setFillColor(CodeSelectionHighlight.color.cgColor)
+        for range in selected {
+            layoutManager.enumerateTextSegments(in: range, type: .selection, options: []) { _, segment, _, _ in
+                // Segments are in the container's coordinates, the context's
+                // origin is this fragment's.
+                context.fill(segment.offsetBy(dx: point.x - frame.minX, dy: point.y - frame.minY))
+                return true
+            }
+        }
+        context.restoreGState()
     }
 
     /// Device pixels per point in the context being drawn into.

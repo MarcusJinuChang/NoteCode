@@ -289,6 +289,24 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   and down still visits each blank line. The empty
   last line after a final newline isn't a paragraph and isn't covered: in
   seamless and compressed its caret can still sit in a break.
+- **A selection inside a code block is painted by the fragment** (7 Oct,
+  `CodeSelectionHighlight`). UIKit's highlight view is the first subview of
+  the text canvas, behind every fragment view (measured from the view tree),
+  and a block's panel is an opaque fill painted by its fragments, so a
+  selection in code showed nothing; prose has no fill and was fine. The
+  panel can't go translucent (its seams and overhang assume an opaque fill),
+  so `CodeBlockLayoutFragment.drawSelection` fills the selected segments
+  right after the panel. Three things tried or found on the way, so they
+  aren't tried again: a `.backgroundColor` rendering attribute draws nothing
+  in a custom fragment; `invalidateRenderingAttributes` never redraws a
+  fragment view, so the coordinator `setNeedsDisplay`s the ones the old and
+  new selection touch (drawing only, no layout); and
+  `textLayoutManager.textSelections` doesn't hold a selection `UITextView`
+  made, so the coordinator hands each fragment the range it tracks
+  (`paintedCodeSelection`). Not drawn into the PDF. Checked by rendering the
+  text view and comparing the panel's pixels under a selection, light and
+  dark; not seen with a real drag. Find's match highlight (`decorate`) may
+  hide behind panels the same way; not checked.
 - **Position things from lines, never from a fragment's frame.** A line pushed
   past a page break stays inside a fragment whose frame begins above the
   break, so the frame spans it. Code panels (`CodeBlockLayoutFragment.panelRuns`)
