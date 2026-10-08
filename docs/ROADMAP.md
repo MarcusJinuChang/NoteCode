@@ -21,6 +21,11 @@ pinch zoom, the note page and its hotbar, and a PaperKit canvas that a finger
 or the Pencil draws on, with ink undo of its own, saved with the note and
 drawn at the screen's density. 25 pull requests, all merged.
 
+- **UI design v2, phase 1: colour** (7 Oct, branch `claude/ui-phase-1-colour`,
+  not merged): the orange accent, with its Increase Contrast variants, and the
+  design's syntax colours for code in light and dark. Run is orange. Builds
+  for iPad and Mac, and 537 tests pass; not yet checked in the simulator or on
+  the iPad. Phases 2 to 9 are in `docs/ui-design-v2-implementation.md`.
 - **Note search** (4 Oct, PR #27, merged 8 Oct): a search field at the top of the note
   list finds notes by every word typed, in the title or the text, ignoring
   case and accents. Results show the line that matched, with the words in
