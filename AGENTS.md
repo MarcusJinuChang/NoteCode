@@ -313,10 +313,40 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   alternative is pushing paragraphs with paragraph spacing, computed lazily
   — whole paragraphs rather than lines, and it has to coexist with the
   styler's own paragraph styles.
-- **Printing** isn't built, but print layout is the printed page exactly:
-  `PageLayout.sheet(ofPage:)` in page points, times 72/96 for the printer. A
-  `UIPrintPageRenderer` drawing each sheet's rect of the text view, code panels
-  and ink included, is what's left.
+- **Printing goes through a PDF** (4 Oct). The share button in the note's
+  header makes one and opens the share sheet, where Print, Save to Files
+  and the rest are; there's no print button of its own. A PDF page is a
+  sheet of print layout, `PageLayout.sheet(ofPage:)` in page points times
+  72/96: US Letter.
+- **The PDF is laid out afresh, never read off the screen** (`NotePDF`,
+  `PrintedNote`). TextKit only lays out what's on screen, so the page being
+  read has nothing to draw for the rest. `PrintedNote` is a second text
+  view from `makeConfiguredTextView`, styled by its own
+  `DocumentTextView.Coordinator` so code gets its fragments and colours,
+  in print layout, forced light: syntax colours come from the light theme,
+  and drawing runs under a light trait collection so `.label` and the code
+  panels are their light colours on a dark device. It starts from the open
+  note's page count and adds page breaks until no text runs past the last.
+  Ink is `PageView.ink`, so strokes not yet saved print too.
+- **A sheet is drawn a line at a time** (`NSTextLineFragment.draw`), with
+  code panels through `CodeBlockLayoutFragment.drawPanel`, bottom up so a
+  panel's overhang stays behind the line above, as it does on screen. A
+  paragraph split by a page break spans both pages, and drawing it whole
+  on each, clipped, would put its text in the PDF twice: once off the
+  page, where a search or a copy still finds it.
+- **Ink prints as a picture, at 288 dots per inch** (`NotePDF.drawInk`).
+  `PaperMarkup.draw(in:frame:)` draws only into a bitmap context: handed
+  the PDF's, it drew nothing and logged "CGBitmapContextGetColorSpace:
+  invalid context" (4 Oct). So each sheet's elements, moved to the sheet's
+  origin, are drawn into a bitmap cropped to where the sheet has ink, and
+  that goes on the page. Text stays text.
+- **What PaperKit's drawing does, measured** (probe, 4 Oct). It draws the
+  markup's coordinates straight through the context's transform, so a
+  bitmap has to be flipped to UIKit's way up first, and scaled by the
+  transform: `frame` doesn't scale anything. And assigning a set to a new
+  markup's `subelements` keeps nothing — a markup only updates elements it
+  already has from an assigned set — so building one means
+  `updateOrAppend` an element at a time, as `PageView.captureInk` does.
 
 ## The note page
 
@@ -324,8 +354,8 @@ Laid out from the 12 September mockup.
 
 - **Header.** ☰ opens the note list, which slides over the page
   (`.prominentDetail`) instead of narrowing it, so opening the list never
-  re-wraps the note. The title sits below; the run destination, note info
-  and account icons sit on the right. Account is a placeholder until Sign
+  re-wraps the note. The title sits below; the run destination, share,
+  note info and account icons sit on the right. Account is a placeholder until Sign
   in with Apple.
 - **Hotbar.** One bar, dragged by its grip to the left, bottom or right edge,
   snapping to whichever is nearest (`HotbarDock.nearest`). Undo, redo and the

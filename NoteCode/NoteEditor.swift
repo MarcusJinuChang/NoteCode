@@ -81,6 +81,22 @@ final class NoteEditor {
         page?.pageCount
     }
 
+    /// The open note as a PDF, a page for each of its pages, ink and all.
+    /// `nil` until the page exists.
+    ///
+    /// The ink is the page's own copy, so strokes drawn moments ago and not
+    /// yet saved are on the paper too.
+    func pdf(title: String) async -> Data? {
+        guard let page else { return nil }
+        return await NotePDF.render(NotePDF.Note(
+            title: title,
+            text: page.textView.text ?? "",
+            ink: page.ink,
+            orientation: page.pageLayout.orientation,
+            pageCount: page.pageCount
+        ))
+    }
+
     /// Called by `DocumentTextView` once the page, and so the canvas, exists.
     ///
     /// - Parameter page: the page around the text view, if any.

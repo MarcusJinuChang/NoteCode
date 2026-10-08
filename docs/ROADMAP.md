@@ -29,6 +29,15 @@ drawn at the screen's density. 24 pull requests, all merged.
   note's header, or ⌘F with a keyboard, finds and replaces within the note.
   Ink isn't searched. Builds for iPad and Mac, and 493 tests pass; not yet
   checked in the simulator or on the iPad.
+- **Printing and PDF export** (4 Oct, in review): the share button in an
+  open note's header makes a PDF of the note, a page for each of its pages
+  exactly as print layout shows them, ink, code panels and syntax colours
+  included, and opens the share sheet to print it, save it to Files or send
+  it. Always light, on white paper, whatever the device's appearance. Text
+  stays text, so it can be searched and selected in the PDF; ink goes on as
+  a picture at 288 dots per inch, since PaperKit draws only into bitmaps.
+  Builds for iPad and Mac, and 486 tests pass; not yet checked in the
+  simulator or on the iPad.
 - **Note info** (3 Oct, in review): Get Info, in a note's long-press menu
   in the list, or the info button in an open note's header, shows when the
   note was made and last changed, its folder and orientation, its words,
@@ -141,8 +150,8 @@ code already has something to say.
 7. **Note info / properties.** Built 3 Oct, in review: dates, folder,
    orientation, words, and code blocks by language, plus pages when the note
    is open.
-8. **Printing.** Print layout is already the printed page — see the deferred
-   table.
+8. **Printing.** Built 4 Oct, in review: the note header's share button
+   makes a PDF of the note's pages, to print, save or send.
 9. **UI polish**, from the UI design.
 10. **Accounts and Sign in with Apple.** No backend: as the only login option
     it also sidesteps Apple's rule requiring it alongside third-party sign-in.
@@ -229,7 +238,7 @@ Referenced by name from `TextRewritingPolicy.swift` and `DocumentTextView.swift`
 |---|---|
 | `TextRewritingPolicy.swift` | **Per-region text rewriting.** All five keyboard traits are `.code` everywhere, so prose loses autocorrect. Plan: `.prose` outside a fence, `.code` inside, with `reloadInputViews()`. |
 | `DocumentStyler.swift` | **Markers that recede.** Markdown markers stay visible in `tertiaryLabel`. Hiding them when the caret is elsewhere is the Obsidian behaviour. |
-| `PageLayout.swift` | **Printing** (before-November item 8). Print layout is the printed page exactly — `sheet(ofPage:)` times 72/96. A `UIPrintPageRenderer` drawing each sheet's rect of the text view is what's left. A4 is one more paper size. Ink renders through `PaperMarkup.draw(in:frame:options:)`, which is async; whether it stays vector in a PDF context is untested. PencilKit's `draw(in:)` crashed there (18 Sep). |
+| `PageLayout.swift` | **A4.** Notes print on US Letter only. A4 is one more paper size here, but a different width re-wraps the text, so it would be a property of the note, chosen when it's made, like orientation. |
 | `PageView.swift` | **Typing cost on long paged notes.** Page breaks are exclusion paths, and TextKit 2 then lays out everything below an edit: 34ms a keystroke near the top of a 250-line note on the simulator. If it lags on the iPad, push whole paragraphs with paragraph spacing instead, computed lazily. |
 | `PageView.swift` | **Diagonal panning when zoomed in.** The text view scrolls vertically and `PageView` sideways, so a pan picks one. |
 | `Page.swift` | **Text-anchored ink.** Wanted for its own sake, not just as a drift fix. Anchor each stroke to an `NSTextLocation` plus an offset, translate the group on relayout. Its own phase. |
