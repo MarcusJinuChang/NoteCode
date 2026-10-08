@@ -80,11 +80,17 @@ drawn at the screen's density. 24 pull requests, all merged.
   surround around the page scrolls with one finger and zooms; and undo,
   redo and the mode toggle no longer scroll away with the hotbar's tools.
   All but the Pencil checked on the simulator. 448 tests.
-- **Nothing is started for signing in and shipping.** Builds still sign with
-  the free Personal Team, whose profiles last seven days. As of 11 Sep the
-  paid Developer Program membership wasn't showing on the account. That has
-  to be sorted before TestFlight — and before the app can stay on the iPad for
-  more than a week at a time.
+- **Ship prep** (4 Oct, in review): the app carries the privacy manifest
+  App Store Connect requires, saying it tracks and collects nothing and
+  reads UserDefaults only for its own settings. It says it uses no
+  encryption of its own, so uploads skip the export question, and it no
+  longer declares a push background mode or iCloud and push entitlements,
+  left over from Xcode's template and never used. Still missing before an
+  upload: the app icon, which needs a design, and signing. Builds still
+  sign with the free Personal Team, whose profiles last seven days. As of
+  11 Sep the paid Developer Program membership wasn't showing on the
+  account. That has to be sorted before TestFlight — and before the app can
+  stay on the iPad for more than a week at a time.
 
 ## Plan
 
@@ -140,7 +146,8 @@ code already has something to say.
 9. **UI polish**, from the UI design.
 10. **Accounts and Sign in with Apple.** No backend: as the only login option
     it also sidesteps Apple's rule requiring it alongside third-party sign-in.
-11. **TestFlight.** Needs the paid team (see above) and a privacy manifest.
+11. **TestFlight.** Needs the paid team (see above) and an app icon. The
+    privacy manifest is in review (4 Oct).
 12. **App Store submission.** First submissions bounce on formality, so leave
     review-cycle buffer, not zero margin.
 
