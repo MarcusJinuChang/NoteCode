@@ -83,6 +83,37 @@ more element of the array `resolve` walks, not another branch.
 - Code fence detection should be resilient to incomplete fences while typing
   (i.e. don't require the closing ``` to exist before showing highlighting).
 
+## Colour
+
+The UI redesign's palette (7 Oct, phase 1 of `docs/ui-design-v2-implementation.md`).
+
+- **Accent** is `AccentColor.colorset`, `#FA8500` in light and dark, with
+  `#B85900` and `#FFAA33` in the Increase Contrast slots. The target's
+  `ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME` was already set, so the
+  asset alone reaches SwiftUI's `.tint` and UIKit's `tintColor` (the caret,
+  the selection); no root `.tint` was needed. The colorset was empty before,
+  which is why everything was system blue. Checked in the built `Assets.car`
+  with `xcrun assetutil --info`, all four variants.
+- **Syntax colours are `SyntaxTheme`**, highlight.js CSS handed to
+  HighlightSwift through `HighlightColors.custom(css:)`, replacing the stock
+  Xcode theme. Pure strings, so tests read them without the JavaScript
+  round trip. Measured on C++, Java and Python: the importer honours plain
+  class selectors and the compound and descendant forms
+  (`.hljs-title.class_`, `.hljs-class .hljs-title`), and `SyntaxThemeTests`
+  checks which colour lands on which token. Each role is 4.5:1 or better on
+  the code panel; a test computes the ratios.
+- **Plain text is `.label`, which CSS can't say.** The HTML importer paints
+  anything unstyled `#000000`, and the styler applies every run it's given, so
+  without a rule plain code was black on the dark panel. The theme gives
+  `.hljs` a sentinel colour (`SyntaxTheme.plainHex`) and the adapter drops runs
+  in it. Revert that filter and `plainIsLeftAlone` fails.
+- **Weight and italic aren't drawn.** The CSS asks for semibold keywords and
+  italic comments, but `ColorRun` carries only colour. Carrying a font trait
+  would mean the styler writing fonts after a highlight pass, which is another
+  layout below the caret (see "Pages › Cost").
+- **Run is the accent**, not green: `CodeBlockActionBar` tints it
+  `UIColor.tintColor`. The copy button's green tick stays.
+
 ## Page geometry, orientation, and zoom
 
 The document should lay out at a fixed page width, not at the device width.

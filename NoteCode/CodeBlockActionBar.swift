@@ -44,7 +44,7 @@ final class CodeBlockActionBar: UIView {
 
     private let runButton = CodeBlockActionBar.makeButton(
         systemName: "play.fill",
-        tint: .systemGreen,
+        tint: .tintColor,
         label: "Run code block"
     )
 

@@ -24,10 +24,10 @@ struct HighlightSwiftHighlighter: SyntaxHighlighter {
     ) async -> [ColorRun] {
         guard !code.isEmpty, !languageTag.isEmpty else { return [] }
 
-        let colors: HighlightColors = switch appearance {
-        case .light: .light(.xcode)
-        case .dark:  .dark(.xcode)
-        }
+        // NoteCode's own palette, not a stock theme. No background is passed:
+        // the panel is drawn by the editor, and only the foreground colours
+        // are read back.
+        let colors = HighlightColors.custom(css: SyntaxTheme.theme(for: appearance).css)
 
         // The String overload resolves highlight.js's own aliases, so any of
         // its ~56 languages works without NoteCode enumerating them. An
@@ -89,7 +89,7 @@ struct HighlightSwiftHighlighter: SyntaxHighlighter {
                 nil
             }
 
-            guard let color else { return nil }
+            guard let color, !SyntaxTheme.isPlain(color) else { return nil }
             let range = NSRange(run.range, in: highlighted)
             return ColorRun(
                 range: NSRange(location: range.location + offset, length: range.length),
