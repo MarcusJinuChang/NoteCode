@@ -75,6 +75,10 @@ final class NoteEditor {
     private(set) var canUndo = false
     private(set) var canRedo = false
 
+    /// Whether a formatting button's edit is going through the text view, so
+    /// the delegate doesn't take it for the keyboard rewriting code.
+    @ObservationIgnored private(set) var isFormatting = false
+
     @ObservationIgnored private weak var textView: UITextView?
     @ObservationIgnored private weak var canvas: DrawingCanvas?
     @ObservationIgnored private weak var page: PageView?
@@ -207,7 +211,9 @@ final class NoteEditor {
         if !textView.isFirstResponder {
             textView.becomeFirstResponder()
         }
+        isFormatting = true
         textView.replace(range, withText: edit.replacement)
+        isFormatting = false
         textView.selectedRange = edit.selection
         refreshUndoState()
     }

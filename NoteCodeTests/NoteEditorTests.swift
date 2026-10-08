@@ -82,6 +82,19 @@ struct NoteEditorTests {
         #expect(harness.editor.canRedo)
     }
 
+    @Test("Formatting can take inline code's backticks away, though the keyboard can't")
+    func formattingRemovesInlineCode() {
+        let harness = Harness("a `word` b")
+        harness.textView.selectedRange = NSRange(location: 3, length: 4)
+
+        harness.editor.toggle(.code)
+
+        // The edit replaces more than the selection and drops two
+        // backticks, which is what the delegate turns away from the keyboard.
+        #expect(harness.textView.text == "a word b")
+        #expect(harness.stored == "a word b")
+    }
+
     @Test("Formatting does nothing in ink mode")
     func noFormattingInInk() {
         let harness = Harness("a word b")

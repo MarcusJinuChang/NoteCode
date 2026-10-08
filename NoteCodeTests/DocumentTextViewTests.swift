@@ -23,17 +23,19 @@ struct DocumentTextViewTests {
         #expect(textView.textLayoutManager != nil)
     }
 
-    @Test("Nothing that rewrites typed text is enabled")
+    @Test("Nothing rewrites typed text until the caret is placed")
     func textRewritingDisabled() {
         let textView = DocumentTextView.makeConfiguredTextView()
 
         // Autocorrect is the dangerous one: it rewrote `int lo` to `In too`
-        // when this was first run on the simulator.
+        // when this was first run on the simulator. Prose gets it once the
+        // caret lands in prose — see TextRewritingPolicyTests.
         #expect(textView.autocorrectionType == .no)
         #expect(textView.autocapitalizationType == .none)
         #expect(textView.smartQuotesType == .no)
         #expect(textView.smartDashesType == .no)
         #expect(textView.smartInsertDeleteType == .no)
+        #expect(textView.inlinePredictionType == .no)
     }
 
     @Test("Styling does not downgrade the view to TextKit 1")
