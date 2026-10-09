@@ -43,6 +43,11 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// The outline's corners, on screen.
     static let outlineCornerRadius: CGFloat = 16
 
+    /// What the page is painted, and what shows beside it. Dynamic colours:
+    /// white on #F2F2F7 in light, black on #1C1C1E in dark.
+    static let pageColor = UIColor.systemBackground
+    static let surroundColor = UIColor.secondarySystemBackground
+
     /// The pages' orientation and how they are shown.
     ///
     /// Changing the mode keeps the reader's place and shows ink on its page.
@@ -352,6 +357,21 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     private func placeOutline() {
         let continuous = pageLayout.mode != .print
         outline.isHidden = !continuous
+
+        // The page against its surround, in every mode. The view itself is
+        // the surround: it shows beside the page, and in print layout between
+        // the sheets. The continuous modes' page is a column the text view's
+        // width, so the text view paints it — under the text, the break
+        // decorations and the canvas, which are all its subviews, and
+        // following the corners below, which a separate view would have to
+        // copy. Print layout's text view stays clear, since its sheets carry
+        // the page colour and the surround must show between them. Set by
+        // mode, not once, so a switch can't leave the column behind.
+        backgroundColor = Self.surroundColor
+        let fill = continuous ? Self.pageColor : UIColor.clear
+        if textView.backgroundColor != fill {
+            textView.backgroundColor = fill
+        }
         if outline.frame != textView.frame {
             outline.frame = textView.frame
         }
@@ -468,7 +488,6 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             return bottom + textView.textContainerInset.bottom
         })
         applyBands()
-        backgroundColor = pageLayout.mode == .print ? .secondarySystemBackground : .clear
         placeOutline()
 
         guard old != nil else { return }
@@ -935,6 +954,7 @@ final class PageDecorationView: UIView {
 
     private var sheets: [UIView] = []
     private var breaks: [CAShapeLayer] = []
+    private var gaps: [CALayer] = []
     private var layout: PageLayout?
     private var pageCount = 0
 
@@ -946,6 +966,13 @@ final class PageDecorationView: UIView {
 
     /// Break line heights in note coordinates, for tests.
     var breakLineYs: [CGFloat] { breaks.map { $0.frame.midY } }
+
+    /// The gaps compressed layout paints between pages, in note coordinates,
+    /// for tests.
+    var gapFrames: [CGRect] { gaps.map(\.frame) }
+
+    /// What each gap is painted, for tests.
+    var gapColors: [CGColor?] { gaps.map(\.backgroundColor) }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -991,6 +1018,29 @@ final class PageDecorationView: UIView {
         }
 
         let breakCount = layout.mode == .compressed ? max(pageCount - 1, 0) : 0
+
+        // The gap between two pages reads as the surround showing through:
+        // the band text flows around, across the page's width, painted in the
+        // surround's colour. Beneath the dashed line, which sits in its
+        // middle. Only compressed has one: seamless's is a hairline too thin
+        // to see, and print layout's is the surround itself between sheets.
+        while gaps.count < breakCount {
+            let gap = CALayer()
+            layer.insertSublayer(gap, at: 0)
+            gaps.append(gap)
+        }
+        while gaps.count > breakCount {
+            gaps.removeLast().removeFromSuperlayer()
+        }
+        for (index, gap) in gaps.enumerated() {
+            gap.frame = CGRect(
+                x: 0,
+                y: layout.bodyTop(ofPage: index) + layout.bodyHeight,
+                width: frame.width,
+                height: layout.gap
+            )
+        }
+
         while breaks.count < breakCount {
             let line = CAShapeLayer()
             line.lineWidth = 1
@@ -1022,6 +1072,10 @@ final class PageDecorationView: UIView {
         }
         for line in breaks {
             line.strokeColor = separator
+        }
+        let surround = PageView.surroundColor.resolvedColor(with: traitCollection).cgColor
+        for gap in gaps {
+            gap.backgroundColor = surround
         }
     }
 }

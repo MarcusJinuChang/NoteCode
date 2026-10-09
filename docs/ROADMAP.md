@@ -26,6 +26,13 @@ drawn at the screen's density. 25 pull requests, all merged.
   design's syntax colours for code in light and dark. Run is orange. Builds
   for iPad and Mac, and 537 tests pass; not yet checked in the simulator or on
   the iPad. Phases 2 to 9 are in `docs/ui-design-v2-implementation.md`.
+- **UI design v2, phase 2: the page against its surround** (8 Oct, branch
+  `claude/ui-phase-2-surround`, not merged): seamless and compressed now show a
+  white (black) page column on a grey surround, as print layout already did,
+  with the hotbar's strips on the surround too; compressed's gap between
+  pages is a grey band with the dashed line in it. Builds for iPad and Mac,
+  and 561 tests pass, the new ones reading rendered pixels in light and dark;
+  looked at in the simulator, not yet on the iPad.
 - **Note search** (4 Oct, PR #27, merged 8 Oct): a search field at the top of the note
   list finds notes by every word typed, in the title or the text, ignoring
   case and accents. Results show the line that matched, with the words in
