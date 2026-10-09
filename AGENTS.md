@@ -266,7 +266,7 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   816 landscape, with 0.75in margins. At that size 17pt body text prints at
   12.75pt. Orientation belongs to the note (`Page.pageOrientation`), set once
   when it's made; the view mode is a per-device preference (`@AppStorage`),
-  chosen from the header's view menu.
+  chosen from the View section of the header's ••• menu.
 - **One pagination, three presentations.** Every page holds a body of the same
   height in every mode, and text flows around a band between one body and the
   next — two margins and a 24pt gap in print layout, a 24pt strip with a dashed
@@ -448,11 +448,43 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
 
 Laid out from the 12 September mockup.
 
-- **Header.** ☰ opens the note list, which slides over the page
-  (`.prominentDetail`) instead of narrowing it, so opening the list never
-  re-wraps the note. The title sits below; the run destination, share,
-  note info and account icons sit on the right. Account is a placeholder until Sign
-  in with Apple.
+- **Header** (8 Oct, phase 3 of `docs/ui-design-v2-implementation.md`). The
+  system navigation bar, not a custom view: `PageDetailView` sets
+  `navigationTitle($page.title)` (the binding is what makes it editable),
+  `toolbarRole(.editor)` for a leading title with a chevron, and
+  `toolbarTitleMenu` for the title's menu. The custom header said it existed
+  so the bar wouldn't be "a second, empty title bar", which stops being true
+  once the bar is the header.
+  - **Left:** the system's sidebar button, which opens the list over the page
+    (`.prominentDetail`) so opening it never re-wraps the note. The design
+    draws ☰; `.toolbar(removing: .sidebarToggle)` didn't remove the system's
+    button on iPad, on the split view or on the detail, so a custom ☰ sat
+    beside it and was dropped rather than kept as a duplicate.
+  - **Title menu** (`NoteTitleMenu`): Rename (the system's `RenameButton`,
+    disabled while the text is locked), Pin, Move to Folder, Remove from
+    Folder, Lock Text, Get Info, Delete. Delete asks once, in an alert rather
+    than a dialog, which on iPad would be a popover with an anchor to get
+    wrong. `ContentView.delete` clears the selection before deleting, as the
+    list does, and brings the list back, since the ☰ went with the page.
+  - **Right:** Share (`NoteShareButton`) and •••: a View section (the
+    mode's `title` and `systemImage` from PageViewMenu.swift), Run Code In
+    (`RunDestinationMenu`, now a submenu) and Find in Note. All in the label
+    colour (`.tint(.primary)` on each item), not the accent.
+  - **Alerts can't hang off menu content.** It's gone the moment an item is
+    chosen. The custom-site alert (`runDestinationSiteAlert`) and New Folder's
+    name alert are attached to the page's own view, and the menu raises a
+    binding.
+  - **A new note opens with Rename active** (`RenameOnAppear`, from
+    `ContentView.newPage`, set by `NoteList.onNewPage`), through the
+    environment's `rename` action, which only a view under the
+    `navigationTitle` can see. Not checked on screen.
+  - **A locked note shows `lock.fill`** (small, secondary) in the trailing
+    group, before Share. The design puts it after the title, but a system
+    title is a string: it takes no icon, and a principal-placement view would
+    replace the title and its menu.
+  - Gone from the header: Find's own button, the lock button, the info
+    button, the disabled Account placeholder.
+
 - **Hotbar.** One bar, dragged by its grip to the left, bottom or right edge,
   snapping to whichever is nearest (`HotbarDock.nearest`). Undo, redo and the
   text/draw toggle never move; after the divider come the current mode's tools.
@@ -517,8 +549,8 @@ Laid out from the 12 September mockup.
   can't be subclassed, so `DrawingCanvas` is the view between them and vends
   its own; `NoteEditor` routes the hotbar's arrows to the stack the mode uses.
   Ink's stack is cleared whenever the page re-places ink for a mode switch.
-- **Text lock** (4 Oct). The lock beside note info in the header, or Lock
-  Text in the list's note menu, sets `Page.isTextLocked`: the text and title
+- **Text lock** (4 Oct). Lock Text in the title menu, or in the list's note
+  menu, sets `Page.isTextLocked`: the text and title
   can be read, selected and copied, but not changed. Read-only rather than
   hidden behind Face ID, which is "Note locking" in Later. It belongs to the
   note, so it lasts until unlocked, and like pinning it isn't an edit.
@@ -597,7 +629,7 @@ so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
   through the text view's own find decorations (`decorate(foundTextRange:)`),
   which sit on the text at any zoom. The highlights go at the first edit.
 - **Find within a note is UIKit's** (`isFindInteractionEnabled`): ⌘F, or
-  the header's magnifying glass, which switches to text mode first, since
+  Find in Note in the header's ••• menu, which switches to text mode first, since
   the text takes no selection while ink has the page.
 
 Pinning, sorting, note info and search needed no model change: the pins

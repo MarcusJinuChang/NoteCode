@@ -25,6 +25,10 @@ struct NoteList: View {
     /// notes that match instead of its folders.
     @Binding var searchText: String
 
+    /// Told of each note the "+" menu makes, so the page can open with its
+    /// title ready to type.
+    var onNewPage: (Page) -> Void = { _ in }
+
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Page.modifiedAt, order: .reverse) private var pages: [Page]
     @Query private var folders: [Folder]
@@ -438,6 +442,7 @@ struct NoteList: View {
                 closedFolders.remove(folder.persistentModelID)
             }
         }
+        onNewPage(page)
         selection = page
     }
 

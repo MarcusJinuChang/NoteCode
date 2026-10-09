@@ -33,6 +33,14 @@ drawn at the screen's density. 25 pull requests, all merged.
   pages is a grey band with the dashed line in it. Builds for iPad and Mac,
   and 561 tests pass, the new ones reading rendered pixels in light and dark;
   looked at in the simulator, not yet on the iPad.
+- **UI design v2, phase 3: the note header** (8 Oct, branch
+  `claude/ui-phase-3-header`, not merged): the custom header and its large
+  title field are the system navigation bar now. The title is a menu (Rename,
+  Pin, Move to Folder, Lock Text, Get Info, Delete) and renames in place;
+  Share and ••• sit on the right, and ••• holds the view mode, Run Code In and
+  Find in Note. The Account placeholder is gone. Builds for iPad and Mac;
+  looked at in the simulator, not tapped through, and the new-note rename isn't
+  checked, and the lock icon sits before Share, not after the title.
 - **Note search** (4 Oct, PR #27, merged 8 Oct): a search field at the top of the note
   list finds notes by every word typed, in the title or the text, ignoring
   case and accents. Results show the line that matched, with the words in

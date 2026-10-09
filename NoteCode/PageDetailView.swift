@@ -6,28 +6,40 @@
 import SwiftData
 import SwiftUI
 
-/// One note: a header with its title, then the page, with the hotbar docked
-/// to one of the page's edges.
+/// One note: the page, with the hotbar docked to one of its edges, under a
+/// navigation bar that is the note's header.
+///
+/// The header is the system's: the sidebar button on the left, the title as a
+/// menu (rename, pin, move, lock, info, delete), then share and •••. It was a custom view with a
+/// large-title field under a row of icons; the navigation bar's own editable
+/// title does the same job and is where iPad people expect to rename a
+/// document.
 ///
 /// The iOS page is DocumentTextView (TextKit 2). macOS keeps a plain
 /// TextEditor and has no hotbar.
 struct PageDetailView: View {
     @Bindable var page: Page
 
-    /// Shows or hides the note list. `nil` where there's no sidebar to toggle:
-    /// in a compact width the list is a screen of its own, and the back
-    /// button does this job.
-    var toggleSidebar: (() -> Void)? = nil
-
     /// The search this note was opened from, whose matches it shows as it
     /// opens. Empty when it wasn't opened from a search.
     var revealing = NoteSearch("")
+
+    /// Closes the note and deletes it, once the reader has confirmed. `nil`
+    /// where nothing can close the note, which leaves Delete out of the menu.
+    var onDelete: (() -> Void)? = nil
+
+    /// Whether to open with the title being renamed: a note just made, so
+    /// its name can be typed straight away.
+    var startsRenaming = false
 
     /// Where code blocks run when a page hasn't chosen for itself. Not in the
     /// model: it is a preference about this device, not a property of a note,
     /// and it has to have a value before any page exists.
     @AppStorage(RunDestinationPreference.appDefaultKey)
     private var appDefaultDestination: String = CodeDestination.default.id
+
+    @Environment(\.modelContext) private var modelContext
+    @Query private var folders: [Folder]
 
 #if canImport(UIKit)
     @State private var editor = NoteEditor()
@@ -36,7 +48,6 @@ struct PageDetailView: View {
     @State private var inkSaver: DrawingSaveScheduler
 
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.modelContext) private var modelContext
 
     @AppStorage(HotbarDock.defaultsKey)
     private var dock: HotbarDock = .default
@@ -65,14 +76,26 @@ struct PageDetailView: View {
 #endif
 
     @State private var showsInfo = false
+    @State private var confirmsDelete = false
+    @State private var isNamingCustomSite = false
+
+    /// "New Folder…" in the title menu's Move to Folder, and the name typed.
+    @State private var isNamingFolder = false
+    @State private var typedFolderName = ""
 
     /// Gap between the hotbar and the edges around it.
     private static let hotbarMargin: CGFloat = 12
 
-    init(page: Page, toggleSidebar: (() -> Void)? = nil, revealing: NoteSearch = NoteSearch("")) {
+    init(
+        page: Page,
+        revealing: NoteSearch = NoteSearch(""),
+        onDelete: (() -> Void)? = nil,
+        startsRenaming: Bool = false
+    ) {
         self.page = page
-        self.toggleSidebar = toggleSidebar
         self.revealing = revealing
+        self.onDelete = onDelete
+        self.startsRenaming = startsRenaming
 #if canImport(UIKit)
         // Cheap: the ink is read when the page is made, not here. SwiftUI
         // builds this view far more often than it keeps a new state.
@@ -82,8 +105,9 @@ struct PageDetailView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            header
-            Divider()
+            if startsRenaming && !page.isTextLocked {
+                RenameOnAppear()
+            }
 #if canImport(UIKit)
             if let problem = inkSaver.problem {
                 Label(problem, systemImage: "exclamationmark.triangle.fill")
@@ -95,11 +119,41 @@ struct PageDetailView: View {
 #endif
             content
         }
+        .navigationTitle($page.title)
 #if os(iOS)
-        // The header carries the sidebar button, so the navigation bar would
-        // only be a second, empty title bar.
-        .toolbar(toggleSidebar == nil ? .automatic : .hidden, for: .navigationBar)
+        // A title in the bar's own line, not a large title above the page,
+        // and on iPad leading, beside ☰, with the menu's chevron after it.
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarRole(.editor)
 #endif
+        .toolbarTitleMenu {
+            NoteTitleMenu(
+                page: page,
+                folders: folders,
+                onNewFolder: {
+                    typedFolderName = ""
+                    isNamingFolder = true
+                },
+                onGetInfo: { showsInfo = true },
+                onDelete: onDelete.map { _ in { confirmsDelete = true } }
+            )
+        }
+        .toolbar { headerItems }
+        .sheet(isPresented: $showsInfo) {
+            NoteInfoView(page: page, pageCount: openPageCount)
+        }
+        .runDestinationSiteAlert(isPresented: $isNamingCustomSite, pageSetting: $page.runDestination)
+        .alert("Delete “\(page.title)”?", isPresented: $confirmsDelete) {
+            Button("Delete", role: .destructive) { onDelete?() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This note and its drawing will be deleted. This can't be undone.")
+        }
+        .alert("New Folder", isPresented: $isNamingFolder) {
+            TextField("Name", text: $typedFolderName)
+            Button("Cancel", role: .cancel) {}
+            Button("Create") { moveToNewFolder() }
+        }
         .onChange(of: page.title) { page.modifiedAt = .now }
         .onChange(of: page.content) { page.modifiedAt = .now }
 #if canImport(UIKit)
@@ -128,84 +182,75 @@ struct PageDetailView: View {
 
     // MARK: Header
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 12) {
-                if let toggleSidebar {
-                    Button(action: toggleSidebar) {
-                        Label("Notes", systemImage: "line.3.horizontal")
+    /// Share and ••• on the right, in the label colour, not the accent,
+    /// which belongs to the tools and the page. The sidebar button on the
+    /// left is the system's: it opens the list over the page, and in a
+    /// compact width the back button takes its place.
+    @ToolbarContentBuilder
+    private var headerItems: some ToolbarContent {
+        // The title is the system's, so it can't carry the lock after it;
+        // the lock sits beside the buttons instead, only while it's locked.
+        if page.isTextLocked {
+            ToolbarItem(placement: .primaryAction) {
+                Image(systemName: "lock.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("Text Locked")
+            }
+        }
+
+#if canImport(UIKit)
+        ToolbarItem(placement: .primaryAction) {
+            NoteShareButton(editor: editor, title: page.title)
+                .tint(.primary)
+        }
+#endif
+
+        ToolbarItem(placement: .primaryAction) {
+            moreMenu
+                .tint(.primary)
+        }
+    }
+
+    /// •••: how pages are shown, where code runs, and find.
+    private var moreMenu: some View {
+        Menu {
+#if canImport(UIKit)
+            Section("View") {
+                Picker("View", selection: $viewMode) {
+                    ForEach(PageViewMode.allCases, id: \.self) { mode in
+                        Label(mode.title, systemImage: mode.systemImage).tag(mode)
                     }
                 }
-
-                Spacer()
-
-#if canImport(UIKit)
-                Button {
-                    editor.showFind()
-                } label: {
-                    Label("Find in Note", systemImage: "magnifyingglass")
-                }
-
-                PageViewMenu(mode: $viewMode)
+                .pickerStyle(.inline)
+            }
 #endif
 
-                RunDestinationMenu(
-                    pageSetting: $page.runDestination,
-                    folder: page.folder,
-                    appDefault: $appDefaultDestination
-                )
+            RunDestinationMenu(
+                pageSetting: $page.runDestination,
+                folder: page.folder,
+                appDefault: $appDefaultDestination,
+                isNamingCustomSite: $isNamingCustomSite
+            )
 
 #if canImport(UIKit)
-                NoteShareButton(editor: editor, title: page.title)
+            Button("Find in Note", systemImage: "magnifyingglass") {
+                editor.showFind()
+            }
+            // The text view answers ⌘F itself while it's typing; this is the
+            // same shortcut for when it isn't, and listed in the ⌘ overlay.
+            .keyboardShortcut("f", modifiers: .command)
 #endif
-
-                Button {
-                    showsInfo = true
-                } label: {
-                    Label("Note Info", systemImage: "info.circle")
-                }
-
-                Button {
-                    page.isTextLocked.toggle()
-                } label: {
-                    Label(
-                        page.isTextLocked ? "Unlock Text" : "Lock Text",
-                        systemImage: page.isTextLocked ? "lock.fill" : "lock.open"
-                    )
-                }
-
-                // Sign in with Apple lands with the App Store release. The
-                // button holds its place so the header doesn't reshuffle then.
-                Button {} label: {
-                    Label("Account", systemImage: "person.crop.circle")
-                }
-                .disabled(true)
-            }
-            .labelStyle(.iconOnly)
-            .font(.title3)
-            .buttonStyle(.borderless)
-
-            // The title is text too, so it locks with the rest. Shown as
-            // plain text rather than a disabled field, which would grey it.
-            Group {
-                if page.isTextLocked {
-                    // An empty title shows the field's placeholder, as it
-                    // would unlocked.
-                    Text(page.title.isEmpty ? "Title" : page.title)
-                        .foregroundStyle(page.title.isEmpty ? .tertiary : .primary)
-                        .lineLimit(1)
-                } else {
-                    TextField("Title", text: $page.title)
-                        .textFieldStyle(.plain)
-                }
-            }
-            .font(.largeTitle.bold())
+        } label: {
+            Label("More", systemImage: "ellipsis")
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 8)
-        .padding(.bottom, 12)
-        .sheet(isPresented: $showsInfo) {
-            NoteInfoView(page: page, pageCount: openPageCount)
+    }
+
+    private func moveToNewFolder() {
+        let folder = Folder(name: Folder.name(fromTyped: typedFolderName))
+        withAnimation {
+            modelContext.insert(folder)
+            page.folder = folder
         }
     }
 

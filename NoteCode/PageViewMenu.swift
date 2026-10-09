@@ -2,31 +2,16 @@
 //  PageViewMenu.swift
 //  NoteCode
 //
-//  Choosing how pages are shown.
+//  The names and icons of how pages are shown and which way up they are.
+//
+//  The menu that picks the view mode is the View section of the header's •••
+//  menu (`PageDetailView`). The mode is a preference about this device and
+//  changes nothing in the note. The pages' orientation isn't offered there:
+//  it's chosen when the note is made and fixed from then on — see the
+//  new-note menu in `NoteList`.
 //
 
 import SwiftUI
-
-/// The header's view menu.
-///
-/// The view mode is a preference about this device and changes nothing in
-/// the note. The pages' orientation isn't here: it's chosen when the note is
-/// made and fixed from then on — see the new-note menu in `ContentView`.
-struct PageViewMenu: View {
-    @Binding var mode: PageViewMode
-
-    var body: some View {
-        Menu {
-            Picker("View", selection: $mode) {
-                ForEach(PageViewMode.allCases, id: \.self) { mode in
-                    Label(mode.title, systemImage: mode.systemImage).tag(mode)
-                }
-            }
-        } label: {
-            Label("View", systemImage: mode.systemImage)
-        }
-    }
-}
 
 extension PageViewMode {
     var title: String {
