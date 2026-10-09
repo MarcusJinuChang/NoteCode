@@ -631,6 +631,12 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
 
         let noteHeight = pageLayout.noteHeight(pageCount: pageCount)
         canvas.noteSize = CGSize(width: pageLayout.pageSize.width, height: noteHeight)
+        // Print layout's ink stays on its sheets, as it prints; a stroke that
+        // runs off one doesn't show over the surround. The continuous modes
+        // are one surface, so a stroke may cross a break there.
+        canvas.inkRegions = pageLayout.mode == .print
+            ? (0..<pageCount).map(pageLayout.sheet(ofPage:))
+            : nil
         canvas.cover(Self.visiblePart(
             ofNoteHeight: noteHeight,
             width: pageLayout.pageSize.width,
@@ -954,7 +960,6 @@ final class PageDecorationView: UIView {
 
     private var sheets: [UIView] = []
     private var breaks: [CAShapeLayer] = []
-    private var gaps: [CALayer] = []
     private var layout: PageLayout?
     private var pageCount = 0
 
@@ -966,13 +971,6 @@ final class PageDecorationView: UIView {
 
     /// Break line heights in note coordinates, for tests.
     var breakLineYs: [CGFloat] { breaks.map { $0.frame.midY } }
-
-    /// The gaps compressed layout paints between pages, in note coordinates,
-    /// for tests.
-    var gapFrames: [CGRect] { gaps.map(\.frame) }
-
-    /// What each gap is painted, for tests.
-    var gapColors: [CGColor?] { gaps.map(\.backgroundColor) }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -1018,29 +1016,6 @@ final class PageDecorationView: UIView {
         }
 
         let breakCount = layout.mode == .compressed ? max(pageCount - 1, 0) : 0
-
-        // The gap between two pages reads as the surround showing through:
-        // the band text flows around, across the page's width, painted in the
-        // surround's colour. Beneath the dashed line, which sits in its
-        // middle. Only compressed has one: seamless's is a hairline too thin
-        // to see, and print layout's is the surround itself between sheets.
-        while gaps.count < breakCount {
-            let gap = CALayer()
-            layer.insertSublayer(gap, at: 0)
-            gaps.append(gap)
-        }
-        while gaps.count > breakCount {
-            gaps.removeLast().removeFromSuperlayer()
-        }
-        for (index, gap) in gaps.enumerated() {
-            gap.frame = CGRect(
-                x: 0,
-                y: layout.bodyTop(ofPage: index) + layout.bodyHeight,
-                width: frame.width,
-                height: layout.gap
-            )
-        }
-
         while breaks.count < breakCount {
             let line = CAShapeLayer()
             line.lineWidth = 1
@@ -1072,10 +1047,6 @@ final class PageDecorationView: UIView {
         }
         for line in breaks {
             line.strokeColor = separator
-        }
-        let surround = PageView.surroundColor.resolvedColor(with: traitCollection).cgColor
-        for gap in gaps {
-            gap.backgroundColor = surround
         }
     }
 }
