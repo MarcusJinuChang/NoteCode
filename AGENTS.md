@@ -230,8 +230,10 @@ note against 11ms scrolling, and 5.5 seconds at 2000 lines. So instead:
 - Off the canvas, one finger always scrolls, and a pinch zooms (26 Sep):
   beside the page, between print layout's sheets, below a short note's
   end. Beside the page is `PageView`'s own space, which scrolls only
-  sideways, so its hit test hands those touches to the text view; between
-  sheets, `DrawingCanvas.takesTouch` turns them away. How many fingers a
+  sideways, so its hit test hands those touches to the text view; in space
+  seamless doesn't have — between print layout's sheets, its top and bottom
+  margins, compressed's strip — `DrawingCanvas.takesTouch` turns them away
+  (`PageLayout.takesInk`). How many fingers a
   scroll needs is set as each first finger lands (`PageView.touchWillLand`),
   so `NoteEditor` hands the mode's rule to the page, not to the pans.
 
@@ -282,6 +284,61 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   it a page. A note's orientation can't change after it's made, so there is
   no re-wrap for ink to fall out of; `PageView` still handles one, because it
   opens every note with portrait pages first.
+- **Ink across page breaks** (9 Oct). The space between one page's text and
+  the next is 1pt in seamless, 24 in compressed and 168 in print layout, and
+  every element moves between modes whole, by the page its middle is on. A
+  stroke drawn across a break sat on its words on one side only: 23pt off
+  between seamless and compressed (simulator). So, decided 9 Oct:
+  - **Seamless is the reference.** `PageLayout.inkRegion` is each page's
+    part of the note in seamless, moved with its page into any mode. Ink
+    shows only in those regions. Compressed's strip, print layout's top and
+    bottom margins between pages and the gaps between sheets are space
+    seamless doesn't have, so they take no ink: a stroke can't start there
+    (`takesInk`), and nothing shows there. Side margins are the same in
+    every mode.
+  - **A stroke is cut into a piece per page** (`InkPages`), however many
+    pages it reaches: the same stroke — path, ink, texture seed, PaperKit's
+    render state — with a mask of its page's region and a new id. PencilKit
+    draws only inside a mask; PaperKit keeps masks through moves, saving and
+    its own drawing, and two pieces meeting at a mask's edge join with no
+    seam (probe). A masked stroke's frame is its mask's, so the existing
+    per-element conversion places each piece by its own page. Whatever lay
+    in space no page has is in no piece, so it shows in no mode and can't
+    land on another page's words.
+  - **Cut in the stored ink, not on the canvas.** `captureInk` stores a
+    changed stroke as its pieces and records which canvas stroke each came
+    from (`PageView.pieceSources`); the canvas keeps the stroke whole until
+    ink is next shown — a mode switch or reopening — which clears ink undo
+    anyway. Swapping pieces onto the canvas straight away would leave
+    PaperKit's undo action for the stroke with nothing to remove. Erasing,
+    undoing or moving the stroke takes or re-cuts all its pieces.
+  - **Covers hide what the canvas still holds whole** (`PageCoverView`):
+    above the canvas, one view per hidden band, drawing what the page draws
+    there anyway (the page and its dashed line in compressed; the surround
+    and the sheets' edges, borders and shadows in print layout). On a page
+    without ink they can't be told from what's beneath
+    (`PageViewTests.coversMatchThePage` compares the pixels, and fails if
+    the covers are coloured). Text never sits in the bands. The live stroke
+    goes under them too.
+  - **Ink saved before 9 Oct isn't cut.** Rewriting ink nobody touched on
+    opening would change saved notes for being looked at; an old stroke is
+    cut the first time it's moved or erased.
+  - **Measured on the way, so they aren't tried again:** setting
+    `renderGroupID` on a stroke from the canvas traps inside PaperKit (its
+    strokes are a subclass that can't copy with one); `InkPages`' stroke
+    function needs its own name, since `PKStroke` is a `Markup` and a shared
+    name recursed until the stack ran out; PaperKit rounds a stroke's frame
+    out to whole points, so tests compare masks' bounds; assigning the
+    canvas a reordered set doesn't reorder it, so after a mode switch a
+    cut stroke's pieces draw above later strokes until the note is reopened
+    (stored order is kept); and PaperKit's ink doesn't render through
+    `drawHierarchy` in a unit test at all, so ink on screen is checked in
+    the simulator, while `InkPagesTests` draws pieces through
+    `PaperMarkup.draw`, as the PDF does.
+  - Checked in the simulator, light and dark: a stroke across a break sits
+    on the same words in all three modes, hidden over the bands while drawn
+    and after; undone and switched, nothing comes back. Not checked: the
+    Pencil, latency, the lasso and the eraser on pieces.
 - **Print layout** fits its sheets inside a 24pt border of the surround
   (`CanvasGeometry.printGutter`), so they read as paper rather than one slab
   with grey bars across it. Text is a little smaller there than in the
@@ -313,21 +370,14 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
     screenshots, pixels outside the keyboard's rounded corner: white before,
     the surround after, light and dark. No unit test: a keyboard's safe area
     can't be made in one.
-  - **Print layout's ink stays on its sheets** (9 Oct). `takesTouch` turns
-    away a stroke that *starts* between sheets, but a touch belongs to the
-    view it began on until it lifts, so a stroke begun on a sheet ran on
-    across the surround to the next (seen in the simulator, and on the iPad
-    by Marcus). PencilKit can't end a stroke at an edge, so the canvas is
-    masked to the sheets on screen (`DrawingCanvas.inkRegions`, a
-    `CAShapeLayer` mask reset in every `cover`, actions off so it doesn't
-    animate behind a scroll). It hides the live stroke as well as finished
-    ink; the stroke keeps its points, and the PDF crops each sheet anyway.
-    The continuous modes aren't masked: a stroke may cross a break there.
-    `PaperKit`'s ink doesn't render through `drawHierarchy` in a unit test
-    (tried, with the run loop turned for 1.5s: no ink at all), so the test
-    asks the mask's path about points converted by UIKit, and the drawing
-    was checked in the simulator. A mask renders the canvas offscreen;
-    Pencil latency in print layout hasn't been checked on the iPad.
+  - **Ink over the space seamless doesn't have is hidden, by covers**
+    (9 Oct; see "Ink across page breaks" below). The first fix, a
+    `CAShapeLayer` mask on the canvas (PR #36), **blanked text**: masked,
+    PaperKit's ink tiles painted the page colour over the lines beneath
+    them, so around every stroke in print layout whole blocks of words were
+    missing. Taking the mask off in the running app (lldb) brought them
+    back. The checks at the time looked at the stroke and the gap, not the
+    words beside them. Don't put a mask on the canvas.
   The tests render the page and read pixels, in both appearances
   (`PageViewTests.pageAgainstSurround` and neighbours). **Set
   `overrideUserInterfaceStyle` on the page view, not the test's window**: a

@@ -159,15 +159,62 @@ nonisolated struct PageLayout: Equatable, Sendable {
         )
     }
 
-    /// Whether a point in the note is on a page, rather than in the surround
-    /// between print layout's sheets or around them.
+    // MARK: Where ink shows
+
+    /// The part of the note page `index` has in seamless layout, placed on
+    /// that page in this one: where its ink shows.
     ///
-    /// The continuous modes are one surface, breaks included, so every point
-    /// of the note is on it.
-    func isOnPage(_ point: CGPoint, pageCount: Int) -> Bool {
-        guard mode == .print else { return true }
+    /// Seamless is the reference (decided 9 Oct). Ink is cut at page breaks
+    /// into a piece per page (`InkPages`), each masked to its page's region
+    /// and moved with its page, so it sits on the same words in every mode.
+    /// Compressed and print layout have room seamless doesn't — the rest of
+    /// compressed's strip, print layout's top and bottom margins and the gap
+    /// between sheets — and ink there would have no place in seamless: it
+    /// would land on another page's words. So nothing shows there, and a
+    /// stroke can't start there. Side margins are the same in every mode.
+    ///
+    /// In seamless the regions tile the note, so all of it takes ink.
+    func inkRegion(ofPage index: Int, pageCount: Int) -> CGRect {
+        let count = max(pageCount, 1)
+        let seamless = PageLayout(orientation: orientation, mode: .seamless)
+        let top = index == 0 ? 0 : seamless.bodyTop(ofPage: index) - seamless.gap / 2
+        let bottom = index == count - 1
+            ? seamless.noteHeight(pageCount: count)
+            : seamless.bodyTop(ofPage: index) + bodyHeight + seamless.gap / 2
+        let shift = bodyTop(ofPage: index) - seamless.bodyTop(ofPage: index)
+        return CGRect(x: 0, y: top + shift, width: pageSize.width, height: bottom - top)
+    }
+
+    /// Every page's `inkRegion`, top to bottom.
+    func inkRegions(pageCount: Int) -> [CGRect] {
+        (0..<max(pageCount, 1)).map { inkRegion(ofPage: $0, pageCount: pageCount) }
+    }
+
+    /// The parts of the note no page's ink shows in: between one page's
+    /// `inkRegion` and the next, above the first and below the last, across
+    /// the page's width. None in seamless.
+    func inkHiddenBands(pageCount: Int) -> [CGRect] {
+        var bands: [CGRect] = []
+        var top: CGFloat = 0
+        for region in inkRegions(pageCount: pageCount) {
+            if region.minY - top > 0.001 {
+                bands.append(CGRect(x: 0, y: top, width: pageSize.width, height: region.minY - top))
+            }
+            top = region.maxY
+        }
+        let end = noteHeight(pageCount: pageCount)
+        if end - top > 0.001 {
+            bands.append(CGRect(x: 0, y: top, width: pageSize.width, height: end - top))
+        }
+        return bands
+    }
+
+    /// Whether a stroke may start at a point in the note: whether it's in
+    /// a page's `inkRegion`. Elsewhere a finger scrolls instead.
+    func takesInk(at point: CGPoint, pageCount: Int) -> Bool {
+        guard mode != .seamless else { return true }
         let index = min(pageIndex(atY: point.y), max(pageCount, 1) - 1)
-        return sheet(ofPage: index).contains(point)
+        return inkRegion(ofPage: index, pageCount: pageCount).contains(point)
     }
 
     /// Where compressed layout draws the break after page `index`.
