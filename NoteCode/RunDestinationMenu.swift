@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-/// A toolbar menu for the page's run destination.
+/// The page's run destination, as a menu to nest in the header's ••• menu.
 ///
 /// Three levels, page over folder over app-wide, and the menu says which is
 /// in force rather than making the student work it out — "Default
@@ -25,8 +25,12 @@ struct RunDestinationMenu: View {
     /// The app-wide default, used by every page that hasn't chosen.
     @Binding var appDefault: String
 
-    @State private var isNamingCustomSite = false
-    @State private var typedSite = ""
+    /// Raised by "Another Site…". The alert it opens isn't attached here:
+    /// this menu sits inside another menu's content, which is gone the
+    /// moment an item is chosen, and an alert attached to a view that has
+    /// gone never shows. The caller attaches `runDestinationSiteAlert` to a
+    /// view that stays.
+    @Binding var isNamingCustomSite: Bool
 
     private var defaultDestination: CodeDestination {
         RunDestinationPreference.resolve([appDefault])
@@ -80,7 +84,6 @@ struct RunDestinationMenu: View {
             Divider()
 
             Button("Another Site…") {
-                typedSite = ""
                 isNamingCustomSite = true
             }
 
@@ -96,25 +99,51 @@ struct RunDestinationMenu: View {
                 }
             }
         } label: {
-            Label("Run destination", systemImage: "play.rectangle")
+            Label("Run Code In", systemImage: "play.rectangle")
         }
-        .alert("Run Code On", isPresented: $isNamingCustomSite) {
-            TextField("example.com", text: $typedSite)
+    }
+}
+
+extension View {
+    /// The alert "Another Site…" opens, asking for a site to run code on.
+    /// Sets the page's own choice, as picking one from the menu does.
+    func runDestinationSiteAlert(
+        isPresented: Binding<Bool>,
+        pageSetting: Binding<String?>
+    ) -> some View {
+        modifier(RunDestinationSiteAlert(isPresented: isPresented, pageSetting: pageSetting))
+    }
+}
+
+private struct RunDestinationSiteAlert: ViewModifier {
+    @Binding var isPresented: Bool
+    @Binding var pageSetting: String?
+
+    @State private var typedSite = ""
+
+    func body(content: Content) -> some View {
+        content
+            .alert("Run Code On", isPresented: $isPresented) {
+                TextField("example.com", text: $typedSite)
 #if os(iOS)
-                .textInputAutocapitalization(.never)
-                .keyboardType(.URL)
+                    .textInputAutocapitalization(.never)
+                    .keyboardType(.URL)
 #endif
-                .autocorrectionDisabled()
+                    .autocorrectionDisabled()
 
-            Button("Cancel", role: .cancel) {}
+                Button("Cancel", role: .cancel) {}
 
-            Button("Use Site") {
-                if let custom = CodeDestination.custom(fromTyped: typedSite) {
-                    pageSetting = custom.id
+                Button("Use Site") {
+                    if let custom = CodeDestination.custom(fromTyped: typedSite) {
+                        pageSetting = custom.id
+                    }
                 }
+            } message: {
+                Text("The block is copied to the clipboard and the site opens, ready for you to paste it in.")
             }
-        } message: {
-            Text("The block is copied to the clipboard and the site opens, ready for you to paste it in.")
-        }
+            // Cleared on closing, so the next time it opens it is empty.
+            .onChange(of: isPresented) { _, presented in
+                if !presented { typedSite = "" }
+            }
     }
 }

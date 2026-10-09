@@ -27,9 +27,12 @@ struct ContentView: View {
     /// the search field doesn't redraw the note under the list.
     @State private var openedSearch = NoteSearch("")
 
-#if os(iOS)
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-#endif
+    /// A note the reader has just made, which opens with its title being
+    /// renamed. Cleared when another note opens, so coming back to this one
+    /// later doesn't start renaming again.
+    @State private var newPage: Page?
+
+    @Environment(\.modelContext) private var modelContext
 
     /// - Parameter openedPage: a note to open straight away, with the list
     ///   hidden. Only debug launch arguments pass one.
@@ -41,13 +44,23 @@ struct ContentView: View {
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            NoteList(storageIsEphemeral: storageIsEphemeral, selection: opening, searchText: $searchText)
+            NoteList(
+                storageIsEphemeral: storageIsEphemeral,
+                selection: opening,
+                searchText: $searchText,
+                onNewPage: { newPage = $0 }
+            )
                 // Searching the list brings the keyboard up; the list stays its
                 // size and the keyboard covers its lower rows.
                 .ignoresSafeArea(.keyboard)
         } detail: {
             if let page = selection {
-                PageDetailView(page: page, toggleSidebar: sidebarToggle, revealing: openedSearch)
+                PageDetailView(
+                    page: page,
+                    revealing: openedSearch,
+                    onDelete: { delete(page) },
+                    startsRenaming: page == newPage
+                )
                     // A fresh editor per note. Reusing one would carry the last
                     // note's undo stack across, and undo would type it back in.
                     .id(ObjectIdentifier(page))
@@ -63,6 +76,7 @@ struct ContentView: View {
         // opening it never re-wraps the note underneath.
         .navigationSplitViewStyle(.prominentDetail)
         .onChange(of: selection) {
+            if selection != newPage { newPage = nil }
             if selection != nil {
                 withAnimation { columnVisibility = .detailOnly }
             }
@@ -83,18 +97,20 @@ struct ContentView: View {
         }
     }
 
-    /// The note page's ☰ button, where there is a sidebar for it to show.
-    private var sidebarToggle: (() -> Void)? {
-#if os(iOS)
-        guard horizontalSizeClass != .compact else { return nil }
-        return {
-            withAnimation {
-                columnVisibility = columnVisibility == .detailOnly ? .all : .detailOnly
-            }
+    /// Closes the open note and deletes it.
+    ///
+    /// The note closes first: a deleted note's ink can't be read once the
+    /// deletion is saved (see AGENTS.md), and the page that shows it is the
+    /// one reading it. The list comes back, since the page it slid away for
+    /// is gone and its ☰ with it.
+    private func delete(_ page: Page) {
+        selection = nil
+        withAnimation {
+            columnVisibility = .all
+            // If saving fails, the deletion is still pending in the context,
+            // and autosave tries again.
+            try? Page.delete([page], from: modelContext)
         }
-#else
-        return nil
-#endif
     }
 }
 
