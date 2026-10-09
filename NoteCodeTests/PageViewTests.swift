@@ -991,50 +991,75 @@ struct PageViewTests {
         #expect(Self.near(try Self.pixel(of: page, at: onSheet), Self.bytes(.systemBackground, in: style)))
     }
 
-    @Test("Compressed layout's gap between pages is the surround across the page's width", arguments: [UIUserInterfaceStyle.light, .dark])
-    func compressedGapIsSurround(style: UIUserInterfaceStyle) throws {
+    @Test("Compressed layout marks a page end with a dashed line and nothing else", arguments: [UIUserInterfaceStyle.light, .dark])
+    func compressedBreakIsOnlyALine(style: UIUserInterfaceStyle) throws {
         let layout = PageLayout(mode: .compressed)
         let harness = Harness(text: Self.severalPages, area: CGSize(width: 1300, height: 900), layout: layout)
         harness.page.overrideUserInterfaceStyle = style
         let page = harness.page
         try #require(page.pageCount > 1)
 
-        // One gap per break, exactly where the text flows around.
-        #expect(page.decorations.gapFrames == (0..<(page.pageCount - 1)).map {
-            CGRect(x: 0, y: layout.bodyTop(ofPage: $0) + layout.bodyHeight, width: layout.pageSize.width, height: PageLayout.compressedGap)
-        })
-
         let top = layout.bodyTop(ofPage: 0) + layout.bodyHeight
         page.textView.contentOffset.y = top - 300
         harness.layOut()
 
-        // Both ends of the gap, clear of the dashed line in its middle, and
-        // either side of the text's margin.
+        // Across the break, clear of the line in its middle, is the page:
+        // the same surface as above and below it, not a gap.
         for x in [PageLayout.margin / 2, layout.pageSize.width / 2, layout.pageSize.width - PageLayout.margin / 2] {
             for y in [top + 3, top + PageLayout.compressedGap - 3] {
                 let point = page.textView.convert(CGPoint(x: x, y: y), to: page)
                 let got = try Self.pixel(of: page, at: point)
-                #expect(Self.near(got, Self.bytes(.secondarySystemBackground, in: style)), "gap at \(x),\(y): \(got)")
+                #expect(Self.near(got, Self.bytes(.systemBackground, in: style)), "break at \(x),\(y): \(got)")
             }
         }
-        // And the page above and below it is still the page.
-        let above = page.textView.convert(CGPoint(x: PageLayout.margin / 2, y: top - 10), to: page)
-        let below = page.textView.convert(CGPoint(x: PageLayout.margin / 2, y: top + PageLayout.compressedGap + 10), to: page)
-        #expect(Self.near(try Self.pixel(of: page, at: above), Self.bytes(.systemBackground, in: style)))
-        #expect(Self.near(try Self.pixel(of: page, at: below), Self.bytes(.systemBackground, in: style)))
     }
 
-    @Test("Only compressed layout paints gaps between pages")
-    func onlyCompressedPaintsGaps() {
-        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .compressed))
-        #expect(!harness.page.decorations.gapFrames.isEmpty)
+    // MARK: Ink stays on print layout's sheets
 
-        harness.switchTo(PageLayout(mode: .seamless))
-        #expect(harness.page.decorations.gapFrames.isEmpty)
-        harness.switchTo(PageLayout(mode: .print))
-        #expect(harness.page.decorations.gapFrames.isEmpty)
-        harness.switchTo(PageLayout(mode: .compressed))
-        #expect(!harness.page.decorations.gapFrames.isEmpty)
+    @Test("The ink clip is the covered part of each region, in the canvas's own points")
+    func inkClipRects() {
+        let covered = CGRect(x: 0, y: 1000, width: 816, height: 600)
+        let sheets = [
+            CGRect(x: 0, y: 24, width: 816, height: 1056),
+            CGRect(x: 0, y: 1104, width: 816, height: 1056),
+            CGRect(x: 0, y: 2184, width: 816, height: 1056),
+        ]
+        let rects = DrawingCanvas.clipRects(for: sheets, covering: covered, renderScale: 2)
+
+        // The first sheet's last 80 points and the second's first 496, the
+        // 24-point gap between them left out, and the third not on screen.
+        #expect(rects == [
+            CGRect(x: 0, y: 0, width: 1632, height: 160),
+            CGRect(x: 0, y: 208, width: 1632, height: 992),
+        ])
+    }
+
+    @Test("Print layout clips ink to its sheets; the continuous modes don't clip it", arguments: PageViewMode.allCases)
+    func inkClippedToSheets(mode: PageViewMode) throws {
+        let harness = Harness(text: Self.severalPages, area: CGSize(width: 1300, height: 900), layout: PageLayout(mode: mode))
+        let page = harness.page
+        try #require(page.pageCount > 1)
+
+        let print = PageLayout(mode: .print)
+        let gapY = (print.sheet(ofPage: 0).maxY + print.sheet(ofPage: 1).minY) / 2
+        let shownGapY = try #require(print.convert(y: gapY, to: page.pageLayout))
+        page.textView.contentOffset.y = shownGapY - 300
+        harness.layOut()
+
+        let mask = page.canvas.layer.mask as? CAShapeLayer
+        guard mode == .print else {
+            #expect(mask == nil)
+            return
+        }
+        let path = try #require(mask?.path)
+        // Through UIKit's own conversion, not the clip's arithmetic.
+        func shows(_ note: CGPoint) -> Bool {
+            path.contains(page.canvas.convert(note, from: page.textView))
+        }
+        let x = print.pageSize.width / 2
+        #expect(!shows(CGPoint(x: x, y: gapY)))
+        #expect(shows(CGPoint(x: x, y: print.sheet(ofPage: 0).maxY - 2)))
+        #expect(shows(CGPoint(x: x, y: print.sheet(ofPage: 1).minY + 2)))
     }
 
     @Test("Switching modes repaints the page column and the surround each time")

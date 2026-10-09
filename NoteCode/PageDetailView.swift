@@ -298,9 +298,18 @@ struct PageDetailView: View {
         }
         // The surround, behind the hotbar's reserved strips and the margins
         // around the page view too: what isn't the page is the surround, not
-        // the window's own colour. Extends under the keyboard and home
-        // indicator, which the page layer ignores as well.
-        .background(Color(PageView.surroundColor))
+        // the window's own colour.
+        //
+        // A view that ignores every safe area, keyboard included, not
+        // `.background(Color)`: that form ignores the container's safe areas
+        // but not the keyboard's. This stack keeps the keyboard's, for the
+        // hotbar, so it shrinks as the keyboard rises, and the surround rode
+        // up with its bottom edge, the window's white showing around and
+        // under the translucent keyboard (simulator, 9 October).
+        .background {
+            Color(PageView.surroundColor)
+                .ignoresSafeArea()
+        }
         .coordinateSpace(.named(Hotbar.coordinateSpace))
         .onGeometryChange(for: CGSize.self) { $0.size } action: { pageSize = $0 }
         .onPencilDoubleTap { tap in

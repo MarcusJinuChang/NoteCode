@@ -26,13 +26,15 @@ drawn at the screen's density. 25 pull requests, all merged.
   design's syntax colours for code in light and dark. Run is orange. Builds
   for iPad and Mac, and 537 tests pass; not yet checked in the simulator or on
   the iPad. Phases 2 to 9 are in `docs/ui-design-v2-implementation.md`.
-- **UI design v2, phase 2: the page against its surround** (8 Oct, branch
-  `claude/ui-phase-2-surround`, not merged): seamless and compressed now show a
-  white (black) page column on a grey surround, as print layout already did,
-  with the hotbar's strips on the surround too; compressed's gap between
-  pages is a grey band with the dashed line in it. Builds for iPad and Mac,
-  and 561 tests pass, the new ones reading rendered pixels in light and dark;
-  looked at in the simulator, not yet on the iPad.
+- **UI design v2, phase 2: the page against its surround** (8 Oct, PR #34,
+  merged): seamless and compressed now show a white (black) page column on a
+  grey surround, as print layout already did, with the hotbar's strips on the
+  surround too. Fixed 9 Oct (branch `claude/page-gap-ink-keyboard`, not
+  merged): compressed is back to only a dashed line at each page end, its
+  grey band gone; in print layout a stroke run off one sheet no longer shows
+  over the grey between sheets; and the grey no longer rides up with the
+  keyboard, which had left white around and under it. Checked in the
+  simulator, light and dark; not yet on the iPad with the Pencil.
 - **UI design v2, phase 3: the note header** (8 Oct, branch
   `claude/ui-phase-3-header`, not merged): the custom header and its large
   title field are the system navigation bar now. The title is a menu (Rename,

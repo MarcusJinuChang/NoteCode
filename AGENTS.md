@@ -298,19 +298,42 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   corner radius `placeOutline()` already sets. Print layout leaves the text
   view clear, since its sheets carry the page colour and the surround has to
   show between them. `placeOutline()` sets all of it, so a mode switch can't
-  leave one behind. Compressed paints its 24pt gap as a surround-coloured
-  band across the page's width (`PageDecorationView.gaps`, beneath the
-  dashed line); seamless's 1pt band is unchanged. The gap is drawn, not
-  excluded from touches: `isOnPage` still counts the continuous modes as one
-  surface, so a stroke can cross a break.
+  leave one behind.
+  - **Compressed adds only a dashed line at each page end** (decided 9 Oct).
+    Phase 2 also painted its 24pt band in the surround's colour, as the
+    design brief asked, which made it read as a gap between pages; Marcus
+    wants compressed to be seamless plus the line, so the band went
+    (`PageViewTests.compressedBreakIsOnlyALine`).
+  - **The surround is a background that ignores the keyboard too**
+    (9 Oct). `.background(Color)` ignores the container's safe areas but
+    not the keyboard's, and the stack it's on keeps the keyboard's for the
+    hotbar, so the grey ended at the keyboard's top and rode up with it, the
+    window's white showing around and under the translucent keyboard. Now
+    `.background { Color(…).ignoresSafeArea() }`. Measured from simulator
+    screenshots, pixels outside the keyboard's rounded corner: white before,
+    the surround after, light and dark. No unit test: a keyboard's safe area
+    can't be made in one.
+  - **Print layout's ink stays on its sheets** (9 Oct). `takesTouch` turns
+    away a stroke that *starts* between sheets, but a touch belongs to the
+    view it began on until it lifts, so a stroke begun on a sheet ran on
+    across the surround to the next (seen in the simulator, and on the iPad
+    by Marcus). PencilKit can't end a stroke at an edge, so the canvas is
+    masked to the sheets on screen (`DrawingCanvas.inkRegions`, a
+    `CAShapeLayer` mask reset in every `cover`, actions off so it doesn't
+    animate behind a scroll). It hides the live stroke as well as finished
+    ink; the stroke keeps its points, and the PDF crops each sheet anyway.
+    The continuous modes aren't masked: a stroke may cross a break there.
+    `PaperKit`'s ink doesn't render through `drawHierarchy` in a unit test
+    (tried, with the run loop turned for 1.5s: no ink at all), so the test
+    asks the mask's path about points converted by UIKit, and the drawing
+    was checked in the simulator. A mask renders the canvas offscreen;
+    Pencil latency in print layout hasn't been checked on the iPad.
   The tests render the page and read pixels, in both appearances
   (`PageViewTests.pageAgainstSurround` and neighbours). **Set
   `overrideUserInterfaceStyle` on the page view, not the test's window**: a
   window made outside a scene ignores it when drawing, so the first version
   rendered the simulator's appearance under both labels and its light cases
-  "passed" in dark. Checked in the simulator in light and dark, compressed,
-  at a page break; the 11-inch portrait, landscape notes and a keyboard up
-  weren't.
+  "passed" in dark.
 - **Whole pages are enforced where TextKit sets the height.**
   `DocumentUITextView` overrides `contentSize` and rounds each height TextKit
   sets up to whole pages, through `PageView.noteHeight(forTextHeight:)`.
