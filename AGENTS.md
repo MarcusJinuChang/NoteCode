@@ -691,8 +691,19 @@ What an upload checks before a person sees the app (4 Oct).
   for iCloud and push; both went on 4 Oct, since a mode the app never uses
   is a question in review. iCloud sync brings them back, through Signing &
   Capabilities.
+- **Signing is the paid team** (9 Oct). Automatic signing, team
+  `N454V8HV9J`. That ID was the free Personal Team, whose device profiles
+  last seven days, and it can't sign push or CloudKit; Marcus re-obtained
+  the paid Developer Program membership, and the same ID is now a paid
+  Individual team, so the project's team setting didn't need to change.
+  Read from Xcode's team list (`defaults read com.apple.dt.Xcode
+  IDEProvisioningTeamByIdentifier`: `isFreeProvisioningTeam = 0`, team name
+  "Marcus Chang" with no "(Personal Team)"), a new "Apple Development:
+  Marcus Chang" certificate issued 8 Oct to 8 Oct 2027, and the app's
+  team provisioning profile, made 8 Oct and valid a year. When an on-device
+  build misbehaves, check which team signed it before reading any Swift.
 - **Still missing:** the app icon (the icon set has no images, which also
-  fails an upload) and the paid Developer Program.
+  fails an upload).
 
 ## Build/test
 

@@ -139,11 +139,16 @@ drawn at the screen's density. 25 pull requests, all merged.
   encryption of its own, so uploads skip the export question, and it no
   longer declares a push background mode or iCloud and push entitlements,
   left over from Xcode's template and never used. Still missing before an
-  upload: the app icon, which needs a design, and signing. Builds still
-  sign with the free Personal Team, whose profiles last seven days. As of
-  11 Sep the paid Developer Program membership wasn't showing on the
-  account. That has to be sorted before TestFlight — and before the app can
-  stay on the iPad for more than a week at a time.
+  upload: the app icon, which needs a design (Phase 7 of the UI design).
+- **Signing on the paid team** (9 Oct): Marcus re-obtained the paid
+  Developer Program membership, which hadn't been showing on the account
+  since 11 Sep. Builds had been signing with the free Personal Team, whose
+  profiles last seven days, so the app stopped opening on the iPad about
+  weekly. The team kept its ID, `N454V8HV9J`, and Xcode now lists it as
+  paid; the app's provisioning profile, made 8 Oct, lasts a year, to
+  8 Oct 2027. TestFlight is no longer waiting on the account, only on the
+  icon. Not yet seen on the iPad: whether a build installed from now on
+  keeps opening past a week.
 
 ## Plan
 
@@ -199,8 +204,9 @@ code already has something to say.
 9. **UI polish**, from the UI design.
 10. **Accounts and Sign in with Apple.** No backend: as the only login option
     it also sidesteps Apple's rule requiring it alongside third-party sign-in.
-11. **TestFlight.** Needs the paid team (see above) and an app icon. The
-    privacy manifest merged 8 Oct (PR #28).
+11. **TestFlight.** Needs an app icon. The paid team is back (9 Oct, see
+    "Signing on the paid team" above), and the privacy manifest merged
+    8 Oct (PR #28).
 12. **App Store submission.** First submissions bounce on formality, so leave
     review-cycle buffer, not zero margin.
 
