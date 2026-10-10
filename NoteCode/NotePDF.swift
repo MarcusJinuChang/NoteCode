@@ -120,7 +120,10 @@ enum NotePDF {
 
         var markup = PaperMarkup(bounds: page)
         var inked = CGRect.null
-        for element in ink.subelements where element.renderFrame.intersects(sheet) {
+        // Overflow doesn't print, as print layout doesn't show it: a stroke
+        // drawn across a page break stops at the edge of the page it was
+        // started on.
+        for element in ink.subelements where element.renderFrame.intersects(sheet) && !InkPages.isOverflow(element) {
             var element = element
             element.applyTransform(toSheet)
             inked = inked.union(element.renderFrame)

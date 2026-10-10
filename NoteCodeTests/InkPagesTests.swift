@@ -58,10 +58,70 @@ struct InkPagesTests {
         #expect(Self.touching[0].contains(pieces[0].renderFrame))
         #expect(Self.touching[1].contains(pieces[1].renderFrame))
         #expect(abs(pieces[0].renderFrame.maxY - pieces[1].renderFrame.minY) < 0.001)
-        // New elements, with the stroke's path and texture.
-        #expect(Set(pieces.map(\.id)).count == 2)
-        #expect(!pieces.map(\.id).contains(original.id))
+        // The stroke's path and texture in each. The piece it was started on
+        // keeps its id; the other is its overflow.
+        #expect(pieces[0].id == original.id)
+        #expect(pieces[1].id != original.id)
+        #expect(InkPages.isOverflow(pieces[1].id))
+        #expect(InkPages.family(of: pieces[1].id) == InkPages.family(of: original.id))
         #expect(pieces.allSatisfy { $0.randomSeed == original.randomSeed && $0.path.count == original.path.count })
+    }
+
+    @Test("Drawn upward across a break, the lower piece keeps the stroke's id")
+    func startedBelow() throws {
+        let original = Self.stroke(through: stride(from: 140, through: 60, by: -4).map { CGPoint(x: 100, y: $0) })
+        let pieces = InkPages.pieces(ofStroke: original, regions: Self.touching)
+
+        try #require(pieces.count == 2)
+        let own = try #require(pieces.first { $0.id == original.id })
+        #expect(Self.touching[1].contains(own.renderFrame))
+        #expect(pieces.filter { InkPages.isOverflow($0.id) }.count == 1)
+    }
+
+    @Test("A stroke reaching four pages has one piece of its own and three of overflow")
+    func overflowOverManyPages() {
+        let original = Self.vertical(from: 50, to: 350)
+        let pieces = InkPages.pieces(ofStroke: original, regions: Self.touching)
+
+        #expect(pieces.filter { $0.id == original.id }.count == 1)
+        #expect(pieces.filter { InkPages.isOverflow($0.id) }.count == 3)
+        #expect(Set(pieces.map(\.id)).count == 4)
+    }
+
+    @Test("Overflow cut again stays overflow of the same stroke")
+    func overflowCutAgain() throws {
+        let original = Self.vertical(from: 60, to: 140)
+        var overflow = try #require(InkPages.pieces(ofStroke: original, regions: Self.touching).last)
+        // Moved so it reaches pages 2 and 3.
+        overflow.applyTransform(CGAffineTransform(translationX: 0, y: 70))
+        let pieces = InkPages.pieces(ofStroke: overflow, regions: Self.touching)
+
+        try #require(pieces.count == 2)
+        #expect(pieces.allSatisfy { InkPages.isOverflow($0.id) })
+        #expect(pieces.allSatisfy { InkPages.family(of: $0.id) == InkPages.family(of: original.id) })
+        #expect(pieces.contains { $0.id == overflow.id })
+    }
+
+    @Test("A stroke's own id isn't overflow")
+    func ordinaryIDs() {
+        #expect(!(0..<1000).contains { _ in InkPages.isOverflow(UUID()) })
+        #expect(!InkPages.isOverflow(Self.vertical(from: 10, to: 20).id))
+    }
+
+    /// PaperKit gives every stroke a new id when a `PKDrawing` is appended,
+    /// but keeps one put in through `subelements`, saved and read back.
+    @Test("Overflow is still overflow once saved and read back")
+    func overflowSurvivesSaving() async throws {
+        let pieces = InkPages.pieces(ofStroke: Self.vertical(from: 60, to: 140), regions: Self.touching)
+        var markup = PaperMarkup(bounds: CGRect(x: 0, y: 0, width: 300, height: 400))
+        for piece in pieces {
+            markup.subelements.append(piece)
+        }
+
+        let read = try PaperMarkup(dataRepresentation: try await markup.dataRepresentation())
+
+        #expect(read.subelements.strokes.filter { InkPages.isOverflow($0.id) }.count == 1)
+        #expect(Set(read.subelements.strokes.map(\.id)) == Set(pieces.map(\.id)))
     }
 
     @Test("A stroke reaching four pages is cut into four")

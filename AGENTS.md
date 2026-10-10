@@ -305,11 +305,11 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
     per-element conversion places each piece by its own page. Whatever lay
     in space no page has is in no piece, so it shows in no mode and can't
     land on another page's words.
-  - **Cut in the stored ink, not on the canvas.** `captureInk` stores a
+  - **Cut in the stored ink, not on the canvas.** `InkCapture` stores a
     changed stroke as its pieces and records which canvas stroke each came
-    from (`PageView.pieceSources`); the canvas keeps the stroke whole until
-    ink is next shown — a mode switch or reopening — which clears ink undo
-    anyway. Swapping pieces onto the canvas straight away would leave
+    from (`InkCapture.State.pieceSources`); the canvas keeps the stroke
+    whole until ink is next shown — a mode switch or reopening — which
+    clears ink undo anyway. Swapping pieces onto the canvas straight away would leave
     PaperKit's undo action for the stroke with nothing to remove. Erasing,
     undoing or moving the stroke takes or re-cuts all its pieces.
   - **Covers hide what the canvas still holds whole** (`PageCoverView`):
@@ -339,6 +339,56 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
     on the same words in all three modes, hidden over the bands while drawn
     and after; undone and switched, nothing comes back. Not checked: the
     Pencil, latency, the lasso and the eraser on pieces.
+  - **Pieces, not bending** (10 Oct). A second version bent a stroke across
+    a break instead, each point moving with its own page, so it stayed one
+    stroke (PR #38's second commit). Marcus had it reverted: it harmed more
+    than it helped. The cost of pieces stays in seamless: once ink has been
+    shown again, each piece is a stroke of its own there, so erasing a
+    stroke across a break takes one object erase per page.
+  - **Compressed and print layout stop a stroke at the border** (10 Oct,
+    decided by Marcus): a stroke drawn across one shows only on the page
+    the pen went down on, nothing in the border or past it. Seamless still
+    shows it whole. So the piece on that page keeps the stroke's id, and
+    the rest is its *overflow*, marked in the pieces' ids (`InkPages`): the
+    stroke's first ten bytes, then `overflowMark`. Stroke ids survive
+    saving only when a stroke goes into a markup through `subelements`;
+    appending a `PKDrawing` gives every stroke a new one (probe).
+    - **Shown:** `showInk` leaves overflow off the canvas outside seamless,
+      and the PDF doesn't print it, since print layout is the paper.
+    - **When the pen lifts:** the canvas holds the stroke whole, so once
+      it's taken in, `PageView.showOwnPieces` updates it in place to its
+      own piece, with its id. Assigning the canvas registers no undo
+      (probe). Until then it shows past the border; covers hide what's in
+      the band. Three things the simulator showed on the way:
+      - **Not taken off and put back.** That redraws cleanly, but
+        PaperKit's undo then can't find the stroke: two undos did
+        nothing, where a stroke on one page undid in one.
+      - **A new path** (`InkPages.redrawn`), or PencilKit goes on drawing
+        the stroke as it first drew it, whole, though the canvas holds the
+        mask.
+      - **Specks at the whole stroke's corners** (`InkPages.shown`).
+        Updated in place, PaperKit redraws only the tiles the stroke's new
+        frame touches, and a masked stroke's frame is its mask's, so ink
+        past the border stayed wherever its tiles missed the piece (two
+        strokes in four). 0.01pt squares in the mask keep the frame whole;
+        points of no area didn't, as PaperKit drops them. A specked
+        stroke's frame isn't its piece's, so the next show puts it back
+        as stored (`InkCapture.State.specked`): placed by that frame it
+        moved half its hidden part off its words.
+      Checked in the simulator, compressed: eight strokes, down and up,
+      each stopped at the border once the pen lifted; one undo took a
+      stroke and its overflow, redo brought both back, still stopped; and
+      switched to seamless, both pieces met on their words. Not checked:
+      print layout on screen, the Pencil, the lasso and the eraser on a
+      stopped stroke.
+    - **Erased:** a stroke's overflow the canvas doesn't hold goes with
+      it, and is kept aside (`InkCapture.State.buried`) until ink is next
+      shown, so undoing the erase brings it back. **Moved by the lasso:**
+      the hidden overflow is moved by the same amount, as a translation;
+      a lasso's resize or rotation isn't carried exactly.
+    - Ink cut on 9 Oct, before overflow existed, has random ids, so all of
+      its pieces show in every mode, and a stroke saved whole before then
+      shows whole, until either is moved or erased.
 - **Print layout** fits its sheets inside a 24pt border of the surround
   (`CanvasGeometry.printGutter`), so they read as paper rather than one slab
   with grey bars across it. Text is a little smaller there than in the
@@ -515,7 +565,7 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   transform: `frame` doesn't scale anything. And assigning a set to a new
   markup's `subelements` keeps nothing — a markup only updates elements it
   already has from an assigned set — so building one means
-  `updateOrAppend` an element at a time, as `PageView.captureInk` does.
+  `updateOrAppend` an element at a time, as `NotePDF.drawInk` does.
 
 ## The note page
 
@@ -988,6 +1038,25 @@ the same arguments in the scheme's Run → Arguments.
   for the app's own reasons must not call it: a save bumps `modifiedAt`, and
   opening a note would reorder the list. See step 4 of
   docs/phase-drawing-layer.md.
+- **Strokes are taken into the stored ink off the main thread** (10 Oct,
+  `InkCapture`). PaperKit's delegate says only that the markup changed, so
+  what changed is found by walking all of it, and at 5,000 strokes that was
+  400ms on the main thread per stroke even walked properly. Now
+  `PageView.captureInk` only takes a snapshot of the canvas (free: a
+  `PaperMarkup` is a value) with the layout it was drawn in, and a detached
+  task works out the rest; while one runs, only the newest snapshot waits,
+  so a burst of strokes is taken in as one. So `onInkChanged` arrives a
+  moment after the stroke, and anything that needs every stroke now calls
+  `PageView.commitInk()` first, which takes the newest snapshot in on the
+  main thread: reading `PageView.ink` (the PDF), showing ink (a mode
+  switch, with the layout the strokes were drawn in, not the new one),
+  leaving the note and the app leaving the screen (`NoteEditor.commitInk`,
+  from `PageDetailView`), and SwiftUI removing the page. A result computed
+  from state replaced since is dropped (`inkGeneration`).
+  **A test that waits for it must `await`**, not turn the run loop: the
+  task comes back to the main actor, which a synchronous test turning the
+  run loop is still holding, so nothing ever arrived
+  (`PageViewTests.waitFor`).
 - Parse and index `(textView.text ?? "").nativeUTF8`, never `textView.text`
   itself. That String is backed by the text storage's NSString, and reading
   it a character at a time is a message send per character: the parser took
@@ -1001,6 +1070,14 @@ the same arguments in the scheme's Run → Arguments.
   note open, and a deletion from the note list had neither: killed within
   a few seconds — a crash, or Xcode starting the next build — the note came
   back.
+- Walk a `MarkupOrderedSet` with `for … in`, never `map`, `reduce`, an
+  index or anything else that reads it by position. Reading one element by
+  index costs what `count` does, and both grow with the set (16ms each at
+  5,000 strokes); `map` reads every element that way. `PageView.frames(of:)`
+  did, after every stroke: 808ms per stroke at 500 strokes, 10.6s at 2,000
+  (simulator, 10 Oct), and writing stuttered and caught up seconds later.
+  Even done right, every operation on the set is linear: at 5,000 strokes a
+  walk with `renderFrame` is 107ms, an append 20ms, `ids` 16ms.
 - The action bars are positioned from TextKit 2's *viewport*, never from the
   whole document. Asking for a fragment further down forces layout all the way
   to it, which is the lazy layout the editor is built on.

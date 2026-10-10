@@ -112,6 +112,12 @@ final class NoteEditor {
         page?.pageCount
     }
 
+    /// Takes in what the reader drew that is still on its way into the
+    /// note's ink (`PageView.commitInk`), so a save made now has it.
+    func commitInk() {
+        page?.commitInk()
+    }
+
     /// The open note as a PDF, a page for each of its pages, ink and all.
     /// `nil` until the page exists.
     ///

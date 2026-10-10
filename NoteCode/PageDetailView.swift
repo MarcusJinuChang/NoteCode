@@ -166,12 +166,16 @@ struct PageDetailView: View {
         // Ink drawn just before leaving would otherwise wait out the pause
         // after the page is gone.
         .onDisappear { [inkSaver] in
+            // Strokes are taken into the ink off the main thread, and the
+            // last few may still be on their way.
+            editor.commitInk()
             Task { await inkSaver.flush() }
         }
         // Not only on reaching the background. Swiping the app away in the
         // switcher goes from inactive straight to terminated.
         .onChange(of: scenePhase) { _, phase in
             guard phase != .active else { return }
+            editor.commitInk()
             inkSaver.flushBeforeSuspending { [modelContext] in
                 // The store autosaves on its own schedule, which may not come
                 // round again before the app is suspended or killed.

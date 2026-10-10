@@ -8,6 +8,7 @@
 #if canImport(UIKit)
 
 import PaperKit
+import PencilKit
 import UIKit
 
 /// Hosts the editor at its pages' width, breaks its text into pages, and
@@ -89,36 +90,40 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// margin has no exact place in a mode with narrower breaks — see
     /// `PageLayout.convert` — so converting what's on screen back and forth
     /// would move it a page on every round trip.
-    private(set) var ink: PaperMarkup
+    ///
+    /// Strokes the reader made are taken in off the main thread
+    /// (`captureInk`), so reading this first finishes any still on their way.
+    var ink: PaperMarkup {
+        commitInk()
+        return inkState.ink
+    }
+
+    /// The stored ink, and where each element sat on the canvas when it was
+    /// last shown or read. See `InkCapture.State`.
+    private var inkState: InkCapture.State
+
+    /// The canvas as the reader last left it, not yet taken into `inkState`,
+    /// with the layout and page count it was drawn in.
+    private struct InkSnapshot {
+        var markup: PaperMarkup
+        var layout: PageLayout
+        var pageCount: Int
+        var serial: Int
+    }
+
+    /// The newest snapshot not yet taken in, whether a capture is working on
+    /// it or it's waiting for the one before to finish.
+    private var newestSnapshot: InkSnapshot?
+    private var snapshotSerial = 0
+    private var isCapturing = false
+
+    /// Bumped whenever `inkState` is replaced on the main thread, so a
+    /// capture that started from the old one drops its result.
+    private var inkGeneration = 0
 
     /// The lowest point of the ink as shown, cached so working out the page
     /// count — which every layout pass does — doesn't walk the strokes.
     private var inkBottom: CGFloat?
-
-    /// Where each element sat when the canvas was last shown or read.
-    ///
-    /// What the reader draws, erases or moves is whatever differs from this.
-    /// Everything else keeps the stored copy it already has, so ink that was
-    /// never touched is never converted back from the screen — the round trip
-    /// `ink` exists to avoid.
-    private var shownElements: [MarkupOrderedSet.ElementID: CGRect] = [:]
-
-    /// For each stored piece, the element on the canvas it was cut from.
-    ///
-    /// A stroke drawn across a page break is stored as pieces (`InkPages`)
-    /// but stays whole on the canvas until ink is next shown — a mode switch
-    /// or reopening — when the canvas takes the pieces. Swapping them in
-    /// straight away would put elements PaperKit never made under its undo
-    /// stack, whose action for the stroke would then find nothing to undo.
-    /// Showing ink clears that stack anyway. Until then this says which
-    /// pieces go when their stroke is erased, undone or moved.
-    private var pieceSources: [MarkupOrderedSet.ElementID: MarkupOrderedSet.ElementID] = [:]
-
-    /// The canvas element a stored element stands for: its stroke, for a
-    /// piece cut since ink was last shown, or itself.
-    private func source(of id: MarkupOrderedSet.ElementID) -> MarkupOrderedSet.ElementID {
-        pieceSources[id] ?? id
-    }
 
     /// Called with the note's ink, in print coordinates, whenever the reader
     /// changes it: a stroke drawn, erased or moved.
@@ -155,13 +160,13 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             width: layout.pageSize.width,
             height: layout.noteHeight(pageCount: 1)
         ))
-        self.ink = PaperMarkup(bounds: CGRect(
+        self.inkState = InkCapture.State(ink: PaperMarkup(bounds: CGRect(
             origin: .zero,
             size: CGSize(
                 width: layout.pageSize.width,
                 height: PageLayout(orientation: layout.orientation, mode: .print).noteHeight(pageCount: 1)
             )
-        ))
+        )))
         super.init(frame: .zero)
 
         // Neither scroll view should invent insets of its own. SwiftUI keeps
@@ -679,7 +684,9 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// - Parameter drawing: strokes in print layout's coordinates, for this
     ///   note's orientation — the form ink is stored and printed in.
     func setInk(_ markup: PaperMarkup) {
-        ink = markup
+        // Whatever was on its way in belonged to the ink this replaces.
+        newestSnapshot = nil
+        inkState = InkCapture.State(ink: markup)
         showInk()
     }
 
@@ -689,13 +696,23 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// each on its own page, rather than by converting the whole canvas back —
     /// that round trip is what `ink` exists to avoid.
     private func showInk() {
+        // Strokes still on their way in were drawn in the layout the canvas
+        // shows until now, and are taken in by it before anything moves.
+        commitInk()
+        inkGeneration += 1
+
+        let ink = inkState.ink
         let print = PageLayout(orientation: pageLayout.orientation, mode: .print)
+        // Compressed and print layout show a stroke across a border only on
+        // the page it was started on (`InkPages`); seamless shows it whole.
+        let hidesOverflow = pageLayout.mode != .seamless
         var shown = canvas.markup
 
         if shown.subelements.isEmpty {
             // Nothing on the canvas to reconcile with: hand it the stored ink,
             // converted, in one go.
-            canvas.markup = PageView.convert(ink, from: print, to: pageLayout) ?? ink
+            let visible = hidesOverflow ? PageView.withoutOverflow(ink) : ink
+            canvas.markup = PageView.convert(visible, from: print, to: pageLayout) ?? visible
         } else {
             // The canvas has its own copy of these elements, and a markup
             // *merges* what it is given rather than replacing it. A copy made
@@ -703,16 +720,24 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             // it changes nothing — measured on 19 September, when ink stayed
             // where it was drawn through every mode. Moving the canvas's own
             // elements, by the distance its stored copy says, is what takes.
-            let stored = Dictionary(
-                ink.subelements.map { ($0.elementID, $0) },
-                uniquingKeysWith: { _, last in last }
-            )
+            // Walked with `for`, never `map`: see `frames(of:)`.
+            var stored: [MarkupOrderedSet.ElementID: any Markup] = [:]
+            for element in ink.subelements where !(hidesOverflow && InkPages.isOverflow(element)) {
+                stored[element.elementID] = element
+            }
 
-            for id in Set(shown.subelements.ids) where stored[id] == nil {
+            // A stroke the canvas holds whole but the ink holds cut changes
+            // shape, and one shown with specks has a frame that isn't its
+            // piece's: each leaves the canvas and comes back as stored,
+            // below. A changed copy assigned over the canvas's own doesn't
+            // take, and nor does a new one with its id while the old one is
+            // there. Ink undo is cleared here anyway, so nothing loses track.
+            let reshaped = inkState.wholeOnCanvas.union(inkState.specked).filter { stored[$0] != nil }
+            for id in Set(shown.subelements.ids) where stored[id] == nil || reshaped.contains(id) {
                 shown.subelements.removeElement(for: id)
             }
             let onCanvas = Set(shown.subelements.ids)
-            for (id, element) in stored where !onCanvas.contains(id) {
+            for (id, element) in stored where !onCanvas.contains(id) && !reshaped.contains(id) {
                 shown.subelements.updateOrAppend(element)
             }
 
@@ -734,116 +759,154 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             }
             shown.subelements = placed
             canvas.markup = shown
+
+            if !reshaped.isEmpty {
+                var returned = canvas.markup
+                for id in reshaped {
+                    guard let element = stored[id] else { continue }
+                    let placed = InkCapture.moved(element, from: print, to: pageLayout)
+                    returned.subelements.append((placed as? PKStroke).map(InkPages.redrawn) ?? placed)
+                }
+                canvas.markup = returned
+            }
         }
-        // The canvas holds exactly the stored elements now, pieces included.
-        pieceSources.removeAll()
 
         // Ink just moved under whatever the undo stack was holding: its
         // actions restore strokes to the mode they were drawn in.
         canvas.forgetUndo()
 
-        shownElements = PageView.frames(of: canvas.markup)
-        inkBottom = canvas.markup.subelements.isEmpty ? nil : canvas.markup.contentsRenderFrame.maxY
+        // The canvas holds exactly the stored elements this mode shows now,
+        // pieces included, and nothing is left to undo.
+        let frames = PageView.frames(of: canvas.markup)
+        inkState.shown = frames
+        inkState.wholeOnCanvas = []
+        inkState.specked = []
+        inkState.buried = [:]
+        inkBottom = frames.values.map(\.maxY).max()
         // The page count depends on the ink, and nothing about the text changed.
         textView.reapplyContentHeightAdjustment()
         textView.setNeedsLayout()
     }
 
-    /// Takes what the reader just drew, erased or moved into `ink`.
+    /// Takes what the reader just drew, erased or moved into the stored ink,
+    /// off the main thread (`InkCapture`).
     ///
-    /// Only what changed is converted into print coordinates. An element
-    /// that hasn't moved keeps the stored copy it came from, because
-    /// converting out of a mode with narrow breaks isn't exact: ink in a
-    /// sheet's margin has no place in seamless, so a round trip there and
-    /// back would walk it onto the next page.
-    ///
-    /// What changed is stored as its pieces, one per page it reaches
-    /// (`InkPages`), cut here in the coordinates it was drawn in.
+    /// PaperKit says only that the markup changed, so what changed is found
+    /// by walking all of it, and every operation on PaperKit's sets costs
+    /// time in proportion to the ink: at 5,000 strokes this was 400ms on the
+    /// main thread per stroke even walked properly (simulator, 10 October).
+    /// Here the main thread only takes a snapshot, which costs nothing
+    /// measurable. A burst of strokes is taken in as one: while a capture
+    /// runs, only the newest snapshot waits.
     private func captureInk() {
-        let shown = canvas.markup
-        let print = PageLayout(orientation: pageLayout.orientation, mode: .print)
-        let shownIDs = Set(shown.subelements.ids)
-        let regions = pageLayout.inkRegions(pageCount: pageCount)
+        snapshotSerial += 1
+        newestSnapshot = InkSnapshot(
+            markup: canvas.markup,
+            layout: pageLayout,
+            pageCount: pageCount,
+            serial: snapshotSerial
+        )
+        startCapture()
+    }
 
-        var updated = ink
-        var changed = false
-
-        // Erased, or undone: stored ink whose element is gone from the canvas,
-        // a stroke's pieces with it. A markup merges rather than replaces, so
-        // leaving an element out of a new set keeps it; taking it out is a
-        // call of its own.
-        let gone = ink.subelements.ids.filter { !shownIDs.contains(source(of: $0)) }
-        for id in gone {
-            updated.subelements.removeElement(for: id)
-            pieceSources[id] = nil
-            changed = true
-        }
-
-        // Drawn, or moved by the lasso. Everything else keeps the copy it
-        // already has, so ink nobody touched is never converted back from the
-        // screen — the round trip `ink` exists to avoid.
-        let storedSources = Set(updated.subelements.ids.map(source(of:)))
-        for element in shown.subelements {
-            let id = element.elementID
-            guard !storedSources.contains(id) || shownElements[id] != element.renderFrame else { continue }
-
-            // Whatever it was stored as goes, and it's stored again as it is
-            // now, in the place the old copy had, so the order strokes are
-            // drawn in doesn't change.
-            let previous = updated.subelements.ids.filter { source(of: $0) == id }
-            var position = previous.first.flatMap { old in
-                Array(updated.subelements.ids).firstIndex(of: old)
-            }
-            for old in previous {
-                updated.subelements.removeElement(for: old)
-                pieceSources[old] = nil
-            }
-            for piece in InkPages.pieces(of: element, regions: regions) {
-                if piece.elementID != id {
-                    pieceSources[piece.elementID] = id
+    private func startCapture() {
+        guard !isCapturing, let snapshot = newestSnapshot else { return }
+        isCapturing = true
+        let state = inkState
+        let generation = inkGeneration
+        let (markup, layout, pageCount) = (snapshot.markup, snapshot.layout, snapshot.pageCount)
+        Task { [weak self] in
+            let result = await Task.detached(priority: .userInitiated) {
+                InkCapture.capture(markup, into: state, layout: layout, pageCount: pageCount)
+            }.value
+            guard let self else { return }
+            isCapturing = false
+            if generation == inkGeneration {
+                if newestSnapshot?.serial == snapshot.serial {
+                    newestSnapshot = nil
                 }
-                let stored = PageView.moved(piece, from: pageLayout, to: print)
-                if let index = position {
-                    updated.subelements.insert(stored, at: index)
-                    position = index + 1
-                } else {
-                    updated.subelements.append(stored)
-                }
+                apply(result)
             }
-            changed = true
+            startCapture()
         }
+    }
 
-        guard changed else { return }
-        ink = updated
-        onInkChanged?(updated)
+    /// Takes in, now and on the main thread, whatever the reader drew that is
+    /// still on its way: before ink is shown again, read, printed or saved
+    /// for the app leaving the screen.
+    func commitInk() {
+        guard let snapshot = newestSnapshot else { return }
+        newestSnapshot = nil
+        // A capture still running started from the state this replaces.
+        inkGeneration += 1
+        apply(InkCapture.capture(snapshot.markup, into: inkState, layout: snapshot.layout, pageCount: snapshot.pageCount))
+    }
 
-        shownElements = PageView.frames(of: shown)
-        inkBottom = shown.subelements.isEmpty ? nil : shown.contentsRenderFrame.maxY
-        // Ink below the last line makes the note longer, and nothing about the
-        // text changed to trigger that on its own.
-        textView.reapplyContentHeightAdjustment()
-        textView.setNeedsLayout()
+    private func apply(_ result: InkCapture.Result) {
+        inkState = result.state
+        guard result.changed else { return }
+        onInkChanged?(result.state.ink)
+
+        let before = inkBottom
+        inkBottom = result.inkBottom
+        if !result.reshow.isEmpty {
+            showOwnPieces(result.reshow)
+        }
+        // Ink below the last line makes the note longer, and nothing about
+        // the text changed to trigger that on its own. Only a page's worth
+        // can change the count, and a layout pass on every stroke cost 8ms.
+        let page = { (bottom: CGFloat?) in bottom.map(self.pageLayout.pageIndex(atY:)) }
+        if page(before) != page(inkBottom) {
+            textView.reapplyContentHeightAdjustment()
+            textView.setNeedsLayout()
+        }
+    }
+
+    /// Swaps strokes the canvas holds whole for the piece on the page each
+    /// was started on, keeping their ids: in compressed and print layout, a
+    /// stroke drawn across a border stops at it once the pen lifts.
+    ///
+    /// The id is kept so PaperKit's undo still finds the stroke, and
+    /// assigning the canvas registers no undo of its own (probe, 10
+    /// October). Taken off and put back, since a changed copy assigned over
+    /// the canvas's own doesn't take, and with a new path (`InkPages.redrawn`),
+    /// or PencilKit goes on drawing it whole.
+    private func showOwnPieces(_ pieces: [PKStroke]) {
+        var markup = canvas.markup
+        for piece in pieces {
+            let whole = inkState.shown[piece.elementID] ?? piece.renderFrame
+            markup.subelements.updateOrAppend(InkPages.shown(piece, over: whole))
+        }
+        canvas.markup = markup
+
+        // Where PaperKit has them now, which may be rounded from theirs.
+        let now = canvas.markup.subelements
+        for piece in pieces {
+            inkState.shown[piece.elementID] = now[piece.elementID]?.renderFrame
+            inkState.specked.insert(piece.elementID)
+        }
+        inkBottom = inkState.shown.values.map(\.maxY).max()
+        // A snapshot waiting to be taken in was taken before this.
+        if var waiting = newestSnapshot {
+            waiting.markup = canvas.markup
+            newestSnapshot = waiting
+        }
     }
 
     /// Where each element sits, by id.
-    private static func frames(of markup: PaperMarkup) -> [MarkupOrderedSet.ElementID: CGRect] {
-        Dictionary(
-            markup.subelements.map { ($0.elementID, $0.renderFrame) },
-            uniquingKeysWith: { _, last in last }
-        )
-    }
-
-    /// One element at the same place on its page in another layout.
     ///
-    /// An element belongs to the page its middle is on, so a stroke drawn
-    /// across a page break travels whole rather than being torn in two.
-    private static func moved(_ element: any Markup, from old: PageLayout, to new: PageLayout) -> any Markup {
-        var element = element
-        let middle = element.renderFrame.midY
-        if let target = old.convert(y: middle, to: new), target != middle {
-            element.applyTransform(CGAffineTransform(translationX: 0, y: target - middle))
+    /// Walked with `for`, which uses the set's own iterator. `map` reads
+    /// `MarkupOrderedSet` by index, and reading one element by index costs
+    /// as much as `count` does, which grows with the set: this took 808ms
+    /// for a note of 500 strokes and 10.6s for 2,000 (simulator, 10
+    /// October), after every stroke, and drawing stalled. With `for` it
+    /// takes 4.7ms at 500.
+    private static func frames(of markup: PaperMarkup) -> [MarkupOrderedSet.ElementID: CGRect] {
+        var frames: [MarkupOrderedSet.ElementID: CGRect] = [:]
+        for element in markup.subelements {
+            frames[element.elementID] = element.renderFrame
         }
-        return element
+        return frames
     }
 
     /// The ink with every element moved to the same place on its page in
@@ -853,13 +916,29 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// Built in one pass and assigned once. Moving elements one at a time
     /// through `updateOrAppend` costs more the more there are: 3.3s for a
     /// thousand strokes against 56ms this way, measured on 19 September.
+    /// `markup` without the overflow of strokes drawn across a page break,
+    /// for compressed and print layout. Taken out one by one: leaving an
+    /// element out of an assigned set keeps it.
+    static func withoutOverflow(_ markup: PaperMarkup) -> PaperMarkup {
+        var overflow: [MarkupOrderedSet.ElementID] = []
+        for element in markup.subelements where InkPages.isOverflow(element) {
+            overflow.append(element.elementID)
+        }
+        guard !overflow.isEmpty else { return markup }
+        var result = markup
+        for id in overflow {
+            result.subelements.removeElement(for: id)
+        }
+        return result
+    }
+
     static func convert(_ markup: PaperMarkup, from old: PageLayout, to new: PageLayout) -> PaperMarkup? {
         guard old.orientation == new.orientation else { return nil }
         guard old != new else { return markup }
 
         var moved = MarkupOrderedSet()
         for element in markup.subelements {
-            moved.append(PageView.moved(element, from: old, to: new))
+            moved.append(InkCapture.moved(element, from: old, to: new))
         }
 
         var result = markup
@@ -1143,7 +1222,7 @@ final class PageDecorationView: UIView {
 /// it can't be told apart from what's beneath. Text never sits in these
 /// bands: they're inside the ones text flows around. A stroke being drawn
 /// across one goes under it, and so does a stroke drawn there that the
-/// canvas still holds whole until ink is next shown (`PageView.pieceSources`).
+/// canvas still holds whole until ink is next shown (`InkCapture.State.wholeOnCanvas`).
 ///
 /// It replaced a mask on the canvas (9 October). Masked, the canvas's ink
 /// tiles painted the page white over the text beneath them: around every

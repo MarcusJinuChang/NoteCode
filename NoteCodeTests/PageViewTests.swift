@@ -712,10 +712,10 @@ struct PageViewTests {
 
     // MARK: Ink across page breaks
 
-    /// A stroke straight down through `x`, from `top` to `bottom`, in the
-    /// coordinates of whatever mode it's drawn in.
+    /// A stroke straight through `x`, from `top` to `bottom` — upward if
+    /// `bottom` is above — in the coordinates of whatever mode it's drawn in.
     private static func verticalStroke(x: CGFloat = 400, from top: CGFloat, to bottom: CGFloat) -> PKStroke {
-        let points = stride(from: top, through: bottom, by: 4).enumerated().map { index, y in
+        let points = stride(from: top, through: bottom, by: top <= bottom ? 4 : -4).enumerated().map { index, y in
             PKStrokePoint(
                 location: CGPoint(x: x, y: y),
                 timeOffset: Double(index) * 0.01,
@@ -753,30 +753,31 @@ struct PageViewTests {
 
         // Where each piece sits against its own page's text, per mode.
         var placements: [[CGFloat]] = []
+        var overflow: [CGFloat] = []
         // The other modes first: switching to the mode it's in shows nothing anew.
         for mode in PageViewMode.allCases.filter({ $0 != mode }) + [mode] {
             let layout = PageLayout(mode: mode)
             harness.switchTo(layout)
             let pieces = Self.shownStrokes(harness).map(Self.area(of:))
-            try #require(pieces.count == 2, "in \(mode)")
+            // Only seamless shows the part past the page it was started on.
+            try #require(pieces.count == (mode == .seamless ? 2 : 1), "in \(mode)")
             let pageBottom = layout.bodyTop(ofPage: 1) + layout.bodyHeight
             let pageTop = layout.bodyTop(ofPage: 2)
-            placements.append([
-                pieces[0].minY - pageBottom,
-                pieces[0].maxY - pageBottom,
-                pieces[1].minY - pageTop,
-                pieces[1].maxY - pageTop,
-            ])
+            placements.append([pieces[0].minY - pageBottom, pieces[0].maxY - pageBottom])
             // Nothing in the room seamless doesn't have.
             #expect(pieces[0].maxY <= layout.inkRegion(ofPage: 1, pageCount: harness.page.pageCount).maxY + 0.001)
-            #expect(pieces[1].minY >= layout.inkRegion(ofPage: 2, pageCount: harness.page.pageCount).minY - 0.001)
+            if mode == .seamless {
+                overflow = [pieces[1].minY - pageTop, pieces[1].maxY - pageTop]
+                #expect(pieces[1].minY >= layout.inkRegion(ofPage: 2, pageCount: harness.page.pageCount).minY - 0.001)
+            }
         }
         for placement in placements.dropFirst() {
             #expect(zip(placement, placements[0]).allSatisfy { abs($0 - $1) < 0.5 }, "\(placements)")
         }
-        // The text above the break is where the stroke began.
+        // The text above the break is where the stroke began, and in
+        // seamless it carries on to where it ended.
         #expect(abs(placements[0][0] - -62) < 1.5, "\(placements[0])")
-        #expect(abs(placements[0][3] - 62) < 1.5, "\(placements[0])")
+        #expect(abs((overflow.last ?? 0) - 62) < 1.5, "\(overflow)")
     }
 
     @Test("A stroke reaching three pages is stored as three pieces, each inside its sheet")
@@ -812,6 +813,133 @@ struct PageViewTests {
         #expect(abs(pieces[0].maxY - pieces[1].minY) < 0.001)
     }
 
+    /// Erases what the canvas shows of `element` and tells the page, as
+    /// PaperKit's eraser would.
+    private static func erase(_ id: MarkupOrderedSet.ElementID, on harness: Harness) {
+        var markup = harness.page.canvas.markup
+        markup.subelements.removeElement(for: id)
+        harness.page.canvas.markup = markup
+        harness.page.canvas.onMarkupChanged?()
+    }
+
+    /// Where a stroke shows ink: its mask's parts with area to speak of,
+    /// leaving out the specks `InkPages.shown` adds to keep its frame whole.
+    private static func inked(_ stroke: PKStroke) -> CGRect {
+        guard let mask = stroke.mask else { return stroke.renderFrame }
+        return mask.cgPath.componentsSeparated()
+            .map(\.boundingBoxOfPath)
+            .filter { $0.width > 0.5 && $0.height > 0.5 }
+            .reduce(CGRect.null) { $0.union($1) }
+            .applying(stroke.transform)
+    }
+
+    @Test(
+        "In compressed and print layout, a stroke drawn across a border stops at it once the pen lifts",
+        arguments: [PageViewMode.compressed, .print], [true, false]
+    )
+    func strokeStopsAtTheBorder(in mode: PageViewMode, downward: Bool) async throws {
+        let layout = PageLayout(mode: mode)
+        let harness = Harness(text: Self.severalPages, layout: layout)
+        var reported = 0
+        harness.page.onInkChanged = { _ in reported += 1 }
+        let bottom = layout.bodyTop(ofPage: 1) + layout.bodyHeight
+        let top = layout.bodyTop(ofPage: 2)
+        let stroke = downward
+            ? Self.verticalStroke(from: bottom - 60, to: top + 60)
+            : Self.verticalStroke(from: top + 60, to: bottom - 60)
+        Self.draw([stroke], on: harness)
+        let drawn = try #require(harness.page.canvas.markup.subelements.ids.first)
+
+        #expect(await Self.waitFor { reported == 1 })
+
+        // One stroke still, the one PaperKit's undo knows, showing only on
+        // the page the pen went down on.
+        let shown = Self.shownStrokes(harness)
+        try #require(shown.count == 1)
+        #expect(shown[0].elementID == drawn)
+        let own = layout.inkRegion(ofPage: downward ? 1 : 2, pageCount: harness.page.pageCount)
+        #expect(own.insetBy(dx: 0, dy: -0.001).contains(Self.inked(shown[0])), "\(Self.inked(shown[0])) in \(own)")
+        // The rest is kept, for seamless.
+        let stored = harness.page.ink.subelements.strokes
+        #expect(stored.count == 2)
+        #expect(stored.filter { InkPages.isOverflow($0.id) }.count == 1)
+
+        // Seamless shows it whole again, both pieces on their words: from
+        // 60 points above one page's last line to 60 below the next's first.
+        let seamless = PageLayout(mode: .seamless)
+        harness.switchTo(seamless)
+        let pieces = Self.shownStrokes(harness).map(Self.inked)
+        try #require(pieces.count == 2)
+        let pageBottom = seamless.bodyTop(ofPage: 1) + seamless.bodyHeight
+        let pageTop = seamless.bodyTop(ofPage: 2)
+        #expect(abs(pieces[0].maxY - pieces[1].minY) < 0.001, "\(pieces)")
+        #expect(abs(pieces[0].minY - (pageBottom - 62)) < 1.5, "\(pieces)")
+        #expect(abs(pieces[1].maxY - (pageTop + 62)) < 1.5, "\(pieces)")
+    }
+
+    @Test("A stroke drawn across a break in seamless shows only on the page it was started on elsewhere")
+    func seamlessStrokeElsewhere() throws {
+        let seamless = PageLayout(mode: .seamless)
+        let harness = Harness(text: Self.severalPages, layout: seamless)
+        let bottom = seamless.bodyTop(ofPage: 1) + seamless.bodyHeight
+        Self.draw([Self.verticalStroke(from: bottom - 60, to: bottom + 60)], on: harness)
+
+        for mode in [PageViewMode.compressed, .print] {
+            let layout = PageLayout(mode: mode)
+            harness.switchTo(layout)
+            let shown = Self.shownStrokes(harness)
+            try #require(shown.count == 1, "in \(mode)")
+            let own = layout.inkRegion(ofPage: 1, pageCount: harness.page.pageCount)
+            #expect(own.insetBy(dx: 0, dy: -0.001).contains(Self.area(of: shown[0])), "in \(mode)")
+        }
+        harness.switchTo(seamless)
+        #expect(Self.shownStrokes(harness).count == 2)
+    }
+
+    @Test("Erasing what shows of a stroke takes the part that doesn't, and undoing the erase brings it back")
+    func erasingTakesHiddenOverflow() throws {
+        let seamless = PageLayout(mode: .seamless)
+        let harness = Harness(text: Self.severalPages, layout: seamless)
+        let bottom = seamless.bodyTop(ofPage: 1) + seamless.bodyHeight
+        Self.draw([Self.verticalStroke(from: bottom - 60, to: bottom + 60)], on: harness)
+        harness.switchTo(PageLayout(mode: .compressed))
+
+        let shown = try #require(harness.page.canvas.markup.subelements.first)
+        Self.erase(shown.elementID, on: harness)
+        #expect(harness.page.ink.subelements.count == 0)
+
+        // Undone, PaperKit puts back what it took.
+        var markup = harness.page.canvas.markup
+        markup.subelements.append(shown)
+        harness.page.canvas.markup = markup
+        harness.page.canvas.onMarkupChanged?()
+        #expect(harness.page.ink.subelements.count == 2)
+
+        harness.switchTo(seamless)
+        #expect(Self.shownStrokes(harness).count == 2)
+    }
+
+    @Test("Moving what shows of a stroke carries the part that doesn't")
+    func movingCarriesHiddenOverflow() throws {
+        let seamless = PageLayout(mode: .seamless)
+        let harness = Harness(text: Self.severalPages, layout: seamless)
+        let bottom = seamless.bodyTop(ofPage: 1) + seamless.bodyHeight
+        Self.draw([Self.verticalStroke(from: bottom - 60, to: bottom + 60)], on: harness)
+        harness.switchTo(PageLayout(mode: .compressed))
+        let before = try #require(harness.page.ink.subelements.strokes.first { InkPages.isOverflow($0.id) })
+
+        var markup = harness.page.canvas.markup
+        var shown = try #require(markup.subelements.strokes.first)
+        shown.applyTransform(CGAffineTransform(translationX: 30, y: 0))
+        markup.subelements.updateOrAppend(shown)
+        harness.page.canvas.markup = markup
+        harness.page.canvas.onMarkupChanged?()
+
+        let after = try #require(harness.page.ink.subelements.strokes.first { InkPages.isOverflow($0.id) })
+        #expect(abs(Self.area(of: after).minX - Self.area(of: before).minX - 30) < 0.5)
+        #expect(abs(Self.area(of: after).minY - Self.area(of: before).minY) < 0.5)
+    }
+
     @Test("Erasing or undoing a stroke cut into pieces takes every piece")
     func erasingTakesEveryPiece() throws {
         let seamless = PageLayout(mode: .seamless)
@@ -831,13 +959,14 @@ struct PageViewTests {
         #expect(harness.page.ink.subelements.count == 0)
     }
 
-    @Test("Once the canvas shows the pieces, erasing one leaves the other")
+    @Test("Once seamless shows the pieces, erasing one leaves the other")
     func erasingOnePiece() throws {
         let seamless = PageLayout(mode: .seamless)
         let harness = Harness(text: Self.severalPages, layout: seamless)
         let bottom = seamless.bodyTop(ofPage: 1) + seamless.bodyHeight
         Self.draw([Self.verticalStroke(from: bottom - 60, to: bottom + 60)], on: harness)
         harness.switchTo(PageLayout(mode: .compressed))
+        harness.switchTo(seamless)
 
         var markup = harness.page.canvas.markup
         try #require(markup.subelements.count == 2)
@@ -966,17 +1095,80 @@ struct PageViewTests {
 
     // MARK: Saving ink
 
+    /// Waits until `condition` holds, for work the page finishes off the
+    /// main thread. False if it never did.
+    ///
+    /// By suspending, not by turning the run loop: the work comes back to
+    /// the main actor, and a test turning the run loop is still holding it.
+    private static func waitFor(_ condition: () -> Bool, seconds: TimeInterval = 3) async -> Bool {
+        let end = Date(timeIntervalSinceNow: seconds)
+        while !condition() && Date() < end {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return condition()
+    }
+
     @Test("Drawing hands the ink over to be saved, in print coordinates")
-    func drawingReportsInk() {
+    func drawingReportsInk() async {
         let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
         var reported: [PaperMarkup] = []
         harness.page.onInkChanged = { reported.append($0) }
 
         Self.draw([Self.stroke(at: PageLayout(mode: .seamless).bodyTop(ofPage: 2) + 50)], on: harness)
 
+        #expect(await Self.waitFor { !reported.isEmpty })
         #expect(reported.count == 1)
         let saved = reported.last?.subelements.strokes.first?.renderBounds.midY
         #expect(abs((saved ?? 0) - (Self.printPortrait.bodyTop(ofPage: 2) + 50)) < 0.5)
+    }
+
+    /// Every operation on PaperKit's sets costs time in proportion to the
+    /// ink, so working out what a stroke changed on the main thread made
+    /// writing in a long note stutter.
+    @Test("A stroke is taken into the ink off the main thread")
+    func captureIsOffTheMainThread() async {
+        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
+        var reported = 0
+        harness.page.onInkChanged = { _ in reported += 1 }
+
+        Self.draw([Self.stroke(at: 400)], on: harness)
+        // Nothing has turned the run loop since the stroke landed.
+        #expect(reported == 0)
+
+        #expect(await Self.waitFor { reported == 1 })
+    }
+
+    @Test("A mode switch takes in strokes still on their way, where they were drawn", arguments: [PageViewMode.print, .compressed])
+    func switchTakesInPendingStrokes(to mode: PageViewMode) async {
+        let seamless = PageLayout(mode: .seamless)
+        let harness = Harness(text: Self.severalPages, layout: seamless)
+        let drawnAt = seamless.bodyTop(ofPage: 2) + 50
+        var reported = 0
+        harness.page.onInkChanged = { _ in reported += 1 }
+
+        Self.draw([Self.stroke(at: drawnAt)], on: harness)
+        harness.switchTo(PageLayout(mode: mode))
+        // Let the capture that was running finish; its result is stale.
+        _ = await Self.waitFor({ false }, seconds: 0.5)
+
+        let stored = harness.page.ink.subelements.strokes
+        #expect(stored.count == 1)
+        #expect(abs((stored.first?.renderBounds.midY ?? 0) - (Self.printPortrait.bodyTop(ofPage: 2) + 50)) < 0.5)
+        #expect(abs((harness.shownInkY ?? 0) - (PageLayout(mode: mode).bodyTop(ofPage: 2) + 50)) < 0.5)
+        #expect(reported == 1)
+    }
+
+    @Test("Leaving a note takes in strokes still on their way, for the save")
+    func commitTakesInPendingStrokes() {
+        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
+        var reported: [PaperMarkup] = []
+        harness.page.onInkChanged = { reported.append($0) }
+
+        Self.draw([Self.stroke(at: 400), Self.stroke(at: 600)], on: harness)
+        harness.page.commitInk()
+
+        #expect(reported.count == 1)
+        #expect(reported.last?.subelements.strokes.count == 2)
     }
 
     /// A save bumps the note to the top of the list, so one that only

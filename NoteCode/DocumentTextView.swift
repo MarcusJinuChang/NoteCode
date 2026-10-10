@@ -116,6 +116,12 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.refreshFenceVisibility(in: textView)
     }
 
+    /// The page is going: ink still on its way in is taken in now, so it
+    /// reaches the saver while there's a page to save it to.
+    static func dismantleUIView(_ page: PageView, coordinator: Coordinator) {
+        page.commitInk()
+    }
+
     func makeCoordinator() -> Coordinator {
         Coordinator(text: $text)
     }

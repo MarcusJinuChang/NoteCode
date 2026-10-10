@@ -183,6 +183,40 @@ struct NotePDFTests {
         #expect(first.darkest(in: stroke) > 0.95)
     }
 
+    @Test("A stroke across a page break prints only on the page it was started on")
+    func overflowDoesNotPrint() async throws {
+        let layout = PageLayout(orientation: .portrait, mode: .print)
+        let bottom = layout.bodyTop(ofPage: 0) + layout.bodyHeight
+        let top = layout.bodyTop(ofPage: 1)
+        // Straight down at x 400, from 40 above page 1's last line to 40
+        // below page 2's first, cut as drawing cuts it.
+        let points = stride(from: bottom - 40, through: top + 40, by: 4).enumerated().map { index, y in
+            PKStrokePoint(location: CGPoint(x: 400, y: y), timeOffset: Double(index) * 0.01, size: CGSize(width: 6, height: 6),
+                          opacity: 1, force: 1, azimuth: 0, altitude: .pi / 2)
+        }
+        let stroke = PKStroke(ink: PKInk(.pen, color: .black), path: PKStrokePath(controlPoints: points, creationDate: Date()))
+        let pieces = InkPages.pieces(ofStroke: stroke, regions: layout.inkRegions(pageCount: 2))
+        try #require(pieces.count == 2)
+        var ink = PaperMarkup(bounds: CGRect(x: 0, y: 0, width: 816, height: 100_000))
+        for piece in pieces {
+            ink.subelements.append(piece)
+        }
+
+        let pdf = try await Self.pdf("One line of text", ink: ink)
+        try #require(pdf.pageCount == 2)
+        let first = try #require(Bitmap(pdfPage: pdf.page(at: 0)))
+        let second = try #require(Bitmap(pdfPage: pdf.page(at: 1)))
+
+        // In page points from each sheet's top: 40 points of stroke above
+        // the first page's last line, and where the second page's 40 would be.
+        let scale = NotePDF.pointsPerPagePoint
+        let margin = PageLayout.margin
+        let above = CGRect(x: 395 * scale, y: (margin + layout.bodyHeight - 36) * scale, width: 10 * scale, height: 30 * scale)
+        let below = CGRect(x: 395 * scale, y: (margin + 6) * scale, width: 10 * scale, height: 30 * scale)
+        #expect(first.darkest(in: above) < 0.5)
+        #expect(second.darkest(in: below) > 0.95)
+    }
+
     @Test("Ink goes on the page as a picture at print resolution, and text doesn't")
     func inkResolution() async throws {
         let layout = PageLayout(orientation: .portrait, mode: .print)
