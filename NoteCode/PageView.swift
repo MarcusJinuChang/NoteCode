@@ -8,6 +8,7 @@
 #if canImport(UIKit)
 
 import PaperKit
+import PencilKit
 import UIKit
 
 /// Hosts the editor at its pages' width, breaks its text into pages, and
@@ -103,23 +104,6 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// `ink` exists to avoid.
     private var shownElements: [MarkupOrderedSet.ElementID: CGRect] = [:]
 
-    /// For each stored piece, the element on the canvas it was cut from.
-    ///
-    /// A stroke drawn across a page break is stored as pieces (`InkPages`)
-    /// but stays whole on the canvas until ink is next shown — a mode switch
-    /// or reopening — when the canvas takes the pieces. Swapping them in
-    /// straight away would put elements PaperKit never made under its undo
-    /// stack, whose action for the stroke would then find nothing to undo.
-    /// Showing ink clears that stack anyway. Until then this says which
-    /// pieces go when their stroke is erased, undone or moved.
-    private var pieceSources: [MarkupOrderedSet.ElementID: MarkupOrderedSet.ElementID] = [:]
-
-    /// The canvas element a stored element stands for: its stroke, for a
-    /// piece cut since ink was last shown, or itself.
-    private func source(of id: MarkupOrderedSet.ElementID) -> MarkupOrderedSet.ElementID {
-        pieceSources[id] ?? id
-    }
-
     /// Called with the note's ink, in print coordinates, whenever the reader
     /// changes it: a stroke drawn, erased or moved.
     ///
@@ -209,7 +193,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         canvas.onMarkupChanged = { [weak self] in self?.captureInk() }
         canvas.takesTouch = { [weak self] point in
             guard let self else { return true }
-            return pageLayout.takesInk(at: point, pageCount: pageCount)
+            return pageLayout.takesInk(at: point)
         }
         textView.addSubview(canvas)
         textView.insertSubview(covers, aboveSubview: canvas)
@@ -716,14 +700,21 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
                 shown.subelements.updateOrAppend(element)
             }
 
-            // Pieces that just replaced a stroke arrive at the end, so they
-            // draw above strokes made after it until the note is reopened,
-            // which shows the stored order. Assigning the set in the stored
-            // order doesn't reorder the canvas (unit test, 9 October).
             var placed = MarkupOrderedSet()
-            for element in shown.subelements {
+            var bent: [(index: Int, stroke: PKStroke)] = []
+            for (index, element) in shown.subelements.enumerated() {
                 guard let original = stored[element.elementID] else { continue }
-                let target = print.convert(y: original.renderFrame.midY, to: pageLayout)
+                // A stroke across a break is bent into this mode from its
+                // stored copy (`InkBending`), and has to leave the canvas and
+                // come back to change shape: a path changed on the canvas's
+                // own copy doesn't take, and nor does a new stroke with its
+                // id while the old one is there (probe and unit test,
+                // 9 October). Removed here, added below.
+                if let stroke = original as? PKStroke, InkBending.crossesBreak(stroke, in: print) {
+                    bent.append((index, InkBending.bent(stroke, from: print, to: pageLayout)))
+                    continue
+                }
+                let target = print.inkY(original.renderFrame.midY, in: pageLayout)
                     ?? original.renderFrame.midY
                 var element = element
                 let delta = target - element.renderFrame.midY
@@ -733,10 +724,21 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
                 placed.append(element)
             }
             shown.subelements = placed
+            // Leaving an element out of an assigned set keeps it.
+            for (_, stroke) in bent {
+                shown.subelements.removeElement(for: stroke.elementID)
+            }
             canvas.markup = shown
+
+            if !bent.isEmpty {
+                // Back where they were in the order strokes are drawn in.
+                var returned = canvas.markup
+                for (index, stroke) in bent {
+                    returned.subelements.insert(stroke, at: min(index, returned.subelements.count))
+                }
+                canvas.markup = returned
+            }
         }
-        // The canvas holds exactly the stored elements now, pieces included.
-        pieceSources.removeAll()
 
         // Ink just moved under whatever the undo stack was holding: its
         // actions restore strokes to the mode they were drawn in.
@@ -757,59 +759,31 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// sheet's margin has no place in seamless, so a round trip there and
     /// back would walk it onto the next page.
     ///
-    /// What changed is stored as its pieces, one per page it reaches
-    /// (`InkPages`), cut here in the coordinates it was drawn in.
+    /// A stroke drawn across a page break is stored bent (`InkBending`); the
+    /// canvas keeps it as it was drawn, which is how it shows in this mode.
     private func captureInk() {
         let shown = canvas.markup
         let print = PageLayout(orientation: pageLayout.orientation, mode: .print)
         let shownIDs = Set(shown.subelements.ids)
-        let regions = pageLayout.inkRegions(pageCount: pageCount)
+        let storedIDs = Set(ink.subelements.ids)
 
         var updated = ink
         var changed = false
 
-        // Erased, or undone: stored ink whose element is gone from the canvas,
-        // a stroke's pieces with it. A markup merges rather than replaces, so
-        // leaving an element out of a new set keeps it; taking it out is a
-        // call of its own.
-        let gone = ink.subelements.ids.filter { !shownIDs.contains(source(of: $0)) }
-        for id in gone {
+        // Erased. A markup merges rather than replaces, so leaving an element
+        // out of a new set keeps it; taking it out is a call of its own.
+        for id in storedIDs where !shownIDs.contains(id) {
             updated.subelements.removeElement(for: id)
-            pieceSources[id] = nil
             changed = true
         }
 
         // Drawn, or moved by the lasso. Everything else keeps the copy it
         // already has, so ink nobody touched is never converted back from the
         // screen — the round trip `ink` exists to avoid.
-        let storedSources = Set(updated.subelements.ids.map(source(of:)))
         for element in shown.subelements {
             let id = element.elementID
-            guard !storedSources.contains(id) || shownElements[id] != element.renderFrame else { continue }
-
-            // Whatever it was stored as goes, and it's stored again as it is
-            // now, in the place the old copy had, so the order strokes are
-            // drawn in doesn't change.
-            let previous = updated.subelements.ids.filter { source(of: $0) == id }
-            var position = previous.first.flatMap { old in
-                Array(updated.subelements.ids).firstIndex(of: old)
-            }
-            for old in previous {
-                updated.subelements.removeElement(for: old)
-                pieceSources[old] = nil
-            }
-            for piece in InkPages.pieces(of: element, regions: regions) {
-                if piece.elementID != id {
-                    pieceSources[piece.elementID] = id
-                }
-                let stored = PageView.moved(piece, from: pageLayout, to: print)
-                if let index = position {
-                    updated.subelements.insert(stored, at: index)
-                    position = index + 1
-                } else {
-                    updated.subelements.append(stored)
-                }
-            }
+            guard !storedIDs.contains(id) || shownElements[id] != element.renderFrame else { continue }
+            updated.subelements.updateOrAppend(InkBending.moved(element, from: pageLayout, to: print) ?? element)
             changed = true
         }
 
@@ -833,19 +807,6 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         )
     }
 
-    /// One element at the same place on its page in another layout.
-    ///
-    /// An element belongs to the page its middle is on, so a stroke drawn
-    /// across a page break travels whole rather than being torn in two.
-    private static func moved(_ element: any Markup, from old: PageLayout, to new: PageLayout) -> any Markup {
-        var element = element
-        let middle = element.renderFrame.midY
-        if let target = old.convert(y: middle, to: new), target != middle {
-            element.applyTransform(CGAffineTransform(translationX: 0, y: target - middle))
-        }
-        return element
-    }
-
     /// The ink with every element moved to the same place on its page in
     /// another layout, or `nil` when there's no such place — a different
     /// orientation wraps text at another width.
@@ -859,7 +820,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
 
         var moved = MarkupOrderedSet()
         for element in markup.subelements {
-            moved.append(PageView.moved(element, from: old, to: new))
+            moved.append(InkBending.moved(element, from: old, to: new) ?? element)
         }
 
         var result = markup
@@ -1141,9 +1102,9 @@ final class PageDecorationView: UIView {
 /// the page and its dashed line in compressed, the surround and the
 /// sheets' edges and shadows in print layout — so on a page without ink
 /// it can't be told apart from what's beneath. Text never sits in these
-/// bands: they're inside the ones text flows around. A stroke being drawn
-/// across one goes under it, and so does a stroke drawn there that the
-/// canvas still holds whole until ink is next shown (`PageView.pieceSources`).
+/// bands: they're inside the ones text flows around. Ink across one goes
+/// under it: a stroke being drawn, and the stretch of a stroke bent at a
+/// page break (`InkBending`).
 ///
 /// It replaced a mask on the canvas (9 October). Masked, the canvas's ink
 /// tiles painted the page white over the text beneath them: around every

@@ -91,8 +91,8 @@ final class DrawingCanvas: UIView {
     /// the canvas to the text view and scrolls the note. That decides only
     /// where a stroke may *start*: a touch belongs to the view it began on
     /// until it lifts, so a stroke can still be drawn on across that space.
-    /// What it leaves there is hidden by `PageCoverView`, and left out of
-    /// the stored pieces (`InkPages`).
+    /// What it leaves there is hidden by `PageCoverView`, and squeezed into
+    /// seamless's break when it's shown there (`InkBending`).
     var takesTouch: ((CGPoint) -> Bool)?
 
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {

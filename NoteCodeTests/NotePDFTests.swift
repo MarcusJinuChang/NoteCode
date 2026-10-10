@@ -203,6 +203,40 @@ struct NotePDFTests {
         #expect(widths[0] >= expected && widths[0] <= expected + 40, "image \(widths[0]) pixels wide for a stroke \(stroke.width) points wide")
     }
 
+    @Test("A stroke across a page break prints each end on its own sheet, and nothing in the margins between")
+    func strokeAcrossABreakPrints() async throws {
+        let seamless = PageLayout(orientation: .portrait, mode: .seamless)
+        let print = PageLayout(orientation: .portrait, mode: .print)
+        // Drawn in seamless from 60 points above page 1's last line to 60
+        // below page 2's first, and stored bent: in print layout its middle
+        // runs down the margins and the gap.
+        let edge = seamless.bodyTop(ofPage: 0) + seamless.bodyHeight
+        let points = stride(from: edge - 60, through: edge + 60, by: 4).enumerated().map { index, y in
+            PKStrokePoint(location: CGPoint(x: 300, y: y), timeOffset: Double(index) * 0.01, size: CGSize(width: 6, height: 6),
+                          opacity: 1, force: 1, azimuth: 0, altitude: .pi / 2)
+        }
+        let drawn = PKStroke(ink: PKInk(.pen, color: .black), path: PKStrokePath(controlPoints: points, creationDate: Date()))
+        let stored = try #require(InkBending.moved(drawn, from: seamless, to: print))
+        var ink = PaperMarkup(bounds: CGRect(origin: .zero, size: CGSize(width: print.pageSize.width, height: print.noteHeight(pageCount: 2))))
+        ink.subelements.updateOrAppend(stored)
+
+        let pdf = try await Self.pdf("One line of text", ink: ink)
+        try #require(pdf.pageCount == 2)
+        let first = try #require(Bitmap(pdfPage: pdf.page(at: 0)))
+        let second = try #require(Bitmap(pdfPage: pdf.page(at: 1)))
+
+        // In each sheet's own page points, then the PDF's.
+        let scale = NotePDF.pointsPerPagePoint
+        func band(from top: CGFloat, to bottom: CGFloat) -> CGRect {
+            CGRect(x: 294 * scale, y: top * scale, width: 12 * scale, height: (bottom - top) * scale)
+        }
+        let textBottom = PageLayout.margin + print.bodyHeight
+        #expect(first.darkest(in: band(from: textBottom - 50, to: textBottom - 10)) < 0.5, "page 1's end")
+        #expect(first.darkest(in: band(from: textBottom + 8, to: print.pageSize.height - 2)) > 0.95, "page 1's bottom margin")
+        #expect(second.darkest(in: band(from: 2, to: PageLayout.margin - 8)) > 0.95, "page 2's top margin")
+        #expect(second.darkest(in: band(from: PageLayout.margin + 10, to: PageLayout.margin + 50)) < 0.5, "page 2's end")
+    }
+
     /// The pixel width of each image a PDF page draws, including inside its
     /// form objects.
     private static func imageWidths(on page: CGPDFPage) -> [Int] {

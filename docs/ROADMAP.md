@@ -28,12 +28,14 @@ drawn at the screen's density. 25 pull requests, all merged.
   the iPad. Phases 2 to 9 are in `docs/ui-design-v2-implementation.md`.
 - **Ink across page breaks** (9 Oct, branch `claude/ink-split-pages`, not
   merged): a stroke drawn across a page break now stays on its words on both
-  pages in every view mode. It's stored as one piece per page, each moving
-  with its own page. Seamless is the reference: compressed's strip and print
-  layout's top and bottom margins and gaps take no ink, and anything drawn
-  across them is hidden. Also fixes print layout blanking the text around
-  ink, which PR #36's fix had caused. Builds for iPad and Mac, 589 tests
-  pass; checked in the simulator, not yet with the Pencil on the iPad.
+  pages in every view mode, and stays one stroke, so one erase or lasso
+  takes all of it. It bends at the break: each point moves with its own
+  page. Seamless is the reference: compressed's strip and print layout's
+  top and bottom margins and gaps take no ink, and the stretch across them
+  is hidden on screen and in the PDF. Also fixes print layout blanking the
+  text around ink, which PR #36's fix had caused. Builds for iPad and Mac,
+  591 tests pass; checked in the simulator, not yet with the Pencil on the
+  iPad.
 - **UI design v2, phase 2: the page against its surround** (8 Oct, PR #34,
   merged): seamless and compressed now show a white (black) page column on a
   grey surround, as print layout already did, with the hotbar's strips on the

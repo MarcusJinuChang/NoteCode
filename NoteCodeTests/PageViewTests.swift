@@ -726,19 +726,18 @@ struct PageViewTests {
         return PKStroke(ink: PKInk(.pen, color: .black), path: PKStrokePath(controlPoints: points, creationDate: Date()))
     }
 
-    /// Where a stroke shows: its mask's area if it has one. Exact, unlike
-    /// its frame, which PaperKit rounds out to whole points.
-    private static func area(of stroke: PKStroke) -> CGRect {
-        stroke.mask.map { $0.bounds.applying(stroke.transform) } ?? stroke.renderFrame
+    /// The canvas's strokes.
+    private static func shownStrokes(_ harness: Harness) -> [PKStroke] {
+        harness.page.canvas.markup.subelements.strokes
     }
 
-    /// The canvas's strokes, top to bottom.
-    private static func shownStrokes(_ harness: Harness) -> [PKStroke] {
-        harness.page.canvas.markup.subelements.strokes.sorted { area(of: $0).minY < area(of: $1).minY }
+    /// A stroke's control points, where they're drawn in the note.
+    private static func notePoints(of stroke: PKStroke) -> [CGPoint] {
+        stroke.path.map { $0.location.applying(stroke.transform) }
     }
 
     @Test(
-        "A stroke drawn across a page break stays on its words on both pages in every mode",
+        "A stroke drawn across a page break stays one stroke, on its words on both pages, in every mode",
         arguments: PageViewMode.allCases
     )
     func strokeAcrossABreakStaysOnItsWords(drawnIn mode: PageViewMode) throws {
@@ -751,35 +750,31 @@ struct PageViewTests {
         let top = drawn.bodyTop(ofPage: 2)
         Self.draw([Self.verticalStroke(from: bottom - 60, to: top + 60)], on: harness)
 
-        // Where each piece sits against its own page's text, per mode.
+        // Where its ends sit against their own pages' text, per mode.
         var placements: [[CGFloat]] = []
         // The other modes first: switching to the mode it's in shows nothing anew.
         for mode in PageViewMode.allCases.filter({ $0 != mode }) + [mode] {
             let layout = PageLayout(mode: mode)
             harness.switchTo(layout)
-            let pieces = Self.shownStrokes(harness).map(Self.area(of:))
-            try #require(pieces.count == 2, "in \(mode)")
-            let pageBottom = layout.bodyTop(ofPage: 1) + layout.bodyHeight
-            let pageTop = layout.bodyTop(ofPage: 2)
+            let strokes = Self.shownStrokes(harness)
+            try #require(strokes.count == 1, "in \(mode)")
+            let points = Self.notePoints(of: strokes[0])
+            let first = try #require(points.first), last = try #require(points.last)
             placements.append([
-                pieces[0].minY - pageBottom,
-                pieces[0].maxY - pageBottom,
-                pieces[1].minY - pageTop,
-                pieces[1].maxY - pageTop,
+                first.y - (layout.bodyTop(ofPage: 1) + layout.bodyHeight),
+                last.y - layout.bodyTop(ofPage: 2),
             ])
-            // Nothing in the room seamless doesn't have.
-            #expect(pieces[0].maxY <= layout.inkRegion(ofPage: 1, pageCount: harness.page.pageCount).maxY + 0.001)
-            #expect(pieces[1].minY >= layout.inkRegion(ofPage: 2, pageCount: harness.page.pageCount).minY - 0.001)
         }
         for placement in placements.dropFirst() {
             #expect(zip(placement, placements[0]).allSatisfy { abs($0 - $1) < 0.5 }, "\(placements)")
         }
-        // The text above the break is where the stroke began.
-        #expect(abs(placements[0][0] - -62) < 1.5, "\(placements[0])")
-        #expect(abs(placements[0][3] - 62) < 1.5, "\(placements[0])")
+        // Where it was drawn, give or take where PencilKit's curve starts
+        // and ends against its first and last points.
+        #expect(abs(placements[0][0] - -60) < 4.5, "\(placements[0])")
+        #expect(abs(placements[0][1] - 60) < 4.5, "\(placements[0])")
     }
 
-    @Test("A stroke reaching three pages is stored as three pieces, each inside its sheet")
+    @Test("A stroke reaching three pages is stored as one, each part on its own sheet")
     func strokeOverThreePages() throws {
         let seamless = PageLayout(mode: .seamless)
         let harness = Harness(text: Self.severalPages, layout: seamless)
@@ -789,130 +784,115 @@ struct PageViewTests {
         let to = seamless.bodyTop(ofPage: 2) + 50
         Self.draw([Self.verticalStroke(from: from, to: to)], on: harness)
 
+        let stored = harness.page.ink.subelements.strokes
+        try #require(stored.count == 1)
         let print = Self.printPortrait
-        let stored = harness.page.ink.subelements.strokes.map(Self.area(of:)).sorted { $0.minY < $1.minY }
-        try #require(stored.count == 3)
-        for (index, piece) in stored.enumerated() {
-            #expect(print.sheet(ofPage: index).contains(piece))
-            #expect(print.inkRegion(ofPage: index, pageCount: harness.page.pageCount).contains(piece))
+        // Back in seamless, every point is on the line it was drawn along;
+        // and it reaches the text on all three sheets.
+        let points = Self.notePoints(of: stored[0])
+        for point in points {
+            let there = try #require(print.inkY(point.y, in: seamless))
+            #expect(abs(point.x - 400) < 0.5)
+            #expect(there >= from - 4.5 && there <= to + 4.5, "\(point) → \(there)")
+        }
+        for page in 0..<3 {
+            let region = print.inkRegion(ofPage: page)
+            #expect(points.contains { region.minY + 1 < $0.y && $0.y < region.maxY - 1 }, "page \(page)")
         }
     }
 
-    @Test("A stroke drawn across compressed's strip leaves the strip out")
-    func compressedStripLeftOut() throws {
+    @Test("Drawn across compressed's strip, a stroke is joined in seamless")
+    func compressedStripJoinedInSeamless() throws {
         let compressed = PageLayout(mode: .compressed)
         let harness = Harness(text: Self.severalPages, layout: compressed)
         let bottom = compressed.bodyTop(ofPage: 1) + compressed.bodyHeight
         Self.draw([Self.verticalStroke(from: bottom - 40, to: compressed.bodyTop(ofPage: 2) + 40)], on: harness)
 
-        // In seamless the two pieces meet: the strip had no room to keep.
         harness.switchTo(PageLayout(mode: .seamless))
-        let pieces = Self.shownStrokes(harness).map(Self.area(of:))
-        try #require(pieces.count == 2)
-        #expect(abs(pieces[0].maxY - pieces[1].minY) < 0.001)
+        let strokes = Self.shownStrokes(harness)
+        try #require(strokes.count == 1)
+        let ys = Self.notePoints(of: strokes[0]).map(\.y)
+        for (a, b) in zip(ys, ys.dropFirst()) {
+            #expect(b >= a && b - a <= 4.5)
+        }
     }
 
-    @Test("Erasing or undoing a stroke cut into pieces takes every piece")
-    func erasingTakesEveryPiece() throws {
+    @Test("After a mode switch, erasing a stroke across a break takes all of it", arguments: PageViewMode.allCases)
+    func erasingAfterASwitch(to mode: PageViewMode) throws {
         let seamless = PageLayout(mode: .seamless)
         let harness = Harness(text: Self.severalPages, layout: seamless)
         let bottom = seamless.bodyTop(ofPage: 1) + seamless.bodyHeight
         Self.draw([Self.verticalStroke(from: bottom - 60, to: bottom + 60)], on: harness)
-        try #require(harness.page.ink.subelements.count == 2)
+        harness.switchTo(PageLayout(mode: mode == .seamless ? .print : mode))
 
-        // Still whole on the canvas, which is all PaperKit's undo knows of.
         var markup = harness.page.canvas.markup
         try #require(markup.subelements.count == 1)
-        let drawn = try #require(markup.subelements.ids.first)
-        markup.subelements.removeElement(for: drawn)
+        let id = try #require(markup.subelements.ids.first)
+        markup.subelements.removeElement(for: id)
         harness.page.canvas.markup = markup
         harness.page.canvas.onMarkupChanged?()
 
         #expect(harness.page.ink.subelements.count == 0)
     }
 
-    @Test("Once the canvas shows the pieces, erasing one leaves the other")
-    func erasingOnePiece() throws {
-        let seamless = PageLayout(mode: .seamless)
-        let harness = Harness(text: Self.severalPages, layout: seamless)
-        let bottom = seamless.bodyTop(ofPage: 1) + seamless.bodyHeight
-        Self.draw([Self.verticalStroke(from: bottom - 60, to: bottom + 60)], on: harness)
-        harness.switchTo(PageLayout(mode: .compressed))
-
-        var markup = harness.page.canvas.markup
-        try #require(markup.subelements.count == 2)
-        let first = try #require(Self.shownStrokes(harness).first)
-        markup.subelements.removeElement(for: first.elementID)
-        harness.page.canvas.markup = markup
-        harness.page.canvas.onMarkupChanged?()
-
-        #expect(harness.page.ink.subelements.count == 1)
-    }
-
-    @Test("Moving a stroke cut into pieces cuts it again where it lands")
-    func movingRecuts() throws {
-        let seamless = PageLayout(mode: .seamless)
-        let harness = Harness(text: Self.severalPages, layout: seamless)
-        let bottom = seamless.bodyTop(ofPage: 1) + seamless.bodyHeight
-        Self.draw([Self.verticalStroke(from: bottom - 60, to: bottom + 60)], on: harness)
-        try #require(harness.page.ink.subelements.count == 2)
-
-        // Lifted off the break, onto page 2's text.
-        var markup = harness.page.canvas.markup
-        var stroke = try #require(markup.subelements.strokes.first)
-        stroke.applyTransform(CGAffineTransform(translationX: 0, y: -200))
-        markup.subelements.updateOrAppend(stroke)
-        harness.page.canvas.markup = markup
-        harness.page.canvas.onMarkupChanged?()
-
-        let stored = harness.page.ink.subelements.strokes
-        #expect(stored.count == 1)
-        #expect(stored.first?.mask == nil)
-    }
-
-    @Test("Cutting a stroke keeps the order strokes are drawn in")
-    func cuttingKeepsOrder() throws {
+    @Test("Bent for a mode switch, a stroke keeps its place in the order strokes are drawn in")
+    func bendingKeepsOrder() throws {
         let seamless = PageLayout(mode: .seamless)
         let harness = Harness(text: Self.severalPages, layout: seamless)
         let bottom = seamless.bodyTop(ofPage: 1) + seamless.bodyHeight
         Self.draw([Self.verticalStroke(from: bottom - 60, to: bottom + 60)], on: harness)
         Self.draw([Self.stroke(at: bottom - 30)], on: harness)
-        let later = try #require(harness.page.ink.subelements.ids.last)
+        let order = Array(harness.page.ink.subelements.ids)
+        try #require(order.count == 2)
 
-        // Move the first stroke a little: it's cut again, into the same place.
+        for mode in [PageViewMode.print, .compressed, .seamless] {
+            harness.switchTo(PageLayout(mode: mode))
+            #expect(Array(harness.page.canvas.markup.subelements.ids) == order, "in \(mode)")
+        }
+    }
+
+    @Test("Moved off the break, a stroke is stored whole again")
+    func movedOffTheBreak() throws {
+        let seamless = PageLayout(mode: .seamless)
+        let harness = Harness(text: Self.severalPages, layout: seamless)
+        let bottom = seamless.bodyTop(ofPage: 1) + seamless.bodyHeight
+        Self.draw([Self.verticalStroke(from: bottom - 60, to: bottom + 60)], on: harness)
+        harness.switchTo(PageLayout(mode: .print))
+
+        // Lifted by the lasso onto page 2's text.
         var markup = harness.page.canvas.markup
-        var first = try #require(markup.subelements.strokes.first { $0.elementID != later })
-        first.applyTransform(CGAffineTransform(translationX: 10, y: 0))
-        markup.subelements.updateOrAppend(first)
+        var stroke = try #require(markup.subelements.strokes.first)
+        stroke.applyTransform(CGAffineTransform(translationX: 0, y: -400))
+        markup.subelements.updateOrAppend(stroke)
         harness.page.canvas.markup = markup
         harness.page.canvas.onMarkupChanged?()
 
-        #expect(harness.page.ink.subelements.count == 3)
-        #expect(harness.page.ink.subelements.ids.last == later)
-
-        // Reopened, the canvas draws them in the stored order.
-        let reopened = Harness(text: Self.severalPages, layout: seamless)
-        reopened.page.setInk(harness.page.ink)
-        #expect(Array(reopened.page.canvas.markup.subelements.ids) == Array(harness.page.ink.subelements.ids))
+        let stored = try #require(harness.page.ink.subelements.strokes.first)
+        #expect(harness.page.ink.subelements.count == 1)
+        #expect(!InkBending.crossesBreak(stored, in: Self.printPortrait))
     }
 
-    @Test("Ink saved before strokes were cut is left whole")
-    func savedInkLeftWhole() {
+    @Test("Ink saved before strokes were bent shows as it always did")
+    func savedInkShowsAsBefore() {
+        // Drawn across a break in seamless and stored whole, by its page: in
+        // print coordinates it runs into the margin below its sheet's text.
         let print = Self.printPortrait
         let harness = Harness(text: Self.severalPages)
-        let crossing = Self.verticalStroke(from: print.bodyTop(ofPage: 2) - 120, to: print.bodyTop(ofPage: 2) + 60)
-        harness.setInk(PKDrawing(strokes: [crossing]))
+        let bottom = print.bodyTop(ofPage: 2) + print.bodyHeight
+        let saved = Self.verticalStroke(from: bottom - 120, to: bottom + 60)
+        harness.setInk(PKDrawing(strokes: [saved]))
         var reports = 0
         harness.page.onInkChanged = { _ in reports += 1 }
-        let before = harness.page.ink.subelements.strokes
 
-        for mode in [PageViewMode.compressed, .seamless, .print] {
-            harness.switchTo(PageLayout(mode: mode))
-        }
-
+        harness.switchTo(PageLayout(mode: .seamless))
+        let shown = Self.shownStrokes(harness).first
+        let seamless = PageLayout(mode: .seamless)
+        let shift = seamless.bodyTop(ofPage: 2) - print.bodyTop(ofPage: 2)
+        // Moved whole by its page, path untouched.
+        #expect(shown?.path.count == saved.path.count)
+        #expect(abs((shown.map { Self.notePoints(of: $0).first!.y } ?? 0) - (bottom - 120 + shift)) < 0.5)
+        #expect(abs((shown.map { Self.notePoints(of: $0).last!.y } ?? 0) - (bottom + 60 + shift)) < 0.5)
         #expect(reports == 0)
-        #expect(harness.page.ink.subelements.strokes.map(\.id) == before.map(\.id))
-        #expect(harness.page.ink.subelements.strokes.allSatisfy { $0.mask == nil })
     }
 
     @Test("Erasing on the canvas takes the stroke out of the stored ink")
