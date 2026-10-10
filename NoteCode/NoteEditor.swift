@@ -20,6 +20,14 @@ final class NoteEditor {
 
     private(set) var mode: EditorMode = .text
 
+    /// Called after the mode changes. The text view's code blocks show or
+    /// hide their fences with it (`DocumentTextView.Coordinator`), and no
+    /// edit or selection change tells them.
+    ///
+    /// Not observed state: it is the text view's hook, and hooking it up
+    /// must not make the hotbar re-render.
+    @ObservationIgnored var modeDidChange: (() -> Void)?
+
     /// What ink mode draws with. Kept here rather than in the hotbar so the
     /// canvas can take it as it changes.
     var inkTool = InkToolState() {
@@ -137,6 +145,7 @@ final class NoteEditor {
         }
         applyScrolling()
         refreshUndoState()
+        modeDidChange?()
     }
 
     /// Locks or unlocks the note's text.

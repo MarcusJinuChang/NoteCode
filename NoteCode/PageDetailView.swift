@@ -57,6 +57,12 @@ struct PageDetailView: View {
     @AppStorage(PageViewMode.defaultsKey)
     private var viewMode: PageViewMode = .default
 
+    /// Whether a code block's backticks show only while it is edited, or
+    /// always. Settings › Writing has the switch (a later phase); the key is
+    /// read here so the setting works once it exists.
+    @AppStorage(ShowMarkdown.defaultsKey)
+    private var showMarkdown: ShowMarkdown = .whileEditing
+
     /// The page area the hotbar docks within, for working out where a drag lands.
     @State private var pageSize: CGSize = .zero
 
@@ -272,7 +278,8 @@ struct PageDetailView: View {
                 pageLayout: PageLayout(orientation: page.orientation, mode: viewMode),
                 keyboardClearance: dock == .bottom ? Hotbar.thickness + Self.hotbarMargin : 0,
                 inkSaver: inkSaver,
-                revealing: revealing
+                revealing: revealing,
+                showMarkdown: showMarkdown
             )
             // The page draws its own border, on the page's edges rather than
             // the area's — see PageView.outline. Clipping keeps anything that

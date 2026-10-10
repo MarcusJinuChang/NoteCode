@@ -23,6 +23,39 @@ nonisolated struct CodeBlockTarget: Equatable, Sendable {
     var language: CodeLanguage?
     /// Just the code between the fences.
     var code: String
+    /// The first word of the opening fence's info string, as typed: the tag
+    /// the language button shows when the app doesn't know it. Empty for a
+    /// bare fence.
+    var tag: String = ""
+
+    /// What the language button says.
+    var languageLabel: String {
+        FenceTag.label(language: language, tag: tag)
+    }
+}
+
+/// Where a code block is, for layout and for deciding what shows its fences.
+nonisolated struct CodeRange: Equatable, Sendable {
+    /// UTF-16, fences included.
+    var range: NSRange
+
+    /// Whether a fence closes it. An unclosed block runs to the end of the
+    /// note, and the line after it is still code.
+    var isClosed: Bool
+
+    /// The last caret position on the block's own lines: the end of the
+    /// closing fence's line, before its newline, or the end of the note for
+    /// an unclosed block. The caret one past it is on the line after.
+    var lastCaret: Int
+
+    init(range: NSRange, isClosed: Bool, lastCaret: Int? = nil) {
+        self.range = range
+        self.isClosed = isClosed
+        let end = range.location + range.length
+        // Without the terminator's length, assume a one-unit newline ends a
+        // closed block, as it does everywhere but the note's last line.
+        self.lastCaret = lastCaret ?? (isClosed ? end - 1 : end)
+    }
 }
 
 /// Running code in-app is deliberately out of scope — see AGENTS.md. What a
@@ -65,7 +98,8 @@ nonisolated enum CodeBlockAction {
                         id: code.id,
                         range: NSRange(location: offset, length: length),
                         language: code.language,
-                        code: String(source[code.contentRange])
+                        code: String(source[code.contentRange]),
+                        tag: code.infoString.split(separator: " ").first.map(String.init) ?? ""
                     )
                 )
             }

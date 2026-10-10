@@ -74,6 +74,22 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
     /// the fence, the line the caret sits on once a block is closed.
     var closesBlock = false
 
+    /// How the block this paragraph belongs to is shown, asked for each time
+    /// the fragment draws.
+    ///
+    /// A closure for the reason `selectedRanges` is one: the answer changes
+    /// with the caret, and the fragment is not laid out again when it does.
+    /// The default is the old behaviour, every character drawn and no ring,
+    /// for a fragment made without a coordinator.
+    var fenceDisplay: () -> FenceDisplay = { FenceDisplay(showsFences: true, isEditing: false) }
+
+    /// Whether this paragraph is the block's opening fence.
+    var isOpeningFence: Bool { position.roundsTop }
+
+    /// Whether this paragraph is a fence line rather than code. An unclosed
+    /// block has only an opening one.
+    var isFence: Bool { isOpeningFence || closesBlock }
+
     /// Width of the panel, resolved lazily.
     ///
     /// Deliberately *not* captured when the fragment is created: during the
@@ -122,8 +138,15 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
     private let fillColor = UIColor.secondarySystemBackground
 
     override func draw(at point: CGPoint, in context: CGContext) {
-        drawPanel(at: point, in: context)
+        let display = fenceDisplay()
+        drawPanel(at: point, in: context, showsRing: display.isEditing)
         drawSelection(at: point, in: context)
+        // An away block's fence lines keep their place and their height and
+        // draw nothing. Glyphs only: collapsing the line, or any other change
+        // to the text, would lay out everything below it and move ink off
+        // its words. Decided here, at draw time, and not by a rendering
+        // attribute: see `CodeFenceDisplay.swift`.
+        if isFence, !display.showsFences { return }
         super.draw(at: point, in: context)
     }
 
@@ -311,10 +334,14 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
 
     /// Paints the panel. Called from `draw(at:in:)`, and by printing, which
     /// draws a page's lines one at a time rather than the whole fragment.
-    func drawPanel(at point: CGPoint, in context: CGContext) {
+    ///
+    /// - Parameter showsRing: whether to outline the panel in the accent
+    ///   colour, for the block being edited. Never for paper.
+    func drawPanel(at point: CGPoint, in context: CGContext, showsRing: Bool = false) {
         let frame = layoutFragmentFrame
         let runs = laidOutPanelRuns
         let scale = Self.pixelScale(of: context)
+        let ring = UIBezierPath()
 
         context.saveGState()
         context.setFillColor(fillColor.cgColor)
@@ -350,11 +377,98 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
                     cornerRadii: CGSize(width: cornerRadius, height: cornerRadius)
                   )
             context.addPath(path.cgPath)
+
+            if showsRing {
+                ring.append(Self.ringPath(
+                    around: rect,
+                    radius: cornerRadius,
+                    roundsTop: run.position.roundsTop,
+                    roundsBottom: run.position.roundsBottom
+                ))
+            }
         }
 
         context.fillPath()
+
+        if showsRing {
+            context.setStrokeColor(UIColor.tintColor.cgColor)
+            context.setLineWidth(Self.ringWidth)
+            context.addPath(ring.cgPath)
+            context.strokePath()
+        }
         context.restoreGState()
     }
+
+    // MARK: Ring
+
+    /// Thickness of the ring around the block being edited.
+    static let ringWidth: CGFloat = 1.5
+
+    /// The outline of one run of the panel, open where the panel continues.
+    ///
+    /// A block is one fragment a line, so each draws only its own part: the
+    /// sides always, the top and its corners on the first, the bottom and its
+    /// corners on the last. Where fragments meet, the sides overlap by the
+    /// panel's overhang, and an opaque stroke over itself shows no seam.
+    /// Inset by half the width, so the stroke lies inside the rendering
+    /// surface and isn't clipped at the panel's edge.
+    static func ringPath(
+        around panel: CGRect,
+        radius: CGFloat,
+        roundsTop: Bool,
+        roundsBottom: Bool
+    ) -> UIBezierPath {
+        let half = ringWidth / 2
+        let rect = CGRect(
+            x: panel.minX + half,
+            y: panel.minY + (roundsTop ? half : 0),
+            width: panel.width - ringWidth,
+            height: panel.height - (roundsTop ? half : 0) - (roundsBottom ? half : 0)
+        )
+        let corner = max(0, radius - half)
+        let top = roundsTop ? corner : 0
+        let bottom = roundsBottom ? corner : 0
+
+        let path = UIBezierPath()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY + top))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY - bottom))
+        path.move(to: CGPoint(x: rect.maxX, y: rect.minY + top))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - bottom))
+
+        if roundsTop {
+            path.move(to: CGPoint(x: rect.minX, y: rect.minY + corner))
+            path.addArc(
+                withCenter: CGPoint(x: rect.minX + corner, y: rect.minY + corner),
+                radius: corner, startAngle: .pi, endAngle: 3 * .pi / 2, clockwise: true
+            )
+            path.addLine(to: CGPoint(x: rect.maxX - corner, y: rect.minY))
+            path.addArc(
+                withCenter: CGPoint(x: rect.maxX - corner, y: rect.minY + corner),
+                radius: corner, startAngle: 3 * .pi / 2, endAngle: 0, clockwise: true
+            )
+        }
+        if roundsBottom {
+            path.move(to: CGPoint(x: rect.maxX, y: rect.maxY - corner))
+            path.addArc(
+                withCenter: CGPoint(x: rect.maxX - corner, y: rect.maxY - corner),
+                radius: corner, startAngle: 0, endAngle: .pi / 2, clockwise: true
+            )
+            path.addLine(to: CGPoint(x: rect.minX + corner, y: rect.maxY))
+            path.addArc(
+                withCenter: CGPoint(x: rect.minX + corner, y: rect.maxY - corner),
+                radius: corner, startAngle: .pi / 2, endAngle: .pi, clockwise: true
+            )
+        }
+        return path
+    }
+}
+
+/// How a code block's paragraphs are drawn right now.
+struct FenceDisplay: Equatable {
+    /// Whether the fence lines' backticks are drawn.
+    var showsFences: Bool
+    /// Whether the caret or a selection is in the block: it gets a ring.
+    var isEditing: Bool
 }
 
 // MARK: - Region cache
@@ -412,22 +526,21 @@ final class DocumentCache {
         let blocks = blocks(for: source)
         if let cachedCodeRanges { return cachedCodeRanges }
         let parsed = cachedSource ?? source
-        let ranges = blocks.compactMap { block in
-            block.codeBlock.map { CodeRange(range: NSRange(block.range, in: parsed), isClosed: $0.isClosed) }
+        let ranges = blocks.compactMap { block -> CodeRange? in
+            guard let code = block.codeBlock else { return nil }
+            let range = NSRange(block.range, in: parsed)
+            // A closed block's range ends with the closing fence's newline,
+            // if it has one; the caret on that line stops before it.
+            let terminator = code.isClosed ? parsed[block.range].last.flatMap { $0.isNewline ? $0.utf16.count : nil } ?? 0 : 0
+            return CodeRange(
+                range: range,
+                isClosed: code.isClosed,
+                lastCaret: range.location + range.length - terminator
+            )
         }
         cachedCodeRanges = ranges
         return ranges
     }
-}
-
-/// Where a code block is, for layout.
-struct CodeRange: Equatable {
-    /// UTF-16, fences included.
-    var range: NSRange
-
-    /// Whether a fence closes it. An unclosed block runs to the end of the
-    /// note, and the line after it is still code.
-    var isClosed: Bool
 }
 
 #endif

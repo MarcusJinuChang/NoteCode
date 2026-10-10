@@ -40,6 +40,10 @@ struct DocumentTextView: UIViewRepresentable {
     /// list's business, not the page's.
     var revealing = NoteSearch("")
 
+    /// Settings › Writing › Show Markdown: whether a code block's backticks
+    /// show only while it is being edited, or always.
+    var showMarkdown = ShowMarkdown.whileEditing
+
     // MARK: UIViewRepresentable
 
     func makeUIView(context: Context) -> PageView {
@@ -54,7 +58,8 @@ struct DocumentTextView: UIViewRepresentable {
         textView.text = text
         context.coordinator.invalidateStyling()
         context.coordinator.restyle(textView)
-        context.coordinator.editor = editor
+        context.coordinator.showMarkdown = showMarkdown
+        context.coordinator.connect(editor, to: textView)
         let page = PageView(textView: textView)
         context.coordinator.keepBars(under: page.canvas)
         // After the page: `attach` applies the current mode, which now moves a
@@ -88,6 +93,7 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.text = $text
         context.coordinator.runDestination = runDestination
         context.coordinator.editor = editor
+        context.coordinator.showMarkdown = showMarkdown
 
         // Only push text down when it actually differs. Assigning `.text`
         // unconditionally would reset the selection on every render and fight
@@ -106,6 +112,8 @@ struct DocumentTextView: UIViewRepresentable {
             context.coordinator.invalidateStyling()
             context.coordinator.restyle(textView)
         }
+        // After the text, so the setting is applied to the blocks it has now.
+        context.coordinator.refreshFenceVisibility(in: textView)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -122,7 +130,7 @@ struct DocumentTextView: UIViewRepresentable {
         let documentCache = DocumentCache()
 
         /// The run and copy buttons floating over each code block.
-        private var overlay: CodeBlockOverlay?
+        var overlay: CodeBlockOverlay?
 
         /// The keyboard traits the text view has now: prose or code.
         private(set) var rewritingPolicy = TextRewritingPolicy.initial
@@ -136,6 +144,17 @@ struct DocumentTextView: UIViewRepresentable {
         /// compared the whole note's text on every call, and converted each
         /// block's range against a different copy of the string.
         private var layoutCodeRanges: [CodeRange]?
+
+        /// Settings › Writing › Show Markdown, as `DocumentTextView` last had it.
+        var showMarkdown = ShowMarkdown.whileEditing
+
+        /// Which blocks show their fences. See `CodeFenceDisplay.swift`.
+        var fenceVisibility = FenceVisibility.away
+
+        /// Set while a language pick rewrites a fence's tag, which the
+        /// keyboard-rewrite guard in `shouldChangeTextIn` would turn away: it
+        /// replaces text that isn't the selection, in code.
+        var isRetagging = false
 
         /// The parts of the selection currently painted over code panels, so
         /// the next selection change can take them back off. See
@@ -208,7 +227,7 @@ struct DocumentTextView: UIViewRepresentable {
         }
 
         /// The code blocks' ranges in `storage`, worked out once per edit.
-        fileprivate func codeRanges(in storage: NSTextStorage) -> [CodeRange] {
+        func codeRanges(in storage: NSTextStorage) -> [CodeRange] {
             if let layoutCodeRanges { return layoutCodeRanges }
             let ranges = documentCache.codeRanges(for: storage.string.nativeUTF8)
             layoutCodeRanges = ranges
@@ -238,6 +257,12 @@ struct DocumentTextView: UIViewRepresentable {
                 guard let textView else { return }
                 self.run(target, from: textView)
             }
+
+            overlay.onChooseLanguage = { [weak textView, weak self] target, language in
+                guard let textView else { return }
+                self?.setLanguage(language, of: target, in: textView)
+            }
+            overlay.allowsEditing = { [weak self] in self?.editor?.isTextLocked != true }
 
             self.overlay = overlay
             textView.overlay = overlay
@@ -289,6 +314,9 @@ struct DocumentTextView: UIViewRepresentable {
                 previousSignatures: styleSignatures
             )
             DocumentStyler.applyTypingAttributes(to: textView, source: source, blocks: blocks)
+            // Before the overlay places its buttons: an edit can add a block or
+            // move the one the caret is in.
+            refreshFenceVisibility(in: textView, repositioning: false)
             overlay?.update(targets: CodeBlockAction.targets(in: source, blocks: blocks))
             scheduleHighlighting(for: textView, source: source, blocks: blocks)
         }
@@ -480,6 +508,7 @@ struct DocumentTextView: UIViewRepresentable {
             DocumentStyler.applyTypingAttributes(to: textView, source: source, blocks: blocks)
             applyRewritingPolicy(to: textView, source: source, blocks: blocks)
             updateCodeSelectionHighlight(in: textView)
+            refreshFenceVisibility(in: textView)
         }
 
         /// Sets the keyboard up for where the caret is, before it appears.
@@ -502,8 +531,14 @@ struct DocumentTextView: UIViewRepresentable {
         /// marked text, and a formatting button knows what it's changing, so
         /// all of those go through untouched.
         func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+            // Undo and redo put text back by replacing it, which looks exactly
+            // like a keyboard correction: undoing a language pick, whose tag
+            // was replaced inside a fence, was turned away, and used up the
+            // undo step without changing the text.
+            let undoManager = textView.undoManager
             guard range.length > 0, !text.isEmpty, range != textView.selectedRange,
-                  textView.markedTextRange == nil, editor?.isFormatting != true
+                  textView.markedTextRange == nil, editor?.isFormatting != true, !isRetagging,
+                  undoManager?.isUndoing != true, undoManager?.isRedoing != true
             else { return true }
 
             let source = (textView.text ?? "").nativeUTF8
@@ -616,6 +651,12 @@ extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
             fragment.closesBlock = code.isClosed && position.roundsBottom
             fragment.selectedRanges = { [weak self, weak contentManager] in
                 self?.paintedTextRanges(in: contentManager) ?? []
+            }
+            fragment.fenceDisplay = { [weak self, weak fragment, weak storage] in
+                guard let self, let fragment, let storage else {
+                    return FenceDisplay(showsFences: true, isEditing: false)
+                }
+                return self.fenceDisplay(for: fragment, in: storage)
             }
             return fragment
         }
