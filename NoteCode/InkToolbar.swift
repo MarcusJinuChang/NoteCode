@@ -178,8 +178,17 @@ extension EnvironmentValues {
 /// Sizes a control face: the bar's 44pt square, or in the options row a cell
 /// 34pt along it and 40pt across, in a frame 4pt thicker toward the page, so
 /// touches there are the control's.
+///
+/// The selection highlight is drawn here too, on the face, not on the whole
+/// frame: behind the frame it was centred on the 44pt, 2pt off the icon toward
+/// the page.
 private struct HotbarTarget: ViewModifier {
+    var isHighlighted: Bool
     @Environment(\.optionsRow) private var row
+
+    private var highlight: some View {
+        Circle().fill(.tint.opacity(isHighlighted ? 0.18 : 0)).padding(4)
+    }
 
     func body(content: Content) -> some View {
         if let row {
@@ -188,6 +197,7 @@ private struct HotbarTarget: ViewModifier {
                     width: row.isVertical ? OptionsRowStyle.thickness : OptionsRowStyle.pitch,
                     height: row.isVertical ? OptionsRowStyle.pitch : OptionsRowStyle.thickness
                 )
+                .background { highlight }
                 .frame(
                     width: row.isVertical ? row.controlThickness : OptionsRowStyle.pitch,
                     height: row.isVertical ? OptionsRowStyle.pitch : row.controlThickness,
@@ -197,6 +207,7 @@ private struct HotbarTarget: ViewModifier {
         } else {
             content
                 .frame(width: Hotbar.buttonSide, height: Hotbar.buttonSide)
+                .background { highlight }
                 .contentShape(.rect)
         }
     }
@@ -225,8 +236,9 @@ private struct RowGroupBackground: ViewModifier {
 }
 
 extension View {
-    func hotbarTarget() -> some View {
-        modifier(HotbarTarget())
+    /// - Parameter isHighlighted: draws the selection circle behind the face.
+    func hotbarTarget(isHighlighted: Bool = false) -> some View {
+        modifier(HotbarTarget(isHighlighted: isHighlighted))
     }
 }
 
@@ -558,12 +570,7 @@ struct HotbarIcon: View {
             .font(.system(size: 17, weight: .medium))
             .foregroundStyle(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
             .opacity(isEnabled ? 1 : 0.3)
-            .hotbarTarget()
-            .background {
-                if isSelected {
-                    Circle().fill(.tint.opacity(0.18)).padding(4)
-                }
-            }
+            .hotbarTarget(isHighlighted: isSelected)
     }
 }
 
@@ -601,12 +608,7 @@ private struct HotbarDot: View {
             .fill(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
             .frame(width: diameter, height: diameter)
             .opacity(isEnabled ? 1 : 0.3)
-            .hotbarTarget()
-            .background {
-                if isSelected {
-                    Circle().fill(.tint.opacity(0.18)).padding(4)
-                }
-            }
+            .hotbarTarget(isHighlighted: isSelected)
     }
 }
 
