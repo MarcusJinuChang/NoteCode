@@ -110,7 +110,7 @@ extension DocumentTextView.Coordinator {
     /// by class name because UIKit's fragment views aren't public, as
     /// `CodeBlockPanelTests.upperLinesInFront` does; if the name changes this
     /// does nothing and the highlight appears on the next redraw instead.
-    private static func redraw(fragmentViewsIn view: UIView, intersecting rect: CGRect) {
+    static func redraw(fragmentViewsIn view: UIView, intersecting rect: CGRect) {
         func visit(_ subview: UIView) {
             if String(describing: type(of: subview)).contains("TextLayoutFragmentView"),
                subview.convert(subview.bounds, to: view).intersects(rect) {

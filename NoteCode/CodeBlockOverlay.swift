@@ -26,6 +26,19 @@ final class CodeBlockOverlay {
     var onRun: ((CodeBlockTarget) -> Void)?
     var onCopy: ((CodeBlockTarget) -> Void)?
 
+    /// Called when the student picks a language from a block's menu, `nil`
+    /// for plain text. The overlay decides nothing about the edit.
+    var onChooseLanguage: ((CodeBlockTarget, CodeLanguage?) -> Void)?
+
+    /// Which blocks are being edited, and so show their fence in place of a
+    /// language button. Set by the coordinator; positions follow on the next
+    /// `reposition`.
+    var fenceVisibility = FenceVisibility.away
+
+    /// Whether the note's text can be changed: a locked note's language
+    /// buttons show the name and open nothing.
+    var allowsEditing: () -> Bool = { true }
+
     private weak var textView: UITextView?
 
     /// One bar per code block, in document order.
@@ -34,6 +47,9 @@ final class CodeBlockOverlay {
     /// carries a hash of the code, so it changes on every keystroke inside a
     /// block. Keying by it would tear down and rebuild a view per character.
     private var bars: [CodeBlockActionBar] = []
+
+    /// The language names, one per block like the bars, for the same reason.
+    private var languageButtons: [CodeBlockLanguageButton] = []
 
     private var targets: [CodeBlockTarget] = []
 
@@ -75,6 +91,9 @@ final class CodeBlockOverlay {
 
         for bar in bars {
             bar.isHidden = true
+        }
+        for button in languageButtons {
+            button.isHidden = true
         }
 
         guard !targets.isEmpty else { return }
@@ -123,8 +142,7 @@ final class CodeBlockOverlay {
                     $0.typographicBounds.offsetBy(dx: frame.minX, dy: frame.minY)
                 } ?? frame
                 place(
-                    bars[index],
-                    target: targets[index],
+                    index,
                     lineFrame: firstLine.offsetBy(dx: inset.left, dy: inset.top),
                     panelRight: panelRight
                 )
@@ -133,18 +151,35 @@ final class CodeBlockOverlay {
         }
     }
 
-    private func place(
-        _ bar: CodeBlockActionBar,
-        target: CodeBlockTarget,
-        lineFrame: CGRect,
-        panelRight: CGFloat
-    ) {
+    private func place(_ index: Int, lineFrame: CGRect, panelRight: CGFloat) {
+        let bar = bars[index]
+        let target = targets[index]
+
         let showsRun = target.language != nil
         bar.configure(showsRun: showsRun)
 
         let size = showsRun ? CodeBlockActionBar.size : CodeBlockActionBar.copyOnlySize
         bar.frame = CodeBlockActionBar.frame(size: size, panelRight: panelRight, lineFrame: lineFrame)
         bar.isHidden = false
+
+        // The language's name stands where the fence's glyphs would be, but
+        // only while they aren't drawn.
+        let button = languageButtons[index]
+        guard !fenceVisibility.showsFences(ofBlock: index) else { return }
+
+        button.configure(
+            label: target.languageLabel,
+            language: target.language,
+            isPlain: target.tag.isEmpty,
+            isEnabled: allowsEditing()
+        )
+        // It may reach as far as the bar, and no further.
+        button.frame = CodeBlockLanguageButton.frame(
+            size: button.preferredSize,
+            lineFrame: lineFrame,
+            maximumWidth: bar.frame.minX - lineFrame.minX
+        )
+        button.isHidden = false
     }
 
     // MARK: The pool
@@ -161,17 +196,31 @@ final class CodeBlockOverlay {
             // since the code may have changed since the bar was made.
             bar.onRun = { [weak self] in self?.run(at: index) }
             bar.onCopy = { [weak self] in self?.copy(at: index) }
-            if let ceiling, ceiling.superview === textView {
-                textView.insertSubview(bar, belowSubview: ceiling)
-            } else {
-                textView.addSubview(bar)
+
+            let button = CodeBlockLanguageButton(frame: .zero)
+            button.onChoose = { [weak self] language in self?.chooseLanguage(language, at: index) }
+            button.isHidden = true
+
+            for view in [bar, button] {
+                if let ceiling, ceiling.superview === textView {
+                    textView.insertSubview(view, belowSubview: ceiling)
+                } else {
+                    textView.addSubview(view)
+                }
             }
             bars.append(bar)
+            languageButtons.append(button)
         }
 
         while bars.count > count {
             bars.removeLast().removeFromSuperview()
+            languageButtons.removeLast().removeFromSuperview()
         }
+    }
+
+    private func chooseLanguage(_ language: CodeLanguage?, at index: Int) {
+        guard targets.indices.contains(index) else { return }
+        onChooseLanguage?(targets[index], language)
     }
 
     private func run(at index: Int) {
@@ -191,6 +240,7 @@ final class CodeBlockOverlay {
     /// and cancel the button's — see `DocumentUITextView`.
     func containsInteractiveElement(at point: CGPoint) -> Bool {
         bars.contains { !$0.isHidden && $0.frame.contains(point) }
+            || languageButtons.contains { !$0.isHidden && $0.frame.contains(point) }
     }
 }
 

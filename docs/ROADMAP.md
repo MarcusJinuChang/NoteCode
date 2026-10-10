@@ -66,6 +66,21 @@ drawn at the screen's density. 25 pull requests, all merged.
   611 tests pass, plus seven UI tests for where the row sits and what it
   reaches; looked at in the simulator in light and dark, on all three edges,
   not tried with the Pencil or the squeeze palette.
+- **UI design v2, phase 5: code-block fences** (10 Oct, branch
+  `claude/ui-phase-5-fences`, not merged): a code block shows its backticks
+  only while the caret or a selection is in it. Away, the opening line shows the
+  language's name (a menu: C++, Java, Python, Plain Text, which rewrites the
+  fence's tag and can be undone) with Copy and Run on the right; editing, it
+  shows "```cpp" and an accent ring round the block. Ink mode and the PDF
+  show no fences. Nothing moves when a block switches: the lines keep their
+  height, and nothing is laid out or edited (a caret move costs 1.5ms, a
+  keystroke 35ms on a 500-line note). The brief's first choice, a clear
+  rendering attribute, does hide the glyphs but un-hides text edited inside
+  its range, so the fragment draws the fences itself. Show Markdown (While
+  Editing or Always) is read from `showMarkdown`; its row comes with phase 6.
+  Also: undo and redo are no longer turned away by the keyboard-rewrite guard.
+  Builds for iPad and Mac, 661 tests pass; looked at in the simulator
+  (rendered, light and dark), not tapped through or tried on the iPad.
 - **Note search** (4 Oct, PR #27, merged 8 Oct): a search field at the top of the note
   list finds notes by every word typed, in the title or the text, ignoring
   case and accents. Results show the line that matched, with the words in

@@ -341,7 +341,12 @@ final class PrintedNote {
                 let origin = paragraph.fragment.layoutFragmentFrame.origin
                 // A panel split at a page break draws a run on each page;
                 // the clip keeps the other page's run off this one.
-                (paragraph.fragment as? CodeBlockLayoutFragment)?.drawPanel(at: origin, in: context)
+                let code = paragraph.fragment as? CodeBlockLayoutFragment
+                code?.drawPanel(at: origin, in: context)
+                // Paper has no caret, so no block is being edited: a code
+                // block's fence lines are never printed. They keep their
+                // lines, as on screen, and so does everything below them.
+                if code?.isFence == true { continue }
                 for line in paragraph.lines {
                     let bounds = line.typographicBounds
                     line.draw(at: CGPoint(x: origin.x + bounds.minX, y: origin.y + bounds.minY), in: context)
