@@ -241,6 +241,20 @@ struct NoteEditorTests {
         #expect(harness.canvas.allowsFingerDrawing)
     }
 
+    @Test("The hotbar's Finger Draws is the Pencil-only lock the other way round")
+    func fingerDrawsIsTheInverse() {
+        let harness = Harness("a word b")
+        #expect(harness.editor.fingerDraws)
+
+        harness.editor.fingerDraws = false
+        #expect(harness.editor.isPencilOnly)
+        #expect(!harness.canvas.allowsFingerDrawing)
+
+        harness.editor.fingerDraws.toggle()
+        #expect(!harness.editor.isPencilOnly)
+        #expect(harness.canvas.allowsFingerDrawing)
+    }
+
     @Test("The page's pans follow the mode and the Pencil lock")
     func scrollingFollowsTheMode() {
         let harness = Harness("a word b")
@@ -309,7 +323,7 @@ struct NoteEditorTests {
         #expect(harness.editor.inkTool.kind == .highlighter)
 
         // A colour change isn't a tool change.
-        harness.editor.inkTool.color = .red
+        harness.editor.inkTool.pen.color = .red
         harness.editor.switchToPreviousTool()
         #expect(harness.editor.inkTool.kind == .lasso)
     }
@@ -329,7 +343,7 @@ struct NoteEditorTests {
     func toolReachesTheCanvas() {
         let harness = Harness("a word b")
 
-        harness.editor.inkTool = InkToolState(kind: .highlighter, color: .red)
+        harness.editor.inkTool = InkToolState(kind: .highlighter, highlighter: InkingSettings(color: .red))
 
         #expect((harness.canvas.tool as? PKInkingTool)?.inkType == .marker)
     }
