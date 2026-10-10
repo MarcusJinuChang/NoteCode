@@ -8,6 +8,7 @@
 #if canImport(UIKit)
 
 import PaperKit
+import PencilKit
 import UIKit
 
 /// Hosts the editor at its pages' width, breaks its text into pages, and
@@ -35,6 +36,9 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
 
     /// Sheets in print layout, break lines in compressed. Behind the text.
     let decorations = PageDecorationView()
+
+    /// Over the ink, where seamless has no room — see `PageCoverView`.
+    let covers = PageCoverView()
 
     /// The line around the page in the continuous modes, on its edges at
     /// whatever scale it's drawn. Print layout's sheets carry their own.
@@ -189,9 +193,10 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         canvas.onMarkupChanged = { [weak self] in self?.captureInk() }
         canvas.takesTouch = { [weak self] point in
             guard let self else { return true }
-            return pageLayout.isOnPage(point, pageCount: pageCount)
+            return pageLayout.takesInk(at: point)
         }
         textView.addSubview(canvas)
+        textView.insertSubview(covers, aboveSubview: canvas)
 
         pinch.addTarget(self, action: #selector(handlePinch(_:)))
         pinch.delegate = self
@@ -631,12 +636,6 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
 
         let noteHeight = pageLayout.noteHeight(pageCount: pageCount)
         canvas.noteSize = CGSize(width: pageLayout.pageSize.width, height: noteHeight)
-        // Print layout's ink stays on its sheets, as it prints; a stroke that
-        // runs off one doesn't show over the surround. The continuous modes
-        // are one surface, so a stroke may cross a break there.
-        canvas.inkRegions = pageLayout.mode == .print
-            ? (0..<pageCount).map(pageLayout.sheet(ofPage:))
-            : nil
         canvas.cover(Self.visiblePart(
             ofNoteHeight: noteHeight,
             width: pageLayout.pageSize.width,
@@ -644,6 +643,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             viewHeight: textView.bounds.height
         ))
         decorations.update(layout: pageLayout, pageCount: pageCount, height: noteHeight)
+        covers.update(layout: pageLayout, pageCount: pageCount, height: noteHeight)
     }
 
     /// The part of the note on screen, which is all the canvas covers.
@@ -701,9 +701,20 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             }
 
             var placed = MarkupOrderedSet()
-            for element in shown.subelements {
+            var bent: [(index: Int, stroke: PKStroke)] = []
+            for (index, element) in shown.subelements.enumerated() {
                 guard let original = stored[element.elementID] else { continue }
-                let target = print.convert(y: original.renderFrame.midY, to: pageLayout)
+                // A stroke across a break is bent into this mode from its
+                // stored copy (`InkBending`), and has to leave the canvas and
+                // come back to change shape: a path changed on the canvas's
+                // own copy doesn't take, and nor does a new stroke with its
+                // id while the old one is there (probe and unit test,
+                // 9 October). Removed here, added below.
+                if let stroke = original as? PKStroke, InkBending.crossesBreak(stroke, in: print) {
+                    bent.append((index, InkBending.bent(stroke, from: print, to: pageLayout)))
+                    continue
+                }
+                let target = print.inkY(original.renderFrame.midY, in: pageLayout)
                     ?? original.renderFrame.midY
                 var element = element
                 let delta = target - element.renderFrame.midY
@@ -713,7 +724,20 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
                 placed.append(element)
             }
             shown.subelements = placed
+            // Leaving an element out of an assigned set keeps it.
+            for (_, stroke) in bent {
+                shown.subelements.removeElement(for: stroke.elementID)
+            }
             canvas.markup = shown
+
+            if !bent.isEmpty {
+                // Back where they were in the order strokes are drawn in.
+                var returned = canvas.markup
+                for (index, stroke) in bent {
+                    returned.subelements.insert(stroke, at: min(index, returned.subelements.count))
+                }
+                canvas.markup = returned
+            }
         }
 
         // Ink just moved under whatever the undo stack was holding: its
@@ -734,6 +758,9 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// converting out of a mode with narrow breaks isn't exact: ink in a
     /// sheet's margin has no place in seamless, so a round trip there and
     /// back would walk it onto the next page.
+    ///
+    /// A stroke drawn across a page break is stored bent (`InkBending`); the
+    /// canvas keeps it as it was drawn, which is how it shows in this mode.
     private func captureInk() {
         let shown = canvas.markup
         let print = PageLayout(orientation: pageLayout.orientation, mode: .print)
@@ -756,7 +783,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         for element in shown.subelements {
             let id = element.elementID
             guard !storedIDs.contains(id) || shownElements[id] != element.renderFrame else { continue }
-            updated.subelements.updateOrAppend(PageView.moved(element, from: pageLayout, to: print))
+            updated.subelements.updateOrAppend(InkBending.moved(element, from: pageLayout, to: print) ?? element)
             changed = true
         }
 
@@ -780,19 +807,6 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         )
     }
 
-    /// One element at the same place on its page in another layout.
-    ///
-    /// An element belongs to the page its middle is on, so a stroke drawn
-    /// across a page break travels whole rather than being torn in two.
-    private static func moved(_ element: any Markup, from old: PageLayout, to new: PageLayout) -> any Markup {
-        var element = element
-        let middle = element.renderFrame.midY
-        if let target = old.convert(y: middle, to: new), target != middle {
-            element.applyTransform(CGAffineTransform(translationX: 0, y: target - middle))
-        }
-        return element
-    }
-
     /// The ink with every element moved to the same place on its page in
     /// another layout, or `nil` when there's no such place — a different
     /// orientation wraps text at another width.
@@ -806,7 +820,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
 
         var moved = MarkupOrderedSet()
         for element in markup.subelements {
-            moved.append(PageView.moved(element, from: old, to: new))
+            moved.append(InkBending.moved(element, from: old, to: new) ?? element)
         }
 
         var result = markup
@@ -995,15 +1009,7 @@ final class PageDecorationView: UIView {
 
         let sheetCount = layout.mode == .print ? pageCount : 0
         while sheets.count < sheetCount {
-            let sheet = UIView()
-            sheet.backgroundColor = .systemBackground
-            sheet.layer.shadowColor = UIColor.black.cgColor
-            sheet.layer.shadowOpacity = 0.12
-            sheet.layer.shadowRadius = 6
-            sheet.layer.shadowOffset = CGSize(width: 0, height: 2)
-            // The page's border, in both appearances. The shadow lifts the
-            // sheet off the surround in light mode; dark mode swallows it.
-            sheet.layer.borderWidth = 1
+            let sheet = Self.makeSheet()
             addSubview(sheet)
             sheets.append(sheet)
         }
@@ -1011,16 +1017,12 @@ final class PageDecorationView: UIView {
             sheets.removeLast().removeFromSuperview()
         }
         for (index, sheet) in sheets.enumerated() {
-            sheet.frame = layout.sheet(ofPage: index)
-            sheet.layer.shadowPath = UIBezierPath(rect: sheet.bounds).cgPath
+            Self.place(sheet, at: layout.sheet(ofPage: index))
         }
 
         let breakCount = layout.mode == .compressed ? max(pageCount - 1, 0) : 0
         while breaks.count < breakCount {
-            let line = CAShapeLayer()
-            line.lineWidth = 1
-            line.lineDashPattern = [6, 5]
-            line.fillColor = nil
+            let line = Self.makeBreakLine()
             layer.addSublayer(line)
             breaks.append(line)
         }
@@ -1028,11 +1030,7 @@ final class PageDecorationView: UIView {
             breaks.removeLast().removeFromSuperlayer()
         }
         for (index, line) in breaks.enumerated() {
-            line.frame = CGRect(x: 0, y: layout.breakLineY(afterPage: index) - 0.5, width: frame.width, height: 1)
-            let path = UIBezierPath()
-            path.move(to: CGPoint(x: PageLayout.margin / 2, y: 0.5))
-            path.addLine(to: CGPoint(x: frame.width - PageLayout.margin / 2, y: 0.5))
-            line.path = path.cgPath
+            Self.place(line, atY: layout.breakLineY(afterPage: index), width: frame.width)
         }
 
         resolveColors()
@@ -1041,13 +1039,147 @@ final class PageDecorationView: UIView {
     /// CALayer colours are plain CGColors and don't follow dark mode on their
     /// own, so they're re-resolved whenever the appearance changes.
     private func resolveColors() {
-        let separator = UIColor.separator.resolvedColor(with: traitCollection).cgColor
+        Self.resolveColors(sheets: sheets, lines: breaks, for: traitCollection)
+    }
+
+    // MARK: Pieces, shared with the covers
+
+    /// A sheet of paper for print layout.
+    static func makeSheet() -> UIView {
+        let sheet = UIView()
+        sheet.backgroundColor = .systemBackground
+        sheet.layer.shadowColor = UIColor.black.cgColor
+        sheet.layer.shadowOpacity = 0.12
+        sheet.layer.shadowRadius = 6
+        sheet.layer.shadowOffset = CGSize(width: 0, height: 2)
+        // The page's border, in both appearances. The shadow lifts the
+        // sheet off the surround in light mode; dark mode swallows it.
+        sheet.layer.borderWidth = 1
+        return sheet
+    }
+
+    static func place(_ sheet: UIView, at frame: CGRect) {
+        sheet.frame = frame
+        sheet.layer.shadowPath = UIBezierPath(rect: sheet.bounds).cgPath
+    }
+
+    /// Compressed layout's dashed line at a page end.
+    static func makeBreakLine() -> CAShapeLayer {
+        let line = CAShapeLayer()
+        line.lineWidth = 1
+        line.lineDashPattern = [6, 5]
+        line.fillColor = nil
+        return line
+    }
+
+    /// Puts a break line across a page `width` wide, centred on `y`.
+    static func place(_ line: CAShapeLayer, atY y: CGFloat, width: CGFloat) {
+        line.frame = CGRect(x: 0, y: y - 0.5, width: width, height: 1)
+        let path = UIBezierPath()
+        path.move(to: CGPoint(x: PageLayout.margin / 2, y: 0.5))
+        path.addLine(to: CGPoint(x: width - PageLayout.margin / 2, y: 0.5))
+        line.path = path.cgPath
+    }
+
+    static func resolveColors(sheets: [UIView], lines: [CAShapeLayer], for traits: UITraitCollection) {
+        let separator = UIColor.separator.resolvedColor(with: traits).cgColor
         for sheet in sheets {
             sheet.layer.borderColor = separator
         }
-        for line in breaks {
+        for line in lines {
             line.strokeColor = separator
         }
+    }
+}
+
+// MARK: - Covers
+
+/// Hides ink where seamless has no room: compressed's strip, and print
+/// layout's top and bottom margins and the surround between its sheets
+/// (`PageLayout.inkHiddenBands`).
+///
+/// It sits above the canvas and draws what the page draws there anyway —
+/// the page and its dashed line in compressed, the surround and the
+/// sheets' edges and shadows in print layout — so on a page without ink
+/// it can't be told apart from what's beneath. Text never sits in these
+/// bands: they're inside the ones text flows around. Ink across one goes
+/// under it: a stroke being drawn, and the stretch of a stroke bent at a
+/// page break (`InkBending`).
+///
+/// It replaced a mask on the canvas (9 October). Masked, the canvas's ink
+/// tiles painted the page white over the text beneath them: around every
+/// stroke in print layout, whole blocks of lines lost their words
+/// (simulator; taking the mask off in the running app brought them back).
+/// A view over the ink needs no offscreen pass, either.
+final class PageCoverView: UIView {
+
+    private var bands: [UIView] = []
+    private var sheets: [UIView] = []
+    private var lines: [CAShapeLayer] = []
+    private var layout: PageLayout?
+    private var pageCount = 0
+
+    /// Each band's frame in note coordinates, for tests.
+    var bandFrames: [CGRect] { bands.map(\.frame) }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (view: PageCoverView, _) in
+            PageDecorationView.resolveColors(sheets: view.sheets, lines: view.lines, for: view.traitCollection)
+        }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func update(layout: PageLayout, pageCount: Int, height: CGFloat) {
+        let frame = CGRect(x: 0, y: 0, width: layout.pageSize.width, height: height)
+        if self.frame != frame {
+            self.frame = frame
+        }
+        guard layout != self.layout || pageCount != self.pageCount else { return }
+        self.layout = layout
+        self.pageCount = pageCount
+
+        for band in bands {
+            band.removeFromSuperview()
+        }
+        bands = []
+        sheets = []
+        lines = []
+
+        for area in layout.inkHiddenBands(pageCount: pageCount) {
+            let band = UIView(frame: area)
+            band.clipsToBounds = true
+            band.isUserInteractionEnabled = false
+            band.backgroundColor = layout.mode == .print ? PageView.surroundColor : PageView.pageColor
+            switch layout.mode {
+            case .print:
+                for index in 0..<max(pageCount, 1) where layout.sheet(ofPage: index).intersects(area) {
+                    let sheet = PageDecorationView.makeSheet()
+                    PageDecorationView.place(sheet, at: layout.sheet(ofPage: index).offsetBy(dx: 0, dy: -area.minY))
+                    band.addSubview(sheet)
+                    sheets.append(sheet)
+                }
+            case .compressed:
+                for index in 0..<max(pageCount - 1, 0) {
+                    let y = layout.breakLineY(afterPage: index)
+                    guard y > area.minY, y < area.maxY else { continue }
+                    let line = PageDecorationView.makeBreakLine()
+                    PageDecorationView.place(line, atY: y - area.minY, width: area.width)
+                    band.layer.addSublayer(line)
+                    lines.append(line)
+                }
+            case .seamless:
+                break
+            }
+            addSubview(band)
+            bands.append(band)
+        }
+        PageDecorationView.resolveColors(sheets: sheets, lines: lines, for: traitCollection)
     }
 }
 

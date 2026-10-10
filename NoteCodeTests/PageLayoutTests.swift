@@ -124,29 +124,197 @@ struct PageLayoutTests {
         #expect(sheet.maxY - (layout.bodyTop(ofPage: 5) + layout.bodyHeight) == PageLayout.margin)
     }
 
-    @Test("In print layout, the surround between and around sheets isn't on a page", arguments: PageOrientation.allCases)
-    func printSurround(orientation: PageOrientation) {
+    // MARK: Where ink shows
+
+    @Test("Seamless's ink regions run page after page with nothing between", arguments: PageOrientation.allCases)
+    func seamlessRegionsTileTheNote(orientation: PageOrientation) {
+        let layout = PageLayout(orientation: orientation, mode: .seamless)
+        let regions = layout.inkRegions(pageCount: 4)
+
+        #expect(regions.count == 4)
+        #expect(regions.first?.minY == 0)
+        for (above, below) in zip(regions, regions.dropFirst()) {
+            #expect(abs(above.maxY - below.minY) < 0.001)
+        }
+        // Each page's region holds its text and stops in the middle of the
+        // break: the boundary `pageIndex` uses.
+        for index in 0..<4 {
+            let region = regions[index]
+            #expect(region.minY <= layout.bodyTop(ofPage: index))
+            #expect(region.maxY >= layout.bodyTop(ofPage: index) + layout.bodyHeight)
+            #expect(layout.pageIndex(atY: region.minY + 0.001) == index)
+            #expect(layout.pageIndex(atY: region.maxY - 0.001) == index)
+            #expect(region.width == layout.pageSize.width)
+        }
+    }
+
+    @Test("Every mode's ink region is seamless's, moved with its page", arguments: PageViewMode.allCases, PageOrientation.allCases)
+    func regionsMoveWithTheirPage(mode: PageViewMode, orientation: PageOrientation) {
+        let layout = PageLayout(orientation: orientation, mode: mode)
+        let seamless = PageLayout(orientation: orientation, mode: .seamless)
+        for index in 0..<4 {
+            let shift = layout.bodyTop(ofPage: index) - seamless.bodyTop(ofPage: index)
+            #expect(layout.inkRegion(ofPage: index) == seamless.inkRegion(ofPage: index).offsetBy(dx: 0, dy: shift))
+        }
+    }
+
+    @Test("Print layout's ink regions sit inside its sheets", arguments: PageOrientation.allCases)
+    func printRegionsInsideSheets(orientation: PageOrientation) {
+        let layout = PageLayout(orientation: orientation, mode: .print)
+        for index in 0..<4 {
+            #expect(layout.sheet(ofPage: index).contains(layout.inkRegion(ofPage: index)))
+        }
+    }
+
+    @Test("Seamless hides no ink anywhere")
+    func seamlessHidesNothing() {
+        #expect(PageLayout(mode: .seamless).inkHiddenBands(pageCount: 5).isEmpty)
+    }
+
+    @Test("Compressed hides ink in its strips, the last page's included, all but the half point beside the text", arguments: PageOrientation.allCases)
+    func compressedHiddenBands(orientation: PageOrientation) {
+        let layout = PageLayout(orientation: orientation, mode: .compressed)
+        let bands = layout.inkHiddenBands(pageCount: 3)
+
+        // Two breaks, and the strip after the last page's text, before the
+        // room seamless gives a next page.
+        #expect(bands.count == 3)
+        for (index, band) in bands.enumerated() {
+            let bottom = layout.bodyTop(ofPage: index) + layout.bodyHeight
+            #expect(abs(band.minY - (bottom + 0.5)) < 0.001)
+            #expect(abs(band.maxY - (layout.bodyTop(ofPage: index + 1) - 0.5)) < 0.001)
+            #expect(band.width == layout.pageSize.width)
+        }
+    }
+
+    @Test("Print layout hides ink above its first page's room, between sheets, and after its last text", arguments: PageOrientation.allCases)
+    func printHiddenBands(orientation: PageOrientation) {
+        let layout = PageLayout(orientation: orientation, mode: .print)
+        let bands = layout.inkHiddenBands(pageCount: 3)
+
+        #expect(bands.count == 4)
+        // Seamless has half a margin above its first line.
+        #expect(bands.first == CGRect(x: 0, y: 0, width: layout.pageSize.width, height: layout.bodyTop(ofPage: 0) - PageLayout.margin / 2))
+        // Two margins and the gap, less the half point either side.
+        #expect(abs(bands[1].height - (PageLayout.margin * 2 + PageLayout.printSheetGap - 1)) < 0.001)
+        // From the last page's text to the note's end.
+        #expect(abs((bands.last?.minY ?? 0) - (layout.bodyTop(ofPage: 2) + layout.bodyHeight + 0.5)) < 0.001)
+        #expect(bands.last?.maxY == layout.noteHeight(pageCount: 3))
+    }
+
+    @Test("Seamless takes ink anywhere, breaks and the room below the last page included")
+    func seamlessTakesInkAnywhere() {
+        let layout = PageLayout(mode: .seamless)
+        let breakMiddle = layout.bodyTop(ofPage: 0) + layout.bodyHeight + layout.gap / 2
+
+        #expect(layout.takesInk(at: CGPoint(x: 100, y: breakMiddle)))
+        #expect(layout.takesInk(at: CGPoint(x: 100, y: 1)))
+    }
+
+    @Test("Compressed takes no ink in the rest of its strip")
+    func compressedStripTakesNoInk() {
+        let layout = PageLayout(mode: .compressed)
+        let bodyBottom = layout.bodyTop(ofPage: 0) + layout.bodyHeight
+        let x: CGFloat = 100
+
+        #expect(layout.takesInk(at: CGPoint(x: x, y: bodyBottom - 1)))
+        #expect(layout.takesInk(at: CGPoint(x: x, y: layout.bodyTop(ofPage: 1) + 1)))
+        #expect(!layout.takesInk(at: CGPoint(x: x, y: layout.breakLineY(afterPage: 0))))
+        #expect(!layout.takesInk(at: CGPoint(x: x, y: bodyBottom + 4)))
+    }
+
+    @Test("Print layout takes no ink in its top and bottom margins or between sheets", arguments: PageOrientation.allCases)
+    func printMarginsTakeNoInk(orientation: PageOrientation) {
         let layout = PageLayout(orientation: orientation, mode: .print)
         let first = layout.sheet(ofPage: 0)
         let second = layout.sheet(ofPage: 1)
         let x = first.midX
 
-        #expect(layout.isOnPage(CGPoint(x: x, y: first.midY), pageCount: 2))
-        #expect(layout.isOnPage(CGPoint(x: x, y: second.minY + 1), pageCount: 2))
-        #expect(!layout.isOnPage(CGPoint(x: x, y: (first.maxY + second.minY) / 2), pageCount: 2))
-        #expect(!layout.isOnPage(CGPoint(x: x, y: first.minY - 1), pageCount: 2))
-        #expect(!layout.isOnPage(CGPoint(x: x, y: second.maxY + 1), pageCount: 2))
-        // Below the last page, where another sheet would be if there were one.
-        #expect(!layout.isOnPage(CGPoint(x: x, y: second.midY), pageCount: 1))
+        #expect(layout.takesInk(at: CGPoint(x: x, y: first.midY)))
+        #expect(layout.takesInk(at: CGPoint(x: x, y: layout.bodyTop(ofPage: 1) + 1)))
+        // Side margins are the same in every mode.
+        #expect(layout.takesInk(at: CGPoint(x: PageLayout.margin / 2, y: first.midY)))
+        // Between the sheets, and the margins either side of the gap.
+        #expect(!layout.takesInk(at: CGPoint(x: x, y: (first.maxY + second.minY) / 2)))
+        #expect(!layout.takesInk(at: CGPoint(x: x, y: first.maxY - 10)))
+        #expect(!layout.takesInk(at: CGPoint(x: x, y: second.minY + 10)))
+        // Above the first sheet, and past the room seamless has above its text.
+        #expect(!layout.takesInk(at: CGPoint(x: x, y: first.minY - 1)))
+        #expect(!layout.takesInk(at: CGPoint(x: x, y: layout.bodyTop(ofPage: 0) - PageLayout.margin / 2 - 2)))
+        #expect(layout.takesInk(at: CGPoint(x: x, y: layout.bodyTop(ofPage: 0) - PageLayout.margin / 2 + 2)))
+        // A sheet's bottom margin, the last one's too: in seamless that room
+        // would be the next page's.
+        #expect(!layout.takesInk(at: CGPoint(x: x, y: second.maxY - 10)))
     }
 
-    @Test("The continuous modes are one page surface, breaks included", arguments: [PageViewMode.seamless, .compressed])
-    func continuousIsAllPage(mode: PageViewMode) {
-        let layout = PageLayout(mode: mode)
-        let breakMiddle = layout.bodyTop(ofPage: 0) + layout.bodyHeight + layout.gap / 2
+    // MARK: Bending ink between modes
 
-        #expect(layout.isOnPage(CGPoint(x: 100, y: breakMiddle), pageCount: 2))
-        #expect(layout.isOnPage(CGPoint(x: 100, y: 1), pageCount: 2))
+    @Test("Ink on a page moves with its page, exactly", arguments: PageViewMode.allCases, PageViewMode.allCases)
+    func inkOnAPageMovesWithIt(from fromMode: PageViewMode, to toMode: PageViewMode) throws {
+        let from = PageLayout(mode: fromMode), to = PageLayout(mode: toMode)
+        for index in 0..<4 {
+            for into in [0, 1, 300, from.bodyHeight - 1] {
+                let y = from.bodyTop(ofPage: index) + into
+                let moved = try #require(from.inkY(y, in: to))
+                #expect(abs(moved - (to.bodyTop(ofPage: index) + into)) < 0.001)
+                // And back, exactly.
+                #expect(abs((to.inkY(moved, in: from) ?? 0) - y) < 0.001)
+            }
+        }
+    }
+
+    @Test("Ink between pages is spread evenly over the other mode's room there")
+    func inkBetweenPagesIsSpread() throws {
+        let print = PageLayout(mode: .print), compressed = PageLayout(mode: .compressed)
+        let printBand = (print.inkRegion(ofPage: 0).maxY, print.inkRegion(ofPage: 1).minY)
+        let compressedBand = (compressed.inkRegion(ofPage: 0).maxY, compressed.inkRegion(ofPage: 1).minY)
+
+        for fraction in [0.0, 0.25, 0.5, 0.9] as [CGFloat] {
+            let y = printBand.0 + fraction * (printBand.1 - printBand.0)
+            let moved = try #require(print.inkY(y, in: compressed))
+            #expect(abs(moved - (compressedBand.0 + fraction * (compressedBand.1 - compressedBand.0))) < 0.001)
+        }
+        // Into seamless, which has no room there, it all meets at the break.
+        let seamless = PageLayout(mode: .seamless)
+        let breakY = seamless.inkRegion(ofPage: 0).maxY
+        for fraction in [0.1, 0.5, 0.9] as [CGFloat] {
+            let y = printBand.0 + fraction * (printBand.1 - printBand.0)
+            #expect(abs((print.inkY(y, in: seamless) ?? 0) - breakY) < 0.001)
+        }
+    }
+
+    @Test("Ink keeps its order down the note through every mode")
+    func inkYIsMonotonic() {
+        let print = PageLayout(mode: .print)
+        for target in PageViewMode.allCases.map({ PageLayout(mode: $0) }) {
+            var last = -CGFloat.infinity
+            for y in stride(from: CGFloat(0), through: print.noteHeight(pageCount: 4), by: 7) {
+                let moved = print.inkY(y, in: target) ?? .nan
+                #expect(moved >= last - 0.001)
+                last = moved
+            }
+        }
+    }
+
+    @Test("Ink has no place in another orientation")
+    func inkYAcrossOrientations() {
+        #expect(PageLayout(orientation: .portrait).inkY(500, in: PageLayout(orientation: .landscape)) == nil)
+    }
+
+    @Test("A span across a break reaches two pages; one on a page, or into the room beside it, reaches one")
+    func pagesReached() {
+        let print = PageLayout(mode: .print)
+        let bottom = print.bodyTop(ofPage: 0) + print.bodyHeight
+        let top = print.bodyTop(ofPage: 1)
+
+        #expect(print.inkPagesReached(from: bottom - 50, to: top + 50) == 2)
+        #expect(print.inkPagesReached(from: bottom - 50, to: bottom - 10) == 1)
+        // Into the margin and gap, not as far as the next page's text.
+        #expect(print.inkPagesReached(from: bottom - 50, to: top - 20) == 1)
+        // From the first page's text past the second's into the third's.
+        #expect(print.inkPagesReached(from: bottom - 50, to: print.bodyTop(ofPage: 2) + 50) == 3)
+        // A stroke's round end a point past the edge doesn't count.
+        #expect(print.inkPagesReached(from: bottom - 50, to: top + 1) == 1)
     }
 
     @Test("Compressed breaks fall in the middle of their band")

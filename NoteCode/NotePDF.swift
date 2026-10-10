@@ -83,7 +83,7 @@ enum NotePDF {
 
             printed.draw(paragraphs[index], onSheet: sheet, in: context)
             if let ink {
-                await drawInk(ink, onSheet: sheet, in: context)
+                await drawInk(ink, onSheet: sheet, region: layout.inkRegion(ofPage: index), in: context)
             }
 
             context.restoreGState()
@@ -114,13 +114,18 @@ enum NotePDF {
     /// keeps none of it: a markup only updates the elements it already has
     /// from an assigned set (probe on the simulator, 4 October), and the
     /// PDF's ink came out blank.
-    private static func drawInk(_ ink: PaperMarkup, onSheet sheet: CGRect, in context: CGContext) async {
+    ///
+    /// Only inside the page's ink region (`PageLayout.inkRegion`), as on
+    /// screen: a stroke bent across a page break lies stretched over the
+    /// margins and the gap, where `PageCoverView` hides it.
+    private static func drawInk(_ ink: PaperMarkup, onSheet sheet: CGRect, region: CGRect, in context: CGContext) async {
         let page = CGRect(origin: .zero, size: sheet.size)
         let toSheet = CGAffineTransform(translationX: -sheet.minX, y: -sheet.minY)
+        let shown = region.intersection(sheet).applying(toSheet)
 
         var markup = PaperMarkup(bounds: page)
         var inked = CGRect.null
-        for element in ink.subelements where element.renderFrame.intersects(sheet) {
+        for element in ink.subelements where element.renderFrame.intersects(region) {
             var element = element
             element.applyTransform(toSheet)
             inked = inked.union(element.renderFrame)
@@ -128,12 +133,12 @@ enum NotePDF {
         }
         // A little room around the frames, for a stroke's soft edge.
         let area = inked.insetBy(dx: -4, dy: -4).intersection(page).integral
-        guard !area.isNull, !area.isEmpty else { return }
+        guard !area.isNull, !area.isEmpty, area.intersects(shown) else { return }
 
         guard let image = await bitmap(of: markup, in: page, cropping: area) else { return }
 
         context.saveGState()
-        context.clip(to: page)
+        context.clip(to: shown)
         UIGraphicsPushContext(context)
         // UIKit draws the image the right way up in a context flipped the
         // way this one is.

@@ -85,8 +85,14 @@ final class DrawingCanvas: UIView {
     /// Whether a touch at a point of the note, in note coordinates, is the
     /// canvas's. `nil` takes every touch.
     ///
-    /// `PageView` leaves print layout's surround out, so a touch between
-    /// sheets goes past the canvas to the text view and scrolls the note.
+    /// `PageView` leaves out the space seamless doesn't have
+    /// (`PageLayout.takesInk`) — print layout's surround and top and bottom
+    /// margins, the rest of compressed's strip — so a touch there goes past
+    /// the canvas to the text view and scrolls the note. That decides only
+    /// where a stroke may *start*: a touch belongs to the view it began on
+    /// until it lifts, so a stroke can still be drawn on across that space.
+    /// What it leaves there is hidden by `PageCoverView`, and squeezed into
+    /// seamless's break when it's shown there (`InkBending`).
     var takesTouch: ((CGPoint) -> Bool)?
 
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
@@ -94,66 +100,6 @@ final class DrawingCanvas: UIView {
         guard let takesTouch, let superview else { return true }
         // The superview is the text view, whose content is the note.
         return takesTouch(convert(point, to: superview))
-    }
-
-    /// The parts of the note ink is drawn on, in note coordinates, or `nil`
-    /// for all of it. `PageView` gives print layout's sheets.
-    ///
-    /// `takesTouch` only decides where a stroke may *start*. A touch belongs
-    /// to the view it began on until it lifts, so a stroke begun on a sheet
-    /// carried on across the surround to the next one, ink over the gap
-    /// (simulator, 9 October). PencilKit has no way to end a stroke at an
-    /// edge, so the ink outside these is hidden instead, by a mask: the live
-    /// stroke as well as finished ink, since both are drawn inside this
-    /// view. The stroke keeps its points; the PDF draws each sheet cropped to
-    /// itself, so they never print either.
-    var inkRegions: [CGRect]? {
-        didSet {
-            guard inkRegions != oldValue else { return }
-            applyInkClip()
-        }
-    }
-
-    private let inkClip = CAShapeLayer()
-
-    /// Masks the canvas to `inkRegions`, for the part of the note it covers.
-    private func applyInkClip() {
-        guard let inkRegions else {
-            if layer.mask != nil { layer.mask = nil }
-            return
-        }
-        // A shape layer animates a new path by default; this one has to sit
-        // on the sheets from frame to frame as the note scrolls.
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        defer { CATransaction.commit() }
-
-        let path = CGMutablePath()
-        for rect in Self.clipRects(for: inkRegions, covering: covered, renderScale: renderScale) {
-            path.addRect(rect)
-        }
-        inkClip.frame = bounds
-        inkClip.path = path
-        if layer.mask !== inkClip {
-            layer.mask = inkClip
-        }
-    }
-
-    /// Note-coordinate regions as rectangles in the canvas's own points,
-    /// for a canvas covering `covered` at `renderScale` — see `cover(_:)`:
-    /// its origin is the covered part's, and its points are `renderScale`
-    /// times the note's.
-    static func clipRects(for regions: [CGRect], covering covered: CGRect, renderScale: CGFloat) -> [CGRect] {
-        regions.compactMap { region in
-            let visible = region.intersection(covered)
-            guard !visible.isNull, !visible.isEmpty else { return nil }
-            return CGRect(
-                x: (visible.minX - covered.minX) * renderScale,
-                y: (visible.minY - covered.minY) * renderScale,
-                width: visible.width * renderScale,
-                height: visible.height * renderScale
-            )
-        }
     }
 
     /// Called when ink's undo stack gains or loses something the hotbar's
@@ -394,8 +340,6 @@ final class DrawingCanvas: UIView {
         if controller.contentVisibleFrame != visible {
             controller.contentVisibleFrame = visible
         }
-        // The canvas moved over the note, so the sheets moved across it.
-        applyInkClip()
     }
 
     /// Keeps the markup's bounds on the note's, times `renderScale`.
