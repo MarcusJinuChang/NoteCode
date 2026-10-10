@@ -65,7 +65,8 @@ final class NoteEditor {
     /// drawing, so a finger in ink mode means to draw; there is no need to
     /// make people reach for the Pencil to leave a mark. On, a finger scrolls
     /// and selects instead — what you want with the Pencil in hand and a palm
-    /// resting on the page.
+    /// resting on the page. After the first change it is whatever the reader
+    /// last chose on this device (`fingerDrawsKey`).
     var isPencilOnly = false {
         didSet {
             guard isPencilOnly != oldValue else { return }
@@ -80,6 +81,11 @@ final class NoteEditor {
         get { !isPencilOnly }
         set { isPencilOnly = !newValue }
     }
+
+    /// Where the device keeps `fingerDraws`, so it carries over from note to
+    /// note and across launches (`InkToolPersistence`). Stored the way the
+    /// button says it, so a device that has never set it reads `true`.
+    static let fingerDrawsKey = "fingerDraws"
 
     /// Whether the note's text is locked (`Page.isTextLocked`), so text mode
     /// reads rather than edits: no keyboard, no formatting, no undo. The page

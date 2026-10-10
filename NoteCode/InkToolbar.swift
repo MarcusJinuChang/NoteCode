@@ -91,8 +91,9 @@ struct InkToolPopover: View {
     }
 }
 
-/// Keeps what the pen, highlighter and eraser are set to from one note to the
-/// next. The editor has the live copy; this is the device's.
+/// Keeps what the pen, highlighter and eraser are set to, and Finger Draws,
+/// from one note to the next. The editor has the live copy; this is the
+/// device's.
 ///
 /// Per device, like the palettes and the dock: it's how this reader likes to
 /// work, not part of any note. Each tool remembers its own colour and width.
@@ -108,16 +109,21 @@ struct InkToolPersistence: ViewModifier {
     @AppStorage(EraserSettings.defaultsKey)
     private var eraser = EraserSettings()
 
+    @AppStorage(NoteEditor.fingerDrawsKey)
+    private var fingerDraws = true
+
     func body(content: Content) -> some View {
         content
             .onAppear {
                 editor.inkTool.pen = pen
                 editor.inkTool.highlighter = highlighter
                 editor.inkTool.eraser = eraser
+                editor.fingerDraws = fingerDraws
             }
             .onChange(of: editor.inkTool.pen) { _, changed in pen = changed }
             .onChange(of: editor.inkTool.highlighter) { _, changed in highlighter = changed }
             .onChange(of: editor.inkTool.eraser) { _, changed in eraser = changed }
+            .onChange(of: editor.fingerDraws) { _, changed in fingerDraws = changed }
     }
 }
 

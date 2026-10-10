@@ -643,6 +643,9 @@ Laid out from the 12 September mockup.
     on a dark page is stored as the light ink that shows as it
     (`InkColor(chosen:on:)`). The palette (`InkPalette`) and the eraser
     (`EraserSettings`) are stored per device, like the dock.
+  - **Finger Draws is per device too** (10 Oct, key `fingerDraws`, through
+    `InkToolPersistence`). Each note gets a new `NoteEditor`, so it used to
+    reset to on with every note opened and every launch.
   - The model is pure and portable (`InkTool.swift`); only the PencilKit tool
     and the UIColor conversions are behind `canImport(UIKit)`. Declaring
     `init(hex:)` inside `InkColor` removed its memberwise initialiser, so it is
