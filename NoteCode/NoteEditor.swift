@@ -66,6 +66,13 @@ final class NoteEditor {
         }
     }
 
+    /// The same switch as `isPencilOnly`, said the way the hotbar's hand
+    /// button says it: on, a finger draws.
+    var fingerDraws: Bool {
+        get { !isPencilOnly }
+        set { isPencilOnly = !newValue }
+    }
+
     /// Whether the note's text is locked (`Page.isTextLocked`), so text mode
     /// reads rather than edits: no keyboard, no formatting, no undo. The page
     /// holds the setting; this is the copy the text view and the hotbar

@@ -60,11 +60,6 @@ struct PageDetailView: View {
     /// The page area the hotbar docks within, for working out where a drag lands.
     @State private var pageSize: CGSize = .zero
 
-    /// How the eraser erases. Per device, like the palette: set once to the
-    /// reader's liking, not per note. The editor has the live copy.
-    @AppStorage(EraserSettings.defaultsKey)
-    private var eraser = EraserSettings()
-
     /// What the reader has set the Pencil's double tap and squeeze to do,
     /// in Settings.
     @Environment(\.preferredPencilDoubleTapAction) private var doubleTapAction
@@ -323,8 +318,8 @@ struct PageDetailView: View {
         .popover(isPresented: $showsInkTools, attachmentAnchor: .point(inkToolsAnchor)) {
             InkToolPopover(editor: editor)
         }
-        .onAppear { editor.inkTool.eraser = eraser }
-        .onChange(of: editor.inkTool.eraser) { _, changed in eraser = changed }
+        // What each ink tool is set to carries over from note to note.
+        .modifier(InkToolPersistence(editor: editor))
     }
 
     /// Does what the reader has set a Pencil gesture to do, in ink mode.
@@ -391,6 +386,17 @@ struct PageDetailView: View {
     }
 #endif
 }
+
+#if canImport(UIKit)
+extension PageDetailView {
+    /// A page whose editing state the caller holds, to drive it from outside:
+    /// a test switching modes and reading where the page sits.
+    init(page: Page, editor: NoteEditor) {
+        self.init(page: page)
+        _editor = State(initialValue: editor)
+    }
+}
+#endif
 
 private extension HotbarDock {
     var alignment: Alignment {

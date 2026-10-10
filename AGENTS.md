@@ -584,17 +584,87 @@ Laid out from the 12 September mockup.
   The page keeps both side edges clear, whichever one the bar is on, so moving
   it never resizes or shifts the page.
   It replaces `PKToolPicker` — see docs/phase-drawing-layer.md.
+  The bar is one accessibility container (identifier `hotbar`), so VoiceOver
+  hears a toolbar and tests can find its frame.
+- **Text tools** (10 Oct, phase 4 of `docs/ui-design-v2-implementation.md`):
+  Style ▾ (Heading 1 to 3, Body, then Strikethrough), Bold, Italic, Inline
+  Code, List ▾ (Bulleted only for now) and Code Block ▾ (C++, Java, Python,
+  Plain Text). The separate strikethrough button went into Style. The menus
+  show no ▾: the design draws plain icons.
+- **Ink mode is two rows** (10 Oct). The bar holds the grip, undo, redo, the
+  toggle, Pen, Highlighter, Eraser, Lasso and **Finger Draws** (the old
+  Pencil-only lock, said the other way round: `NoteEditor.fingerDraws`). What
+  the selected tool can be set to is in a thinner **options row** that floats
+  beside the bar, on the page's side:
+  - **Pen and highlighter:** their palette, Add Colour, a divider and three
+    widths. **Eraser:** pixel or object, then its sizes. **Lasso:** no row.
+  - **It reserves nothing.** It is the bar's overlay, so the bar's size is the
+    same in text and ink mode and the page never moves
+    (`HotbarLayoutTests` hosts the real note page and compares its frame and
+    scale across modes, tools and docks, and the bar's size).
+  - **Placed by a `Layout`, not an alignment guide** (`BesideBar`). The first
+    version was an overlay alignment with an `alignmentGuide` on the row, and
+    the guide was ignored on every attempt: the row sat on the bar, 48pt from
+    where it belonged, which the UI tests measured as -40 against 8
+    (simulator, 9 Oct). A layout that places its one child from its own
+    bounds, 8pt outside them and centred along them, doesn't depend on a guide
+    being read.
+  - **The 44pt touch target is layout, not a hit shape.** The row looks 40pt
+    thick; each control is 44pt thick with its face at the bar's end, and the
+    glass is drawn on the 40. A `contentShape` grown past the view's bounds
+    took no touches in the extra 4pt (a sweep down a control's centre line:
+    nothing past the page edge of the frame, and 5pt past the bar's).
+    Along the row a control is 34pt, the design's 391pt for the pen's seven
+    colours, Add Colour and three widths (`OptionsRowStyle`, which the
+    control faces read from the environment, so the same buttons are 44pt
+    squares on the bar and 34 by 40 in the row).
+  - **Slides out from the bar**, a cross-fade under Reduce Motion, when the
+    mode is ink and the tool has options. The bar itself never moves.
+  - **Checked** by `HotbarUITests` (XCUITest, since a SwiftUI hit test and the
+    accessibility tree need a real app): the 8pt gap and the centring on each
+    edge, and a tap 1.5pt into the reach selects its control while a tap 2pt
+    into the gap doesn't. The launch arguments pass empty values for the
+    stored palettes and settings, which aren't valid, so the app reads its
+    defaults and a simulator's saved palette can't decide what's on screen.
+  - **Testing SwiftUI that changes state needs a window in a scene.** A
+    `UIWindow(frame:)` made outside the test host's scene gets no display
+    link, and SwiftUI never re-rendered after the editor's mode changed: the
+    first version of `HotbarLayoutTests` passed with the page's insets made to
+    depend on the mode. `HotbarLayoutTests.makeWindow` uses the host's
+    `UIWindowScene`; both tests then failed under a mutation (insets by mode;
+    the bar growing with the row) and pass without it.
 - **Ink tools** (`InkToolbar.swift`), shared by the hotbar and the palette
-  the Pencil's squeeze brings up, so the two can't disagree. After the tools
-  come the current tool's options: colours for the pen and highlighter, or
-  the eraser's mode (pixel or whole stroke) and size (three, or custom from a
-  slider). The palette (`InkPalette`) and the eraser (`EraserSettings`) are
-  stored per device, like the dock. "+" opens Apple's
-  `UIColorPickerViewController` from UIKit (`InkColorPicker`), not from a
-  SwiftUI popover, where it's a child controller and its eyedropper and
-  close button expect to be the presented one. Hold a colour to remove it;
-  hold and drag to move it. A colour picked on a dark page is stored as the
-  light ink that shows as it (`InkColor(chosen:on:)`).
+  the Pencil's squeeze brings up (`InkToolPopover`: the tools, then the selected
+  tool's options under them), so the two can't disagree.
+  - **Two palettes** (10 Oct): the pen keeps `InkPalette.defaultsKey`
+    (`inkPalette`), so a palette a device saved before stays its pen's, and the
+    highlighter has `highlighterPalette`. The defaults are the design's: seven
+    pen inks (Ink, Red, Orange, Yellow, Green, Blue, Purple) and five
+    highlighters (Graphite, Orange, Yellow, Green, Pink), as hex in
+    `InkColor.penShades` and `.highlighterShades`. A device that has saved a
+    palette keeps it, since `@AppStorage` reads the default only where
+    nothing is stored. Only the light value is ever stored; the design's dark
+    column is what PencilKit shows for each, and `InkShadeTests` checks all
+    twelve within 1/255 on the iOS simulator.
+  - **Each tool remembers its colour and width** per device
+    (`InkingSettings`, keys `penSettings` and `highlighterSettings`, applied
+    by `InkToolPersistence`). Widths are fine, medium and bold, as multiples of
+    the ink type's `defaultWidth` kept inside its `validWidthRange`: pen 0.5,
+    1, 2 and highlighter 0.6, 1, 1.6. The highlighter starts on yellow, not
+    graphite, which heads its palette. A swatch removed from a palette
+    while it's selected is replaced by the palette's first colour when the row
+    appears.
+  - "+" opens Apple's `UIColorPickerViewController` from UIKit
+    (`InkColorPicker`), not from a SwiftUI popover, where it's a child
+    controller and its eyedropper and close button expect to be the presented
+    one. Hold a colour to remove it; hold and drag to move it. A colour picked
+    on a dark page is stored as the light ink that shows as it
+    (`InkColor(chosen:on:)`). The palette (`InkPalette`) and the eraser
+    (`EraserSettings`) are stored per device, like the dock.
+  - The model is pure and portable (`InkTool.swift`); only the PencilKit tool
+    and the UIColor conversions are behind `canImport(UIKit)`. Declaring
+    `init(hex:)` inside `InkColor` removed its memberwise initialiser, so it is
+    in an extension.
 - **Pencil double tap and squeeze** do what the reader set in Settings ›
   Apple Pencil (`PencilResponse`), in ink mode only: swap to the eraser and
   back, swap to the previous tool, or show the ink tools beside the Pencil.

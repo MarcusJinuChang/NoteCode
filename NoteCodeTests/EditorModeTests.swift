@@ -204,8 +204,8 @@ struct InkToolTests {
 
     @Test("Pen and highlighter are inking tools of the right type")
     func inkingTools() {
-        let pen = InkToolState(kind: .pen, color: .blue).pencilKitTool as? PKInkingTool
-        let highlighter = InkToolState(kind: .highlighter, color: .blue).pencilKitTool as? PKInkingTool
+        let pen = InkToolState(kind: .pen, pen: InkingSettings(color: .blue)).pencilKitTool as? PKInkingTool
+        let highlighter = InkToolState(kind: .highlighter, highlighter: InkingSettings(color: .blue)).pencilKitTool as? PKInkingTool
 
         #expect(pen?.inkType == .pen)
         #expect(highlighter?.inkType == .marker)

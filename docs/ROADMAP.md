@@ -53,6 +53,19 @@ drawn at the screen's density. 25 pull requests, all merged.
   Find in Note. The Account placeholder is gone. Builds for iPad and Mac;
   looked at in the simulator, not tapped through, and the new-note rename isn't
   checked, and the lock icon sits before Share, not after the title.
+- **UI design v2, phase 4: the hotbar** (10 Oct, branch
+  `claude/ui-phase-4-hotbar`, not merged): the text tools are Style, Bold,
+  Italic, Inline Code, List and Code Block, the last three menus. In ink mode
+  the bar is just the tools and Finger Draws, and what the selected tool can
+  be set to (colours and three widths for the pen and highlighter, mode and
+  size for the eraser) is in a thinner row that floats beside the bar, on the
+  page's side, and reserves no room, so the page never moves. The pen and
+  highlighter each have a palette of the design's colours, and each remembers
+  its own colour and width; a palette a device had saved is kept. The squeeze
+  palette shows the same two rows in one panel. Builds for iPad and Mac, and
+  611 tests pass, plus seven UI tests for where the row sits and what it
+  reaches; looked at in the simulator in light and dark, on all three edges,
+  not tried with the Pencil or the squeeze palette.
 - **Note search** (4 Oct, PR #27, merged 8 Oct): a search field at the top of the note
   list finds notes by every word typed, in the title or the text, ignoring
   case and accents. Results show the line that matched, with the words in

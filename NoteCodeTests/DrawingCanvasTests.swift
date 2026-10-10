@@ -146,7 +146,7 @@ struct DrawingCanvasTests {
     func toolReachesTheCanvas() {
         let harness = Harness()
 
-        harness.canvas.tool = InkToolState(kind: .highlighter, color: .blue).pencilKitTool
+        harness.canvas.tool = InkToolState(kind: .highlighter, highlighter: InkingSettings(color: .blue)).pencilKitTool
 
         #expect((harness.canvas.tool as? PKInkingTool)?.inkType == .marker)
     }

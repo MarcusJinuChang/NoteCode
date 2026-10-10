@@ -3,7 +3,8 @@
 //  NoteCode
 //
 //  The note page's one toolbar: undo and redo, the text/ink toggle, and the
-//  tools for whichever mode is on.
+//  tools for whichever mode is on. In ink mode the selected tool's options
+//  float beside it in a row of their own.
 //
 
 #if canImport(UIKit)
@@ -39,12 +40,17 @@ struct Hotbar: View {
     static let buttonSide: CGFloat = 44
     static let padding: CGFloat = 4
 
+    /// Between the bar and the options row beside it.
+    static let optionsGap: CGFloat = 8
+
     /// How far the bar reaches in from the edge it's docked to.
     static var thickness: CGFloat { buttonSide + padding * 2 }
 
     /// The coordinate space drags are measured in. Named on the page, which
     /// stays still, rather than on the bar, which moves under the finger.
     static let coordinateSpace = "notePage"
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var axis: Axis.Set {
         dock.isVertical ? .vertical : .horizontal
@@ -72,9 +78,44 @@ struct Hotbar: View {
                     .scrollBounceBehavior(.basedOnSize, axes: axis)
             }
         }
+        // One toolbar to VoiceOver, with the buttons inside it, and a frame
+        // for tests to find the bar by.
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("hotbar")
         .padding(Self.padding)
         .glassEffect(.regular, in: .rect(cornerRadius: Self.thickness / 2))
+        // An overlay, so the row takes no room: it floats over the page and
+        // leaves the bar's size alone, which is what keeps the page where it
+        // is whichever mode, tool or edge the bar is on. Inside the offset,
+        // so it travels with the bar when the grip drags it.
+        .overlay {
+            BesideBar(dock: dock, gap: Self.optionsGap) { optionsRow }
+        }
+        .animation(.snappy, value: showsOptions)
         .offset(dragOffset)
+    }
+
+    // MARK: Options row
+
+    /// Whether the row is out: in ink mode, for a tool with anything to set.
+    private var showsOptions: Bool {
+        editor.mode == .ink && editor.inkTool.hasOptions
+    }
+
+    /// The selected ink tool's options, 8pt from the bar on the page's side
+    /// and centred along it.
+    ///
+    /// `fixedSize` because an overlay is proposed the bar's size, and the
+    /// pen's row is longer than a side-docked bar. It slides out from the
+    /// bar, or under Reduce Motion fades.
+    @ViewBuilder
+    private var optionsRow: some View {
+        if showsOptions {
+            InkOptionsRow(editor: editor, isVertical: dock.isVertical)
+                .environment(\.optionsRow, OptionsRowStyle(isVertical: dock.isVertical, reach: dock.pageEdge))
+                .fixedSize()
+                .transition(reduceMotion ? .opacity : .move(edge: dock.barEdge).combined(with: .opacity))
+        }
     }
 
     // MARK: Sections
@@ -127,24 +168,34 @@ struct Hotbar: View {
             ForEach(1...3, id: \.self) { level in
                 Button("Heading \(level)") { editor.setHeading(level: level) }
             }
-            Button("Body Text") { editor.setHeading(level: 0) }
+            Button("Body") { editor.setHeading(level: 0) }
+            Divider()
+            Button("Strikethrough", systemImage: "strikethrough") { editor.toggle(.strikethrough) }
         } label: {
-            HotbarIcon(systemImage: "textformat.size")
+            HotbarIcon(systemImage: "textformat")
         }
         .modifier(HotbarMenuStyle())
-        .accessibilityLabel("Heading")
+        .accessibilityLabel("Style")
 
         button("Bold", "bold") { editor.toggle(.bold) }
         button("Italic", "italic") { editor.toggle(.italic) }
-        button("Strikethrough", "strikethrough") { editor.toggle(.strikethrough) }
         button("Inline Code", "chevron.left.forwardslash.chevron.right") { editor.toggle(.code) }
-        button("Bulleted List", "list.bullet") { editor.toggleBullet() }
+
+        // A menu of one, for now: numbered lists and checklists will join it,
+        // and the bar won't have to grow a button for each.
+        Menu {
+            Button("Bulleted List", systemImage: "list.bullet") { editor.toggleBullet() }
+        } label: {
+            HotbarIcon(systemImage: "list.bullet")
+        }
+        .modifier(HotbarMenuStyle())
+        .accessibilityLabel("List")
 
         Menu {
             ForEach(CodeLanguage.allCases, id: \.self) { language in
                 Button(language.displayName) { editor.insertCodeBlock(language: language) }
             }
-            Button("No Language") { editor.insertCodeBlock(language: nil) }
+            Button("Plain Text") { editor.insertCodeBlock(language: nil) }
         } label: {
             HotbarIcon(systemImage: "curlybraces.square")
         }
@@ -152,22 +203,19 @@ struct Hotbar: View {
         .accessibilityLabel("Code Block")
     }
 
+    /// Just the tools and the finger. What each tool can be set to is in the
+    /// options row, so the bar is short enough to fit down the side of an
+    /// 11-inch iPad in landscape.
     @ViewBuilder
     private var inkTools: some View {
         InkToolButtons(editor: editor, isVertical: dock.isVertical)
         divider
-        InkToolOptions(editor: editor, isVertical: dock.isVertical)
-        divider
 
-        // Locked, a finger scrolls and selects instead of drawing. Worth a
-        // button rather than a setting: which one you want changes with
+        // Off, a finger scrolls and selects instead of drawing. Worth a
+        // button rather than a setting alone: which one you want changes with
         // whether the Pencil is in your hand.
-        button(
-            "Pencil Only",
-            editor.isPencilOnly ? "applepencil" : "hand.draw",
-            isSelected: editor.isPencilOnly
-        ) {
-            editor.isPencilOnly.toggle()
+        button("Finger Draws", "hand.draw", isSelected: editor.fingerDraws) {
+            editor.fingerDraws.toggle()
         }
     }
 
@@ -239,6 +287,91 @@ private struct HotbarTrack: Layout {
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
+    }
+}
+
+/// The options row's glass, around what the selected tool can be set to.
+///
+/// 40pt thick, drawn at the bar's end of the row: the controls are 4pt
+/// thicker than that, toward the page, and the glass doesn't cover the reach.
+struct InkOptionsRow: View {
+    @Bindable var editor: NoteEditor
+    var isVertical: Bool
+
+    @Environment(\.optionsRow) private var style
+
+    var body: some View {
+        InkOptions(editor: editor, isVertical: isVertical)
+            .padding(isVertical ? .vertical : .horizontal, 2)
+            .background(alignment: style?.faceAlignment ?? .center) {
+                Color.clear
+                    .frame(
+                        width: isVertical ? OptionsRowStyle.thickness : nil,
+                        height: isVertical ? nil : OptionsRowStyle.thickness
+                    )
+                    .glassEffect(.regular, in: .capsule)
+            }
+    }
+}
+
+/// Puts the options row beside the bar, on the page's side of it, centred
+/// along it.
+///
+/// A layout of its own, used as the bar's overlay, so it is the bar's size and
+/// places its row outside those bounds by the gap. This was an overlay
+/// alignment with an alignment guide on the row, and the guide was ignored:
+/// the row sat on the bar, 48pt from where it belonged, with every guide
+/// placement tried (simulator, 9 October). Placing from the bounds says
+/// where the row goes, and doesn't depend on a guide being read.
+private struct BesideBar<Row: View>: View {
+    var dock: HotbarDock
+    var gap: CGFloat
+    @ViewBuilder var row: Row
+
+    var body: some View {
+        BesideBarLayout(dock: dock, gap: gap) { row }
+    }
+}
+
+private struct BesideBarLayout: Layout {
+    var dock: HotbarDock
+    var gap: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        // The bar's own size, which is all an overlay is offered.
+        proposal.replacingUnspecifiedDimensions(by: .zero)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard let row = subviews.first else { return }
+        let size = row.sizeThatFits(.unspecified)
+        let origin: CGPoint
+        switch dock {
+        case .bottom: origin = CGPoint(x: bounds.midX - size.width / 2, y: bounds.minY - gap - size.height)
+        case .left:   origin = CGPoint(x: bounds.maxX + gap, y: bounds.midY - size.height / 2)
+        case .right:  origin = CGPoint(x: bounds.minX - gap - size.width, y: bounds.midY - size.height / 2)
+        }
+        row.place(at: origin, proposal: ProposedViewSize(size))
+    }
+}
+
+private extension HotbarDock {
+    /// The edge of the options row that faces the page.
+    var pageEdge: Edge {
+        switch self {
+        case .bottom: .top
+        case .left:   .trailing
+        case .right:  .leading
+        }
+    }
+
+    /// The edge of the row that faces the bar, which it slides out from.
+    var barEdge: Edge {
+        switch self {
+        case .bottom: .bottom
+        case .left:   .leading
+        case .right:  .trailing
+        }
     }
 }
 

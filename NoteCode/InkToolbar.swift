@@ -3,7 +3,8 @@
 //  NoteCode
 //
 //  The ink tools and their options, shared by the hotbar and the palette
-//  the Pencil's squeeze brings up.
+//  the Pencil's squeeze brings up. The tools sit on the hotbar; the options
+//  of the tool selected float in a row of their own beside it.
 //
 
 #if canImport(UIKit)
@@ -29,31 +30,39 @@ struct InkToolButtons: View {
     }
 }
 
-/// What the current tool can be set to: colours for the pen and
-/// highlighter, mode and size for the eraser.
+/// What the selected tool can be set to: colours and a width for the pen and
+/// highlighter, mode and size for the eraser, nothing for the lasso.
 ///
-/// Both sets are always laid out and only one shows, for the reason the
-/// hotbar does the same with its two modes: switching tools doesn't resize
-/// the bar and slide the buttons out from under the finger.
-struct InkToolOptions: View {
+/// The content only. The hotbar floats it beside itself in a glass capsule
+/// (`Hotbar.optionsRow`), and the Pencil's palette lays it under the tools.
+struct InkOptions: View {
     @Bindable var editor: NoteEditor
     var isVertical: Bool
 
     var body: some View {
-        ZStack(alignment: isVertical ? .top : .leading) {
-            InkSwatches(editor: editor, isVertical: isVertical)
-                // The lasso has no colour, so the swatches stand down rather
-                // than suggesting a choice that does nothing.
-                .disabled(!editor.inkTool.kind.usesColor)
-                .hotbarLayer(isShowing: editor.inkTool.kind != .eraser)
+        switch editor.inkTool.kind {
+        case .pen, .highlighter:
+            let kind = editor.inkTool.kind
+            HotbarStack(isVertical: isVertical) {
+                // One palette for each tool. Keyed by the tool, so going from
+                // the pen to the highlighter builds a new set of swatches on
+                // the other palette's storage rather than reusing these.
+                InkSwatches(editor: editor, kind: kind, isVertical: isVertical)
+                    .id(kind)
+                HotbarDivider(isVertical: isVertical)
+                InkWidths(editor: editor, kind: kind, isVertical: isVertical)
+            }
+        case .eraser:
             EraserOptions(editor: editor, isVertical: isVertical)
-                .hotbarLayer(isShowing: editor.inkTool.kind == .eraser)
+        case .lasso:
+            EmptyView()
         }
     }
 }
 
-/// What the Pencil's squeeze brings up, beside the Pencil: the ink tools and
-/// their options, and undo.
+/// What the Pencil's squeeze brings up, beside the Pencil: the hotbar's two
+/// rows folded into one panel. Undo and the tools, then the selected tool's
+/// options.
 ///
 /// The same pieces as the hotbar, so a colour or size chosen in either is
 /// chosen in both.
@@ -61,18 +70,163 @@ struct InkToolPopover: View {
     @Bindable var editor: NoteEditor
 
     var body: some View {
-        HStack(spacing: 0) {
-            HotbarButton("Undo", "arrow.uturn.backward") { editor.undo() }
-                .disabled(!editor.canUndo)
-            HotbarButton("Redo", "arrow.uturn.forward") { editor.redo() }
-                .disabled(!editor.canRedo)
-            HotbarDivider(isVertical: false)
-            InkToolButtons(editor: editor, isVertical: false)
-            HotbarDivider(isVertical: false)
-            InkToolOptions(editor: editor, isVertical: false)
+        VStack(spacing: 4) {
+            HStack(spacing: 0) {
+                HotbarButton("Undo", "arrow.uturn.backward") { editor.undo() }
+                    .disabled(!editor.canUndo)
+                HotbarButton("Redo", "arrow.uturn.forward") { editor.redo() }
+                    .disabled(!editor.canRedo)
+                HotbarDivider(isVertical: false)
+                InkToolButtons(editor: editor, isVertical: false)
+            }
+
+            if editor.inkTool.hasOptions {
+                // No page side to reach toward in a popover, so no reach.
+                InkOptions(editor: editor, isVertical: false)
+                    .environment(\.optionsRow, OptionsRowStyle(isVertical: false, reach: nil))
+            }
         }
         .padding(Hotbar.padding)
         .presentationCompactAdaptation(.popover)
+    }
+}
+
+/// Keeps what the pen, highlighter and eraser are set to from one note to the
+/// next. The editor has the live copy; this is the device's.
+///
+/// Per device, like the palettes and the dock: it's how this reader likes to
+/// work, not part of any note. Each tool remembers its own colour and width.
+struct InkToolPersistence: ViewModifier {
+    var editor: NoteEditor
+
+    @AppStorage(InkingSettings.defaultsKey(for: .pen))
+    private var pen = InkingSettings.standard(for: .pen)
+
+    @AppStorage(InkingSettings.defaultsKey(for: .highlighter))
+    private var highlighter = InkingSettings.standard(for: .highlighter)
+
+    @AppStorage(EraserSettings.defaultsKey)
+    private var eraser = EraserSettings()
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                editor.inkTool.pen = pen
+                editor.inkTool.highlighter = highlighter
+                editor.inkTool.eraser = eraser
+            }
+            .onChange(of: editor.inkTool.pen) { _, changed in pen = changed }
+            .onChange(of: editor.inkTool.highlighter) { _, changed in highlighter = changed }
+            .onChange(of: editor.inkTool.eraser) { _, changed in eraser = changed }
+    }
+}
+
+// MARK: - The options row
+
+/// How a control in the options row is laid out, set on the row and read by
+/// every control face in it.
+///
+/// The row looks 40pt thick, and each control takes touches across 44pt,
+/// reaching past the row's edge toward the page rather than back toward the
+/// bar, so the 8pt gap between them stays a gap. Along the row a control is
+/// 34pt: the design fits the pen's seven colours, Add Colour and three widths
+/// in 391pt. Outside the row (`nil`) a control is the bar's 44pt square.
+///
+/// The reach is layout, not a hit shape: each control is 44pt thick, its face
+/// at the bar's end of that, and the glass is drawn on the 40pt of it. A
+/// `contentShape` grown past a view's bounds took no touches there (measured
+/// in the simulator on 9 October: nothing past the page edge of the frame, and
+/// 5pt past the bar's).
+struct OptionsRowStyle: Equatable {
+    var isVertical: Bool
+    /// The edge of the row facing the page, which touches reach past.
+    var reach: Edge?
+
+    static let pitch: CGFloat = 34
+    static let thickness: CGFloat = 40
+    static let reachAmount: CGFloat = 4
+
+    /// How thick a control is, reach included.
+    var controlThickness: CGFloat {
+        Self.thickness + (reach == nil ? 0 : Self.reachAmount)
+    }
+
+    /// Where a control's face sits within its frame: at the bar's end, so the
+    /// reach is all on the page's side.
+    var faceAlignment: Alignment {
+        switch reach {
+        case .top:      .bottom
+        case .bottom:   .top
+        case .leading:  .trailing
+        case .trailing: .leading
+        case nil:       .center
+        }
+    }
+}
+
+private struct OptionsRowKey: EnvironmentKey {
+    static let defaultValue: OptionsRowStyle? = nil
+}
+
+extension EnvironmentValues {
+    var optionsRow: OptionsRowStyle? {
+        get { self[OptionsRowKey.self] }
+        set { self[OptionsRowKey.self] = newValue }
+    }
+}
+
+/// Sizes a control face: the bar's 44pt square, or in the options row a cell
+/// 34pt along it and 40pt across, in a frame 4pt thicker toward the page, so
+/// touches there are the control's.
+private struct HotbarTarget: ViewModifier {
+    @Environment(\.optionsRow) private var row
+
+    func body(content: Content) -> some View {
+        if let row {
+            content
+                .frame(
+                    width: row.isVertical ? OptionsRowStyle.thickness : OptionsRowStyle.pitch,
+                    height: row.isVertical ? OptionsRowStyle.pitch : OptionsRowStyle.thickness
+                )
+                .frame(
+                    width: row.isVertical ? row.controlThickness : OptionsRowStyle.pitch,
+                    height: row.isVertical ? OptionsRowStyle.pitch : row.controlThickness,
+                    alignment: row.faceAlignment
+                )
+                .contentShape(.rect)
+        } else {
+            content
+                .frame(width: Hotbar.buttonSide, height: Hotbar.buttonSide)
+                .contentShape(.rect)
+        }
+    }
+}
+
+/// A pill behind a group of controls in the row, on the 40pt of it that is
+/// drawn, not the 4pt of reach: the controls are thicker than the row looks.
+private struct RowGroupBackground: ViewModifier {
+    var isVertical: Bool
+    @Environment(\.optionsRow) private var row
+
+    func body(content: Content) -> some View {
+        if let row {
+            content.background(alignment: row.faceAlignment) {
+                Capsule()
+                    .fill(.quaternary)
+                    .frame(
+                        width: isVertical ? OptionsRowStyle.thickness : nil,
+                        height: isVertical ? nil : OptionsRowStyle.thickness
+                    )
+            }
+        } else {
+            content.background(.quaternary, in: .capsule)
+        }
+    }
+}
+
+extension View {
+    func hotbarTarget() -> some View {
+        modifier(HotbarTarget())
     }
 }
 
@@ -83,9 +237,24 @@ struct InkToolPopover: View {
 /// Hold a colour to remove it; hold and drag to move it.
 struct InkSwatches: View {
     @Bindable var editor: NoteEditor
+    /// The pen or the highlighter, each with a palette of its own.
+    var kind: InkToolKind
     var isVertical: Bool
 
-    @AppStorage(InkPalette.defaultsKey) private var palette = InkPalette.standard
+    @AppStorage private var palette: InkPalette
+
+    init(editor: NoteEditor, kind: InkToolKind, isVertical: Bool) {
+        self.editor = editor
+        self.kind = kind
+        self.isVertical = isVertical
+        _palette = AppStorage(wrappedValue: .standard(for: kind), InkPalette.defaultsKey(for: kind))
+    }
+
+    /// The colour this tool draws in.
+    private var selected: InkColor {
+        get { editor.inkTool[inking: kind].color }
+        nonmutating set { editor.inkTool[inking: kind].color = newValue }
+    }
 
     /// The colour being dragged to a new place, while it is.
     @State private var dragged: InkColor?
@@ -105,32 +274,31 @@ struct InkSwatches: View {
             }
 
             HotbarButton("Add Colour", "plus.circle.dashed") {
-                picker.present(starting: editor.inkTool.color.displayColor(for: style)) { chosen in
-                    let color = palette.add(InkColor(chosen: chosen, on: style))
-                    editor.inkTool.color = color
+                picker.present(starting: selected.displayColor(for: style)) { chosen in
+                    selected = palette.add(InkColor(chosen: chosen, on: style))
                 }
             }
             .background(InkColorPicker.Anchor(picker: picker))
         }
-        // A note opens drawing in black. If black has been taken out of the
-        // palette, the first colour stands in, so a swatch always shows
-        // what the pen draws in.
+        // If the colour the tool remembers has been taken out of the palette,
+        // the first colour stands in, so a swatch always shows what the tool
+        // draws in.
         .onAppear {
-            if !palette.colors.contains(editor.inkTool.color) {
-                editor.inkTool.color = palette.colors[0]
+            if !palette.colors.contains(selected) {
+                selected = palette.colors[0]
             }
         }
     }
 
     private func swatch(_ color: InkColor) -> some View {
-        let isSelected = editor.inkTool.color == color
+        let isSelected = selected == color
         // The colour as the ink will look on this page, so black doesn't
         // disappear into a dark bar.
         let shown = Color(uiColor: color.displayColor(for: style))
         let canRemove = palette.colors.count > 1
 
         return Button {
-            editor.inkTool.color = color
+            selected = color
         } label: {
             HotbarSwatch(color: shown, isSelected: isSelected)
         }
@@ -164,8 +332,8 @@ struct InkSwatches: View {
         guard let replacement = palette.remove(color) else { return }
         // Still drawing in a colour that's gone from the bar would leave no
         // swatch selected and no way to see what the pen draws in.
-        if editor.inkTool.color == color {
-            editor.inkTool.color = replacement
+        if selected == color {
+            selected = replacement
         }
     }
 }
@@ -202,6 +370,35 @@ private extension InkColor {
     var dragName: String { "\(red),\(green),\(blue),\(alpha)" }
 }
 
+// MARK: - Widths
+
+/// Fine, medium and bold, for the pen or the highlighter.
+struct InkWidths: View {
+    @Bindable var editor: NoteEditor
+    var kind: InkToolKind
+    var isVertical: Bool
+
+    /// A dot as wide, relatively, as the line it stands for. The same three
+    /// for both tools: the multiples are each tool's own.
+    private static let diameters: [InkWidth: CGFloat] = [.fine: 6, .medium: 10, .bold: 15]
+
+    var body: some View {
+        HotbarStack(isVertical: isVertical) {
+            ForEach(InkWidth.allCases, id: \.self) { width in
+                let isSelected = editor.inkTool[inking: kind].width == width
+                Button {
+                    editor.inkTool[inking: kind].width = width
+                } label: {
+                    HotbarDot(diameter: Self.diameters[width] ?? 10, isSelected: isSelected)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(width.title) \(kind.label)")
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
+            }
+        }
+    }
+}
+
 // MARK: - Eraser
 
 /// Pixel or object erasing, and how wide the pixel eraser is.
@@ -223,7 +420,7 @@ struct EraserOptions: View {
                     editor.inkTool.eraser.mode = .wholeStroke
                 }
             }
-            .background(.quaternary, in: .capsule)
+            .modifier(RowGroupBackground(isVertical: isVertical))
 
             HotbarDivider(isVertical: isVertical)
 
@@ -361,13 +558,12 @@ struct HotbarIcon: View {
             .font(.system(size: 17, weight: .medium))
             .foregroundStyle(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
             .opacity(isEnabled ? 1 : 0.3)
-            .frame(width: Hotbar.buttonSide, height: Hotbar.buttonSide)
+            .hotbarTarget()
             .background {
                 if isSelected {
                     Circle().fill(.tint.opacity(0.18)).padding(4)
                 }
             }
-            .contentShape(.rect)
     }
 }
 
@@ -389,12 +585,11 @@ struct HotbarSwatch: View {
                 }
             }
             .opacity(isEnabled ? 1 : 0.3)
-            .frame(width: Hotbar.buttonSide, height: Hotbar.buttonSide)
-            .contentShape(.rect)
+            .hotbarTarget()
     }
 }
 
-/// An eraser size: a dot as wide, relatively, as the eraser.
+/// A size: a dot as wide, relatively, as the eraser or the line.
 private struct HotbarDot: View {
     var diameter: CGFloat
     var isSelected: Bool
@@ -406,13 +601,12 @@ private struct HotbarDot: View {
             .fill(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
             .frame(width: diameter, height: diameter)
             .opacity(isEnabled ? 1 : 0.3)
-            .frame(width: Hotbar.buttonSide, height: Hotbar.buttonSide)
+            .hotbarTarget()
             .background {
                 if isSelected {
                     Circle().fill(.tint.opacity(0.18)).padding(4)
                 }
             }
-            .contentShape(.rect)
     }
 }
 
