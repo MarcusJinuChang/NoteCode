@@ -286,77 +286,109 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   opens every note with portrait pages first.
 - **Ink across page breaks** (9 Oct). The space between one page's text and
   the next is 1pt in seamless, 24 in compressed and 168 in print layout, and
-  every element used to move between modes whole, by the page its middle is
-  on. A stroke drawn across a break sat on its words on one side only: 23pt
-  off between seamless and compressed (simulator). So, decided 9 Oct:
-  - **Seamless is the reference.** `PageLayout.inkRegion(ofPage:)` is a
-    page's part of the note in seamless, moved with its page into any mode
-    — the same for any page count, so below the last page's text seamless's
-    room is the next page's, as `pageIndex` already says. Compressed's
-    strip, print layout's top and bottom margins and the gaps between
-    sheets are room seamless doesn't have: a stroke can't start there
+  every element moves between modes whole, by the page its middle is on. A
+  stroke drawn across a break sat on its words on one side only: 23pt off
+  between seamless and compressed (simulator). So, decided 9 Oct:
+  - **Seamless is the reference.** `PageLayout.inkRegion` is each page's
+    part of the note in seamless, moved with its page into any mode. Ink
+    shows only in those regions. Compressed's strip, print layout's top and
+    bottom margins between pages and the gaps between sheets are space
+    seamless doesn't have, so they take no ink: a stroke can't start there
     (`takesInk`), and nothing shows there. Side margins are the same in
     every mode.
-  - **A stroke across a break is bent, not cut** (`InkBending`). Each of
-    its points moves with its own page (`PageLayout.inkY`): exactly, on a
-    page; spread evenly over the other mode's room, between pages. So it
-    sits on its words in every mode and stays one stroke: one erase, one
-    lasso, one undo. A first version cut strokes into masked pieces, one
-    per page (PR #38's first commit); after a mode switch each piece was a
-    stroke of its own, and erasing one took two object erases (Marcus, on
-    the iPad). The stretch across a break lies in the hidden room, under
-    `PageCoverView`; a stroke drawn across compressed's strip or print
-    layout's gap is squeezed into seamless's break and stays joined there.
-  - **Only strokes reaching two pages' regions are bent**
-    (`InkBending.crossesBreak`); everything else moves whole, as before.
-    Ink saved before 9 October was stored whole by its middle's page, so a
-    stroke drawn across a break in seamless sits in print coordinates on
-    one page and in the gap beyond. Moved whole it still shows as drawn;
-    bent, its part in the gap would be squeezed into seamless's break. Old
-    strokes more than about 1.7 inches past a break are the exception.
-    Masked strokes — PencilKit's pixel eraser leaves masks, and #38's
-    pieces have them — bend their mask with them, cut at each region's edge.
-  - **Bent from points sampled along the drawn curve**
-    (`InkBending.samples`, every 1.5pt, with each region edge's crossing
-    repeated three times). PencilKit draws a curve its control points steer
-    rather than pass through, and they can be 25pt apart: bent from them,
-    the stretched points steered the curve off both pages, and print layout
-    showed a sliver at the foot of the first. A curve passes through a
-    point repeated three times, so each page keeps its stroke up to its
-    edge. Bent there and back, a stroke is within 0.6pt of where it was,
-    except at the break itself, where the stretch can come back as a
-    sideways tick narrower than the stroke.
-  - **On the canvas, a bent stroke is removed and added again.** A path
-    changed on the canvas's own copy doesn't take, a new stroke with its id
-    doesn't take while the old one is there, and leaving it out of an
-    assigned set doesn't remove it (only `removeElement` does). So
-    `showInk` removes bent strokes, assigns, then inserts them back at
-    their place in the order. And **a bent path needs a new path id**:
-    PencilKit draws a path it has seen as it drew it then, and with the id
-    kept print layout showed the seamless shape at seamless's positions
-    though the canvas held the print one (simulator; the canvas's contents
-    read from a log).
-  - **Covers hide what's over the hidden room** (`PageCoverView`): above
-    the canvas, one view per hidden band, drawing what the page draws there
-    anyway (the page and its dashed line in compressed; the surround and
-    the sheets' edges, borders and shadows in print layout). On a page
+  - **A stroke is cut into a piece per page** (`InkPages`), however many
+    pages it reaches: the same stroke — path, ink, texture seed, PaperKit's
+    render state — with a mask of its page's region and a new id. PencilKit
+    draws only inside a mask; PaperKit keeps masks through moves, saving and
+    its own drawing, and two pieces meeting at a mask's edge join with no
+    seam (probe). A masked stroke's frame is its mask's, so the existing
+    per-element conversion places each piece by its own page. Whatever lay
+    in space no page has is in no piece, so it shows in no mode and can't
+    land on another page's words.
+  - **Cut in the stored ink, not on the canvas.** `InkCapture` stores a
+    changed stroke as its pieces and records which canvas stroke each came
+    from (`InkCapture.State.pieceSources`); the canvas keeps the stroke
+    whole until ink is next shown — a mode switch or reopening — which
+    clears ink undo anyway. Swapping pieces onto the canvas straight away would leave
+    PaperKit's undo action for the stroke with nothing to remove. Erasing,
+    undoing or moving the stroke takes or re-cuts all its pieces.
+  - **Covers hide what the canvas still holds whole** (`PageCoverView`):
+    above the canvas, one view per hidden band, drawing what the page draws
+    there anyway (the page and its dashed line in compressed; the surround
+    and the sheets' edges, borders and shadows in print layout). On a page
     without ink they can't be told from what's beneath
     (`PageViewTests.coversMatchThePage` compares the pixels, and fails if
-    the covers are coloured). Text never sits in the bands. The PDF clips
-    each sheet's ink to its page's region (`NotePDF.drawInk`), so the
-    stretch never prints either.
+    the covers are coloured). Text never sits in the bands. The live stroke
+    goes under them too.
+  - **Ink saved before 9 Oct isn't cut.** Rewriting ink nobody touched on
+    opening would change saved notes for being looked at; an old stroke is
+    cut the first time it's moved or erased.
   - **Measured on the way, so they aren't tried again:** setting
-    `renderGroupID` on a stroke from the canvas traps inside PaperKit;
-    PaperKit rounds a stroke's frame out to whole points, so use a mask's
-    own bounds; PaperKit's ink doesn't render through `drawHierarchy` in a
-    unit test, but `PaperMarkup.draw` into a bitmap does (`InkBendingTests`,
-    as the PDF draws); and the double undo seen in the simulator was its
-    injected touches — with the Pencil one stroke is one undo.
-  - Checked in the simulator, light and dark: a stroke drawn across a
-    compressed break sits on the same words in seamless and print layout,
-    one stroke after each switch, and one whole-stroke erase after a switch
-    removes all of it. Not checked: the Pencil, latency, the lasso, the
-    pixel eraser on a bent stroke.
+    `renderGroupID` on a stroke from the canvas traps inside PaperKit (its
+    strokes are a subclass that can't copy with one); `InkPages`' stroke
+    function needs its own name, since `PKStroke` is a `Markup` and a shared
+    name recursed until the stack ran out; PaperKit rounds a stroke's frame
+    out to whole points, so tests compare masks' bounds; assigning the
+    canvas a reordered set doesn't reorder it, so after a mode switch a
+    cut stroke's pieces draw above later strokes until the note is reopened
+    (stored order is kept); and PaperKit's ink doesn't render through
+    `drawHierarchy` in a unit test at all, so ink on screen is checked in
+    the simulator, while `InkPagesTests` draws pieces through
+    `PaperMarkup.draw`, as the PDF does.
+  - Checked in the simulator, light and dark: a stroke across a break sits
+    on the same words in all three modes, hidden over the bands while drawn
+    and after; undone and switched, nothing comes back. Not checked: the
+    Pencil, latency, the lasso and the eraser on pieces.
+  - **Pieces, not bending** (10 Oct). A second version bent a stroke across
+    a break instead, each point moving with its own page, so it stayed one
+    stroke (PR #38's second commit). Marcus had it reverted: it harmed more
+    than it helped. The cost of pieces stays in seamless: once ink has been
+    shown again, each piece is a stroke of its own there, so erasing a
+    stroke across a break takes one object erase per page.
+  - **Compressed and print layout stop a stroke at the border** (10 Oct,
+    decided by Marcus): a stroke drawn across one shows only on the page
+    the pen went down on, nothing in the border or past it. Seamless still
+    shows it whole. So the piece on that page keeps the stroke's id, and
+    the rest is its *overflow*, marked in the pieces' ids (`InkPages`): the
+    stroke's first ten bytes, then `overflowMark`. Stroke ids survive
+    saving only when a stroke goes into a markup through `subelements`;
+    appending a `PKDrawing` gives every stroke a new one (probe).
+    - **Shown:** `showInk` leaves overflow off the canvas outside seamless,
+      and the PDF doesn't print it, since print layout is the paper.
+    - **When the pen lifts:** the canvas holds the stroke whole, so once
+      it's taken in, `PageView.showOwnPieces` updates it in place to its
+      own piece, with its id. Assigning the canvas registers no undo
+      (probe). Until then it shows past the border; covers hide what's in
+      the band. Three things the simulator showed on the way:
+      - **Not taken off and put back.** That redraws cleanly, but
+        PaperKit's undo then can't find the stroke: two undos did
+        nothing, where a stroke on one page undid in one.
+      - **A new path** (`InkPages.redrawn`), or PencilKit goes on drawing
+        the stroke as it first drew it, whole, though the canvas holds the
+        mask.
+      - **Specks at the whole stroke's corners** (`InkPages.shown`).
+        Updated in place, PaperKit redraws only the tiles the stroke's new
+        frame touches, and a masked stroke's frame is its mask's, so ink
+        past the border stayed wherever its tiles missed the piece (two
+        strokes in four). 0.01pt squares in the mask keep the frame whole;
+        points of no area didn't, as PaperKit drops them. A specked
+        stroke's frame isn't its piece's, so the next show puts it back
+        as stored (`InkCapture.State.specked`): placed by that frame it
+        moved half its hidden part off its words.
+      Checked in the simulator, compressed: eight strokes, down and up,
+      each stopped at the border once the pen lifted; one undo took a
+      stroke and its overflow, redo brought both back, still stopped; and
+      switched to seamless, both pieces met on their words. Not checked:
+      print layout on screen, the Pencil, the lasso and the eraser on a
+      stopped stroke.
+    - **Erased:** a stroke's overflow the canvas doesn't hold goes with
+      it, and is kept aside (`InkCapture.State.buried`) until ink is next
+      shown, so undoing the erase brings it back. **Moved by the lasso:**
+      the hidden overflow is moved by the same amount, as a translation;
+      a lasso's resize or rotation isn't carried exactly.
+    - Ink cut on 9 Oct, before overflow existed, has random ids, so all of
+      its pieces show in every mode, and a stroke saved whole before then
+      shows whole, until either is moved or erased.
 - **Print layout** fits its sheets inside a 24pt border of the surround
   (`CanvasGeometry.printGutter`), so they read as paper rather than one slab
   with grey bars across it. Text is a little smaller there than in the
@@ -389,7 +421,7 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
     the surround after, light and dark. No unit test: a keyboard's safe area
     can't be made in one.
   - **Ink over the space seamless doesn't have is hidden, by covers**
-    (9 Oct; see "Ink across page breaks" above). The first fix, a
+    (9 Oct; see "Ink across page breaks" below). The first fix, a
     `CAShapeLayer` mask on the canvas (PR #36), **blanked text**: masked,
     PaperKit's ink tiles painted the page colour over the lines beneath
     them, so around every stroke in print layout whole blocks of words were
@@ -532,8 +564,9 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   bitmap has to be flipped to UIKit's way up first, and scaled by the
   transform: `frame` doesn't scale anything. And assigning a set to a new
   markup's `subelements` keeps nothing — a markup only updates elements it
-  already has from an assigned set — so building one means
-  `updateOrAppend` an element at a time, as `PageView.captureInk` does.
+  already has from an assigned set — so building one means appending
+  through its `subelements`, in one `append(contentsOf:)`, as
+  `NotePDF.drawInk` does.
 
 ## The note page
 
@@ -661,6 +694,9 @@ Laid out from the 12 September mockup.
     on a dark page is stored as the light ink that shows as it
     (`InkColor(chosen:on:)`). The palette (`InkPalette`) and the eraser
     (`EraserSettings`) are stored per device, like the dock.
+  - **Finger Draws is per device too** (10 Oct, key `fingerDraws`, through
+    `InkToolPersistence`). Each note gets a new `NoteEditor`, so it used to
+    reset to on with every note opened and every launch.
   - The model is pure and portable (`InkTool.swift`); only the PencilKit tool
     and the UIColor conversions are behind `canImport(UIKit)`. Declaring
     `init(hex:)` inside `InkColor` removed its memberwise initialiser, so it is
@@ -1003,6 +1039,25 @@ the same arguments in the scheme's Run → Arguments.
   for the app's own reasons must not call it: a save bumps `modifiedAt`, and
   opening a note would reorder the list. See step 4 of
   docs/phase-drawing-layer.md.
+- **Strokes are taken into the stored ink off the main thread** (10 Oct,
+  `InkCapture`). PaperKit's delegate says only that the markup changed, so
+  what changed is found by walking all of it, and at 5,000 strokes that was
+  400ms on the main thread per stroke even walked properly. Now
+  `PageView.captureInk` only takes a snapshot of the canvas (free: a
+  `PaperMarkup` is a value) with the layout it was drawn in, and a detached
+  task works out the rest; while one runs, only the newest snapshot waits,
+  so a burst of strokes is taken in as one. So `onInkChanged` arrives a
+  moment after the stroke, and anything that needs every stroke now calls
+  `PageView.commitInk()` first, which takes the newest snapshot in on the
+  main thread: reading `PageView.ink` (the PDF), showing ink (a mode
+  switch, with the layout the strokes were drawn in, not the new one),
+  leaving the note and the app leaving the screen (`NoteEditor.commitInk`,
+  from `PageDetailView`), and SwiftUI removing the page. A result computed
+  from state replaced since is dropped (`inkGeneration`).
+  **A test that waits for it must `await`**, not turn the run loop: the
+  task comes back to the main actor, which a synchronous test turning the
+  run loop is still holding, so nothing ever arrived
+  (`PageViewTests.waitFor`).
 - Parse and index `(textView.text ?? "").nativeUTF8`, never `textView.text`
   itself. That String is backed by the text storage's NSString, and reading
   it a character at a time is a message send per character: the parser took
@@ -1016,6 +1071,25 @@ the same arguments in the scheme's Run → Arguments.
   note open, and a deletion from the note list had neither: killed within
   a few seconds — a crash, or Xcode starting the next build — the note came
   back.
+- Walk a `MarkupOrderedSet` with `for … in`, never `map`, `reduce`, an
+  index or anything else that reads it by position. Reading one element by
+  index costs what `count` does, and both grow with the set (16ms each at
+  5,000 strokes); `map` reads every element that way. `PageView.frames(of:)`
+  did, after every stroke: 808ms per stroke at 500 strokes, 10.6s at 2,000
+  (simulator, 10 Oct), and writing stuttered and caught up seconds later.
+  Even done right, every operation on the set is linear: at 5,000 strokes a
+  walk with `renderFrame` is 107ms, an append 20ms, `ids` 16ms.
+- **Build a `MarkupOrderedSet` with one `append(contentsOf:)`** of a Swift
+  array, never an `append`, `insert`, `updateOrAppend` or `set[id] =` per
+  element: each costs what `count` does, so building a set grows with the
+  square of its size. Opening a note did, in `PageView.convert`: 1.5s at
+  2,000 strokes and 7s at 5,000, now 141ms and 384ms; switching to print
+  layout 1.7s at 2,000, now 323ms; and the PDF 7.2s at 2,000, now 1.8s,
+  most of it PaperKit drawing (simulator, 10 Oct; `PageViewTests.openingCost`
+  and `NotePDFTests.printingCost` keep them). Setting by id was worst:
+  68s for 5,000. Removing is the exception: use `removeElement(for:)` per
+  element, which is few. A markup keeps what `removeAll(where:)` takes
+  out, as it does an element left out of an assigned set.
 - The action bars are positioned from TextKit 2's *viewport*, never from the
   whole document. Asking for a fragment further down forces layout all the way
   to it, which is the lazy layout the editor is built on.

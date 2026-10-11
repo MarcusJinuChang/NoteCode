@@ -73,6 +73,7 @@ enum NotePDF {
         else { return Data() }
 
         let paragraphs = printed.paragraphsByPage(pageCount: pageCount)
+        let inkBySheet = ink.map { sheetsInk($0, layout: layout, pageCount: pageCount) }
         for index in 0..<pageCount {
             let sheet = layout.sheet(ofPage: index)
             context.beginPDFPage(nil)
@@ -82,8 +83,8 @@ enum NotePDF {
             context.scaleBy(x: scale, y: -scale)
 
             printed.draw(paragraphs[index], onSheet: sheet, in: context)
-            if let ink {
-                await drawInk(ink, onSheet: sheet, region: layout.inkRegion(ofPage: index), in: context)
+            if let elements = inkBySheet?[index], !elements.isEmpty {
+                await drawInk(elements, onSheet: sheet, in: context)
             }
 
             context.restoreGState()
@@ -91,6 +92,24 @@ enum NotePDF {
         }
         context.closePDF()
         return data as Data
+    }
+
+    /// Each sheet's ink: the elements whose frame reaches it, from one walk
+    /// of the note's ink. Overflow doesn't print, as print layout doesn't
+    /// show it: a stroke drawn across a page break stops at the edge of the
+    /// page it was started on.
+    private static func sheetsInk(_ ink: PaperMarkup, layout: PageLayout, pageCount: Int) -> [[any Markup]] {
+        var sheets = Array(repeating: [any Markup](), count: pageCount)
+        guard pageCount > 0 else { return sheets }
+        for element in ink.subelements where !InkPages.isOverflow(element) {
+            let frame = element.renderFrame
+            let first = min(layout.pageIndex(atY: frame.minY), pageCount - 1)
+            let last = min(layout.pageIndex(atY: frame.maxY), pageCount - 1)
+            for index in first...max(first, last) where frame.intersects(layout.sheet(ofPage: index)) {
+                sheets[index].append(element)
+            }
+        }
+        return sheets
     }
 
     /// Pixels per page point for ink on paper: 288 dots per inch.
@@ -105,40 +124,38 @@ enum NotePDF {
     /// 4 October). So the ink is drawn into a bitmap at 288 dots per inch,
     /// cropped to where the sheet has ink, and that goes on the page.
     ///
-    /// Only the sheet's own elements, moved to the sheet's origin, in a
-    /// markup the sheet's size. Drawing all of a long note's ink for every
-    /// page would cost as many times over as there are pages.
+    /// Only the sheet's own elements (`sheetsInk`), moved to the sheet's
+    /// origin, in a markup the sheet's size. Drawing all of a long note's
+    /// ink for every page would cost as many times over as there are pages.
     ///
-    /// Added one at a time with `updateOrAppend`, the way `PageView` takes
-    /// ink from the canvas. Assigning a set to a new markup's `subelements`
-    /// keeps none of it: a markup only updates the elements it already has
-    /// from an assigned set (probe on the simulator, 4 October), and the
-    /// PDF's ink came out blank.
-    ///
-    /// Only inside the page's ink region (`PageLayout.inkRegion`), as on
-    /// screen: a stroke bent across a page break lies stretched over the
-    /// margins and the gap, where `PageCoverView` hides it.
-    private static func drawInk(_ ink: PaperMarkup, onSheet sheet: CGRect, region: CGRect, in context: CGContext) async {
+    /// Added through the new markup's `subelements`, in one append.
+    /// Assigning a set to a new markup's `subelements` keeps none of it: a
+    /// markup only updates the elements it already has from an assigned set
+    /// (probe on the simulator, 4 October), and the PDF's ink came out
+    /// blank. Added one at a time, each costs what the set's `count` does,
+    /// and a note of 2,000 strokes took 7 seconds to print (10 October).
+    private static func drawInk(_ elements: [any Markup], onSheet sheet: CGRect, in context: CGContext) async {
         let page = CGRect(origin: .zero, size: sheet.size)
         let toSheet = CGAffineTransform(translationX: -sheet.minX, y: -sheet.minY)
-        let shown = region.intersection(sheet).applying(toSheet)
 
         var markup = PaperMarkup(bounds: page)
         var inked = CGRect.null
-        for element in ink.subelements where element.renderFrame.intersects(region) {
+        var placed: [any Markup] = []
+        for element in elements {
             var element = element
             element.applyTransform(toSheet)
             inked = inked.union(element.renderFrame)
-            markup.subelements.updateOrAppend(element)
+            placed.append(element)
         }
+        markup.subelements.append(contentsOf: placed)
         // A little room around the frames, for a stroke's soft edge.
         let area = inked.insetBy(dx: -4, dy: -4).intersection(page).integral
-        guard !area.isNull, !area.isEmpty, area.intersects(shown) else { return }
+        guard !area.isNull, !area.isEmpty else { return }
 
         guard let image = await bitmap(of: markup, in: page, cropping: area) else { return }
 
         context.saveGState()
-        context.clip(to: shown)
+        context.clip(to: page)
         UIGraphicsPushContext(context)
         // UIKit draws the image the right way up in a context flipped the
         // way this one is.

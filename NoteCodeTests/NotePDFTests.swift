@@ -183,6 +183,60 @@ struct NotePDFTests {
         #expect(first.darkest(in: stroke) > 0.95)
     }
 
+    @Test("A stroke across a page break prints only on the page it was started on")
+    func overflowDoesNotPrint() async throws {
+        let layout = PageLayout(orientation: .portrait, mode: .print)
+        let bottom = layout.bodyTop(ofPage: 0) + layout.bodyHeight
+        let top = layout.bodyTop(ofPage: 1)
+        // Straight down at x 400, from 40 above page 1's last line to 40
+        // below page 2's first, cut as drawing cuts it.
+        let points = stride(from: bottom - 40, through: top + 40, by: 4).enumerated().map { index, y in
+            PKStrokePoint(location: CGPoint(x: 400, y: y), timeOffset: Double(index) * 0.01, size: CGSize(width: 6, height: 6),
+                          opacity: 1, force: 1, azimuth: 0, altitude: .pi / 2)
+        }
+        let stroke = PKStroke(ink: PKInk(.pen, color: .black), path: PKStrokePath(controlPoints: points, creationDate: Date()))
+        let pieces = InkPages.pieces(ofStroke: stroke, regions: layout.inkRegions(pageCount: 2))
+        try #require(pieces.count == 2)
+        var ink = PaperMarkup(bounds: CGRect(x: 0, y: 0, width: 816, height: 100_000))
+        for piece in pieces {
+            ink.subelements.append(piece)
+        }
+
+        let pdf = try await Self.pdf("One line of text", ink: ink)
+        try #require(pdf.pageCount == 2)
+        let first = try #require(Bitmap(pdfPage: pdf.page(at: 0)))
+        let second = try #require(Bitmap(pdfPage: pdf.page(at: 1)))
+
+        // In page points from each sheet's top: 40 points of stroke above
+        // the first page's last line, and where the second page's 40 would be.
+        let scale = NotePDF.pointsPerPagePoint
+        let margin = PageLayout.margin
+        let above = CGRect(x: 395 * scale, y: (margin + layout.bodyHeight - 36) * scale, width: 10 * scale, height: 30 * scale)
+        let below = CGRect(x: 395 * scale, y: (margin + 6) * scale, width: 10 * scale, height: 30 * scale)
+        #expect(first.darkest(in: above) < 0.5)
+        #expect(second.darkest(in: below) > 0.95)
+    }
+
+    /// Each sheet's ink was added an element at a time, and each add costs
+    /// what the markup's `count` does: 7.2s for a note of 2,000 strokes,
+    /// against 1.8s now, most of it PaperKit drawing (simulator, 10
+    /// October). Loose on purpose: this catches the slow way coming back.
+    @Test("A note of 2,000 strokes prints within budget, every stroke on its page")
+    func printingCost() async throws {
+        let ink = PageViewTests.handwriting(2000)
+        let start = Date()
+        let pdf = try await Self.pdf("Handwritten", ink: ink)
+        let took = Date().timeIntervalSince(start)
+
+        // 930 strokes to a sheet, so the third has the last 140.
+        try #require(pdf.pageCount == 3)
+        let third = try #require(Bitmap(pdfPage: pdf.page(at: 2)))
+        let scale = NotePDF.pointsPerPagePoint
+        let firstRow = CGRect(x: 80 * scale, y: (PageLayout.margin + 4) * scale, width: 600 * scale, height: 24 * scale)
+        #expect(third.darkest(in: firstRow) < 0.5)
+        #expect(took < 4, "printing took \(took)s")
+    }
+
     @Test("Ink goes on the page as a picture at print resolution, and text doesn't")
     func inkResolution() async throws {
         let layout = PageLayout(orientation: .portrait, mode: .print)
@@ -201,40 +255,6 @@ struct NotePDFTests {
         try #require(widths.count == 1, "images on the inked page: \(widths)")
         let expected = Int(stroke.width * NotePDF.inkPixelsPerPagePoint)
         #expect(widths[0] >= expected && widths[0] <= expected + 40, "image \(widths[0]) pixels wide for a stroke \(stroke.width) points wide")
-    }
-
-    @Test("A stroke across a page break prints each end on its own sheet, and nothing in the margins between")
-    func strokeAcrossABreakPrints() async throws {
-        let seamless = PageLayout(orientation: .portrait, mode: .seamless)
-        let print = PageLayout(orientation: .portrait, mode: .print)
-        // Drawn in seamless from 60 points above page 1's last line to 60
-        // below page 2's first, and stored bent: in print layout its middle
-        // runs down the margins and the gap.
-        let edge = seamless.bodyTop(ofPage: 0) + seamless.bodyHeight
-        let points = stride(from: edge - 60, through: edge + 60, by: 4).enumerated().map { index, y in
-            PKStrokePoint(location: CGPoint(x: 300, y: y), timeOffset: Double(index) * 0.01, size: CGSize(width: 6, height: 6),
-                          opacity: 1, force: 1, azimuth: 0, altitude: .pi / 2)
-        }
-        let drawn = PKStroke(ink: PKInk(.pen, color: .black), path: PKStrokePath(controlPoints: points, creationDate: Date()))
-        let stored = try #require(InkBending.moved(drawn, from: seamless, to: print))
-        var ink = PaperMarkup(bounds: CGRect(origin: .zero, size: CGSize(width: print.pageSize.width, height: print.noteHeight(pageCount: 2))))
-        ink.subelements.updateOrAppend(stored)
-
-        let pdf = try await Self.pdf("One line of text", ink: ink)
-        try #require(pdf.pageCount == 2)
-        let first = try #require(Bitmap(pdfPage: pdf.page(at: 0)))
-        let second = try #require(Bitmap(pdfPage: pdf.page(at: 1)))
-
-        // In each sheet's own page points, then the PDF's.
-        let scale = NotePDF.pointsPerPagePoint
-        func band(from top: CGFloat, to bottom: CGFloat) -> CGRect {
-            CGRect(x: 294 * scale, y: top * scale, width: 12 * scale, height: (bottom - top) * scale)
-        }
-        let textBottom = PageLayout.margin + print.bodyHeight
-        #expect(first.darkest(in: band(from: textBottom - 50, to: textBottom - 10)) < 0.5, "page 1's end")
-        #expect(first.darkest(in: band(from: textBottom + 8, to: print.pageSize.height - 2)) > 0.95, "page 1's bottom margin")
-        #expect(second.darkest(in: band(from: 2, to: PageLayout.margin - 8)) > 0.95, "page 2's top margin")
-        #expect(second.darkest(in: band(from: PageLayout.margin + 10, to: PageLayout.margin + 50)) < 0.5, "page 2's end")
     }
 
     /// The pixel width of each image a PDF page draws, including inside its
