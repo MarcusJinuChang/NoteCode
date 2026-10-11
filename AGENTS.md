@@ -564,8 +564,9 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   bitmap has to be flipped to UIKit's way up first, and scaled by the
   transform: `frame` doesn't scale anything. And assigning a set to a new
   markup's `subelements` keeps nothing — a markup only updates elements it
-  already has from an assigned set — so building one means
-  `updateOrAppend` an element at a time, as `NotePDF.drawInk` does.
+  already has from an assigned set — so building one means appending
+  through its `subelements`, in one `append(contentsOf:)`, as
+  `NotePDF.drawInk` does.
 
 ## The note page
 
@@ -1078,6 +1079,17 @@ the same arguments in the scheme's Run → Arguments.
   (simulator, 10 Oct), and writing stuttered and caught up seconds later.
   Even done right, every operation on the set is linear: at 5,000 strokes a
   walk with `renderFrame` is 107ms, an append 20ms, `ids` 16ms.
+- **Build a `MarkupOrderedSet` with one `append(contentsOf:)`** of a Swift
+  array, never an `append`, `insert`, `updateOrAppend` or `set[id] =` per
+  element: each costs what `count` does, so building a set grows with the
+  square of its size. Opening a note did, in `PageView.convert`: 1.5s at
+  2,000 strokes and 7s at 5,000, now 141ms and 384ms; switching to print
+  layout 1.7s at 2,000, now 323ms; and the PDF 7.2s at 2,000, now 1.8s,
+  most of it PaperKit drawing (simulator, 10 Oct; `PageViewTests.openingCost`
+  and `NotePDFTests.printingCost` keep them). Setting by id was worst:
+  68s for 5,000. Removing is the exception: use `removeElement(for:)` per
+  element, which is few. A markup keeps what `removeAll(where:)` takes
+  out, as it does an element left out of an assigned set.
 - The action bars are positioned from TextKit 2's *viewport*, never from the
   whole document. Asking for a fragment further down forces layout all the way
   to it, which is the lazy layout the editor is built on.

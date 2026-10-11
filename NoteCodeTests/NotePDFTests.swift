@@ -217,6 +217,26 @@ struct NotePDFTests {
         #expect(second.darkest(in: below) > 0.95)
     }
 
+    /// Each sheet's ink was added an element at a time, and each add costs
+    /// what the markup's `count` does: 7.2s for a note of 2,000 strokes,
+    /// against 1.8s now, most of it PaperKit drawing (simulator, 10
+    /// October). Loose on purpose: this catches the slow way coming back.
+    @Test("A note of 2,000 strokes prints within budget, every stroke on its page")
+    func printingCost() async throws {
+        let ink = PageViewTests.handwriting(2000)
+        let start = Date()
+        let pdf = try await Self.pdf("Handwritten", ink: ink)
+        let took = Date().timeIntervalSince(start)
+
+        // 930 strokes to a sheet, so the third has the last 140.
+        try #require(pdf.pageCount == 3)
+        let third = try #require(Bitmap(pdfPage: pdf.page(at: 2)))
+        let scale = NotePDF.pointsPerPagePoint
+        let firstRow = CGRect(x: 80 * scale, y: (PageLayout.margin + 4) * scale, width: 600 * scale, height: 24 * scale)
+        #expect(third.darkest(in: firstRow) < 0.5)
+        #expect(took < 4, "printing took \(took)s")
+    }
+
     @Test("Ink goes on the page as a picture at print resolution, and text doesn't")
     func inkResolution() async throws {
         let layout = PageLayout(orientation: .portrait, mode: .print)
