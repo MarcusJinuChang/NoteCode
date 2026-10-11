@@ -142,6 +142,41 @@ struct FingerDrawsPersistenceTests {
             #expect(third.editor.fingerDraws)
         }
     }
+
+    @Test("Changed in Settings over the open note, it reaches that note")
+    func settingsChangeReachesTheOpenNote() throws {
+        try withStored(true) {
+            let note = try OpenNote()
+            defer { note.close() }
+            #expect(note.editor.fingerDraws)
+
+            UserDefaults.standard.set(false, forKey: NoteEditor.fingerDrawsKey)
+            note.settle()
+            #expect(!note.editor.fingerDraws)
+            let canvas = try #require(note.canvas)
+            #expect(!canvas.allowsFingerDrawing)
+        }
+    }
+
+    @Test("The eraser set in Settings reaches the open note")
+    func settingsEraserReachesTheOpenNote() throws {
+        let key = EraserSettings.defaultsKey
+        let saved = UserDefaults.standard.object(forKey: key)
+        defer {
+            if let saved { UserDefaults.standard.set(saved, forKey: key) } else { UserDefaults.standard.removeObject(forKey: key) }
+        }
+        UserDefaults.standard.removeObject(forKey: key)
+
+        let note = try OpenNote()
+        defer { note.close() }
+
+        var eraser = EraserSettings()
+        eraser.mode = .wholeStroke
+        eraser.size = .large
+        UserDefaults.standard.set(eraser.rawValue, forKey: key)
+        note.settle()
+        #expect(note.editor.inkTool.eraser == eraser)
+    }
 }
 
 #endif

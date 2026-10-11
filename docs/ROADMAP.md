@@ -79,6 +79,19 @@ drawn at the screen's density. 25 pull requests, all merged.
   Also: undo and redo are no longer turned away by the keyboard-rewrite guard.
   Builds for iPad and Mac, 661 tests pass; looked at in the simulator
   (rendered, light and dark), not tapped through or tried on the iPad.
+- **UI design v2, phase 6: settings** (10 Oct, branch
+  `claude/ui-phase-6-settings`, not merged): a gear at the foot of the note
+  list, or ⌘, with a keyboard, opens Settings as a form sheet: General
+  (Appearance, Toolbar Position, Haptic on Snap), Notes (View, Sort By), Writing
+  (Show Markdown), Code (Run Code In), Drawing (Finger Draws, pen and highlighter
+  palettes, Eraser, Reset Colours) and Help and About (Acknowledgements,
+  Version). Each row reads and writes the setting the rest of the app already
+  uses. Appearance changes every window as it is picked. Settings changed while
+  a note is open reach that note. Left out until they work: App Icon (phase 7),
+  New Notes and Welcome Note (phase 8), and Send Feedback and Privacy Policy,
+  which wait for an address and a page. Builds for iPad and Mac, 687 tests pass; looked at in the
+  simulator only as far as the opened sheet's list of sections, in dark; no
+  page was tapped through.
 - **Note search** (4 Oct, PR #27, merged 8 Oct): a search field at the top of the note
   list finds notes by every word typed, in the title or the text, ignoring
   case and accents. Results show the line that matched, with the words in

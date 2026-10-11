@@ -32,6 +32,10 @@ struct ContentView: View {
     /// later doesn't start renaming again.
     @State private var newPage: Page?
 
+    /// Whether Settings is showing. Held here, above the list, so ⌘, opens it
+    /// whether or not the list is on screen.
+    @State private var showsSettings = false
+
     @Environment(\.modelContext) private var modelContext
 
     /// - Parameter openedPage: a note to open straight away, with the list
@@ -48,7 +52,8 @@ struct ContentView: View {
                 storageIsEphemeral: storageIsEphemeral,
                 selection: opening,
                 searchText: $searchText,
-                onNewPage: { newPage = $0 }
+                onNewPage: { newPage = $0 },
+                onShowSettings: { showsSettings = true }
             )
                 // Searching the list brings the keyboard up; the list stays its
                 // size and the keyboard covers its lower rows.
@@ -75,6 +80,7 @@ struct ContentView: View {
         // The list slides over the page instead of pushing it narrower, so
         // opening it never re-wraps the note underneath.
         .navigationSplitViewStyle(.prominentDetail)
+        .settingsSheet(isPresented: $showsSettings)
         .onChange(of: selection) {
             if selection != newPage { newPage = nil }
             if selection != nil {

@@ -124,6 +124,15 @@ struct InkToolPersistence: ViewModifier {
             .onChange(of: editor.inkTool.highlighter) { _, changed in highlighter = changed }
             .onChange(of: editor.inkTool.eraser) { _, changed in eraser = changed }
             .onChange(of: editor.fingerDraws) { _, changed in fingerDraws = changed }
+            // Settings changes these from a sheet over the open note, whose
+            // editor was set from them as it appeared. Guarded by equality
+            // so the editor's own change, written above, isn't echoed back.
+            .onChange(of: eraser) { _, stored in
+                if editor.inkTool.eraser != stored { editor.inkTool.eraser = stored }
+            }
+            .onChange(of: fingerDraws) { _, stored in
+                if editor.fingerDraws != stored { editor.fingerDraws = stored }
+            }
     }
 }
 

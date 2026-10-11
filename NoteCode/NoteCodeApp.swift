@@ -33,10 +33,13 @@ struct NoteCodeApp: App {
             if let container = storage.container {
                 ContentView(storageIsEphemeral: storage.isEphemeral, openedPage: openedPage)
                     .modelContainer(container)
+                    .modifier(AppearanceModifier())
             } else {
                 StorageUnavailableView(reason: storage.reason)
+                    .modifier(AppearanceModifier())
             }
         }
+        .commands { SettingsCommands() }
     }
 }
 
