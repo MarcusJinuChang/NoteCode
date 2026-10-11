@@ -1612,6 +1612,56 @@ struct PageViewTests {
         let median = times.sorted()[4]
         #expect(median < 0.1, "keystroke near the top took \(median)s")
     }
+
+    /// Two thousand short strokes, thirty to a row, rows down every page's
+    /// body, in print coordinates: a long note written by hand.
+    static func handwriting(_ count: Int) -> PaperMarkup {
+        let print = PageLayout(mode: .print)
+        let rows = Int(print.bodyHeight / 28) - 1
+        let strokes = (0..<count).map { index -> PKStroke in
+            let row = index / 30
+            let origin = CGPoint(
+                x: 80 + CGFloat(index % 30) * 22,
+                y: print.bodyTop(ofPage: row / rows) + 4 + CGFloat(row % rows) * 28
+            )
+            let points = (0..<20).map { step -> PKStrokePoint in
+                let wave: CGFloat = 8 * sin(CGFloat(step + index) / 3)
+                let location = CGPoint(x: origin.x + CGFloat(step), y: origin.y + 9 + wave)
+                return PKStrokePoint(
+                    location: location, timeOffset: Double(step) * 0.01, size: CGSize(width: 2.5, height: 2.5),
+                    opacity: 1, force: 1, azimuth: 0, altitude: .pi / 2
+                )
+            }
+            return PKStroke(ink: PKInk(.pen, color: .black), path: PKStrokePath(controlPoints: points, creationDate: Date()))
+        }
+        var markup = PaperMarkup(bounds: CGRect(x: 0, y: 0, width: print.pageSize.width, height: 100_000))
+        markup.append(contentsOf: PKDrawing(strokes: strokes))
+        return markup
+    }
+
+    /// A set built an element at a time costs what its `count` does per
+    /// element, so opening a note grew with the square of its strokes: 1.5s
+    /// at 2,000 strokes, 7s at 5,000, against 141ms now (simulator, 10
+    /// October). Loose on purpose, like `typingCost`: this catches the slow
+    /// way coming back, not noise.
+    @Test("Opening and switching a note of 2,000 strokes stays within budget")
+    func openingCost() {
+        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
+        let ink = Self.handwriting(2000)
+
+        let opening = Date()
+        harness.page.setInk(ink)
+        let opened = Date().timeIntervalSince(opening)
+        harness.layOut()
+
+        let switching = Date()
+        harness.switchTo(PageLayout(mode: .print))
+        let switched = Date().timeIntervalSince(switching)
+
+        #expect(harness.page.canvas.markup.subelements.strokes.count == 2000)
+        #expect(opened < 0.6, "opening took \(opened)s")
+        #expect(switched < 0.9, "switching to print layout took \(switched)s")
+    }
 }
 
 #endif

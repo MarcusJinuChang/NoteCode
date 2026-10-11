@@ -732,20 +732,27 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             // below. A changed copy assigned over the canvas's own doesn't
             // take, and nor does a new one with its id while the old one is
             // there. Ink undo is cleared here anyway, so nothing loses track.
+            // Added and placed a set at a time, never an element at a time:
+            // see `convert`. Removed one at a time, which is few: a set
+            // without them keeps them, and so does `removeAll(where:)`.
             let reshaped = inkState.wholeOnCanvas.union(inkState.specked).filter { stored[$0] != nil }
             for id in Set(shown.subelements.ids) where stored[id] == nil || reshaped.contains(id) {
                 shown.subelements.removeElement(for: id)
             }
             let onCanvas = Set(shown.subelements.ids)
+            var arriving: [any Markup] = []
             for (id, element) in stored where !onCanvas.contains(id) && !reshaped.contains(id) {
-                shown.subelements.updateOrAppend(element)
+                arriving.append(element)
+            }
+            if !arriving.isEmpty {
+                shown.subelements.append(contentsOf: arriving)
             }
 
             // Pieces that just replaced a stroke arrive at the end, so they
             // draw above strokes made after it until the note is reopened,
             // which shows the stored order. Assigning the set in the stored
             // order doesn't reorder the canvas (unit test, 9 October).
-            var placed = MarkupOrderedSet()
+            var elements: [any Markup] = []
             for element in shown.subelements {
                 guard let original = stored[element.elementID] else { continue }
                 let target = print.convert(y: original.renderFrame.midY, to: pageLayout)
@@ -755,8 +762,10 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
                 if abs(delta) > 0.001 {
                     element.applyTransform(CGAffineTransform(translationX: 0, y: delta))
                 }
-                placed.append(element)
+                elements.append(element)
             }
+            var placed = MarkupOrderedSet()
+            placed.append(contentsOf: elements)
             shown.subelements = placed
             canvas.markup = shown
 
@@ -909,13 +918,6 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         return frames
     }
 
-    /// The ink with every element moved to the same place on its page in
-    /// another layout, or `nil` when there's no such place — a different
-    /// orientation wraps text at another width.
-    ///
-    /// Built in one pass and assigned once. Moving elements one at a time
-    /// through `updateOrAppend` costs more the more there are: 3.3s for a
-    /// thousand strokes against 56ms this way, measured on 19 September.
     /// `markup` without the overflow of strokes drawn across a page break,
     /// for compressed and print layout. Taken out one by one: leaving an
     /// element out of an assigned set keeps it.
@@ -932,14 +934,26 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         return result
     }
 
+    /// The ink with every element moved to the same place on its page in
+    /// another layout, or `nil` when there's no such place — a different
+    /// orientation wraps text at another width.
+    ///
+    /// Built as an array, appended to a new set in one go, and assigned once.
+    /// Moving elements one at a time through `updateOrAppend` cost 3.3s for a
+    /// thousand strokes (19 September). Appending them one at a time costs
+    /// what the set's `count` does for each, which grows with it: a note of
+    /// 5,000 strokes took 7 seconds to open. One `append(contentsOf:)` took
+    /// 51ms (simulator, 10 October).
     static func convert(_ markup: PaperMarkup, from old: PageLayout, to new: PageLayout) -> PaperMarkup? {
         guard old.orientation == new.orientation else { return nil }
         guard old != new else { return markup }
 
-        var moved = MarkupOrderedSet()
+        var elements: [any Markup] = []
         for element in markup.subelements {
-            moved.append(InkCapture.moved(element, from: old, to: new))
+            elements.append(InkCapture.moved(element, from: old, to: new))
         }
+        var moved = MarkupOrderedSet()
+        moved.append(contentsOf: elements)
 
         var result = markup
         result.subelements = moved
