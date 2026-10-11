@@ -58,10 +58,16 @@ struct PageDetailView: View {
     private var viewMode: PageViewMode = .default
 
     /// Whether a code block's backticks show only while it is edited, or
-    /// always. Settings › Writing has the switch (a later phase); the key is
-    /// read here so the setting works once it exists.
+    /// always. Settings › Writing has the switch.
     @AppStorage(ShowMarkdown.defaultsKey)
     private var showMarkdown: ShowMarkdown = .whileEditing
+
+    /// Whether the bar ticks as it lands on an edge (Settings › General).
+    @AppStorage(SnapHaptic.defaultsKey)
+    private var hapticOnSnap = SnapHaptic.isOnByDefault
+
+    /// Counts the bar's drops; each one is a snap for the haptic to follow.
+    @State private var snaps = 0
 
     /// The page area the hotbar docks within, for working out where a drag lands.
     @State private var pageSize: CGSize = .zero
@@ -301,6 +307,7 @@ struct PageDetailView: View {
             Hotbar(editor: editor, dock: $dock, onDrop: drop)
                 .padding(Self.hotbarMargin)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: dock.alignment)
+                .sensoryFeedback(.alignment, trigger: snaps) { _, _ in hapticOnSnap }
         }
         // The surround, behind the hotbar's reserved strips and the margins
         // around the page view too: what isn't the page is the surround, not
@@ -367,6 +374,7 @@ struct PageDetailView: View {
         withAnimation(.snappy) {
             dock = landing
         }
+        snaps += 1
     }
 
     /// The area the page is drawn in.

@@ -29,6 +29,9 @@ struct NoteList: View {
     /// title ready to type.
     var onNewPage: (Page) -> Void = { _ in }
 
+    /// Asked to show Settings, from the gear at the foot of the list.
+    var onShowSettings: () -> Void = {}
+
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Page.modifiedAt, order: .reverse) private var pages: [Page]
     @Query private var folders: [Folder]
@@ -110,6 +113,22 @@ struct NoteList: View {
             }
         }
         .searchable(text: $searchText, prompt: "Search Notes")
+        // A bar at the foot of the list that holds only the gear, for now.
+        // Not a `.bottomBar` toolbar item: in the simulator that placement
+        // put the gear at the centre of the screen with the list hidden, and
+        // it wasn't there in portrait. An inset on the list stays with it.
+        .safeAreaInset(edge: .bottom) {
+            HStack {
+                Button("Settings", systemImage: "gearshape", action: onShowSettings)
+                    .labelStyle(.iconOnly)
+                    .font(.title3)
+                    .accessibilityIdentifier("settingsButton")
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+            .background(.bar)
+        }
         .navigationTitle("NoteCode")
 #if os(macOS)
         .navigationSplitViewColumnWidth(min: 180, ideal: 220)

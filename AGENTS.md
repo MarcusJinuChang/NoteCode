@@ -764,6 +764,70 @@ Laid out from the 12 September mockup.
   - The title is shown as plain text while locked, not a disabled field,
     which would grey it. The Mac's stand-in editor is simply disabled.
 
+## Settings
+
+A form sheet with a `NavigationStack`: a list of sections, each a page
+(10 Oct, phase 6 of `docs/ui-design-v2-implementation.md`). `SettingsView.swift`
+holds the list and every page but Drawing, which is iPad-only
+(`DrawingSettings.swift`); the pure parts (appearance, the snap haptic's key,
+the version string, the licence text, the palette reset) are `AppSettings.swift`.
+
+- **A row exists only if it works.** Left out on purpose, and where each
+  comes back: App Icon (phase 7), New Notes and Welcome Note (phase 8; New
+  Notes is the "+" button's tap, so a row before then would change nothing),
+  Send Feedback and Privacy Policy (`AppInfo.feedbackAddress` and
+  `.privacyPolicy` are `nil` until Marcus gives one; each row appears when its
+  value does). Not built, per the brief: Account, iCloud, Templates, Recently
+  Deleted, Export All, Storage, Rate, What's New, code keys, indent, line
+  numbers.
+- **Every row binds the key its owner already uses**, through the owner's
+  constant (`HotbarDock.defaultsKey`, `NoteSort.defaultsKey`,
+  `RunDestinationPreference.appDefaultKey`, `NoteEditor.fingerDrawsKey`, …),
+  never a second spelling. `SettingsTests.keysAreStable` pins the stored
+  names, since renaming one orphans what a device saved. Finger Draws needed
+  no new key: `fingerDraws` was already per device (10 Oct, before this phase),
+  so the row and the hotbar's hand button are one setting.
+- **Opening it.** The gear is an inset at the foot of the list
+  (`NoteList.safeAreaInset`), not a `.bottomBar` toolbar item: in the
+  simulator that placement put the gear at the centre of the screen with the
+  list hidden, and it wasn't there in portrait. ⌘, is a `CommandGroup(replacing:
+  .appSettings)` in the app's menu (`SettingsCommands`), which can't see a
+  window's state, so the window in front hands it its sheet's binding through
+  `focusedSceneValue`. The sheet is owned by `ContentView`, above the list,
+  so ⌘, works with the list slid away over a note.
+- **Appearance is applied at the root of the scene** (`AppearanceModifier`,
+  `preferredColorScheme`, on both the note view and the storage-unavailable
+  view), so every window, the sheet and UIKit controllers presented from it
+  follow it live. `AppearanceSettingTests` hosts a view in a window and
+  changes the stored value light → dark → light → system, and fails without
+  the modifier. The PDF stays light by its own means (`NotePDF`).
+- **Settings changes reach an open note.** The sheet sits over the page, whose
+  editor was set from the device's values as it appeared, so
+  `InkToolPersistence` also follows the stored eraser and Finger Draws
+  (guarded by equality, so the editor's own writes aren't echoed back). Without
+  it the next hand-button tap would have written the stale value over the
+  Settings one. The palettes need nothing: every swatch row reads the same key.
+- **Haptic on Snap** is `.sensoryFeedback(.alignment)` on the hotbar, triggered
+  by a counter `drop` bumps, with the setting as its condition. It fires on
+  every drop, including one that lands back on the same edge, and not on
+  Toolbar Position or the "Dock …" accessibility actions, which aren't snaps.
+- **Palettes** are edited in a `List` (swipe to remove, Edit to reorder, Add
+  Colour from Apple's picker through `InkColorPicker`, as the hotbar does).
+  Reset Colours asks first, and only rewrites the two palettes
+  (`InkPalette.resetStoredPalettes`): the colour each tool is drawing in is
+  left, and falls back to the palette's first on its own if the reset took it.
+- **Acknowledgements** is `Acknowledgements.txt`, bundled: HighlightSwift's
+  MIT licence, and highlight.js's BSD-3, which HighlightSwift carries and the
+  app ships. It's copied from the package checkout, so a package update that
+  changes either licence means copying again; a test checks both are present.
+- **The mark** in About's header is `NoteCodeMark`, drawn in SwiftUI on the
+  logo's 120-unit grid (the brief's geometry). Phase 7's icon script should
+  draw the same shapes; this isn't the icon.
+- **Not checked on screen:** most pages (only the section list was seen, in
+  dark, in the simulator), the Mac's sheet and ⌘, (the Mac builds; it was not
+  run), the haptic, Add Colour from a sheet, Reset Colours, and Appearance
+  with a note open.
+
 ## Code-block fences
 
 A code block shows its backticks only while it is being edited (10 Oct,
@@ -777,8 +841,8 @@ phase 5 of `docs/ui-design-v2-implementation.md`). Pure rules are in
   note. A selection counts if it overlaps the block by a character. In ink
   mode nothing is being edited. Settings › Writing › Show Markdown is
   `ShowMarkdown` (`showMarkdown`, While Editing or Always); Always draws every
-  fence, and still rings only the block being edited. There is no settings UI
-  yet (phase 6); `PageDetailView` already reads the key. Always keeps fences
+  fence, and still rings only the block being edited. Its row is in Settings › Writing
+  (see "Settings"); `PageDetailView` reads the key. Always keeps fences
   in ink mode too, which the brief didn't say either way.
 - **Hide glyphs, never lines.** An away block's fence lines keep their
   height and place and the fragment skips drawing their text, so nothing
