@@ -7,8 +7,9 @@
 
 import SwiftUI
 
-/// What the menu under the open note's title offers: the same rows as the
-/// note's long-press menu in the list, plus Rename.
+/// What the menu under the open note's title offers, and, since phase 8, what
+/// the note's long-press menu in the list offers too: one view, so the two
+/// menus can't drift apart in rows or order.
 ///
 /// Passed to `toolbarTitleMenu`, which shows the navigation title with a
 /// chevron and opens this when it's tapped. `RenameButton` is the system's own:
@@ -26,13 +27,23 @@ struct NoteTitleMenu: View {
     var onNewFolder: () -> Void
     var onGetInfo: () -> Void
 
+    /// `nil` under a navigation title, where the system's `RenameButton`
+    /// edits the title in place. The list has no title to edit, so it passes
+    /// an action that asks for a name.
+    var onRename: (() -> Void)?
+
     /// `nil` where the caller can't close the note, which hides Delete.
     var onDelete: (() -> Void)?
 
     var body: some View {
         // Locking the text locks the title with it.
-        RenameButton()
-            .disabled(page.isTextLocked)
+        if let onRename {
+            Button("Rename", systemImage: "pencil", action: onRename)
+                .disabled(page.isTextLocked)
+        } else {
+            RenameButton()
+                .disabled(page.isTextLocked)
+        }
 
         Button(page.isPinned ? "Unpin" : "Pin", systemImage: page.isPinned ? "pin.slash" : "pin") {
             withAnimation { page.isPinned.toggle() }

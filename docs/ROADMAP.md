@@ -92,6 +92,19 @@ drawn at the screen's density. 25 pull requests, all merged.
   which wait for an address and a page. Builds for iPad and Mac, 687 tests pass; looked at in the
   simulator only as far as the opened sheet's list of sections, in dark; no
   page was tapped through.
+- **UI design v2, phase 8: note list and first run** (12 Oct, branch
+  `claude/ui-phase-8-list-first-run`, off `origin/main`, not merged): tapping
+  + makes a note in Settings › Notes › New Notes' orientation, in the open
+  note's folder; holding it offers Portrait Pages, Landscape Pages and New
+  Folder. The list's note menu is the title menu, Rename included. The
+  selected row is an accent tint. An empty list offers New Note and Open
+  Welcome Note, and an empty folder says so. A first launch on an empty store
+  makes a "Welcome to NoteCode" note, once; Settings › Help and About › Welcome
+  Note makes another on request. The launch screen was already the plain system
+  background, now pinned by a test. Builds for iPad and Mac, 700 tests pass;
+  checked in a fresh simulator: the first-launch note, the tint on the selected
+  row and the + tap. Not checked: the hold menu, Rename from the list, the empty
+  states, dark mode, the Mac.
 - **Note search** (4 Oct, PR #27, merged 8 Oct): a search field at the top of the note
   list finds notes by every word typed, in the title or the text, ignoring
   case and accents. Results show the line that matched, with the words in

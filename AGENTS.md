@@ -773,9 +773,9 @@ holds the list and every page but Drawing, which is iPad-only
 the version string, the licence text, the palette reset) are `AppSettings.swift`.
 
 - **A row exists only if it works.** Left out on purpose, and where each
-  comes back: App Icon (phase 7), New Notes and Welcome Note (phase 8; New
-  Notes is the "+" button's tap, so a row before then would change nothing),
-  Send Feedback and Privacy Policy (`AppInfo.feedbackAddress` and
+  comes back: App Icon (phase 7), New Notes and Welcome Note (both came with
+  phase 8; New Notes is the "+" button's tap, so a row before then would have
+  changed nothing), Send Feedback and Privacy Policy (`AppInfo.feedbackAddress` and
   `.privacyPolicy` are `nil` until Marcus gives one; each row appears when its
   value does). Not built, per the brief: Account, iCloud, Templates, Recently
   Deleted, Export All, Storage, Rate, What's New, code keys, indent, line
@@ -924,6 +924,42 @@ so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
 - **The list's toolbar holds two items**, ••• and +. Edit and Sort By share
   the ••• menu on iPad, and Done takes its place while editing: with Edit,
   Sort and New side by side, the sidebar had no room left for its title.
+- **The + is a `Menu` with a primary action** (12 Oct, phase 8 of
+  `docs/ui-design-v2-implementation.md`). A tap makes a note in Settings ›
+  Notes › New Notes' orientation (`NewNotes`, key `newNoteOrientation`,
+  portrait until chosen); holding it shows Portrait Pages, Landscape Pages and
+  New Folder. A note made from either goes in **the open note's folder**
+  (`NewNotes.folder(whileViewing:)`), or the top of the list with no note open:
+  the list has several folders open at once, so "the open folder" had to mean
+  something, and this is where a student working through a class's notes is.
+  All creation goes through `Page.create`, so the tap, the menu and the folder
+  menu can't disagree about what a new note is.
+- **The note menu is the title menu**: `NoteTitleMenu` is used by both, and the
+  list passes `onRename` where the title uses the system's `RenameButton`, so
+  rows and order can't drift. The list's Rename asks in the name alert
+  (`FolderNaming.renamePage`) and moves the date, as renaming from the title
+  does. Delete still doesn't ask in the list, as before.
+- **The selected row is the accent tint** (`RowSelectionTint`, 18% light, 22%
+  dark) set with `listRowBackground`, label-coloured text. Seen in the
+  simulator: it replaces the system's solid highlight rather than sitting
+  under it. Light only; dark not looked at.
+- **Empty states.** No notes and no folders: `ContentUnavailableView` with New
+  Note and Open Welcome Note. A folder with nothing in it shows a "No Notes"
+  row that can't be selected. No search results was already
+  `ContentUnavailableView.search`.
+- **The Welcome note** (`WelcomeNote`) is plain text, no seeded ink. It is made
+  on first launch (`ContentView.task`, flag `welcomeNoteMade`), **only when the
+  store has no notes and no folders**: the brief said "first launch", and a
+  build that updates over a semester of notes isn't one. The flag is set
+  either way and never cleared, so deleting the note doesn't bring it back. Not
+  made when storage is in-memory (the flag would claim a first launch happened)
+  or under a debug launch's note. Settings › Help and About › Welcome Note, and
+  the empty list's Open Welcome Note, make a **new** note each time and open
+  it. Making one writes nothing to any other note
+  (`NoteListFirstRunTests.otherNotesKeepTheirDates`).
+- **The launch screen is the system background and nothing else**:
+  `INFOPLIST_KEY_UILaunchScreen_Generation` writes an empty `UILaunchScreen`,
+  already the case; `AppStoreReadinessTests.launchScreenIsPlain` pins it.
 - **Note info is derived, never stored** (3 Oct). `NoteInfo` works out
   words and code blocks by language from the text, through
   `DocumentParser`, each time the sheet opens: nothing to keep in step

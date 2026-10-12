@@ -33,12 +33,17 @@ struct NoteList: View {
     var onShowSettings: () -> Void = {}
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
     @Query(sort: \Page.modifiedAt, order: .reverse) private var pages: [Page]
     @Query private var folders: [Folder]
 
     /// How notes are ordered. Per device, like the view mode: it's how this
     /// reader likes to look at the list, and changes nothing in a note.
     @AppStorage(NoteSort.defaultsKey) private var sort: NoteSort = .default
+
+    /// Which way up the "+" button's tap makes a note's pages
+    /// (Settings › Notes › New Notes).
+    @AppStorage(NewNotes.defaultsKey) private var newNoteOrientation = PageOrientation.default
 
     /// Where code blocks run when nothing more specific says, for the
     /// folder menu's "Default" row.
@@ -110,6 +115,8 @@ struct NoteList: View {
         .overlay {
             if !search.isEmpty && results.isEmpty {
                 ContentUnavailableView.search(text: searchText)
+            } else if search.isEmpty && pages.isEmpty && folders.isEmpty {
+                emptyList
             }
         }
         .searchable(text: $searchText, prompt: "Search Notes")
@@ -150,15 +157,20 @@ struct NoteList: View {
 #endif
             }
             ToolbarItem {
+                // A tap makes a note the way Settings › New Notes says; holding
+                // it offers the other orientation and a folder.
                 Menu {
-                    newNoteButtons(in: nil)
+                    newNoteButtons(in: newNoteFolder)
                     Divider()
                     Button("New Folder", systemImage: "folder.badge.plus") {
                         startNaming(.new(moving: nil))
                     }
                 } label: {
                     Label("New", systemImage: "plus")
+                } primaryAction: {
+                    addPage(newNoteOrientation, in: newNoteFolder)
                 }
+                .accessibilityIdentifier("newNoteButton")
             }
         }
 #if os(iOS)
@@ -172,6 +184,36 @@ struct NoteList: View {
             Button("Cancel", role: .cancel) {}
             Button(naming?.confirmation ?? "OK") { finishNaming() }
         }
+    }
+
+    // MARK: Empty states
+
+    /// A list with no notes and no folders: the two ways to start.
+    ///
+    /// "Open Welcome Note" makes a new copy, as Settings does, rather than
+    /// looking for one: an empty list means the first launch's copy is gone.
+    private var emptyList: some View {
+        ContentUnavailableView {
+            Label("No Notes", systemImage: "note.text")
+        } description: {
+            Text("Start a note, or open the tour of what NoteCode does.")
+        } actions: {
+            Button("New Note") {
+                addPage(newNoteOrientation, in: nil)
+            }
+            .buttonStyle(.borderedProminent)
+            Button("Open Welcome Note") {
+                selection = WelcomeNote.make(in: modelContext)
+            }
+        }
+    }
+
+    /// What a folder shows when nothing is filed in it. Not a note, so it
+    /// can't be selected.
+    private var emptyFolderRow: some View {
+        Text("No Notes")
+            .foregroundStyle(.secondary)
+            .selectionDisabled()
     }
 
     // MARK: Rows
@@ -203,6 +245,7 @@ struct NoteList: View {
                 .foregroundStyle(.secondary)
             }
             .tag(page)
+            .listRowBackground(rowBackground(for: page))
             .contextMenu { noteMenu(page) }
         }
         .onDelete { offsets in
@@ -237,14 +280,25 @@ struct NoteList: View {
                 .foregroundStyle(.secondary)
             }
             .tag(page)
+            .listRowBackground(rowBackground(for: page))
             .contextMenu { noteMenu(page) }
         }
+    }
+
+    /// The selected note's row is the accent at a low strength, with the
+    /// label colour kept for its text: never white on solid orange.
+    private func rowBackground(for page: Page) -> Color? {
+        selection == page ? RowSelectionTint.color(isDark: colorScheme == .dark) : nil
     }
 
     private func folderRows(_ sections: [NoteListSections.FolderSection]) -> some View {
         ForEach(sections) { section in
             DisclosureGroup(isExpanded: isOpen(section.folder)) {
-                noteRows(section.notes)
+                if section.notes.isEmpty {
+                    emptyFolderRow
+                } else {
+                    noteRows(section.notes)
+                }
             } label: {
                 folderRow(section)
             }
@@ -339,42 +393,19 @@ struct NoteList: View {
         }
     }
 
-    @ViewBuilder
+    /// The note's long-press menu is the title menu: the same view, so the
+    /// same rows in the same order. The list renames through the name alert,
+    /// since it has no title to edit in place, and deletes without asking, as
+    /// it always has.
     private func noteMenu(_ page: Page) -> some View {
-        Button(page.isPinned ? "Unpin" : "Pin", systemImage: page.isPinned ? "pin.slash" : "pin") {
-            withAnimation { page.isPinned.toggle() }
-        }
-        // Like pinning, not an edit: the date stays.
-        Button(
-            page.isTextLocked ? "Unlock Text" : "Lock Text",
-            systemImage: page.isTextLocked ? "lock.open" : "lock"
-        ) {
-            page.isTextLocked.toggle()
-        }
-        Menu("Move to Folder", systemImage: "folder") {
-            ForEach(NoteListSections(pages: [], folders: folders).allFolders) { folder in
-                Button(folder.name) {
-                    move(page, to: folder)
-                }
-                .disabled(page.folder == folder)
-            }
-            Divider()
-            Button("New Folder…", systemImage: "folder.badge.plus") {
-                startNaming(.new(moving: page))
-            }
-        }
-        if page.folder != nil {
-            Button("Remove from Folder", systemImage: "folder.badge.minus") {
-                move(page, to: nil)
-            }
-        }
-        Button("Get Info", systemImage: "info.circle") {
-            infoPage = page
-        }
-        Divider()
-        Button("Delete", systemImage: "trash", role: .destructive) {
-            deletePages([page])
-        }
+        NoteTitleMenu(
+            page: page,
+            folders: folders,
+            onNewFolder: { startNaming(.new(moving: page)) },
+            onGetInfo: { infoPage = page },
+            onRename: { startNaming(.renamePage(page)) },
+            onDelete: { deletePages([page]) }
+        )
     }
 
     @ViewBuilder
@@ -451,35 +482,29 @@ struct NoteList: View {
 
     // MARK: Changes
 
+    /// Where the "+" button files a new note: with the note that's open, so
+    /// a student working through a class's folder keeps adding to it. At the
+    /// top of the list when no note is open, or the open one has no folder.
+    private var newNoteFolder: Folder? {
+        NewNotes.folder(whileViewing: selection)
+    }
+
     private func addPage(_ orientation: PageOrientation, in folder: Folder?) {
-        let page = Page()
-        page.orientation = orientation
-        withAnimation {
-            modelContext.insert(page)
-            page.folder = folder
+        let page: Page = withAnimation {
             if let folder {
                 closedFolders.remove(folder.persistentModelID)
             }
+            return Page.create(orientation: orientation, in: folder, context: modelContext)
         }
         onNewPage(page)
         selection = page
     }
 
-    /// Files a note in a folder, or takes it out of one with `nil`.
-    ///
-    /// Not an edit to the note, so its date modified stays: moving a week of
-    /// notes into a folder shouldn't make them all look written today.
-    private func move(_ page: Page, to folder: Folder?) {
-        withAnimation {
-            page.folder = folder
-        }
-    }
-
     private func startNaming(_ naming: FolderNaming) {
-        if case .rename(let folder) = naming {
-            typedName = folder.name
-        } else {
-            typedName = ""
+        switch naming {
+        case .rename(let folder):   typedName = folder.name
+        case .renamePage(let page): typedName = page.title
+        case .new:                  typedName = ""
         }
         self.naming = naming
         showsNameAlert = true
@@ -496,6 +521,10 @@ struct NoteList: View {
             }
         case .rename(let folder):
             folder.name = name
+        case .renamePage(let page):
+            // An edit, as renaming from the title is: the date moves.
+            page.title = Page.title(fromTyped: typedName)
+            page.modifiedAt = .now
         case nil:
             break
         }
@@ -530,18 +559,36 @@ private enum FolderNaming {
     /// note's "Move to Folder" menu.
     case new(moving: Page?)
     case rename(Folder)
+    /// A note, renamed from the list's menu.
+    case renamePage(Page)
 
     var title: String {
         switch self {
-        case .new:    "New Folder"
-        case .rename: "Rename Folder"
+        case .new:        "New Folder"
+        case .rename:     "Rename Folder"
+        case .renamePage: "Rename Note"
         }
     }
 
     var confirmation: String {
         switch self {
-        case .new:    "Create"
-        case .rename: "Rename"
+        case .new:        "Create"
+        case .rename,
+             .renamePage: "Rename"
         }
+    }
+}
+
+/// The selected note's row, behind its text: the accent at 18% in light and
+/// 22% in dark, the design's tint (#FFE9CF over white for the default accent).
+/// The label colour stays on top, so it reads in both appearances, which solid
+/// orange with white text would not for the smaller type.
+enum RowSelectionTint {
+    static func opacity(isDark: Bool) -> Double {
+        isDark ? 0.22 : 0.18
+    }
+
+    static func color(isDark: Bool) -> Color {
+        Color.accentColor.opacity(opacity(isDark: isDark))
     }
 }
