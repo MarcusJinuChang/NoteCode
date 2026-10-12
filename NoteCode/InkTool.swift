@@ -343,6 +343,43 @@ nonisolated struct InkToolState: Equatable, Sendable {
     var hasOptions: Bool {
         kind != .lasso
     }
+
+    /// Moves the selected tool one width thinner (`-1`) or thicker (`1`),
+    /// stopping at the ends: the `[` and `]` keys.
+    ///
+    /// The pen and highlighter step through their three widths. The eraser
+    /// steps through its sizes, and from a custom size goes to the nearest
+    /// preset on that side, so the key always does something visible. The
+    /// lasso has no width.
+    mutating func stepWidth(by direction: Int) {
+        guard direction != 0 else { return }
+        let step = direction > 0 ? 1 : -1
+
+        switch kind {
+        case .pen, .highlighter:
+            let widths = InkWidth.allCases
+            guard let index = widths.firstIndex(of: self[inking: kind].width) else { return }
+            let target = min(max(index + step, 0), widths.count - 1)
+            self[inking: kind].width = widths[target]
+
+        case .eraser:
+            let presets: [EraserSettings.Size] = [.small, .medium, .large]
+            if let index = presets.firstIndex(of: eraser.size) {
+                eraser.size = presets[min(max(index + step, 0), presets.count - 1)]
+            } else {
+                // Custom: the nearest preset on the side asked for, else the
+                // end of the range, so the key never does nothing.
+                let width = eraser.customWidth
+                let widths = presets.compactMap { EraserSettings.width(of: $0) }
+                let candidates = presets.indices.filter { step > 0 ? widths[$0] > width : widths[$0] < width }
+                eraser.size = (step > 0 ? candidates.first : candidates.last).map { presets[$0] }
+                    ?? (step > 0 ? .large : .small)
+            }
+
+        case .lasso:
+            break
+        }
+    }
 }
 
 // MARK: - The design's inks

@@ -169,6 +169,14 @@ struct PageDetailView: View {
         .onChange(of: page.isTextLocked, initial: true) { _, locked in
             editor.setTextLocked(locked)
         }
+        // The menu bar's shortcuts act on this note.
+        .openNote(OpenNote(
+            editor: editor,
+            viewMode: $viewMode,
+            printNote: { [editor, title = page.title] in
+                Task { await editor.printNote(title: title) }
+            }
+        ))
         // Ink drawn just before leaving would otherwise wait out the pause
         // after the page is gone.
         .onDisappear { [inkSaver] in
@@ -250,7 +258,7 @@ struct PageDetailView: View {
             }
             // The text view answers ⌘F itself while it's typing; this is the
             // same shortcut for when it isn't, and listed in the ⌘ overlay.
-            .keyboardShortcut("f", modifiers: .command)
+            .keyboardShortcut(.find)
 #endif
         } label: {
             Label("More", systemImage: "ellipsis")

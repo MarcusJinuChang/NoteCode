@@ -80,6 +80,16 @@ nonisolated enum CodeBlockAction {
         return String(source[code.contentRange])
     }
 
+    /// The code block the caret is in, fence lines included, for run and copy
+    /// from the keyboard and the edit menu.
+    ///
+    /// A caret at the very end of the note counts as in the block that ends
+    /// there, which is the unclosed block still being typed.
+    static func target(atCaret offset: Int, in targets: [CodeBlockTarget], sourceLength: Int) -> CodeBlockTarget? {
+        targets.first { NSLocationInRange(offset, $0.range) }
+            ?? targets.last { offset == sourceLength && NSMaxRange($0.range) == sourceLength }
+    }
+
     /// Every code block in the document, in order, with UTF-16 ranges.
     ///
     /// One forward pass over *all* blocks, not just the code ones: a block's

@@ -105,6 +105,19 @@ drawn at the screen's density. 25 pull requests, all merged.
   checked in a fresh simulator: the first-launch note, the tint on the selected
   row and the + tap. Not checked: the hold menu, Rename from the list, the empty
   states, dark mode, the Mac.
+- **UI design v2, phase 9: finishing** (12 Oct, branch
+  `claude/ui-phase-9-finishing`, off the phase 8 branch, not merged): every
+  shortcut in the brief is in the menu bar, so holding ⌘ lists them (Bold,
+  Italic, headings, bullets, code block in the last language, Run and Copy
+  Block, text/draw, the ink tools on bare keys, thinner and thicker, the view
+  modes, Find, Print, New Note and Folder, Search Notes, the note list). The
+  edit menu offers Bold, Italic, Code and Format on prose, and Run Block and
+  Copy Block in code. Copy Block gives a light tap; the pointer lifts the
+  hotbar and the run, copy and language buttons. The note body now ignores
+  the system's text size, which had been re-wrapping notes under their ink;
+  the list and Settings scale with it. Builds for iPad and Mac, 735 tests
+  pass; looked at in the simulator only at the largest text size. No
+  shortcut was tried with a real keyboard.
 - **Note search** (4 Oct, PR #27, merged 8 Oct): a search field at the top of the note
   list finds notes by every word typed, in the title or the text, ignoring
   case and accents. Results show the line that matched, with the words in

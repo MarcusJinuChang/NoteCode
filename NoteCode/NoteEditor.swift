@@ -59,6 +59,24 @@ final class NoteEditor {
         inkTool.kind = previousInkKind
     }
 
+    /// Picks a tool from the keyboard (P, H, E, L). Ink mode only: in text
+    /// mode these are letters.
+    func selectTool(_ kind: InkToolKind) {
+        guard mode == .ink else { return }
+        inkTool.kind = kind
+    }
+
+    /// `[` and `]`: the selected tool one width thinner or thicker.
+    func stepWidth(by direction: Int) {
+        guard mode == .ink else { return }
+        inkTool.stepWidth(by: direction)
+    }
+
+    /// ⇧⌘D, and the same switch as the hotbar's text and draw buttons.
+    func toggleMode() {
+        setMode(mode == .text ? .ink : .text)
+    }
+
     /// Whether only the Pencil draws.
     ///
     /// Off by default. The page already has a hard toggle between typing and
@@ -100,6 +118,15 @@ final class NoteEditor {
     /// the delegate doesn't take it for the keyboard rewriting code.
     @ObservationIgnored private(set) var isFormatting = false
 
+    /// Where the last code language is kept. Replaceable so a test doesn't
+    /// write the device's own.
+    @ObservationIgnored var defaults = UserDefaults.standard
+
+    /// Run or copy the code block the caret is in, if it's in one. The text
+    /// view's coordinator sets these: it owns the blocks and where they run.
+    @ObservationIgnored var runBlockAtCaret: (() -> Void)?
+    @ObservationIgnored var copyBlockAtCaret: (() -> Void)?
+
     @ObservationIgnored private weak var textView: UITextView?
     @ObservationIgnored private weak var canvas: DrawingCanvas?
     @ObservationIgnored private weak var page: PageView?
@@ -132,6 +159,25 @@ final class NoteEditor {
             orientation: page.pageLayout.orientation,
             pageCount: page.pageCount
         ))
+    }
+
+    /// ⌘P: the system's print dialog for the note's PDF.
+    ///
+    /// The same PDF the share button makes, so what prints is what Save to
+    /// Files would keep; the share sheet's Print row opens this same dialog.
+    func printNote(title: String) async {
+        guard UIPrintInteractionController.isPrintingAvailable,
+              let data = await pdf(title: title)
+        else { return }
+
+        let info = UIPrintInfo.printInfo()
+        info.outputType = .general
+        info.jobName = title
+
+        let controller = UIPrintInteractionController.shared
+        controller.printInfo = info
+        controller.printingItem = data
+        controller.present(animated: true)
     }
 
     /// Called by `DocumentTextView` once the page, and so the canvas, exists.
@@ -215,8 +261,17 @@ final class NoteEditor {
         perform { MarkdownFormatting.toggleBullet(in: $0, selection: $1) }
     }
 
+    /// Starts a code block, and remembers its language for
+    /// `insertCodeBlockInLastLanguage`.
     func insertCodeBlock(language: CodeLanguage?) {
+        guard mode == .text, !isTextLocked else { return }
+        LastCodeLanguage.store(language, in: defaults)
         perform { MarkdownFormatting.insertCodeBlock(language: language, in: $0, selection: $1) }
+    }
+
+    /// ⇧⌘K: a code block in whichever language the last one was.
+    func insertCodeBlockInLastLanguage() {
+        insertCodeBlock(language: LastCodeLanguage.read(from: defaults))
     }
 
     /// Makes an edit through the text view rather than around it.
@@ -275,6 +330,29 @@ final class NoteEditor {
         refreshUndoState()
     }
 
+    /// ⌘Z and ⇧⌘Z, from the menu bar.
+    ///
+    /// The note's own stacks, unless some other text field has the keyboard
+    /// (the title being renamed, the list's search): undoing there is for
+    /// that field, and the note's typing isn't what was asked for. The
+    /// system's Undo command reaches only a first responder that has an undo
+    /// manager, and in ink mode nothing on the page is first responder, so
+    /// the menu would otherwise be dead exactly when ink has the page.
+    func undoFromKeyboard() {
+        if let other = otherTextInputUndoManager { other.undo() } else { undo() }
+    }
+
+    func redoFromKeyboard() {
+        if let other = otherTextInputUndoManager { other.redo() } else { redo() }
+    }
+
+    private var otherTextInputUndoManager: UndoManager? {
+        guard let responder = UIResponder.currentFirstResponder,
+              responder is UITextInput, responder !== textView
+        else { return nil }
+        return responder.undoManager
+    }
+
     /// Re-reads whether undo and redo have anything to do.
     ///
     /// Assigns only on a real change. This runs on every keystroke, and an
@@ -285,6 +363,25 @@ final class NoteEditor {
         let redo = activeUndoManager?.canRedo ?? false
         if canUndo != undo { canUndo = undo }
         if canRedo != redo { canRedo = redo }
+    }
+}
+
+extension UIResponder {
+    private weak static var found: UIResponder?
+
+    /// The responder holding the keyboard, if any.
+    ///
+    /// UIKit has no public accessor. Sending an action to no one in
+    /// particular walks the responder chain from the first responder, and the
+    /// first one to answer is it.
+    static var currentFirstResponder: UIResponder? {
+        found = nil
+        UIApplication.shared.sendAction(#selector(UIResponder.noteCodeReportFirstResponder), to: nil, from: nil, for: nil)
+        return found
+    }
+
+    @objc fileprivate func noteCodeReportFirstResponder() {
+        Self.found = self
     }
 }
 

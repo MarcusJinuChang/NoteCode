@@ -14,6 +14,10 @@ struct NoteCodeApp: App {
     private let openedPage: Page?
 
     init() {
+#if canImport(UIKit)
+        // So the menu bar's bare-letter shortcuts know when a field is typing.
+        TextInputActivity.shared.start()
+#endif
 #if DEBUG && canImport(UIKit)
         // See DebugLaunch.swift. A no-op unless a -debug- argument was passed.
         let session = DebugSession.shared
@@ -39,7 +43,10 @@ struct NoteCodeApp: App {
                     .modifier(AppearanceModifier())
             }
         }
-        .commands { SettingsCommands() }
+        .commands {
+            SettingsCommands()
+            NoteCommands()
+        }
     }
 }
 
