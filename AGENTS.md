@@ -773,9 +773,10 @@ holds the list and every page but Drawing, which is iPad-only
 the version string, the licence text, the palette reset) are `AppSettings.swift`.
 
 - **A row exists only if it works.** Left out on purpose, and where each
-  comes back: App Icon (phase 7), New Notes and Welcome Note (both came with
-  phase 8; New Notes is the "+" button's tap, so a row before then would have
-  changed nothing), Send Feedback and Privacy Policy (`AppInfo.feedbackAddress` and
+  comes back (App Icon came with phase 7, see "Shipping"): New Notes and
+  Welcome Note (both came with phase 8; New Notes is the "+" button's tap, so
+  a row before then would have changed nothing), Send Feedback and Privacy
+  Policy (`AppInfo.feedbackAddress` and
   `.privacyPolicy` are `nil` until Marcus gives one; each row appears when its
   value does). Not built, per the brief: Account, iCloud, Templates, Recently
   Deleted, Export All, Storage, Rate, What's New, code keys, indent, line
@@ -821,8 +822,10 @@ the version string, the licence text, the palette reset) are `AppSettings.swift`
   app ships. It's copied from the package checkout, so a package update that
   changes either licence means copying again; a test checks both are present.
 - **The mark** in About's header is `NoteCodeMark`, drawn in SwiftUI on the
-  logo's 120-unit grid (the brief's geometry). Phase 7's icon script should
-  draw the same shapes; this isn't the icon.
+  logo's 120-unit grid (the brief's geometry), in the colours of whichever
+  `AppIconChoice` it is given: About shows the Default, and General › App Icon
+  draws all three as previews. `scripts/make-icons.swift` draws the same
+  shapes into the real icon; this view isn't the icon.
 - **Not checked on screen:** most pages (only the section list was seen, in
   dark, in the simulator), the Mac's sheet and ⌘, (the Mac builds; it was not
   run), the haptic, Add Colour from a sheet, Reset Colours, and Appearance
@@ -1060,8 +1063,42 @@ What an upload checks before a person sees the app (4 Oct).
   Marcus Chang" certificate issued 8 Oct to 8 Oct 2027, and the app's
   team provisioning profile, made 8 Oct and valid a year. When an on-device
   build misbehaves, check which team signed it before reading any Swift.
-- **Still missing:** the app icon (the icon set has no images, which also
-  fails an upload).
+- **The app icon** (10 Oct, phase 7 of `docs/ui-design-v2-implementation.md`):
+  the set had no images, which fails an upload; it has them now. They are
+  **drawn by `scripts/make-icons.swift`** (Core Graphics, the Logo board's
+  120-unit geometry), which rewrites the three icon sets and their
+  `Contents.json` outright: `swift scripts/make-icons.swift` from the
+  repository root. Edit the script, never the PNGs.
+  - **`AppIcon`**: Default (opaque), Dark (brackets and pencil on a
+    transparent ground: the system supplies the background) and Tinted
+    (greyscale, with the pencil at the orange's luma so it stays darker than
+    the brackets once tinted), plus the ten macOS slots. Each macOS size is
+    drawn at its own pixel size, not scaled from the 1024.
+  - **Opaque except Dark.** The App Store rejects a marketing icon with an
+    alpha channel, so the Default, both alternates and the Tinted image are
+    written with none (`sips -g hasAlpha`); `AppIconTests.alpha` checks it.
+  - **Alternates** `AppIcon-Paper` and `AppIcon-Orange`, named in
+    `ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES`, **scoped to the iPhone
+    and iPad SDKs** (`[sdk=iphone*]`): they have no macOS art, so unscoped
+    the Mac build warned "No applicable app icon found" for both. macOS has
+    no `setAlternateIconName` either. One image each, with no Dark or Tinted
+    variant, so they look the same in every Home Screen style.
+  - **Full-bleed squares**, as the design says. The macOS slots are the same
+    art, unmasked: not seen on a Mac, so check the Dock before shipping there.
+  - **The colours live twice**, in the script and in `AppIconChoice`
+    (AppSettings.swift), which Settings draws its previews from, since an
+    icon set can't be loaded as an image by name. `AppIconTests` samples the
+    background, a bracket and the pencil in each PNG against the model, so a
+    change to one side fails until the other follows.
+  - **Settings › General › App Icon** (iOS only) reads
+    `UIApplication.alternateIconName` as it appears and after each change,
+    and stores nothing: iOS keeps the choice, so a copy in `UserDefaults`
+    could only disagree with the Home Screen. iOS puts up its own "You have
+    changed the icon" alert on a change; it can't be turned off without
+    private API. The Mac has no row.
+  - **Not done:** Icon Composer's glass look (out of scope; Marcus can rebuild
+    from the script's geometry), and the icon on a real Home Screen with
+    Increase Contrast or a tint colour (the system composes both).
 
 ## Build/test
 

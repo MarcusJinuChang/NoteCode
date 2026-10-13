@@ -59,6 +59,18 @@ struct AppStoreReadinessTests {
     }
 #endif
 
+#if canImport(UIKit)
+    @Test("The app carries its icon, which an upload rejects the app for lacking")
+    func appIconShips() throws {
+        // actool merges the icon sets into Info.plist and writes the primary
+        // icon's files into the bundle; an empty set produces neither.
+        let icons = try #require(Bundle.main.object(forInfoDictionaryKey: "CFBundleIcons") as? [String: Any])
+        let primary = try #require(icons["CFBundlePrimaryIcon"] as? [String: Any])
+        #expect(primary["CFBundleIconName"] as? String == "AppIcon")
+        #expect(Bundle.main.url(forResource: "AppIcon60x60@2x", withExtension: "png") != nil)
+    }
+#endif
+
     /// The manifest as the app carries it. Tests run inside the app, so
     /// `Bundle.main` is the app's bundle, not the test bundle's.
     private static func privacyManifest() throws -> [String: Any] {

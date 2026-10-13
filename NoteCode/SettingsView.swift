@@ -10,6 +10,9 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 // MARK: - Opening it
 
@@ -150,6 +153,8 @@ private struct GeneralSettings: View {
                 }
             }
 #if canImport(UIKit)
+            AppIconSection()
+
             // The Mac has no hotbar: its editor is text only.
             Section {
                 Picker("Toolbar Position", selection: $dock) {
@@ -164,6 +169,62 @@ private struct GeneralSettings: View {
         .navigationTitle("General")
     }
 }
+
+#if canImport(UIKit)
+/// Settings › General › App Icon: each icon drawn as a choice, the showing one
+/// ticked. Hidden where the system doesn't allow a change, rather than shown
+/// and doing nothing.
+///
+/// What's showing is read from `UIApplication.alternateIconName` as the
+/// section appears and after every change, never kept in a setting of its
+/// own. iOS shows its own "You have changed the icon" alert on a change; it
+/// can't be turned off without private API.
+private struct AppIconSection: View {
+    @State private var current = AppIconChoice(alternateIconName: UIApplication.shared.alternateIconName)
+
+    var body: some View {
+        if UIApplication.shared.supportsAlternateIcons {
+            Section("App Icon") {
+                ForEach(AppIconChoice.allCases) { choice in
+                    Button {
+                        select(choice)
+                    } label: {
+                        HStack(spacing: 14) {
+                            NoteCodeMark(icon: choice)
+                                .frame(width: 44, height: 44)
+                                .clipShape(RoundedRectangle(cornerRadius: 44 * 0.2237, style: .continuous))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 44 * 0.2237, style: .continuous)
+                                        .strokeBorder(.separator, lineWidth: 0.5)
+                                }
+                                .accessibilityHidden(true)
+                            Text(choice.title)
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            if choice == current {
+                                Image(systemName: "checkmark").foregroundStyle(.tint)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(choice == current ? .isSelected : [])
+                }
+            }
+        }
+    }
+
+    private func select(_ choice: AppIconChoice) {
+        guard choice != current else { return }
+        Task {
+            // Throws when the system refuses (an icon name this build doesn't
+            // carry); the tick then goes back to what is really showing.
+            try? await UIApplication.shared.setAlternateIconName(choice.alternateIconName)
+            current = AppIconChoice(alternateIconName: UIApplication.shared.alternateIconName)
+        }
+    }
+}
+#endif
 
 extension HotbarDock {
     var title: String {
@@ -340,16 +401,21 @@ private struct AcknowledgementsPage: View {
     }
 }
 
-/// The Default icon's mark, drawn on the design's 120 by 120 grid: two
-/// brackets and a tilted pencil, white and orange on near-black. The same
-/// geometry the app icon is made from.
+/// An icon's mark, drawn on the design's 120 by 120 grid: two brackets and a
+/// tilted pencil. The same geometry the app icons are made from
+/// (`scripts/make-icons.swift`), in the icon's own colours: the Default's
+/// white and orange on near-black unless told otherwise. It is the picture
+/// of each icon in Settings, since an app icon set can't be loaded as an
+/// image by name.
 struct NoteCodeMark: View {
+    var icon: AppIconChoice = .standard
+
     var body: some View {
         Canvas { context, size in
             let scale = min(size.width, size.height) / 120
             context.scaleBy(x: scale, y: scale)
 
-            context.fill(Path(CGRect(x: 0, y: 0, width: 120, height: 120)), with: .color(Self.background))
+            context.fill(Path(CGRect(x: 0, y: 0, width: 120, height: 120)), with: .color(Color(hex: icon.background)))
 
             var brackets = Path()
             brackets.move(to: CGPoint(x: 38, y: 38))
@@ -358,7 +424,7 @@ struct NoteCodeMark: View {
             brackets.move(to: CGPoint(x: 82, y: 38))
             brackets.addLine(to: CGPoint(x: 102, y: 60))
             brackets.addLine(to: CGPoint(x: 82, y: 82))
-            context.stroke(brackets, with: .color(.white), style: StrokeStyle(lineWidth: 10, lineCap: .round, lineJoin: .round))
+            context.stroke(brackets, with: .color(Color(hex: icon.brackets)), style: StrokeStyle(lineWidth: 10, lineCap: .round, lineJoin: .round))
 
             var pencil = Path(roundedRect: CGRect(x: 55, y: 38, width: 10, height: 36), cornerRadius: 2)
             pencil.move(to: CGPoint(x: 55, y: 77))
@@ -371,11 +437,17 @@ struct NoteCodeMark: View {
             tilted.translateBy(x: 60, y: 60)
             tilted.rotate(by: .degrees(18))
             tilted.translateBy(x: -60, y: -60)
-            tilted.fill(pencil, with: .color(Self.accent))
-            tilted.stroke(pencil, with: .color(Self.accent), style: StrokeStyle(lineWidth: 1.2, lineJoin: .round))
+            tilted.fill(pencil, with: .color(Color(hex: icon.pencil)))
+            tilted.stroke(pencil, with: .color(Color(hex: icon.pencil)), style: StrokeStyle(lineWidth: 1.2, lineJoin: .round))
         }
     }
+}
 
-    private static let background = Color(red: 0x14 / 255, green: 0x14 / 255, blue: 0x16 / 255)
-    private static let accent = Color(red: 0xFA / 255, green: 0x85 / 255, blue: 0)
+private extension Color {
+    /// An sRGB colour from the hex `AppIconChoice` keeps its colours in.
+    init(hex: Int) {
+        self.init(red: Double((hex >> 16) & 0xFF) / 255,
+                  green: Double((hex >> 8) & 0xFF) / 255,
+                  blue: Double(hex & 0xFF) / 255)
+    }
 }
