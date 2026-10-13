@@ -21,6 +21,19 @@ pinch zoom, the note page and its hotbar, and a PaperKit canvas that a finger
 or the Pencil draws on, with ink undo of its own, saved with the note and
 drawn at the screen's density. 25 pull requests, all merged.
 
+- **UI design v3, phase 3: writing, with Markdown markers hidden** (12 Oct,
+  branch `claude/v3-phase-3-writing`, off phase 2, not merged): in a note made
+  from now on, `#`, `**`, backticks, `~~` and link syntax take no room on the
+  page (a word-joiner swap in layout, so nothing re-wraps and ink stays put);
+  a heading's `#` is drawn in the margin while the caret is on it, and the
+  hotbar lights up what the caret is in. Backspace, arrow keys and Return
+  know about the hidden markers. Return continues lists and checklists, Tab
+  and ⇧Tab nest them, List ▾ has Numbered and Checklist, boxes tick with a
+  tap, and `[text](url)` and bare addresses are links (tap to open, hold for
+  Open Link / Copy Link). Notes with ink keep visible markers until the title
+  menu's Hide Markdown Markers…. Builds for iPad and Mac; looked at in the
+  simulator (the margin hash, boxes, links, Return in a list, with real taps
+  on a box and the heading); not with a real keyboard or the Pencil.
 - **UI design v3, phase 2: title screen, Home, thumbnails, reopening** (12 Oct,
   branch `claude/v3-phase-2-home`, off phase 1, not merged): the app opens on
   Home, in the page area, with the list behind ☰: the note to continue (with
