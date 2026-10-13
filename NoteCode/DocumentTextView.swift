@@ -58,6 +58,9 @@ struct DocumentTextView: UIViewRepresentable {
     /// because its ink was drawn against that layout.
     var rendersMarkdown = false
 
+    /// Settings › Code: indent width, the code-keys row, line numbers.
+    var codeSettings = CodeEditorSettings()
+
     // MARK: UIViewRepresentable
 
     func makeUIView(context: Context) -> PageView {
@@ -70,6 +73,7 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.attachOverlay(to: textView)
         context.coordinator.observeAppearance(of: textView)
         context.coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
+        codeSettings.apply(to: context.coordinator, in: textView)
         textView.text = text
         context.coordinator.invalidateStyling()
         context.coordinator.restyle(textView)
@@ -114,6 +118,7 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.editor = editor
         context.coordinator.showMarkdown = showMarkdown
         context.coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
+        codeSettings.apply(to: context.coordinator, in: textView)
 
         // Only push text down when it actually differs. Assigning `.text`
         // unconditionally would reset the selection on every render and fight
@@ -174,6 +179,21 @@ struct DocumentTextView: UIViewRepresentable {
 
         /// Settings › Writing › Show Markdown, as `DocumentTextView` last had it.
         var showMarkdown = ShowMarkdown.whileEditing
+
+        /// Settings › Code › Indent Width.
+        var indentWidth = CodeIndent.defaultWidth
+
+        /// Settings › Code › Code Keys, and the row it turns on.
+        private(set) var codeKeysEnabled = CodeKeys.enabledByDefault
+        private lazy var codeKeysRow: CodeKeysRow = {
+            let row = CodeKeysRow()
+            row.onKey = { [weak self] key in self?.perform(key) }
+            return row
+        }()
+        private var hardwareKeyboardObservers: [NSObjectProtocol] = []
+
+        /// Settings › Code › Line Numbers.
+        private(set) var showsLineNumbers = LineNumbers.enabledByDefault
 
         /// Whether the note lays its Markdown markers out at zero width.
         /// See `MarkdownLayout`. Set through `setRendersMarkdown`.
@@ -277,6 +297,17 @@ struct DocumentTextView: UIViewRepresentable {
 
         init(text: Binding<String>) {
             self.text = text
+            super.init()
+            // A keyboard attached or taken away changes whether the row is
+            // wanted, with the caret where it was.
+            hardwareKeyboardObservers = HardwareKeyboard.observe { [weak self] in
+                guard let self, let textView else { return }
+                refreshCodeKeys(in: textView, reloading: true)
+            }
+        }
+
+        deinit {
+            hardwareKeyboardObservers.forEach(NotificationCenter.default.removeObserver)
         }
 
         /// Forgets `layoutCodeRanges` whenever the text storage is edited.
@@ -759,6 +790,21 @@ struct DocumentTextView: UIViewRepresentable {
             let storage = textView.textStorage
             let text = storage.mutableString
 
+            // In code, Return keeps the line's indent and Tab indents the
+            // lines. Checked first: code isn't a list, and these answer nil
+            // anywhere but in a block's own lines.
+            if replacement == "\n", range == textView.selectedRange,
+               let edit = CodeIndent.returnEdit(
+                   in: text, selection: range, codeRanges: codeRanges(in: storage), width: indentWidth
+               ) {
+                return edit
+            }
+            if replacement == "\t", range == textView.selectedRange,
+               let edit = CodeIndent.indentEdit(
+                   in: text, selection: range, outdent: false, codeRanges: codeRanges(in: storage), width: indentWidth
+               ) {
+                return edit
+            }
             if replacement == "\n", range == textView.selectedRange, range.length == 0 {
                 return MarkdownFormatting.returnEdit(
                     in: text, caret: range.location, rendered: rendersMarkdown, codeRanges: codeRanges(in: storage)
@@ -789,7 +835,16 @@ struct DocumentTextView: UIViewRepresentable {
         }
 
         private func outdentEdit(in textView: UITextView) -> TextEdit? {
-            MarkdownFormatting.indent(
+            if let edit = CodeIndent.indentEdit(
+                in: textView.textStorage.mutableString,
+                selection: textView.selectedRange,
+                outdent: true,
+                codeRanges: codeRanges(in: textView.textStorage),
+                width: indentWidth
+            ) {
+                return edit
+            }
+            return MarkdownFormatting.indent(
                 in: textView.textStorage.mutableString,
                 selection: textView.selectedRange,
                 outdent: true,
@@ -862,9 +917,94 @@ struct DocumentTextView: UIViewRepresentable {
             guard textView.markedTextRange == nil else { return }
 
             let policy = TextRewritingPolicy.at(textView.selectedRange.location, in: source, blocks: blocks)
-            guard policy != rewritingPolicy else { return }
+            guard policy != rewritingPolicy else {
+                // The caret is in the same kind of text, but the row might
+                // not have been put there yet: the first tap into a note
+                // starts out as code and crosses nothing.
+                refreshCodeKeys(in: textView, reloading: true)
+                return
+            }
             rewritingPolicy = policy
+            // The row is chosen before the one reload, so crossing from prose
+            // to code changes the traits and the row in a single redraw.
+            _ = placeCodeKeys(in: textView)
             policy.apply(to: textView, reloadingInputViews: textView.isFirstResponder)
+        }
+
+        // MARK: The code-keys row
+
+        func setCodeKeys(_ enabled: Bool, in textView: UITextView) {
+            guard enabled != codeKeysEnabled else { return }
+            codeKeysEnabled = enabled
+            refreshCodeKeys(in: textView, reloading: true)
+        }
+
+        /// Whether the row belongs on the keyboard right now.
+        var wantsCodeKeys: Bool {
+            CodeKeys.isShown(
+                enabled: codeKeysEnabled,
+                policy: rewritingPolicy,
+                hardwareKeyboard: HardwareKeyboard.isConnected(),
+                isEditable: textView?.isEditable ?? false
+            )
+        }
+
+        /// Puts the row on the text view, or takes it off. Whether the
+        /// accessory changed.
+        @discardableResult
+        private func placeCodeKeys(in textView: UITextView) -> Bool {
+            let wanted: UIView? = wantsCodeKeys ? codeKeysRow : nil
+            guard textView.inputAccessoryView !== wanted else { return false }
+            textView.inputAccessoryView = wanted
+            return true
+        }
+
+        /// `placeCodeKeys`, then the keyboard is redrawn if the row came or
+        /// went while it is up.
+        func refreshCodeKeys(in textView: UITextView, reloading: Bool) {
+            guard placeCodeKeys(in: textView), reloading, textView.isFirstResponder,
+                  textView.markedTextRange == nil
+            else { return }
+            textView.reloadInputViews()
+        }
+
+        /// A tap on the row.
+        func perform(_ key: CodeKey) {
+            guard let textView, textView.isEditable else { return }
+            let selection = textView.selectedRange
+            let text = textView.textStorage.mutableString
+
+            switch key {
+            case .insert(let characters):
+                guard let range = textView.selectedTextRange else { return }
+                textView.replace(range, withText: characters)
+            case .indent, .outdent:
+                guard let edit = CodeIndent.indentEdit(
+                    in: text, selection: selection, outdent: key == .outdent,
+                    codeRanges: codeRanges(in: textView.textStorage), width: indentWidth
+                ) else { return }
+                apply(edit, to: textView)
+            case .left, .right:
+                // A selection collapses to the edge the arrow points at, as
+                // the system's arrows do; otherwise one character.
+                var target = key == .left ? selection.location : NSMaxRange(selection)
+                if selection.length == 0 {
+                    if key == .left, target > 0 {
+                        target = text.rangeOfComposedCharacterSequence(at: target - 1).location
+                    } else if key == .right, target < text.length {
+                        target = NSMaxRange(text.rangeOfComposedCharacterSequence(at: target))
+                    }
+                }
+                textView.selectedRange = NSRange(location: target, length: 0)
+                textView.scrollRangeToVisible(textView.selectedRange)
+            }
+        }
+
+        // MARK: Line numbers
+
+        func setLineNumbers(_ shown: Bool, in textView: UITextView) {
+            guard shown != showsLineNumbers else { return }
+            showsLineNumbers = shown
         }
     }
 

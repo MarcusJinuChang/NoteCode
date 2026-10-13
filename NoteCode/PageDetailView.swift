@@ -67,6 +67,16 @@ struct PageDetailView: View {
     @AppStorage(ShowMarkdown.defaultsKey)
     private var showMarkdown: ShowMarkdown = .whileEditing
 
+    /// Settings › Code: the indent width, the row of code keys, line numbers.
+    @AppStorage(CodeIndent.widthKey)
+    private var indentWidth = CodeIndent.defaultWidth
+
+    @AppStorage(CodeKeys.enabledKey)
+    private var codeKeys = CodeKeys.enabledByDefault
+
+    @AppStorage(LineNumbers.defaultsKey)
+    private var lineNumbers = LineNumbers.enabledByDefault
+
     /// Whether the bar ticks as it lands on an edge (Settings › General).
     @AppStorage(SnapHaptic.defaultsKey)
     private var hapticOnSnap = SnapHaptic.isOnByDefault
@@ -306,7 +316,8 @@ struct PageDetailView: View {
                     }
                 },
                 showMarkdown: showMarkdown,
-                rendersMarkdown: page.markdownLayout == Page.renderedMarkdown
+                rendersMarkdown: page.markdownLayout == Page.renderedMarkdown,
+                codeSettings: CodeEditorSettings(indentWidth: indentWidth, codeKeys: codeKeys, lineNumbers: lineNumbers)
             )
             // The page draws its own border, on the page's edges rather than
             // the area's — see PageView.outline. Clipping keeps anything that

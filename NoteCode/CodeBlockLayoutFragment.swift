@@ -545,7 +545,8 @@ final class DocumentCache {
                 range: range,
                 isClosed: code.isClosed,
                 lastCaret: range.location + range.length - terminator,
-                isOutput: code.isOutput
+                isOutput: code.isOutput,
+                language: code.language
             )
         }
         cachedCodeRanges = ranges

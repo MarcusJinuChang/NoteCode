@@ -70,10 +70,15 @@ nonisolated struct CodeRange: Equatable, Sendable {
     /// Whether this is an output block, which has its own panel colours.
     var isOutput: Bool
 
-    init(range: NSRange, isClosed: Bool, lastCaret: Int? = nil, isOutput: Bool = false) {
+    /// The block's language, which decides what Return indents after: a
+    /// Python colon, and only that.
+    var language: CodeLanguage?
+
+    init(range: NSRange, isClosed: Bool, lastCaret: Int? = nil, isOutput: Bool = false, language: CodeLanguage? = nil) {
         self.range = range
         self.isClosed = isClosed
         self.isOutput = isOutput
+        self.language = language
         let end = range.location + range.length
         // Without the terminator's length, assume a one-unit newline ends a
         // closed block, as it does everywhere but the note's last line.
