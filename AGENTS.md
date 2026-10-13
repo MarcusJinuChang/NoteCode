@@ -1221,6 +1221,14 @@ What an upload checks before a person sees the app (4 Oct).
   Marcus Chang" certificate issued 8 Oct to 8 Oct 2027, and the app's
   team provisioning profile, made 8 Oct and valid a year. When an on-device
   build misbehaves, check which team signed it before reading any Swift.
+  - **Marcus's working tree carries an uncommitted `project.pbxproj` edit**,
+    and has since 8 Oct: Xcode set `CODE_SIGN_IDENTITY = "Apple Development"`
+    for every SDK, in place of ad-hoc `-` for macOS (`"CODE_SIGN_IDENTITY
+    [sdk=macosx*]" = "-"`), and added an empty `PROVISIONING_PROFILE_SPECIFIER`,
+    when the paid account came back. It is his local state: **leave it
+    unstaged, never commit or revert it, and don't mention it in summaries or
+    PRs** (he knows). Stage files by name, never `git add -A` or `-a`. If a
+    change needs `project.pbxproj` itself, stop and ask first.
 - **The app icon** (10 Oct, phase 7 of `docs/ui-design-v2-implementation.md`):
   the set had no images, which fails an upload; it has them now. They are
   **drawn by `scripts/make-icons.swift`** (Core Graphics, the Logo board's
