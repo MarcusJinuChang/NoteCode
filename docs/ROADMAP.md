@@ -87,11 +87,23 @@ drawn at the screen's density. 25 pull requests, all merged.
   palettes, Eraser, Reset Colours) and Help and About (Acknowledgements,
   Version). Each row reads and writes the setting the rest of the app already
   uses. Appearance changes every window as it is picked. Settings changed while
-  a note is open reach that note. Left out until they work: App Icon (phase 7),
-  New Notes and Welcome Note (phase 8), and Send Feedback and Privacy Policy,
+  a note is open reach that note. Left out until they work: App Icon (it came
+  with phase 7), New Notes and Welcome Note (phase 8), and Send Feedback and Privacy Policy,
   which wait for an address and a page. Builds for iPad and Mac, 687 tests pass; looked at in the
   simulator only as far as the opened sheet's list of sections, in dark; no
   page was tapped through.
+- **UI design v2, phase 7: the app icon** (10 Oct, branch
+  `claude/ui-phase-7-icon`, not merged): the icon set has images, which an
+  upload needs. `scripts/make-icons.swift` draws them (the Logo board's
+  geometry, Core Graphics) into three icon sets: the Default, with a Dark
+  variant on a transparent ground, a greyscale Tinted variant and the macOS
+  sizes, and two alternates, Paper and Orange. Settings › General › App Icon
+  (iPad and iPhone) shows the three as choices and switches with
+  `setAlternateIconName`; iOS shows its own "icon changed" alert. Opaque
+  everywhere but Dark, since the App Store rejects an alpha channel. Looked
+  at in the simulator: the row, the switch from Paper back to the Default
+  and the tick following it; builds for iPad and Mac, 694 tests pass; not seen on a Home Screen, in Dark or Tinted, on
+  the Mac, or on the iPad. **TestFlight is no longer waiting on the icon.**
 - **UI design v2, phase 8: note list and first run** (12 Oct, branch
   `claude/ui-phase-8-list-first-run`, off `origin/main`, not merged): tapping
   + makes a note in Settings › Notes › New Notes' orientation, in the open
@@ -215,16 +227,15 @@ drawn at the screen's density. 25 pull requests, all merged.
   reads UserDefaults only for its own settings. It says it uses no
   encryption of its own, so uploads skip the export question, and it no
   longer declares a push background mode or iCloud and push entitlements,
-  left over from Xcode's template and never used. Still missing before an
-  upload: the app icon, which needs a design (Phase 7 of the UI design).
+  left over from Xcode's template and never used. The app icon, the other
+  thing missing before an upload, came with Phase 7 of the UI design.
 - **Signing on the paid team** (9 Oct): Marcus re-obtained the paid
   Developer Program membership, which hadn't been showing on the account
   since 11 Sep. Builds had been signing with the free Personal Team, whose
   profiles last seven days, so the app stopped opening on the iPad about
   weekly. The team kept its ID, `N454V8HV9J`, and Xcode now lists it as
   paid; the app's provisioning profile, made 8 Oct, lasts a year, to
-  8 Oct 2027. TestFlight is no longer waiting on the account, only on the
-  icon. Not yet seen on the iPad: whether a build installed from now on
+  8 Oct 2027. TestFlight is no longer waiting on the account or the icon. Not yet seen on the iPad: whether a build installed from now on
   keeps opening past a week.
 
 ## Plan
@@ -281,7 +292,7 @@ code already has something to say.
 9. **UI polish**, from the UI design.
 10. **Accounts and Sign in with Apple.** No backend: as the only login option
     it also sidesteps Apple's rule requiring it alongside third-party sign-in.
-11. **TestFlight.** Needs an app icon. The paid team is back (9 Oct, see
+11. **TestFlight.** The app icon is in (Phase 7). The paid team is back (9 Oct, see
     "Signing on the paid team" above), and the privacy manifest merged
     8 Oct (PR #28).
 12. **App Store submission.** First submissions bounce on formality, so leave
