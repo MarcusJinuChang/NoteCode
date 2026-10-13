@@ -1348,6 +1348,17 @@ the version string, the licence text, the palette reset) are `AppSettings.swift`
   follow it live. `AppearanceSettingTests` hosts a view in a window and
   changes the stored value light → dark → light → system, and fails without
   the modifier. The PDF stays light by its own means (`NotePDF`).
+  - **A window's override on UIKit, not `preferredColorScheme`** (13 Oct).
+    With the device in dark, picking Light and then System left the open
+    Settings sheet light under a dark page: SwiftUI puts an override on each
+    sheet it presents, and `preferredColorScheme(nil)` doesn't take it off.
+    `AppearanceModifier` now sets the window's `overrideUserInterfaceStyle`
+    (`.unspecified` for System) from a background anchor view, and
+    presented controllers take their traits from the window. The Mac still
+    uses `preferredColorScheme`. `sheetFollowsSystemAfterAnOverride` presents
+    a **SwiftUI** `.sheet`, since a controller presented from UIKit never
+    showed the bug (the first version of the test passed on the old code);
+    it fails on the old modifier. Checked in the simulator, dark device.
 - **Settings changes reach an open note.** The sheet sits over the page, whose
   editor was set from the device's values as it appeared, so
   `InkToolPersistence` also follows the stored eraser and Finger Draws
