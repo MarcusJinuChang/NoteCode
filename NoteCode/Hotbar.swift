@@ -164,27 +164,49 @@ struct Hotbar: View {
 
     @ViewBuilder
     private var textTools: some View {
+        // Checkmarks show the state at the caret: with the markers hidden,
+        // this is the only place a heading's level or a struck word shows.
         Menu {
             ForEach(1...3, id: \.self) { level in
-                Button("Heading \(level)") { editor.setHeading(level: level) }
+                Toggle("Heading \(level)", isOn: Binding(
+                    get: { editor.caretFormatting.headingLevel == level },
+                    set: { _ in editor.setHeading(level: level) }
+                ))
             }
-            Button("Body") { editor.setHeading(level: 0) }
+            Toggle("Body", isOn: Binding(
+                get: { editor.caretFormatting.headingLevel == 0 },
+                set: { _ in editor.setHeading(level: 0) }
+            ))
             Divider()
-            Button("Strikethrough", systemImage: "strikethrough") { editor.toggle(.strikethrough) }
+            Toggle(isOn: Binding(
+                get: { editor.caretFormatting.strikethrough },
+                set: { _ in editor.toggle(.strikethrough) }
+            )) {
+                Label("Strikethrough", systemImage: "strikethrough")
+            }
         } label: {
             HotbarIcon(systemImage: "textformat")
         }
         .modifier(HotbarMenuStyle())
         .accessibilityLabel("Style")
 
-        button("Bold", "bold") { editor.toggle(.bold) }
-        button("Italic", "italic") { editor.toggle(.italic) }
-        button("Inline Code", "chevron.left.forwardslash.chevron.right") { editor.toggle(.code) }
+        button("Bold", "bold", isSelected: editor.caretFormatting.bold) { editor.toggle(.bold) }
+        button("Italic", "italic", isSelected: editor.caretFormatting.italic) { editor.toggle(.italic) }
+        button("Inline Code", "chevron.left.forwardslash.chevron.right", isSelected: editor.caretFormatting.code) {
+            editor.toggle(.code)
+        }
 
-        // A menu of one, for now: numbered lists and checklists will join it,
-        // and the bar won't have to grow a button for each.
+        // One menu for every kind of list, so the bar doesn't grow a button
+        // for each.
         Menu {
-            Button("Bulleted List", systemImage: "list.bullet") { editor.toggleBullet() }
+            ForEach(MarkdownFormatting.ListStyle.allCases, id: \.self) { style in
+                Toggle(isOn: Binding(
+                    get: { editor.caretFormatting.list == style },
+                    set: { _ in editor.toggleList(style) }
+                )) {
+                    Label(style.title, systemImage: style.systemImage)
+                }
+            }
         } label: {
             HotbarIcon(systemImage: "list.bullet")
         }
@@ -192,10 +214,9 @@ struct Hotbar: View {
         .accessibilityLabel("List")
 
         Menu {
-            ForEach(CodeLanguage.allCases, id: \.self) { language in
-                Button(language.displayName) { editor.insertCodeBlock(language: language) }
-            }
-            Button("Plain Text") { editor.insertCodeBlock(language: nil) }
+            ForEach(CodeBlockKind.languages, id: \.self, content: codeBlockButton)
+            Divider()
+            ForEach(CodeBlockKind.others, id: \.self, content: codeBlockButton)
         } label: {
             HotbarIcon(systemImage: "curlybraces.square")
         }
@@ -247,6 +268,18 @@ struct Hotbar: View {
 
     private var divider: some View {
         HotbarDivider(isVertical: dock.isVertical)
+    }
+
+    /// One row of Code Block ▾: the name, and under it what it can't do
+    /// (SQL, "Copy only").
+    @ViewBuilder
+    private func codeBlockButton(_ kind: CodeBlockKind) -> some View {
+        Button {
+            editor.insertCodeBlock(kind: kind)
+        } label: {
+            Text(kind.displayName)
+            if let subtitle = kind.subtitle { Text(subtitle) }
+        }
     }
 
     private func button(

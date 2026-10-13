@@ -43,6 +43,10 @@ enum NotePDF {
         /// laying out with the right number of page breaks the first time
         /// saves laying the whole note out again.
         var pageCount = 1
+        /// Whether the note's Markdown markers take no room (`Page.markdownLayout`).
+        var rendersMarkdown = false
+        /// Whether code is numbered in the margin, as on screen (Settings › Code).
+        var lineNumbers = false
     }
 
     /// PDF points per page point. A page 816 wide prints 612 wide: US
@@ -51,7 +55,7 @@ enum NotePDF {
 
     /// One PDF page per page of the note.
     static func render(_ note: Note) async -> Data {
-        let printed = await PrintedNote(text: note.text, orientation: note.orientation)
+        let printed = await PrintedNote(text: note.text, orientation: note.orientation, rendersMarkdown: note.rendersMarkdown, lineNumbers: note.lineNumbers)
         let ink = note.ink.flatMap { $0.subelements.isEmpty ? nil : $0 }
         let pageCount = printed.paginate(inkBottom: ink?.contentsRenderFrame.maxY, startingAt: note.pageCount)
         let layout = printed.layout
@@ -98,7 +102,7 @@ enum NotePDF {
     /// of the note's ink. Overflow doesn't print, as print layout doesn't
     /// show it: a stroke drawn across a page break stops at the edge of the
     /// page it was started on.
-    private static func sheetsInk(_ ink: PaperMarkup, layout: PageLayout, pageCount: Int) -> [[any Markup]] {
+    static func sheetsInk(_ ink: PaperMarkup, layout: PageLayout, pageCount: Int) -> [[any Markup]] {
         var sheets = Array(repeating: [any Markup](), count: pageCount)
         guard pageCount > 0 else { return sheets }
         for element in ink.subelements where !InkPages.isOverflow(element) {
@@ -134,7 +138,16 @@ enum NotePDF {
     /// (probe on the simulator, 4 October), and the PDF's ink came out
     /// blank. Added one at a time, each costs what the set's `count` does,
     /// and a note of 2,000 strokes took 7 seconds to print (10 October).
-    private static func drawInk(_ elements: [any Markup], onSheet sheet: CGRect, in context: CGContext) async {
+    ///
+    /// - Parameter pixelsPerPagePoint: the bitmap's resolution. The PDF draws
+    ///   at print resolution; a thumbnail asks for the few pixels it will show,
+    ///   since a sheet's worth at 288 dots per inch is 31MB.
+    static func drawInk(
+        _ elements: [any Markup],
+        onSheet sheet: CGRect,
+        in context: CGContext,
+        pixelsPerPagePoint: CGFloat = inkPixelsPerPagePoint
+    ) async {
         let page = CGRect(origin: .zero, size: sheet.size)
         let toSheet = CGAffineTransform(translationX: -sheet.minX, y: -sheet.minY)
 
@@ -152,7 +165,7 @@ enum NotePDF {
         let area = inked.insetBy(dx: -4, dy: -4).intersection(page).integral
         guard !area.isNull, !area.isEmpty else { return }
 
-        guard let image = await bitmap(of: markup, in: page, cropping: area) else { return }
+        guard let image = await bitmap(of: markup, in: page, cropping: area, pixelsPerPagePoint: pixelsPerPagePoint) else { return }
 
         context.saveGState()
         context.clip(to: page)
@@ -168,8 +181,12 @@ enum NotePDF {
     /// a transparent background.
     ///
     /// - Parameter page: the frame the markup is drawn into, in page points.
-    private static func bitmap(of markup: PaperMarkup, in page: CGRect, cropping area: CGRect) async -> CGImage? {
-        let scale = inkPixelsPerPagePoint
+    private static func bitmap(
+        of markup: PaperMarkup,
+        in page: CGRect,
+        cropping area: CGRect,
+        pixelsPerPagePoint scale: CGFloat
+    ) async -> CGImage? {
         let width = Int((area.width * scale).rounded(.up))
         let height = Int((area.height * scale).rounded(.up))
         guard width > 0, height > 0,
@@ -236,7 +253,7 @@ final class PrintedNote {
     /// for the editor, so code blocks get their panels and colours.
     private let coordinator: DocumentTextView.Coordinator
 
-    init(text: String, orientation: PageOrientation) async {
+    init(text: String, orientation: PageOrientation, rendersMarkdown: Bool = false, lineNumbers: Bool = false) async {
         layout = PageLayout(orientation: orientation, mode: .print)
         coordinator = DocumentTextView.Coordinator(text: .constant(text))
         textView = DocumentTextView.makeConfiguredTextView()
@@ -257,6 +274,11 @@ final class PrintedNote {
         textView.text = text
         textView.textLayoutManager?.delegate = coordinator
         coordinator.observeEdits(of: textView)
+        // A rendered note's markers take no room on screen, so they take none
+        // on paper: the same lines on the same pages, which is what lets ink
+        // print where it was drawn.
+        coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
+        coordinator.setLineNumbers(lineNumbers, in: textView)
         coordinator.restyle(textView)
         await coordinator.highlightingFinished()
     }
@@ -364,9 +386,22 @@ final class PrintedNote {
                 // block's fence lines are never printed. They keep their
                 // lines, as on screen, and so does everything below them.
                 if code?.isFence == true { continue }
+                // A paragraph split by a page break is numbered on the page
+                // its first line is on, once.
+                if let code, let first = code.textLineFragments.first,
+                   paragraph.lines.contains(where: { $0 === first }) {
+                    code.drawLineNumber(at: origin, in: context)
+                }
                 for line in paragraph.lines {
                     let bounds = line.typographicBounds
                     line.draw(at: CGPoint(x: origin.x + bounds.minX, y: origin.y + bounds.minY), in: context)
+                }
+                // A checklist's box, with its item's first line. Hashes in
+                // the margin are never printed: nothing here draws them.
+                if let checklist = paragraph.fragment as? ChecklistLayoutFragment,
+                   let first = checklist.textLineFragments.first,
+                   paragraph.lines.contains(where: { $0 === first }) {
+                    checklist.drawBox(at: origin, in: context)
                 }
             }
         }

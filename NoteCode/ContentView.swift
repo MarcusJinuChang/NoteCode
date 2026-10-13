@@ -16,8 +16,15 @@ struct ContentView: View {
     /// opening.
     @State private var selection: Page?
 
-    /// Starts with the list showing, since there's no note open yet.
-    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    /// The app opens on Home with the list away; ☰ brings the list over it,
+    /// as it does over a note.
+    @State private var columnVisibility: NavigationSplitViewVisibility = .detailOnly
+
+    /// Whether the title screen is over the window. Raised on a first launch
+    /// and by Settings › Help and About › Welcome Screen.
+    @State private var showsWelcomeScreen = false
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// What the list's search field holds.
     @State private var searchText = ""
@@ -64,7 +71,8 @@ struct ContentView: View {
         self.storageIsEphemeral = storageIsEphemeral
         opensDebugNote = openedPage != nil
         _selection = State(initialValue: openedPage)
-        _columnVisibility = State(initialValue: openedPage == nil ? .all : .detailOnly)
+        // With storage failed the warning is the list's, so the list shows.
+        _columnVisibility = State(initialValue: storageIsEphemeral ? .all : .detailOnly)
     }
 
     var body: some View {
@@ -75,6 +83,7 @@ struct ContentView: View {
                 searchText: $searchText,
                 onNewPage: { newPage = $0 },
                 onShowSettings: { showsSettings = true },
+                onShowHome: goHome,
                 request: $listRequest,
                 showsToasts: columnVisibility != .detailOnly
             )
@@ -82,48 +91,68 @@ struct ContentView: View {
                 // size and the keyboard covers its lower rows.
                 .ignoresSafeArea(.keyboard)
         } detail: {
-            if let page = selection {
-                PageDetailView(
-                    page: page,
-                    revealing: openedSearch,
-                    onDelete: { delete(page) },
-                    startsRenaming: page == newPage
-                )
-                    // A fresh editor per note. Reusing one would carry the last
-                    // note's undo stack across, and undo would type it back in.
-                    .id(ObjectIdentifier(page))
-                    .overlay(alignment: .bottom) {
-                        if columnVisibility == .detailOnly {
-                            ToastOverlay(center: toasts, bottomInset: pageToastInset)
-                        }
-                    }
-            } else {
-                ContentUnavailableView(
-                    "No Note Open",
-                    systemImage: "note.text",
-                    description: Text("Choose a note from the list, or start a new one.")
-                )
+            Group {
+                if let page = selection {
+                    PageDetailView(
+                        page: page,
+                        revealing: openedSearch,
+                        onDelete: { delete(page) },
+                        startsRenaming: page == newPage
+                    )
+                        // A fresh editor per note. Reusing one would carry the last
+                        // note's undo stack across, and undo would type it back in.
+                        .id(ObjectIdentifier(page))
+                } else {
+                    HomeView(
+                        onOpen: open,
+                        onNewNote: newNote,
+                        onShowList: showList,
+                        onShowFolder: { ask(.showFolder($0.persistentModelID)) },
+                        onSearch: { ask(.searchNotes) },
+                        onOpenWelcomeNote: openWelcomeNote
+                    )
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if columnVisibility == .detailOnly {
+                    ToastOverlay(center: toasts, bottomInset: selection == nil ? 16 : pageToastInset)
+                }
             }
         }
         // The list slides over the page instead of pushing it narrower, so
         // opening it never re-wraps the note underneath.
         .navigationSplitViewStyle(.prominentDetail)
         .environment(toasts)
-        .settingsSheet(isPresented: $showsSettings, onOpenWelcomeNote: openWelcomeNote)
+        .overlay {
+            if showsWelcomeScreen {
+                WelcomeScreen(onGetStarted: dismissWelcomeScreen)
+                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(1)
+            }
+        }
+        .settingsSheet(
+            isPresented: $showsSettings,
+            onOpenWelcomeNote: openWelcomeNote,
+            onShowWelcomeScreen: showWelcomeScreen
+        )
         .windowActions(WindowActions(
             newNote: newNote,
             newFolder: { ask(.newFolder) },
             searchNotes: { ask(.searchNotes) },
             toggleNoteList: toggleNoteList,
-            isCovered: showsSettings
+            goHome: goHome,
+            isCovered: showsSettings || showsWelcomeScreen
         ))
         .task {
+            claimWelcomeScreenOnFirstLaunch()
             makeWelcomeNoteOnFirstLaunch()
             purgeExpiredNotes()
+            pruneNoteMemory()
         }
         .onChange(of: selection) {
             if selection != newPage { newPage = nil }
-            if selection != nil {
+            if let selection {
+                NoteMemory().rememberOpened(selection)
                 withAnimation { columnVisibility = .detailOnly }
             }
         }
@@ -157,16 +186,34 @@ struct ContentView: View {
         selection = page
     }
 
+    /// Opens a note from Home. Not from a search: Home has none, so the note
+    /// shows no matches.
+    private func open(_ page: Page) {
+        openedSearch = NoteSearch("")
+        selection = page
+    }
+
+    /// Closes the open note and shows Home, with the list away: the Home row
+    /// at the top of the list, and ⇧⌘H.
+    private func goHome() {
+        selection = nil
+        withAnimation { columnVisibility = .detailOnly }
+    }
+
+    /// Home's Show All: the list over Home.
+    private func showList() {
+        withAnimation { columnVisibility = .all }
+    }
+
     /// ⇧⌘N and ⇧⌘F belong to the list, so it comes first.
     private func ask(_ request: ListRequest) {
         withAnimation { columnVisibility = .all }
         listRequest = request
     }
 
-    /// ⌃⌘S: the list over the page, or away. With no note open the list is
-    /// all there is, and stays.
+    /// ⌃⌘S: the list over the page, or away. Over Home too, which is what is
+    /// there with no note open.
     private func toggleNoteList() {
-        guard selection != nil else { return }
         withAnimation {
             columnVisibility = columnVisibility == .detailOnly ? .all : .detailOnly
         }
@@ -180,6 +227,34 @@ struct ContentView: View {
         let page = WelcomeNote.make(in: modelContext)
         openedSearch = NoteSearch("")
         selection = page
+    }
+
+    /// Raises the title screen on a first launch, once.
+    ///
+    /// Not when the on-disk store failed or a debug launch opened a note of its
+    /// own, for the reason `makeWelcomeNoteOnFirstLaunch` gives, and the turn
+    /// isn't spent then.
+    private func claimWelcomeScreenOnFirstLaunch() {
+        guard !storageIsEphemeral, !opensDebugNote else { return }
+        if WelcomeScreen.claimFirstLaunch() {
+            withAnimation { showsWelcomeScreen = true }
+        }
+    }
+
+    private func showWelcomeScreen() {
+        withAnimation { showsWelcomeScreen = true }
+    }
+
+    private func dismissWelcomeScreen() {
+        withAnimation { showsWelcomeScreen = false }
+    }
+
+    /// Forgets the places of notes that are gone, once a launch.
+    private func pruneNoteMemory() {
+        guard !storageIsEphemeral, !opensDebugNote,
+              let ids = try? modelContext.fetchIdentifiers(FetchDescriptor<Page>())
+        else { return }
+        NoteMemory().prune(keeping: Set(ids))
     }
 
     /// Gives a first launch its tour. Left in the list rather than opened:

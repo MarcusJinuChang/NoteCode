@@ -36,19 +36,22 @@ struct CodeDestinationTests {
         #expect(request.url.host() == "www.programiz.com")
     }
 
-    @Test("Compiler Explorer is the one that can't take Java")
+    @Test("Compiler Explorer is the one that can't take Java, or JavaScript")
     func compilerExplorerLanguages() {
         #expect(CodeDestination.compilerExplorer.supports(.cpp))
         #expect(CodeDestination.compilerExplorer.supports(.python))
+        #expect(CodeDestination.compilerExplorer.supports(.c))
+        #expect(CodeDestination.compilerExplorer.supports(.rust))
+        #expect(CodeDestination.compilerExplorer.supports(.go))
         #expect(!CodeDestination.compilerExplorer.supports(.java))
+        #expect(!CodeDestination.compilerExplorer.supports(.javascript))
     }
 
-    @Test("The sites that take a paste take every language")
+    @Test("The sites that take a paste take every language that runs, but OnlineGDB has no JavaScript")
     func pasteboardDestinationsTakeEverything() {
-        for destination in [CodeDestination.programiz, .onlineGDB] {
-            for language in CodeLanguage.allCases {
-                #expect(destination.supports(language), "\(destination.id) / \(language)")
-            }
+        for language in CodeLanguage.allCases where language.canRun {
+            #expect(CodeDestination.programiz.supports(language), "programiz / \(language)")
+            #expect(CodeDestination.onlineGDB.supports(language) == (language != .javascript), "onlinegdb / \(language)")
         }
     }
 
@@ -98,8 +101,8 @@ struct CodeDestinationTests {
             ),
         ]
 
-        for language in CodeLanguage.allCases {
-            let pages = expected[language]!
+        // The three the app began with; `CodeLanguagesTests` has the rest.
+        for (language, pages) in expected {
             let programiz = CodeDestination.request(for: "x", language: language, preferring: .programiz)
             let gdb = CodeDestination.request(for: "x", language: language, preferring: .onlineGDB)
 

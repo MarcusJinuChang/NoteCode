@@ -48,6 +48,10 @@ struct PageDetailView: View {
     /// Saves this note's ink. One per open note, like the editor.
     @State private var inkSaver: DrawingSaveScheduler
 
+    /// The page the note was last read at on this device, read once as the
+    /// note opens: the page then writes its own place back as it is read.
+    @State private var resumingAtPage: Int?
+
     @Environment(\.scenePhase) private var scenePhase
 
     @AppStorage(HotbarDock.defaultsKey)
@@ -62,6 +66,16 @@ struct PageDetailView: View {
     /// always. Settings › Writing has the switch.
     @AppStorage(ShowMarkdown.defaultsKey)
     private var showMarkdown: ShowMarkdown = .whileEditing
+
+    /// Settings › Code: the indent width, the row of code keys, line numbers.
+    @AppStorage(CodeIndent.widthKey)
+    private var indentWidth = CodeIndent.defaultWidth
+
+    @AppStorage(CodeKeys.enabledKey)
+    private var codeKeys = CodeKeys.enabledByDefault
+
+    @AppStorage(LineNumbers.defaultsKey)
+    private var lineNumbers = LineNumbers.enabledByDefault
 
     /// Whether the bar ticks as it lands on an edge (Settings › General).
     @AppStorage(SnapHaptic.defaultsKey)
@@ -86,6 +100,11 @@ struct PageDetailView: View {
     @State private var showsInfo = false
     @State private var isNamingCustomSite = false
 
+    /// "Hide Markdown Markers…" in the title menu, asking first. An alert
+    /// can't hang off the menu's content, which is gone the moment an item
+    /// is chosen, so the menu raises this.
+    @State private var confirmsHidingMarkers = false
+
     /// "New Folder…" in the title menu's Move to Folder: the folder editor,
     /// which moves this note into the folder it makes.
     @State private var editingFolder: FolderEditing?
@@ -107,6 +126,7 @@ struct PageDetailView: View {
         // Cheap: the ink is read when the page is made, not here. SwiftUI
         // builds this view far more often than it keeps a new state.
         _inkSaver = State(initialValue: DrawingSaveScheduler(page: page))
+        _resumingAtPage = State(initialValue: Self.lastReadPage(of: page))
 #endif
     }
 
@@ -140,10 +160,18 @@ struct PageDetailView: View {
                 onNewFolder: { editingFolder = .new(moving: page) },
                 onGetInfo: { showsInfo = true },
                 onDuplicate: { page.duplicated(in: modelContext) },
+                onHideMarkers: { confirmsHidingMarkers = true },
                 onDelete: onDelete
             )
         }
         .toolbar { headerItems }
+        .alert("Hide Markdown Markers?", isPresented: $confirmsHidingMarkers) {
+            Button("Cancel", role: .cancel) {}
+            // Not an edit: the words are the same, only where they sit changes.
+            Button("Hide") { page.markdownLayout = Page.renderedMarkdown }
+        } message: {
+            Text("Headings and formatted text move into place once. Ink drawn before now may need moving.")
+        }
         .sheet(isPresented: $showsInfo) {
             NoteInfoView(page: page, pageCount: openPageCount)
         }
@@ -279,7 +307,17 @@ struct PageDetailView: View {
                 keyboardClearance: dock == .bottom ? Hotbar.thickness + Self.hotbarMargin : 0,
                 inkSaver: inkSaver,
                 revealing: revealing,
-                showMarkdown: showMarkdown
+                resumingAtPage: resumingAtPage,
+                onReadingPlaceChanged: { [weak page] place in
+                    // A note made moments ago has no permanent ID until it is
+                    // saved; `settledID` saves it, as the autosave would.
+                    if let page, let id = page.settledID {
+                        NoteMemory().setPlace(place, of: id)
+                    }
+                },
+                showMarkdown: showMarkdown,
+                rendersMarkdown: page.markdownLayout == Page.renderedMarkdown,
+                codeSettings: CodeEditorSettings(indentWidth: indentWidth, codeKeys: codeKeys, lineNumbers: lineNumbers)
             )
             // The page draws its own border, on the page's edges rather than
             // the area's — see PageView.outline. Clipping keeps anything that
@@ -328,6 +366,15 @@ struct PageDetailView: View {
         }
         // What each ink tool is set to carries over from note to note.
         .modifier(InkToolPersistence(editor: editor))
+    }
+
+    /// The page this note was left at, from the device's memory. Nothing for a
+    /// note that has none, or one never saved, which has no place yet.
+    private static func lastReadPage(of page: Page) -> Int? {
+        guard !page.persistentModelID.isTemporary,
+              let place = NoteMemory().place(of: page.persistentModelID)
+        else { return nil }
+        return place.page
     }
 
     /// Does what the reader has set a Pencil gesture to do, in ink mode.

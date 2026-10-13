@@ -66,6 +66,58 @@ final class DocumentUITextView: UITextView {
         clearAllDecoratedFoundText()
     }
 
+    // MARK: Boxes, links and ⇧Tab
+
+    /// The recognisers for taps on boxes and links. See `MarkerGestures`.
+    var markerGestures: MarkerGestures?
+
+    /// Whether a point is on a box or a link, so a touch there is this view's
+    /// and not the text interaction's.
+    var touchTarget: ((CGPoint) -> Bool)?
+
+    /// ⇧Tab on a list item, and whether there is one to take back a level.
+    var outdentHandler: (() -> Void)?
+    var canOutdent: (() -> Bool)?
+
+    /// ⇧Tab. A key command and not a menu button: a bare Tab in the menu bar
+    /// would take it from every field in the app. It gives the key back
+    /// (`canPerformAction`) whenever there is no list item to move.
+    override var keyCommands: [UIKeyCommand]? {
+        let outdent = UIKeyCommand(input: "\t", modifierFlags: .shift, action: #selector(outdentListItem))
+        outdent.wantsPriorityOverSystemBehavior = true
+        return (super.keyCommands ?? []) + [outdent]
+    }
+
+    @objc func outdentListItem() {
+        outdentHandler?()
+    }
+
+    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        if action == #selector(outdentListItem) { return canOutdent?() ?? false }
+        return super.canPerformAction(action, withSender: sender)
+    }
+
+    // MARK: Hidden markers
+
+    /// Where a caret that lands on an offset should stand, for a rendered
+    /// note whose markers take no room (`MarkdownFormatting.caretStop`).
+    /// `nil` for a legacy note. Optional, like `layoutObservers`.
+    var caretStopResolver: ((Int) -> Int)?
+
+    /// Whether a finger touched this view a moment ago, which tells a tap
+    /// that lands the caret from an arrow key that walks it.
+    var wasTouchedRecently: Bool {
+        CACurrentMediaTime() - lastPressTime < 0.5
+    }
+
+    private func resolvingCaretStop(_ position: UITextPosition?) -> UITextPosition? {
+        guard let position, let caretStopResolver else { return position }
+        let offset = self.offset(from: beginningOfDocument, to: position)
+        let stop = caretStopResolver(offset)
+        guard stop != offset else { return position }
+        return self.position(from: beginningOfDocument, offset: stop) ?? position
+    }
+
     // MARK: Blank lines
 
     /// Where and when the last touch landed on this view, for
@@ -112,6 +164,11 @@ final class DocumentUITextView: UITextView {
         if event?.type == .touches, hit != nil {
             lastPressPoint = point
             lastPressTime = CACurrentMediaTime()
+            // A touch on a box or a link is ours, not the text interaction's:
+            // see `MarkerGestures`. Not on an action bar, which is a button.
+            if hit !== self, overlay?.containsInteractiveElement(at: point) != true, touchTarget?(point) == true {
+                return self
+            }
         }
         return hit
     }
@@ -125,14 +182,14 @@ final class DocumentUITextView: UITextView {
     /// the answer should be right for whatever does.
     override func closestPosition(to point: CGPoint) -> UITextPosition? {
         guard let position = super.closestPosition(to: point) else { return nil }
-        return blankLine(before: position, tappedAt: point) ?? position
+        return resolvingCaretStop(blankLine(before: position, tappedAt: point) ?? position)
     }
 
     override func closestPosition(to point: CGPoint, within range: UITextRange) -> UITextPosition? {
         guard let position = super.closestPosition(to: point, within: range) else { return nil }
         guard let blank = blankLine(before: position, tappedAt: point),
               compare(blank, to: range.start) != .orderedAscending
-        else { return position }
+        else { return resolvingCaretStop(position) }
         return blank
     }
 

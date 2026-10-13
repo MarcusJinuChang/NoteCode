@@ -21,6 +21,43 @@ pinch zoom, the note page and its hotbar, and a PaperKit canvas that a finger
 or the Pencil draws on, with ink undo of its own, saved with the note and
 drawn at the screen's density. 25 pull requests, all merged.
 
+- **UI design v3, phase 4: code** (13 Oct, branch `claude/v3-phase-4-code`,
+  off phase 3's branch, not merged): C, JavaScript, Rust, Go and SQL join C++,
+  Java and Python (SQL keeps Copy only; Compiler Explorer runs C, Rust and Go
+  from a link, checked on the live site, but **not JavaScript**, which it can't
+  execute); ```` ```output ```` blocks are a dark console with Copy and no Run;
+  Return in code keeps the indent, goes deeper after `{ ( [` or a Python colon
+  and opens a pair of braces onto their own lines; ⇥ and ⇧⇥ indent lines;
+  a row of code keys sits above the on-screen keyboard while the caret is in
+  code (not with a hardware keyboard); line numbers go in the page's margin,
+  and print. Settings › Code has Code Keys, Indent Width and Line Numbers.
+  Also fixed: a language retag never re-coloured the code. Builds for iPad and
+  Mac, and 1,000 unit tests pass; looked at in the simulator (the row, Return after a Python colon, ⇥,
+  the language menu and an Output block, line numbers, light and dark); not
+  with a hardware keyboard or the Pencil.
+- **UI design v3, phase 3: writing, with Markdown markers hidden** (12 Oct,
+  branch `claude/v3-phase-3-writing`, off phase 2, not merged): in a note made
+  from now on, `#`, `**`, backticks, `~~` and link syntax take no room on the
+  page (a word-joiner swap in layout, so nothing re-wraps and ink stays put);
+  a heading's `#` is drawn in the margin while the caret is on it, and the
+  hotbar lights up what the caret is in. Backspace, arrow keys and Return
+  know about the hidden markers. Return continues lists and checklists, Tab
+  and ⇧Tab nest them, List ▾ has Numbered and Checklist, boxes tick with a
+  tap, and `[text](url)` and bare addresses are links (tap to open, hold for
+  Open Link / Copy Link). Notes with ink keep visible markers until the title
+  menu's Hide Markdown Markers…. Builds for iPad and Mac; looked at in the
+  simulator (the margin hash, boxes, links, Return in a list, with real taps
+  on a box and the heading); not with a real keyboard or the Pencil.
+- **UI design v3, phase 2: title screen, Home, thumbnails, reopening** (12 Oct,
+  branch `claude/v3-phase-2-home`, off phase 1, not merged): the app opens on
+  Home, in the page area, with the list behind ☰: the note to continue (with
+  "page 3 of 5"), the eight most recent, folder tiles, New Note, and an empty
+  state. A Home row tops the list (⇧⌘H). A first launch opens a title screen
+  (Settings › Help and About shows it again). Rows and cards show a picture of
+  the note's first page, made one at a time and cached. A note reopens at the
+  page it was left at. Builds for iPad and Mac; looked at in the simulator
+  (Home light and dark, the title screen light, a note reopening at page 3),
+  not with the Pencil or a real keyboard.
 - **UI design v3, phase 1: model v7, Recently Deleted, folder identity,
   Duplicate** (12 Oct, branch `claude/v3-phase-1-recently-deleted`, off
   `main`, not merged): deleting a note now moves it to Recently Deleted for 30

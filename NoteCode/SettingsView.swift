@@ -27,11 +27,17 @@ extension View {
     /// - Parameter onOpenWelcomeNote: called when Help and About › Welcome
     ///   Note is chosen, after the sheet has been asked to close. The note is
     ///   opened by the window, which owns what's selected.
-    func settingsSheet(isPresented: Binding<Bool>, onOpenWelcomeNote: @escaping () -> Void = {}) -> some View {
+    /// - Parameter onShowWelcomeScreen: called when Help and About › Welcome
+    ///   Screen is chosen, likewise after the sheet has been asked to close.
+    func settingsSheet(
+        isPresented: Binding<Bool>,
+        onOpenWelcomeNote: @escaping () -> Void = {},
+        onShowWelcomeScreen: @escaping () -> Void = {}
+    ) -> some View {
         self
             .focusedSceneValue(\.showsSettings, isPresented)
             .sheet(isPresented: isPresented) {
-                SettingsView(onOpenWelcomeNote: onOpenWelcomeNote)
+                SettingsView(onOpenWelcomeNote: onOpenWelcomeNote, onShowWelcomeScreen: onShowWelcomeScreen)
                     .presentationSizing(.form)
             }
     }
@@ -84,6 +90,9 @@ struct SettingsView: View {
     /// Makes the Welcome note and opens it. Settings dismisses itself first.
     var onOpenWelcomeNote: () -> Void = {}
 
+    /// Shows the title screen again. Settings dismisses itself first.
+    var onShowWelcomeScreen: () -> Void = {}
+
     var body: some View {
         NavigationStack {
             List {
@@ -115,10 +124,16 @@ struct SettingsView: View {
                 }
 #endif
                 NavigationLink {
-                    AboutSettings(onOpenWelcomeNote: {
-                        dismiss()
-                        onOpenWelcomeNote()
-                    })
+                    AboutSettings(
+                        onOpenWelcomeNote: {
+                            dismiss()
+                            onOpenWelcomeNote()
+                        },
+                        onShowWelcomeScreen: {
+                            dismiss()
+                            onShowWelcomeScreen()
+                        }
+                    )
                 } label: {
                     Label("Help and About", systemImage: "questionmark.circle")
                 }
@@ -310,6 +325,10 @@ private struct CodeSettings: View {
     @AppStorage(RunDestinationPreference.appDefaultKey)
     private var appDefault: String = CodeDestination.default.id
 
+    @AppStorage(CodeKeys.enabledKey) private var codeKeys = CodeKeys.enabledByDefault
+    @AppStorage(CodeIndent.widthKey) private var indentWidth = CodeIndent.defaultWidth
+    @AppStorage(LineNumbers.defaultsKey) private var lineNumbers = LineNumbers.enabledByDefault
+
     @State private var isNamingCustomSite = false
 
     var body: some View {
@@ -320,7 +339,27 @@ private struct CodeSettings: View {
                 }
                 Button("Another Site…") { isNamingCustomSite = true }
             } footer: {
-                Text("Where new notes' code runs. A folder or a note can choose its own. Compiler Explorer can't run Java, so Java goes to a site that can.")
+                Text("Where new notes' code runs. A folder or a note can choose its own. Compiler Explorer can't run Java or JavaScript, so those go to a site that can. SQL has no free place to run, so it keeps Copy.")
+            }
+
+            Section {
+                Toggle("Code Keys", isOn: $codeKeys)
+                // The picker shows whatever is stored, so a value it can't
+                // have made is read as 4 here as it is by the editor.
+                Picker("Indent Width", selection: Binding(
+                    get: { CodeIndent.validWidth(indentWidth) },
+                    set: { indentWidth = $0 }
+                )) {
+                    ForEach(CodeIndent.widths, id: \.self) { Text("\($0) Spaces").tag($0) }
+                }
+            } footer: {
+                Text("Code Keys adds a row of brackets, punctuation, indent and arrow keys above the keyboard while you type code. It isn't shown with a hardware keyboard. Return keeps a line's indent, and goes a level deeper after { ( [ or a Python colon.")
+            }
+
+            Section {
+                Toggle("Line Numbers", isOn: $lineNumbers)
+            } footer: {
+                Text("Numbers each line of a code block in the page's margin. They print too, and turning them on moves nothing on the page.")
             }
         }
         .navigationTitle("Code")
@@ -348,6 +387,7 @@ private struct CodeSettings: View {
 
 private struct AboutSettings: View {
     var onOpenWelcomeNote: () -> Void
+    var onShowWelcomeScreen: () -> Void
 
     var body: some View {
         Form {
@@ -371,6 +411,9 @@ private struct AboutSettings: View {
                 // copy, if it's still there, is left alone.
                 Button("Welcome Note", action: onOpenWelcomeNote)
                     .accessibilityIdentifier("welcomeNoteButton")
+                // The title screen of a first launch, shown again.
+                Button("Welcome Screen", action: onShowWelcomeScreen)
+                    .accessibilityIdentifier("welcomeScreenButton")
                 if let feedback = AppInfo.feedbackURL() {
                     Link("Send Feedback", destination: feedback)
                 }

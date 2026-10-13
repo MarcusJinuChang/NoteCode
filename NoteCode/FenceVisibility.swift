@@ -125,7 +125,9 @@ nonisolated enum FenceTag {
     /// What the language button says: the language's name, the tag as typed
     /// when the app doesn't know it, or "Plain Text" for a bare fence.
     static func label(language: CodeLanguage?, tag: String) -> String {
-        language?.displayName ?? (tag.isEmpty ? "Plain Text" : tag)
+        if let language { return language.displayName }
+        if CodeBlockKind.isOutputTag(Substring(tag)) { return CodeBlockKind.output.displayName }
+        return tag.isEmpty ? "Plain Text" : tag
     }
 
     /// The edit that points an opening fence at `language`, `nil` for plain
@@ -140,6 +142,16 @@ nonisolated enum FenceTag {
     /// whole info string: what's left after taking out the tag would be read
     /// as a tag of its own.
     static func retag(line: String, as language: CodeLanguage?) -> (range: NSRange, replacement: String)? {
+        retag(line: line, toTag: language?.rawValue)
+    }
+
+    /// `retag(line:as:)` for any kind of block: a language, output, or plain
+    /// text.
+    static func retag(line: String, to kind: CodeBlockKind) -> (range: NSRange, replacement: String)? {
+        retag(line: line, toTag: kind.tag)
+    }
+
+    private static func retag(line: String, toTag name: String?) -> (range: NSRange, replacement: String)? {
         let text = line as NSString
         var end = text.length
         while end > 0, [10, 13].contains(text.character(at: end - 1)) { end -= 1 }
@@ -159,10 +171,9 @@ nonisolated enum FenceTag {
         let tagEnd = cursor
         let hasTag = tagStart < tagEnd
 
-        guard let language else {
+        guard let name else {
             return hasTag ? (NSRange(location: afterTicks, length: end - afterTicks), "") : nil
         }
-        let name = language.rawValue
         if hasTag {
             guard text.substring(with: NSRange(location: tagStart, length: tagEnd - tagStart)) != name else { return nil }
             return (NSRange(location: tagStart, length: tagEnd - tagStart), name)

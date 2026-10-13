@@ -103,11 +103,20 @@ nonisolated enum CodeDestination: Equatable, Hashable, Sendable, Identifiable {
     /// there with an error about the file name. Verified against the live site.
     /// Sending Java somewhere that runs it beats sending it somewhere that
     /// greets the student with a compiler error.
+    ///
+    /// It is missing JavaScript for a plainer reason: its only JavaScript
+    /// compilers are V8 builds that show bytecode and cannot execute
+    /// (`supportsExecute` is false for both, 13 Oct 2026). OnlineGDB has no
+    /// JavaScript page either, so JavaScript lands on Programiz.
+    ///
+    /// SQL is in none of them. It isn't `canRun` at all, so no request is
+    /// ever made for it; see `CodeLanguage.canRun`.
     var supportedLanguages: Set<CodeLanguage> {
-        switch self {
-        case .programiz, .onlineGDB: Set(CodeLanguage.allCases)
-        case .compilerExplorer:      [.cpp, .python]
-        case .custom:                Set(CodeLanguage.allCases)
+        let runnable = Set(CodeLanguage.allCases.filter(\.canRun))
+        return switch self {
+        case .programiz, .custom: runnable
+        case .onlineGDB:          runnable.subtracting([.javascript])
+        case .compilerExplorer:   [.cpp, .python, .c, .rust, .go]
         }
     }
 
@@ -190,15 +199,26 @@ extension CodeDestination {
         let string = switch self {
         case .programiz:
             switch language {
-            case .cpp:    "https://www.programiz.com/cpp-programming/online-compiler/"
-            case .java:   "https://www.programiz.com/java-programming/online-compiler/"
-            case .python: "https://www.programiz.com/python-programming/online-compiler/"
+            case .cpp:        "https://www.programiz.com/cpp-programming/online-compiler/"
+            case .java:       "https://www.programiz.com/java-programming/online-compiler/"
+            case .python:     "https://www.programiz.com/python-programming/online-compiler/"
+            case .c:          "https://www.programiz.com/c-programming/online-compiler/"
+            case .javascript: "https://www.programiz.com/javascript/online-compiler/"
+            case .rust:       "https://www.programiz.com/rust/online-compiler/"
+            case .go:         "https://www.programiz.com/golang/online-compiler/"
+            case .sql:        "https://www.programiz.com/sql/online-compiler/"
             }
         case .onlineGDB:
             switch language {
             case .cpp:    "https://www.onlinegdb.com/online_c++_compiler"
             case .java:   "https://www.onlinegdb.com/online_java_compiler"
             case .python: "https://www.onlinegdb.com/online_python_compiler"
+            case .c:      "https://www.onlinegdb.com/online_c_compiler"
+            case .rust:   "https://www.onlinegdb.com/online_rust_compiler"
+            case .go:     "https://www.onlinegdb.com/online_go_compiler"
+            // Nothing the site has: `supportedLanguages` keeps these from
+            // arriving, and its front page is a sound place to be if one does.
+            case .javascript, .sql: "https://www.onlinegdb.com/"
             }
         case .compilerExplorer:
             "https://godbolt.org/"
@@ -251,14 +271,21 @@ extension CodeDestination {
     ///
     /// Compiler Explorer names languages exactly as `CodeLanguage.canonicalName`
     /// already does, so only the compiler is worth stating here. Verified
-    /// against godbolt.org on 11 September 2026.
+    /// against godbolt.org on 11 September 2026; C, Rust and Go on 13 October,
+    /// each by compiling and running a hello-world through its API
+    /// (`/api/compiler/<id>/compile` with `execute` on) and reading the output.
+    /// The newest release of each, so the ids are the part that will go stale.
     private static func compilerExplorerCompiler(
         for language: CodeLanguage
     ) -> (id: String, options: String)? {
         switch language {
         case .cpp:    ("g142", "-O2 -std=c++17")
         case .python: ("python313", "")
-        case .java:   nil   // see `supportedLanguages`
+        case .c:      ("cg152", "-O2 -std=c17")
+        case .rust:   ("r1990", "-O")
+        case .go:     ("gl1260", "")
+        // No executor for these; see `supportedLanguages`.
+        case .java, .javascript, .sql: nil
         }
     }
 

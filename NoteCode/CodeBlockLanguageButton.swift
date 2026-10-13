@@ -19,12 +19,12 @@ import UIKit
 /// overlay keeps it under the ink canvas.
 final class CodeBlockLanguageButton: UIButton {
 
-    /// Called with the language picked, `nil` for plain text.
-    var onChoose: ((CodeLanguage?) -> Void)?
+    /// Called with what was picked: a language, Output or Plain Text.
+    var onChoose: ((CodeBlockKind) -> Void)?
 
-    /// The language the block has now, so the menu can tick it.
-    private var current: CodeLanguage?
-    private var currentIsPlain = true
+    /// What the block is now, so the menu can tick it. `nil` for a tag the
+    /// app doesn't know, which ticks nothing.
+    private var current: CodeBlockKind?
 
     /// Space either side of the name. The button reaches this far past the
     /// text so it is easier to hit; the overlay moves it left by the same
@@ -57,7 +57,7 @@ final class CodeBlockLanguageButton: UIButton {
         // then rather than the one it had when the button was made.
         menu = UIMenu(children: [
             UIDeferredMenuElement.uncached { [weak self] completion in
-                completion(self?.choices() ?? [])
+                completion(self?.groupedChoices() ?? [])
             }
         ])
         showsMenuAsPrimaryAction = true
@@ -71,13 +71,16 @@ final class CodeBlockLanguageButton: UIButton {
 
     /// - Parameters:
     ///   - label: `CodeBlockTarget.languageLabel`.
-    ///   - language: the block's language, `nil` for none the app knows.
-    ///   - isPlain: a bare fence, which is the menu's Plain Text.
+    ///   - kind: `CodeBlockTarget.kind`.
+    ///   - isOutput: draws the name in the output panel's label colour, which
+    ///     is on a dark panel in both appearances.
     ///   - isEnabled: false while the note's text is locked.
-    func configure(label: String, language: CodeLanguage?, isPlain: Bool, isEnabled: Bool) {
-        current = language
-        currentIsPlain = isPlain
+    func configure(label: String, kind: CodeBlockKind?, isOutput: Bool = false, isEnabled: Bool) {
+        current = kind
         self.isEnabled = isEnabled
+        if configuration?.baseForegroundColor != (isOutput ? CodeOutputPanel.labelColor : .secondaryLabel) {
+            configuration?.baseForegroundColor = isOutput ? CodeOutputPanel.labelColor : .secondaryLabel
+        }
         if configuration?.title != label {
             configuration?.title = label
         }
@@ -85,17 +88,26 @@ final class CodeBlockLanguageButton: UIButton {
         accessibilityHint = "Changes the code block's language"
     }
 
-    /// The menu's items: the languages the app knows, then plain text.
+    /// The menu's items: the languages the app knows, then Output and plain
+    /// text. The same list as the hotbar's Code Block ▾, from `CodeBlockKind.menu`.
     func choices() -> [UIAction] {
-        let languages = CodeLanguage.allCases.map { language in
-            UIAction(title: language.displayName, state: language == current ? .on : .off) { [weak self] _ in
-                self?.onChoose?(language)
+        CodeBlockKind.menu.map { kind in
+            let action = UIAction(title: kind.displayName, state: kind == current ? .on : .off) { [weak self] _ in
+                self?.onChoose?(kind)
             }
+            action.subtitle = kind.subtitle
+            return action
         }
-        let plain = UIAction(title: "Plain Text", state: currentIsPlain ? .on : .off) { [weak self] _ in
-            self?.onChoose?(nil)
-        }
-        return languages + [plain]
+    }
+
+    /// The same choices with a divider between the languages and the rest.
+    func groupedChoices() -> [UIMenuElement] {
+        let actions = choices()
+        let split = CodeBlockKind.languages.count
+        return [
+            UIMenu(options: .displayInline, children: Array(actions[..<split])),
+            UIMenu(options: .displayInline, children: Array(actions[split...])),
+        ]
     }
 
     /// The size the button wants for its name.

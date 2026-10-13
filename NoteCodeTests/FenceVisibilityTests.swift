@@ -191,7 +191,7 @@ struct FenceTagTests {
         #expect(edit("```cpp\n", as: .python) == "```python\n")
         #expect(edit("```py", as: .java) == "```java")
         #expect(edit("```c++", as: .python) == "```python", "a spelling the app reads as C++")
-        #expect(edit("```rust", as: .cpp) == "```cpp", "a tag it doesn't know")
+        #expect(edit("```ruby", as: .cpp) == "```cpp", "a tag it doesn't know")
     }
 
     @Test("A bare fence gets the tag")
@@ -240,15 +240,15 @@ struct FenceTagTests {
     func labels() {
         #expect(FenceTag.label(language: .cpp, tag: "c++") == "C++")
         #expect(FenceTag.label(language: .python, tag: "py") == "Python")
-        #expect(FenceTag.label(language: nil, tag: "rust") == "rust")
+        #expect(FenceTag.label(language: nil, tag: "ruby") == "ruby")
         #expect(FenceTag.label(language: nil, tag: "") == "Plain Text")
     }
 
     @Test("A target carries the tag as typed")
     func targetTag() {
-        let source = "```c++\nx\n```\n```\ny\n```\n```rust\nz\n```\n"
+        let source = "```c++\nx\n```\n```\ny\n```\n```ruby\nz\n```\n"
         let targets = CodeBlockAction.targets(in: source, blocks: DocumentParser.parse(source))
-        #expect(targets.map(\.tag) == ["c++", "", "rust"])
-        #expect(targets.map(\.languageLabel) == ["C++", "Plain Text", "rust"])
+        #expect(targets.map(\.tag) == ["c++", "", "ruby"])
+        #expect(targets.map(\.languageLabel) == ["C++", "Plain Text", "ruby"])
     }
 }

@@ -6,6 +6,7 @@
 //
 
 import Observation
+import SwiftData
 import SwiftUI
 
 #if canImport(UIKit)
@@ -22,6 +23,9 @@ import UIKit
 enum ListRequest: Equatable {
     case newFolder
     case searchNotes
+    /// Open this folder in the list and scroll it into view: a tap on a
+    /// folder's tile on Home.
+    case showFolder(PersistentIdentifier)
 }
 
 /// What ⌘N and its neighbours do, handed to the menu bar by the window in
@@ -31,6 +35,9 @@ struct WindowActions {
     var newFolder: () -> Void
     var searchNotes: () -> Void
     var toggleNoteList: () -> Void
+
+    /// ⇧⌘H: close the open note and show Home.
+    var goHome: () -> Void
 
     /// True while a sheet is over the window. Settings has text fields, and
     /// the note under it is not where a bare letter should go.
@@ -158,6 +165,9 @@ struct NoteCommands: Commands {
                 .disabled(window == nil)
             Button(NoteShortcut.searchNotes.title) { window?.searchNotes() }
                 .keyboardShortcut(.searchNotes)
+                .disabled(window == nil)
+            Button(NoteShortcut.home.title) { window?.goHome() }
+                .keyboardShortcut(.home)
                 .disabled(window == nil)
         }
 

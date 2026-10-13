@@ -450,10 +450,10 @@ struct CodeFenceDisplayTests {
 
     @Test("A block's name is the tag as typed when the app doesn't know it, and Plain Text when bare")
     func languageNames() async throws {
-        let harness = Harness("```rust\nfn main() {}\n```\n```\nplain\n```\n")
+        let harness = Harness("```ruby\nfn main() {}\n```\n```\nplain\n```\n")
         try await harness.caret(at: harness.source.length)
         let buttons = harness.textView.subviews.compactMap { $0 as? CodeBlockLanguageButton }
-        #expect(buttons.map { $0.configuration?.title } == ["rust", "Plain Text"])
+        #expect(buttons.map { $0.configuration?.title } == ["ruby", "Plain Text"])
     }
 
     @Test("A tap on the name is the button's, not the text view's")
@@ -482,14 +482,14 @@ struct CodeFenceDisplayTests {
 
     // MARK: Choosing a language
 
-    @Test("The menu lists the languages and plain text, ticking the block's")
+    @Test("The menu lists the languages, Output and plain text, ticking the block's")
     func menu() async throws {
         let harness = Harness()
         try await harness.caret(at: 2)
         let button = try #require(harness.languageButton)
         let actions = button.choices()
-        #expect(actions.map(\.title) == ["C++", "Java", "Python", "Plain Text"])
-        #expect(actions.map(\.state) == [.on, .off, .off, .off])
+        #expect(actions.map(\.title) == ["C++", "Java", "Python", "C", "JavaScript", "Rust", "Go", "SQL", "Output", "Plain Text"])
+        #expect(actions.map(\.state) == [.on] + Array(repeating: .off, count: 9))
     }
 
     @Test("Choosing a language rewrites the fence's tag, is undoable, and Run follows")
@@ -532,7 +532,7 @@ struct CodeFenceDisplayTests {
         try await harness.caret(at: 2)
         let button = try #require(harness.languageButton)
         #expect(!button.isEnabled)
-        button.onChoose?(.java)
+        button.onChoose?(.language(.java))
         #expect(harness.textView.text == Self.note)
     }
 

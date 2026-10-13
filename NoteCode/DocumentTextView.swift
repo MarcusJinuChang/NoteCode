@@ -40,9 +40,26 @@ struct DocumentTextView: UIViewRepresentable {
     /// list's business, not the page's.
     var revealing = NoteSearch("")
 
+    /// The page to open the note at (counted from 0): where it was last read
+    /// on this device. Ignored when the note was opened from a search, which
+    /// shows its match instead.
+    var resumingAtPage: Int? = nil
+
+    /// Told which page the reader is on as it changes, so the device can
+    /// remember it. Optional, like `editor`, so the editor still stands alone.
+    var onReadingPlaceChanged: ((NoteMemory.Place) -> Void)? = nil
+
     /// Settings › Writing › Show Markdown: whether a code block's backticks
     /// show only while it is being edited, or always.
     var showMarkdown = ShowMarkdown.whileEditing
+
+    /// Whether the note's Markdown markers take no room on the page
+    /// (`Page.markdownLayout == rendered`). A legacy note keeps them visible,
+    /// because its ink was drawn against that layout.
+    var rendersMarkdown = false
+
+    /// Settings › Code: indent width, the code-keys row, line numbers.
+    var codeSettings = CodeEditorSettings()
 
     // MARK: UIViewRepresentable
 
@@ -55,6 +72,8 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.observeEdits(of: textView)
         context.coordinator.attachOverlay(to: textView)
         context.coordinator.observeAppearance(of: textView)
+        context.coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
+        codeSettings.apply(to: context.coordinator, in: textView)
         textView.text = text
         context.coordinator.invalidateStyling()
         context.coordinator.restyle(textView)
@@ -78,7 +97,10 @@ struct DocumentTextView: UIViewRepresentable {
         let matches = revealing.matches(in: text)
         if let first = matches.first {
             page.reveal(first, highlighting: matches)
+        } else if let resumingAtPage {
+            page.restore(toPage: resumingAtPage)
         }
+        page.onReadingPlaceChanged = onReadingPlaceChanged
         return page
     }
 
@@ -86,6 +108,7 @@ struct DocumentTextView: UIViewRepresentable {
         let textView = page.textView
         page.pageLayout = pageLayout
         page.keyboardClearance = keyboardClearance
+        page.onReadingPlaceChanged = onReadingPlaceChanged
 
         // The struct is recreated on every SwiftUI render but the Coordinator
         // persists, so hand it the current binding or it will keep writing
@@ -94,6 +117,8 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.runDestination = runDestination
         context.coordinator.editor = editor
         context.coordinator.showMarkdown = showMarkdown
+        context.coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
+        codeSettings.apply(to: context.coordinator, in: textView)
 
         // Only push text down when it actually differs. Assigning `.text`
         // unconditionally would reset the selection on every render and fight
@@ -114,6 +139,7 @@ struct DocumentTextView: UIViewRepresentable {
         }
         // After the text, so the setting is applied to the blocks it has now.
         context.coordinator.refreshFenceVisibility(in: textView)
+        context.coordinator.refreshHeadingMarkers(in: textView)
     }
 
     /// The page is going: ink still on its way in is taken in now, so it
@@ -154,8 +180,53 @@ struct DocumentTextView: UIViewRepresentable {
         /// Settings › Writing › Show Markdown, as `DocumentTextView` last had it.
         var showMarkdown = ShowMarkdown.whileEditing
 
+        /// Settings › Code › Indent Width.
+        var indentWidth = CodeIndent.defaultWidth
+
+        /// Settings › Code › Code Keys, and the row it turns on.
+        private(set) var codeKeysEnabled = CodeKeys.enabledByDefault
+        private lazy var codeKeysRow: CodeKeysRow = {
+            let row = CodeKeysRow()
+            row.onKey = { [weak self] key in self?.perform(key) }
+            return row
+        }()
+        private var hardwareKeyboardObservers: [NSObjectProtocol] = []
+
+        /// Settings › Code › Line Numbers.
+        private(set) var showsLineNumbers = LineNumbers.enabledByDefault
+
+        /// Whether the note lays its Markdown markers out at zero width.
+        /// See `MarkdownLayout`. Set through `setRendersMarkdown`.
+        private(set) var rendersMarkdown = false
+
+        /// The runs `MarkdownLayout` collapses, worked out once per edit for
+        /// the content storage delegate, which asks once per paragraph.
+        private var layoutMarkerRuns: [MarkdownLayout.Run]?
+
         /// Which blocks show their fences. See `CodeFenceDisplay.swift`.
         var fenceVisibility = FenceVisibility.away
+
+        /// Which headings draw their hashes in the margin. See
+        /// `HeadingMarkerDisplay.swift`.
+        var headingVisibility = HeadingMarkerVisibility.hidden
+
+        /// How many times the text's characters have been edited, so a
+        /// selection change can tell typing from an arrow key.
+        private var editCount = 0
+        private var editCountAtLastSelection = 0
+        /// Where the caret was at the last selection change, for the
+        /// direction an arrow key walked it.
+        private var lastCaret = 0
+        private var isNormalizingCaret = false
+
+        /// Set while the coordinator applies an edit of its own (a Backspace
+        /// at a hidden marker, a list's Return), so `shouldChangeTextIn`
+        /// doesn't take it for another keystroke.
+        private(set) var isApplyingMarkerEdit = false
+
+        /// The text view this coordinator serves, for the parts of the layout
+        /// delegate that need its geometry.
+        weak var textView: DocumentUITextView?
 
         /// Set while a language pick rewrites a fence's tag, which the
         /// keyboard-rewrite guard in `shouldChangeTextIn` would turn away: it
@@ -181,7 +252,20 @@ struct DocumentTextView: UIViewRepresentable {
         /// Blocks already coloured, keyed by content. A block whose code hasn't
         /// changed keeps the colours already in the text storage, so only the
         /// block being edited needs re-highlighting.
-        private var highlightedBlocks: Set<CodeBlockID> = []
+        private var highlightedBlocks: Set<HighlightKey> = []
+
+        /// A block as it was coloured: its code and the language it was
+        /// coloured as. The tag is part of it because a retag changes neither
+        /// the block's id nor its code, and the colours must still follow.
+        struct HighlightKey: Hashable {
+            var id: CodeBlockID
+            var language: String
+
+            init(block: CodeBlock) {
+                id = block.id
+                language = block.infoString.split(separator: " ").first.map { $0.lowercased() } ?? ""
+            }
+        }
 
         /// The appearance `highlightedBlocks` were coloured for.
         ///
@@ -213,10 +297,23 @@ struct DocumentTextView: UIViewRepresentable {
 
         init(text: Binding<String>) {
             self.text = text
+            super.init()
+            // A keyboard attached or taken away changes whether the row is
+            // wanted, with the caret where it was.
+            hardwareKeyboardObservers = HardwareKeyboard.observe { [weak self] in
+                guard let self, let textView else { return }
+                refreshCodeKeys(in: textView, reloading: true)
+            }
+        }
+
+        deinit {
+            hardwareKeyboardObservers.forEach(NotificationCenter.default.removeObserver)
         }
 
         /// Forgets `layoutCodeRanges` whenever the text storage is edited.
         func observeEdits(of textView: UITextView) {
+            self.textView = textView as? DocumentUITextView
+            if let documentView = self.textView { installMarkerGestures(on: documentView) }
             NotificationCenter.default.addObserver(
                 self,
                 selector: #selector(textStorageDidProcessEditing),
@@ -230,6 +327,41 @@ struct DocumentTextView: UIViewRepresentable {
                   storage.editedMask.contains(.editedCharacters)
             else { return }
             layoutCodeRanges = nil
+            layoutMarkerRuns = nil
+            editCount += 1
+        }
+
+        /// Turns the collapsed layout on or off, laying the whole note out
+        /// again when that changes it. The text storage's elements are cached
+        /// per paragraph, so a flag alone would leave every one as it was.
+        func setRendersMarkdown(_ renders: Bool, in textView: DocumentUITextView) {
+            guard renders != rendersMarkdown else { return }
+            rendersMarkdown = renders
+            editor?.rendersMarkdown = renders
+            layoutMarkerRuns = nil
+            textView.blankLineLayout?.markerRuns = renders ? { [weak self, weak textView] in
+                guard let self, let textView else { return [] }
+                return markerRuns(in: textView.textStorage)
+            } : nil
+            textView.caretStopResolver = renders ? { [weak self, weak textView] offset in
+                guard let self, let textView else { return offset }
+                return caretStop(for: offset, direction: 0, in: textView)
+            } : nil
+            invalidateStyling()
+            if textView.textStorage.length > 0 {
+                // Regenerates every paragraph element.
+                textView.textStorage.edited(.editedAttributes, range: NSRange(location: 0, length: textView.textStorage.length), changeInLength: 0)
+                restyle(textView)
+            }
+        }
+
+        /// The runs to collapse in `storage`, worked out once per edit.
+        func markerRuns(in storage: NSTextStorage) -> [MarkdownLayout.Run] {
+            if let layoutMarkerRuns { return layoutMarkerRuns }
+            let source = storage.string.nativeUTF8
+            let runs = MarkdownLayout.runs(for: documentCache.blocks(for: source), in: source)
+            layoutMarkerRuns = runs
+            return runs
         }
 
         /// The code blocks' ranges in `storage`, worked out once per edit.
@@ -264,9 +396,9 @@ struct DocumentTextView: UIViewRepresentable {
                 self.run(target, from: textView)
             }
 
-            overlay.onChooseLanguage = { [weak textView, weak self] target, language in
+            overlay.onChooseLanguage = { [weak textView, weak self] target, kind in
                 guard let textView else { return }
-                self?.setLanguage(language, of: target, in: textView)
+                self?.setKind(kind, of: target, in: textView)
             }
             overlay.allowsEditing = { [weak self] in self?.editor?.isTextLocked != true }
 
@@ -299,7 +431,7 @@ struct DocumentTextView: UIViewRepresentable {
         /// travels in the link the student lands on a finished run; where it
         /// can't, it goes on the pasteboard and they paste it on arrival.
         func run(_ target: CodeBlockTarget, from textView: UITextView) {
-            guard let language = target.language else { return }
+            guard let language = target.language, language.canRun else { return }
 
             let request = CodeDestination.request(
                 for: target.code,
@@ -331,12 +463,15 @@ struct DocumentTextView: UIViewRepresentable {
                 to: textView,
                 source: source,
                 blocks: blocks,
-                previousSignatures: styleSignatures
+                previousSignatures: styleSignatures,
+                rendered: rendersMarkdown
             )
-            DocumentStyler.applyTypingAttributes(to: textView, source: source, blocks: blocks)
+            DocumentStyler.applyTypingAttributes(to: textView, source: source, blocks: blocks, rendered: rendersMarkdown)
             // Before the overlay places its buttons: an edit can add a block or
             // move the one the caret is in.
             refreshFenceVisibility(in: textView, repositioning: false)
+            refreshHeadingMarkers(in: textView)
+            refreshCaretFormatting(in: textView)
             overlay?.update(targets: CodeBlockAction.targets(in: source, blocks: blocks))
             scheduleHighlighting(for: textView, source: source, blocks: blocks)
         }
@@ -362,20 +497,25 @@ struct DocumentTextView: UIViewRepresentable {
             }
 
             // Forget blocks that no longer exist, so the set can't grow forever.
-            highlightedBlocks.formIntersection(Set(blocks.compactMap(\.codeBlock?.id)))
+            highlightedBlocks.formIntersection(Set(blocks.compactMap { $0.codeBlock.map(HighlightKey.init(block:)) }))
 
             // Snapshot of what to send, taken before any await. Only blocks
             // whose code changed since the last pass — everything else still
             // holds the right colours, which applyStyling carries across.
-            let jobs: [(id: CodeBlockID, code: String, tag: String, offset: Int)] = blocks.compactMap { node in
-                guard let code = node.codeBlock,
+            let jobs: [(key: HighlightKey, code: String, tag: String, offset: Int)] = blocks.compactMap { node in
+                // Output isn't a language: nothing in it is coloured, and a
+                // pass over it would only reset its text to `.label`.
+                guard let code = node.codeBlock, !code.isOutput,
                       let tag = code.infoString.split(separator: " ").first,
-                      !highlightedBlocks.contains(code.id)
+                      !highlightedBlocks.contains(HighlightKey(block: code))
                 else { return nil }
                 return (
-                    code.id,
+                    HighlightKey(block: code),
                     String(source[code.contentRange]),
-                    String(tag),
+                    // The name highlight.js knows the language by, for a
+                    // language the app knows; what was typed otherwise, so
+                    // any of its other languages still colours.
+                    code.language?.highlightName ?? String(tag),
                     NSRange(code.contentRange, in: source).location
                 )
             }
@@ -411,7 +551,7 @@ struct DocumentTextView: UIViewRepresentable {
 
                 let covered = jobs.map { NSRange(location: $0.offset, length: ($0.code as NSString).length) }
                 DocumentStyler.applyColors(painted, clearing: covered, to: textView)
-                self.highlightedBlocks.formUnion(jobs.map(\.id))
+                self.highlightedBlocks.formUnion(jobs.map(\.key))
             }
         }
 
@@ -503,7 +643,7 @@ struct DocumentTextView: UIViewRepresentable {
         private func codeBlockMenu(for target: CodeBlockTarget, in textView: UITextView) -> UIMenu {
             var actions: [UIMenuElement] = []
 
-            if target.language != nil {
+            if target.canRun {
                 actions.append(UIAction(title: "Run Block", image: UIImage(systemName: "play")) { [weak self, weak textView] _ in
                     guard let self, let textView else { return }
                     run(target, from: textView)
@@ -566,6 +706,11 @@ struct DocumentTextView: UIViewRepresentable {
 
         func textViewDidChangeSelection(_ textView: UITextView) {
             (textView as? DocumentUITextView)?.placeCaretOnTappedBlankLine()
+            normalizeCaret(in: textView)
+            defer {
+                lastCaret = textView.selectedRange.location
+                editCountAtLastSelection = editCount
+            }
 
             // Moving the caret across a fence boundary changes what the next
             // character should look like, even though no text changed. This
@@ -573,10 +718,148 @@ struct DocumentTextView: UIViewRepresentable {
             // rather than re-parsing.
             let source = (textView.text ?? "").nativeUTF8
             let blocks = documentCache.blocks(for: source)
-            DocumentStyler.applyTypingAttributes(to: textView, source: source, blocks: blocks)
+            DocumentStyler.applyTypingAttributes(to: textView, source: source, blocks: blocks, rendered: rendersMarkdown)
             applyRewritingPolicy(to: textView, source: source, blocks: blocks)
             updateCodeSelectionHighlight(in: textView)
             refreshFenceVisibility(in: textView)
+            refreshHeadingMarkers(in: textView)
+            refreshCaretFormatting(in: textView)
+        }
+
+        // MARK: Hidden markers
+
+        /// The offset a caret landing on `offset` should stand at.
+        func caretStop(for offset: Int, direction: Int, in textView: UITextView) -> Int {
+            MarkdownFormatting.caretStop(
+                for: offset,
+                direction: direction,
+                in: textView.textStorage.mutableString,
+                codeRanges: codeRanges(in: textView.textStorage)
+            )
+        }
+
+        /// Moves a collapsed caret off the inside of a hidden marker.
+        ///
+        /// Not after an edit: the caret typing leaves is where typing put it,
+        /// and moving it would put the next letter on the other side of the
+        /// marker just typed. An arrow key is told by its caret having moved
+        /// one place with no finger down; a tap, or anything else, lands on
+        /// the stretch's stop.
+        ///
+        private func normalizeCaret(in textView: UITextView) {
+            guard rendersMarkdown, !isNormalizingCaret,
+                  editCount == editCountAtLastSelection,
+                  textView.selectedRange.length == 0,
+                  textView.markedTextRange == nil
+            else { return }
+
+            let offset = textView.selectedRange.location
+            let step = offset - lastCaret
+            let arrow = abs(step) == 1 && (textView as? DocumentUITextView)?.wasTouchedRecently != true
+            let stop = caretStop(for: offset, direction: arrow ? step : 0, in: textView)
+            guard stop != offset else { return }
+
+            isNormalizingCaret = true
+            textView.selectedRange = NSRange(location: stop, length: 0)
+            isNormalizingCaret = false
+        }
+
+        /// An edit of the coordinator's own, through `replace(_:withText:)`
+        /// like typing: undoable, restyled, written back to the page.
+        func apply(_ edit: TextEdit, to textView: UITextView) {
+            guard let start = textView.position(from: textView.beginningOfDocument, offset: edit.range.location),
+                  let end = textView.position(from: start, offset: edit.range.length),
+                  let range = textView.textRange(from: start, to: end)
+            else { return }
+            isApplyingMarkerEdit = true
+            textView.replace(range, withText: edit.replacement)
+            isApplyingMarkerEdit = false
+            textView.selectedRange = edit.selection
+            editor?.refreshUndoState()
+        }
+
+        /// The edit a keystroke should make instead of its own, or `nil` to
+        /// let it through: Backspace at a hidden marker, Return in a list or
+        /// at the end of a bold word, and Tab on a list item.
+        ///
+        /// Never during marked text, where a keystroke belongs to the
+        /// composition. Return and Tab work in legacy notes too; Backspace's
+        /// rule is about markers nobody can see.
+        private func markerEdit(for range: NSRange, replacement: String, in textView: UITextView) -> TextEdit? {
+            guard textView.markedTextRange == nil else { return nil }
+            let storage = textView.textStorage
+            let text = storage.mutableString
+
+            // In code, Return keeps the line's indent and Tab indents the
+            // lines. Checked first: code isn't a list, and these answer nil
+            // anywhere but in a block's own lines.
+            if replacement == "\n", range == textView.selectedRange,
+               let edit = CodeIndent.returnEdit(
+                   in: text, selection: range, codeRanges: codeRanges(in: storage), width: indentWidth
+               ) {
+                return edit
+            }
+            if replacement == "\t", range == textView.selectedRange,
+               let edit = CodeIndent.indentEdit(
+                   in: text, selection: range, outdent: false, codeRanges: codeRanges(in: storage), width: indentWidth
+               ) {
+                return edit
+            }
+            if replacement == "\n", range == textView.selectedRange, range.length == 0 {
+                return MarkdownFormatting.returnEdit(
+                    in: text, caret: range.location, rendered: rendersMarkdown, codeRanges: codeRanges(in: storage)
+                )
+            }
+            if replacement == "\t", range == textView.selectedRange {
+                return MarkdownFormatting.indent(
+                    in: text, selection: range, outdent: false, codeRanges: codeRanges(in: storage)
+                )
+            }
+            guard rendersMarkdown, textView.selectedRange.length == 0,
+                  replacement.isEmpty, range.length >= 1,
+                  NSMaxRange(range) == textView.selectedRange.location
+            else { return nil }
+            return MarkdownFormatting.backspace(
+                at: NSMaxRange(range), in: text, codeRanges: codeRanges(in: storage)
+            )
+        }
+
+        /// ⇧Tab, and whether it has anything to do.
+        func outdentListItems(in textView: UITextView) {
+            guard let edit = outdentEdit(in: textView) else { return }
+            apply(edit, to: textView)
+        }
+
+        func canOutdentListItems(in textView: UITextView) -> Bool {
+            textView.isEditable && outdentEdit(in: textView) != nil
+        }
+
+        private func outdentEdit(in textView: UITextView) -> TextEdit? {
+            if let edit = CodeIndent.indentEdit(
+                in: textView.textStorage.mutableString,
+                selection: textView.selectedRange,
+                outdent: true,
+                codeRanges: codeRanges(in: textView.textStorage),
+                width: indentWidth
+            ) {
+                return edit
+            }
+            return MarkdownFormatting.indent(
+                in: textView.textStorage.mutableString,
+                selection: textView.selectedRange,
+                outdent: true,
+                codeRanges: codeRanges(in: textView.textStorage)
+            )
+        }
+
+        /// Tells the hotbar what the caret is in. Called on every caret move
+        /// and edit, so it parses one line and assigns only on a change.
+        func refreshCaretFormatting(in textView: UITextView) {
+            editor?.setCaretFormatting(MarkdownFormatting.formatting(
+                at: textView.selectedRange,
+                in: textView.textStorage.mutableString,
+                codeRanges: codeRanges(in: textView.textStorage)
+            ))
         }
 
         /// Sets the keyboard up for where the caret is, before it appears.
@@ -604,9 +887,16 @@ struct DocumentTextView: UIViewRepresentable {
             // was replaced inside a fence, was turned away, and used up the
             // undo step without changing the text.
             let undoManager = textView.undoManager
+            if !isApplyingMarkerEdit, editor?.isFormatting != true, !isRetagging,
+               undoManager?.isUndoing != true, undoManager?.isRedoing != true,
+               let edit = markerEdit(for: range, replacement: text, in: textView) {
+                apply(edit, to: textView)
+                return false
+            }
+
             guard range.length > 0, !text.isEmpty, range != textView.selectedRange,
                   textView.markedTextRange == nil, editor?.isFormatting != true, !isRetagging,
-                  undoManager?.isUndoing != true, undoManager?.isRedoing != true
+                  !isApplyingMarkerEdit, undoManager?.isUndoing != true, undoManager?.isRedoing != true
             else { return true }
 
             let source = (textView.text ?? "").nativeUTF8
@@ -627,9 +917,123 @@ struct DocumentTextView: UIViewRepresentable {
             guard textView.markedTextRange == nil else { return }
 
             let policy = TextRewritingPolicy.at(textView.selectedRange.location, in: source, blocks: blocks)
-            guard policy != rewritingPolicy else { return }
+            guard policy != rewritingPolicy else {
+                // The caret is in the same kind of text, but the row might
+                // not have been put there yet: the first tap into a note
+                // starts out as code and crosses nothing.
+                refreshCodeKeys(in: textView, reloading: true)
+                return
+            }
             rewritingPolicy = policy
+            // The row is chosen before the one reload, so crossing from prose
+            // to code changes the traits and the row in a single redraw.
+            _ = placeCodeKeys(in: textView)
             policy.apply(to: textView, reloadingInputViews: textView.isFirstResponder)
+        }
+
+        // MARK: The code-keys row
+
+        func setCodeKeys(_ enabled: Bool, in textView: UITextView) {
+            guard enabled != codeKeysEnabled else { return }
+            codeKeysEnabled = enabled
+            refreshCodeKeys(in: textView, reloading: true)
+        }
+
+        /// Whether the row belongs on the keyboard right now.
+        var wantsCodeKeys: Bool {
+            CodeKeys.isShown(
+                enabled: codeKeysEnabled,
+                policy: rewritingPolicy,
+                hardwareKeyboard: HardwareKeyboard.isConnected(),
+                isEditable: textView?.isEditable ?? false
+            )
+        }
+
+        /// Puts the row on the text view, or takes it off. Whether the
+        /// accessory changed.
+        @discardableResult
+        private func placeCodeKeys(in textView: UITextView) -> Bool {
+            let wanted: UIView? = wantsCodeKeys ? codeKeysRow : nil
+            guard textView.inputAccessoryView !== wanted else { return false }
+            textView.inputAccessoryView = wanted
+            return true
+        }
+
+        /// `placeCodeKeys`, then the keyboard is redrawn if the row came or
+        /// went while it is up.
+        func refreshCodeKeys(in textView: UITextView, reloading: Bool) {
+            guard placeCodeKeys(in: textView), reloading, textView.isFirstResponder,
+                  textView.markedTextRange == nil
+            else { return }
+            textView.reloadInputViews()
+        }
+
+        /// A tap on the row.
+        func perform(_ key: CodeKey) {
+            guard let textView, textView.isEditable else { return }
+            let selection = textView.selectedRange
+            let text = textView.textStorage.mutableString
+
+            switch key {
+            case .insert(let characters):
+                guard let range = textView.selectedTextRange else { return }
+                textView.replace(range, withText: characters)
+            case .indent, .outdent:
+                guard let edit = CodeIndent.indentEdit(
+                    in: text, selection: selection, outdent: key == .outdent,
+                    codeRanges: codeRanges(in: textView.textStorage), width: indentWidth
+                ) else { return }
+                apply(edit, to: textView)
+            case .left, .right:
+                // A selection collapses to the edge the arrow points at, as
+                // the system's arrows do; otherwise one character.
+                var target = key == .left ? selection.location : NSMaxRange(selection)
+                if selection.length == 0 {
+                    if key == .left, target > 0 {
+                        target = text.rangeOfComposedCharacterSequence(at: target - 1).location
+                    } else if key == .right, target < text.length {
+                        target = NSMaxRange(text.rangeOfComposedCharacterSequence(at: target))
+                    }
+                }
+                textView.selectedRange = NSRange(location: target, length: 0)
+                textView.scrollRangeToVisible(textView.selectedRange)
+            }
+        }
+
+        // MARK: Line numbers
+
+        func setLineNumbers(_ shown: Bool, in textView: UITextView) {
+            guard shown != showsLineNumbers else { return }
+            showsLineNumbers = shown
+            editor?.showsLineNumbers = shown
+            // Drawing only: the numbers are in the margin, so nothing is laid
+            // out again. Every block on screen draws once more.
+            let ranges = codeRanges(in: textView.textStorage)
+            redrawFences(ofBlocks: Set(ranges.indices), ranges: ranges, in: textView)
+        }
+
+        /// A paragraph's line number in its block, from 1 for the first line
+        /// after the opening fence, `nil` when numbers are off.
+        ///
+        /// Counted at draw time from the note as it is now: an edit above
+        /// moves a block without touching its fragments. A fence line gets a
+        /// number here too, which the fragment declines to draw.
+        func lineNumber(of fragment: NSTextLayoutFragment, in storage: NSTextStorage) -> Int? {
+            guard showsLineNumbers, let offset = offset(of: fragment),
+                  let block = codeRanges(in: storage).first(where: { NSLocationInRange(offset, $0.range) })
+            else { return nil }
+            // Each paragraph starts after a newline, so the newlines between
+            // the block's start and this paragraph are the paragraphs before it.
+            let text = storage.mutableString
+            var lines = 0
+            var cursor = block.range.location
+            while cursor < offset {
+                let found = text.range(of: "\n", range: NSRange(location: cursor, length: offset - cursor))
+                guard found.location != NSNotFound else { break }
+                lines += 1
+                cursor = NSMaxRange(found)
+            }
+            return lines
         }
     }
 
@@ -649,6 +1053,10 @@ struct DocumentTextView: UIViewRepresentable {
         // Blank lines are laid out as zero-width spaces, or TextKit lets them
         // run through page breaks — see BlankLineLayout. The text view holds
         // it, since the content storage's delegate is weak.
+        let gestures = MarkerGestures()
+        gestures.install(on: textView)
+        textView.markerGestures = gestures
+
         let blankLines = BlankLineLayout()
         textView.blankLineLayout = blankLines
         (textView.textLayoutManager?.textContentManager as? NSTextContentStorage)?.delegate = blankLines
@@ -718,6 +1126,11 @@ extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
             let fragment = CodeBlockLayoutFragment(textElement: textElement, range: textElement.elementRange)
             fragment.position = position
             fragment.closesBlock = code.isClosed && position.roundsBottom
+            fragment.isOutput = code.isOutput
+            fragment.lineNumber = { [weak self, weak fragment, weak storage] in
+                guard let self, let fragment, let storage else { return nil }
+                return lineNumber(of: fragment, in: storage)
+            }
             fragment.selectedRanges = { [weak self, weak contentManager] in
                 self?.paintedTextRanges(in: contentManager) ?? []
             }
@@ -730,7 +1143,33 @@ extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
             return fragment
         }
 
-        return plain
+        return proseFragment(for: textElement, range: element, in: storage) ?? plain
+    }
+
+    /// A heading, which can draw its hashes, or a checklist item, which draws
+    /// its box. `nil` for anything else.
+    private func proseFragment(for textElement: NSTextElement, range element: NSRange, in storage: NSTextStorage) -> NSTextLayoutFragment? {
+        guard element.length > 0, element.location + element.length <= storage.length else { return nil }
+        let text = storage.mutableString
+
+        if rendersMarkdown, let hashes = ProseLine.headingHashes(in: text, line: element) {
+            let fragment = HeadingLayoutFragment(textElement: textElement, range: textElement.elementRange)
+            fragment.hashes = hashes
+            fragment.showsMarker = { [weak self, weak fragment] in
+                guard let self, let fragment, let offset = self.offset(of: fragment) else { return false }
+                return self.headingVisibility.shows(headingAt: offset)
+            }
+            return fragment
+        }
+
+        if let box = ProseLine.checkbox(in: text, line: element) {
+            let fragment = ChecklistLayoutFragment(textElement: textElement, range: textElement.elementRange)
+            fragment.isChecked = box.checked
+            fragment.boxIndex = box.indent + 2
+            fragment.collapsed = rendersMarkdown
+            return fragment
+        }
+        return nil
     }
 }
 

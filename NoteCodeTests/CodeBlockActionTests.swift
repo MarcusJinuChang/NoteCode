@@ -114,7 +114,7 @@ struct CodeBlockActionTests {
 
     @Test("A recognised tag becomes a language, an unknown one does not")
     func targetLanguages() {
-        let source = "```cpp\na\n```\n```rust\nb\n```\n```\nc\n```\n"
+        let source = "```cpp\na\n```\n```ruby\nb\n```\n```\nc\n```\n"
         let found = Self.targets(in: source)
 
         #expect(found.map(\.language) == [.cpp, nil, nil])

@@ -29,7 +29,7 @@ enum NoteShortcut: CaseIterable, Sendable {
     case thinner, thicker
     case seamless, compressed, printLayout
     case find, print
-    case newNote, newFolder, searchNotes, noteList
+    case newNote, newFolder, searchNotes, noteList, home
     case settings
 
     var title: String {
@@ -64,6 +64,7 @@ enum NoteShortcut: CaseIterable, Sendable {
         case .newFolder:     "New Folder"
         case .searchNotes:   "Search Notes"
         case .noteList:      "Show Note List"
+        case .home:          "Home"
         case .settings:      "Settings…"
         }
     }
@@ -99,6 +100,7 @@ enum NoteShortcut: CaseIterable, Sendable {
         case .newFolder:     "n"
         case .searchNotes:   "f"
         case .noteList:      "s"
+        case .home:          "h"
         case .settings:      ","
         }
     }
@@ -109,7 +111,7 @@ enum NoteShortcut: CaseIterable, Sendable {
              .find, .print, .newNote, .settings:
             .command
         case .redo, .strikethrough, .bulletedList, .codeBlock, .copyBlock, .toggleMode,
-             .newFolder, .searchNotes:
+             .newFolder, .searchNotes, .home:
             [.command, .shift]
         case .heading1, .heading2, .heading3, .body:
             [.command, .option]

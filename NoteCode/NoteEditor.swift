@@ -157,7 +157,9 @@ final class NoteEditor {
             text: page.textView.text ?? "",
             ink: page.ink,
             orientation: page.pageLayout.orientation,
-            pageCount: page.pageCount
+            pageCount: page.pageCount,
+            rendersMarkdown: rendersMarkdown,
+            lineNumbers: showsLineNumbers
         ))
     }
 
@@ -258,7 +260,31 @@ final class NoteEditor {
     }
 
     func toggleBullet() {
-        perform { MarkdownFormatting.toggleBullet(in: $0, selection: $1) }
+        toggleList(.bullet)
+    }
+
+    func toggleList(_ style: MarkdownFormatting.ListStyle) {
+        perform { MarkdownFormatting.toggleList(style, in: $0, selection: $1) }
+    }
+
+    /// Whether the open note lays its Markdown markers out at zero width, set
+    /// by the text view's coordinator. The PDF and thumbnails need it: they
+    /// lay the note out again, and have to break its lines where the screen does.
+    @ObservationIgnored var rendersMarkdown = false
+
+    /// Whether the page shows line numbers beside its code
+    /// (Settings › Code), so a PDF of it does too.
+    @ObservationIgnored var showsLineNumbers = false
+
+    /// The formatting at the caret, which the hotbar lights up: inline markers
+    /// are never drawn in place, so this is where their state shows.
+    private(set) var caretFormatting = MarkdownFormatting.CaretFormatting()
+
+    /// Assigns only on a real change: this runs on every caret move and
+    /// keystroke, and an observable property invalidates its readers on any
+    /// assignment, equal value or not.
+    func setCaretFormatting(_ formatting: MarkdownFormatting.CaretFormatting) {
+        if caretFormatting != formatting { caretFormatting = formatting }
     }
 
     /// Starts a code block, and remembers its language for
@@ -267,6 +293,19 @@ final class NoteEditor {
         guard mode == .text, !isTextLocked else { return }
         LastCodeLanguage.store(language, in: defaults)
         perform { MarkdownFormatting.insertCodeBlock(language: language, in: $0, selection: $1) }
+    }
+
+    /// Code Block ▾'s choice. Output isn't a language, so it leaves the one
+    /// ⇧⌘K remembers alone: a student who writes a program and then its
+    /// output wants the next block in the program's language.
+    func insertCodeBlock(kind: CodeBlockKind) {
+        switch kind {
+        case .language(let language): insertCodeBlock(language: language)
+        case .plain:                  insertCodeBlock(language: nil)
+        case .output:
+            guard mode == .text, !isTextLocked else { return }
+            perform { MarkdownFormatting.insertCodeBlock(kind: .output, in: $0, selection: $1) }
+        }
     }
 
     /// ⇧⌘K: a code block in whichever language the last one was.

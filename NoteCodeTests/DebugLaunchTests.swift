@@ -95,9 +95,100 @@ struct DebugLaunchOptionsTests {
     }
 }
 
+extension DebugLaunchOptionsTests {
+
+    @Test("-debug-first-launch and -debug-home each make the launch active, with no problems")
+    func firstLaunchAndHome() {
+        let first = DebugLaunchOptions.parse([app, "-debug-first-launch"])
+        #expect(first.firstLaunch && !first.home && first.isActive && first.problems.isEmpty)
+
+        let home = DebugLaunchOptions.parse([app, "-debug-home"])
+        #expect(home.home && !home.firstLaunch && home.isActive && home.problems.isEmpty)
+    }
+
+    @Test("Asking for both is reported, and a first launch is what's used")
+    func bothAreReported() {
+        let options = DebugLaunchOptions.parse([app, "-debug-home", "-debug-first-launch"])
+        #expect(options.firstLaunch && !options.home)
+        #expect(options.problems.contains { $0.contains("both") })
+    }
+
+    @Test("With a note given there is no Home to show: the note opens, and it is reported")
+    func noteWins() {
+        let options = DebugLaunchOptions.parse([app, "-debug-home", "-debug-note", "code"])
+        #expect(options.note == .fixture(.code))
+        #expect(!options.home)
+        #expect(options.problems.contains { $0.contains("note") })
+    }
+}
+
 #if canImport(UIKit)
 
+import SwiftData
 import UIKit
+
+@Suite("Debug first launch and Home stores")
+@MainActor
+struct DebugHomeStoreTests {
+
+    private func freshDefaults() -> UserDefaults {
+        let name = "DebugHomeStoreTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defaults.removePersistentDomain(forName: name)
+        return defaults
+    }
+
+    private func counts(_ storage: Storage) throws -> (pages: Int, folders: Int) {
+        let context = try #require(storage.container).mainContext
+        return (try context.fetchCount(FetchDescriptor<Page>()), try context.fetchCount(FetchDescriptor<Folder>()))
+    }
+
+    @Test("A first launch is an empty store with every first-launch flag cleared")
+    func firstLaunch() throws {
+        let defaults = freshDefaults()
+        for key in [WelcomeScreen.shownKey, WelcomeNote.madeKey, NoteMemory.lastOpenedKey, NoteMemory.placesKey] {
+            defaults.set(true, forKey: key)
+        }
+        let options = DebugLaunchOptions.parse(["app", "-debug-first-launch"])
+
+        let storage = try #require(DebugLaunch.firstLaunchOrHomeStorage(options, session: DebugSession(options: options), defaults: defaults))
+        let (pages, folders) = try counts(storage)
+        #expect(pages == 0 && folders == 0)
+        #expect(!defaults.bool(forKey: WelcomeScreen.shownKey))
+        #expect(!defaults.bool(forKey: WelcomeNote.madeKey))
+        #expect(defaults.object(forKey: NoteMemory.lastOpenedKey) == nil)
+        #expect(WelcomeScreen.claimFirstLaunch(defaults: defaults), "the title screen would show")
+    }
+
+    @Test("Home's store has notes and folders, a note to continue at a page, and the title screen already seen")
+    func home() throws {
+        let defaults = freshDefaults()
+        let options = DebugLaunchOptions.parse(["app", "-debug-home"])
+
+        let storage = try #require(DebugLaunch.firstLaunchOrHomeStorage(options, session: DebugSession(options: options), defaults: defaults))
+        let (pages, folders) = try counts(storage)
+        #expect(pages >= 6 && folders == 3)
+        #expect(defaults.bool(forKey: WelcomeScreen.shownKey))
+        #expect(!WelcomeScreen.claimFirstLaunch(defaults: defaults))
+
+        let memory = NoteMemory(defaults: defaults)
+        let all = try #require(storage.container).mainContext.fetchedPages()
+        let sections = HomeSections(pages: all, folders: [], lastOpened: memory.lastOpenedKey())
+        let continuing = try #require(sections.continuing)
+        #expect(continuing.title == "Week 6 · Hash tables")
+        #expect(memory.place(of: continuing.persistentModelID) == .init(page: 2, of: 5))
+    }
+
+    @Test("Without either flag there is no store to make")
+    func neither() {
+        let options = DebugLaunchOptions.parse(["app"])
+        #expect(DebugLaunch.firstLaunchOrHomeStorage(options, session: DebugSession(options: options), defaults: freshDefaults()) == nil)
+    }
+}
+
+private extension ModelContext {
+    func fetchedPages() -> [Page] { (try? fetch(FetchDescriptor<Page>())) ?? [] }
+}
 
 @Suite("Debug fixtures and report")
 @MainActor

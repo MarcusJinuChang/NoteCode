@@ -32,6 +32,9 @@ struct NoteList: View {
     /// Asked to show Settings, from the gear at the foot of the list.
     var onShowSettings: () -> Void = {}
 
+    /// Asked to close the open note and show Home: the Home row at the top.
+    var onShowHome: () -> Void = {}
+
     /// What the menu bar has asked the list to do (New Folder, Search Notes).
     /// Answered when the list is on screen, then cleared.
     @Binding var request: ListRequest?
@@ -46,6 +49,7 @@ struct NoteList: View {
         searchText: Binding<String>,
         onNewPage: @escaping (Page) -> Void = { _ in },
         onShowSettings: @escaping () -> Void = {},
+        onShowHome: @escaping () -> Void = {},
         request: Binding<ListRequest?> = .constant(nil),
         showsToasts: Bool = true
     ) {
@@ -54,6 +58,7 @@ struct NoteList: View {
         _searchText = searchText
         self.onNewPage = onNewPage
         self.onShowSettings = onShowSettings
+        self.onShowHome = onShowHome
         _request = request
         self.showsToasts = showsToasts
     }
@@ -116,7 +121,12 @@ struct NoteList: View {
         let results = search.results(in: pages, sort: sort)
         let hasLiveNotes = pages.contains(where: \.isLive)
 
+        ScrollViewReader { proxy in
         List(selection: $selection) {
+            if search.isEmpty {
+                homeRow
+            }
+
             if storageIsEphemeral {
                 Label(
                     "Storage is unavailable, so changes made now won't be saved.",
@@ -168,7 +178,7 @@ struct NoteList: View {
         .onChange(of: request, initial: true) { _, asked in
             guard let asked else { return }
             request = nil
-            answer(asked)
+            answer(asked, scrolling: proxy)
         }
         // A bar at the foot of the list: Recently Deleted, when it holds
         // anything, and the gear.
@@ -257,17 +267,42 @@ struct NoteList: View {
             Button("Cancel", role: .cancel) {}
             Button("Rename") { finishRenamingPage() }
         }
+        }
+    }
+
+    /// Home, at the top of the list. Not a note, so it is never selected; it
+    /// clears the selection instead, and is tinted like a selected row while
+    /// Home is what the page shows.
+    private var homeRow: some View {
+        Button(action: onShowHome) {
+            Label {
+                Text("Home")
+                    .fontWeight(.semibold)
+            } icon: {
+                Image(systemName: "house")
+                    .foregroundStyle(Color.accentColor)
+            }
+        }
+        .buttonStyle(.plain)
+        .selectionDisabled()
+        .listRowBackground(selection == nil ? RowSelectionTint.color(isDark: colorScheme == .dark) : nil)
+        .accessibilityIdentifier("homeRow")
+        .accessibilityAddTraits(selection == nil ? .isSelected : [])
     }
 
     /// Does what the menu bar asked. The list may have only just slid in, and
     /// a field focused or an alert raised in the same frame is dropped, so it
     /// waits for the slide.
-    private func answer(_ request: ListRequest) {
+    private func answer(_ request: ListRequest, scrolling proxy: ScrollViewProxy) {
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(350))
             switch request {
             case .newFolder:   editingFolder = .new(moving: nil)
             case .searchNotes: searchIsFocused = true
+            case .showFolder(let id):
+                // Opened if the reader had closed it, then brought into view.
+                closedFolders.remove(id)
+                withAnimation { proxy.scrollTo(id, anchor: .top) }
             }
         }
     }
@@ -304,31 +339,39 @@ struct NoteList: View {
 
     // MARK: Rows
 
+    /// A row's picture of the note's first page: 30 by 39 (the `Library`
+    /// board), Letter's proportions.
+    private static let thumbnailSize = CGSize(width: 30, height: 39)
+
     /// - Parameter showsFolder: whether each row names its folder, for the
     ///   Pinned section, where notes from every folder sit together.
     private func noteRows(_ notes: [Page], showsFolder: Bool = false) -> some View {
         ForEach(notes) { page in
-            VStack(alignment: .leading) {
-                Text(page.title)
-                    .font(.headline)
-                HStack(spacing: 4) {
-                    if page.isTextLocked {
-                        Image(systemName: "lock.fill")
-                            .accessibilityLabel("Text Locked")
+            HStack(spacing: 12) {
+                NoteThumbnailView(page: page)
+                    .frame(width: Self.thumbnailSize.width, height: Self.thumbnailSize.height)
+                VStack(alignment: .leading) {
+                    Text(page.title)
+                        .font(.headline)
+                    HStack(spacing: 4) {
+                        if page.isTextLocked {
+                            Image(systemName: "lock.fill")
+                                .accessibilityLabel("Text Locked")
+                        }
+                        if showsFolder, let folder = page.folder {
+                            Text(folder.name)
+                            Text("·")
+                        }
+                        // The date the list is sorted by, so the order can be read
+                        // off the rows.
+                        Text(
+                            sort.displayedDate(modified: page.modifiedAt, created: page.createdAt),
+                            format: Date.FormatStyle(date: .abbreviated, time: .shortened)
+                        )
                     }
-                    if showsFolder, let folder = page.folder {
-                        Text(folder.name)
-                        Text("·")
-                    }
-                    // The date the list is sorted by, so the order can be read
-                    // off the rows.
-                    Text(
-                        sort.displayedDate(modified: page.modifiedAt, created: page.createdAt),
-                        format: Date.FormatStyle(date: .abbreviated, time: .shortened)
-                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
             .tag(page)
             .listRowBackground(rowBackground(for: page))
@@ -344,26 +387,30 @@ struct NoteList: View {
     private func resultRows(_ results: [NoteSearch.Result], for search: NoteSearch) -> some View {
         ForEach(results) { result in
             let page = result.page
-            VStack(alignment: .leading, spacing: 2) {
-                Text(search.highlighted(page.title))
-                    .font(.headline)
-                if let excerpt = result.match.excerpt {
-                    Text(search.highlighted(excerpt))
-                        .font(.subheadline)
-                        .lineLimit(2)
-                }
-                HStack(spacing: 4) {
-                    if let folder = page.folder {
-                        Text(folder.name)
-                        Text("·")
+            HStack(spacing: 12) {
+                NoteThumbnailView(page: page)
+                    .frame(width: Self.thumbnailSize.width, height: Self.thumbnailSize.height)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(search.highlighted(page.title))
+                        .font(.headline)
+                    if let excerpt = result.match.excerpt {
+                        Text(search.highlighted(excerpt))
+                            .font(.subheadline)
+                            .lineLimit(2)
                     }
-                    Text(
-                        sort.displayedDate(modified: page.modifiedAt, created: page.createdAt),
-                        format: Date.FormatStyle(date: .abbreviated, time: .shortened)
-                    )
+                    HStack(spacing: 4) {
+                        if let folder = page.folder {
+                            Text(folder.name)
+                            Text("·")
+                        }
+                        Text(
+                            sort.displayedDate(modified: page.modifiedAt, created: page.createdAt),
+                            format: Date.FormatStyle(date: .abbreviated, time: .shortened)
+                        )
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
             .tag(page)
             .listRowBackground(rowBackground(for: page))

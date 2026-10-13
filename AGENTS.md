@@ -37,6 +37,8 @@ gets there, and the difference decides how the button behaves:
 
 Compiler Explorer does not get Java: its executor compiles into a fixed
 filename, so `public class Main` fails there with an error about the file name.
+It does not get JavaScript either, whose only compilers there are V8 builds that
+cannot execute (see "Code: languages, the keys row…").
 A destination that can't take a language hands the block to one that can rather
 than failing, which is why `RunRequest` reports where it actually went.
 
@@ -914,6 +916,376 @@ v3 phase 1 (12 Oct, `docs/ui-design-v3-implementation.md`).
   lock behind. A copy of a note with the old layout keeps it, since its ink
   depends on the layout it was drawn on.
 
+## Home, the title screen, thumbnails, reopening
+
+v3 phase 2 (12 Oct, `docs/ui-design-v3-implementation.md`).
+
+- **The title screen is an overlay on `ContentView`**, not a `fullScreenCover`
+  (`WelcomeScreen`, the `Main` board): a cover's slide can't be told to fade,
+  and Reduce Motion has to. Normal motion slides it up; Reduce Motion fades.
+  Flag `welcomeScreenShown`, set when `claimFirstLaunch` is asked, shown or
+  not. Not tied to an empty store, as the Welcome note is: a build that updates
+  over notes shows it once, as the new home's introduction. Skipped, without
+  spending the turn, when storage is in memory or a debug launch opened a note.
+  Settings › Help and About › Welcome Screen shows it again, dismissing
+  Settings first.
+- **The app opens on Home** (`HomeView`): `ContentView`'s detail is Home
+  whenever `selection` is nil, with the list away (`.detailOnly`); ☰ brings
+  it over, as over a note. With storage failed the list starts open, since
+  its warning is the list's. The Home row at the top of the list and ⇧⌘H
+  (`goHome`) clear the selection and send the list away.
+  - **Sections are `HomeSections`**, pure, handed every note. Continue is the
+    note opened last; with none recorded, or it gone (deleted), the note edited
+    last, so Home always has a way back in. Recent is the next 8 by
+    `modifiedAt`. Folders are tiles in name order with live counts. `hasNoNotes`
+    shows the empty state: no *live* notes, so a store of folders alone, or of
+    deleted notes, is empty. The test that a deleted note is in none of it
+    fails with `.live` removed (checked 12 Oct).
+  - **"Page 3 of 5" is remembered, not computed.** Only a laid-out note knows
+    its page count, and laying out a closed note costs what opening it does
+    (see Note info). So `NoteMemory.Place` keeps `[page, of]` as of the last
+    time the note was read.
+  - **The Ink chip is on Continue only.** `Page.drawingData` is external
+    storage; reading `isEmpty` loads the file, and Recent has up to 8 cards.
+  - **Colours are the grouped pair** (`HomePalette`): light grey with white
+    cards, black with dark grey ones, so cards stand out in both. Not the
+    page's surround, which is darker than its page in dark.
+  - **A card's shadow goes on its shape, in `.background { … .shadow }`.**
+    On the stack it shaded the text too (seen in the simulator, light).
+  - A tap on a folder tile is `ListRequest.showFolder`: the list opens over
+    Home with that folder open and scrolled to.
+  - From Template (phase 5) and Import (phase 7) are not on Home until they
+    exist.
+  - **⇧⌘H is bound but not tried with a real keyboard**: the simulator tools
+    can't send chords. Nothing else in `NoteShortcut` uses it, and neither the
+    iPad's global shortcuts (⌘H is the Home Screen, ⌘Space, ⌘Tab, ⇧⌘3/4/5) nor
+    the Mac menu bar's (⌘H Hide, ⌥⌘H Hide Others) include it. If a device
+    shows the system taking it, change `NoteShortcut.home`.
+- **`NoteMemory` is per device and keyed by persistent ID**, in `UserDefaults`:
+  the note opened last (`lastOpenedNote`) and every note's place
+  (`notePlaces`, one dictionary). Not in the model: where someone was reading
+  is not an edit, and must not move `modifiedAt`.
+  - **Keys must be made with `.sortedKeys`.** `JSONEncoder` writes an object's
+    keys in no fixed order, so the same `PersistentIdentifier` gave different
+    strings on different calls: places were never found again, and a
+    thumbnail's cache name changed between asking and storing, so every
+    thumbnail came back blank. Found by `NoteMemoryTests`, after the simulator
+    showed it.
+  - **Find a note by its key, never by decoding a key into an ID.** A decoded
+    ID passed `==` but a `Set` of IDs didn't find it, so pruning forgot every
+    place at each launch. `HomeSections` compares `key(for:)`; `prune` builds a
+    set of keys.
+  - **A new note's ID is temporary until the context saves it**, and a key
+    made from one never matches again. `Page.settledID` saves first, then
+    answers; `key(for:)` refuses a temporary ID.
+  - Pruned once a launch, with every note's ID (deleted ones too).
+- **Reopening at the last page.** `PageDetailView` reads the note's place once
+  as it opens and hands `DocumentTextView.resumingAtPage`; `PageView.restore`
+  waits for the first layout, as `reveal` does (a search's match wins), lays
+  out down to that page as scrolling there would (`DebugLaunch.scroll`'s
+  technique, not the whole note) and scrolls to `scrollTop(forPage:)`.
+  - **The page reports its own place** through `onReadingPlaceChanged`,
+    whenever the page at the top or the page count changes, held back until
+    the restore has run: otherwise opening at page 4 first wrote page 1 over
+    it. The place is the page at the top edge plus 1pt, since exactly on a
+    page's scroll-top the edge is mid-band and rounding could name the page
+    before. Written as the reader scrolls, not on closing, so an app killed
+    mid-read keeps where it was.
+  - A place past a shortened note's end opens at the end, scrolled as far as it
+    goes: the last page's top can lie beyond the furthest the view scrolls.
+  - Tests check the line at the top against a note laid out from scratch, in
+    every mode and orientation, and that the first report is the restored
+    page. Layout in those tests is forced a few passes at a time: a window made
+    outside the test host's scene has no display link, and the report hooks
+    run from layout passes.
+- **Thumbnails** (`NoteThumbnail`, `ThumbnailStore`, `NoteThumbnailView`): the
+  first page, drawn as the PDF draws a sheet (`PrintedNote`, `NotePDF.drawInk`),
+  light, at 0.55 pixels to the page point (449 by 581 for Letter).
+  - **Never the whole note.** The printed text view is fed `prefix(of:)`: 80
+    paragraphs or 8,000 characters, whichever comes first, clear of what one
+    page holds. Measured on the simulator, a 2,000-line note: 9ms with the
+    prefix, 333ms without; 40 lines is 4ms. The cost test fails without it.
+  - **Ink is drawn at the thumbnail's resolution**, not the PDF's:
+    `NotePDF.drawInk` takes `pixelsPerPagePoint`. A sheet's crop at 288 dots
+    per inch is 31MB. Only elements touching page 1 are drawn.
+  - **Cached in Caches** as `NoteThumbnails-v1/<hash of the ID>-<modifiedAt in
+    ms>.png`. A new date is a new name, so no timestamp is read (the privacy
+    manifest needs a reason for file timestamps), and the note's older files are
+    removed as a new one is written. Bump `NoteThumbnail.version` when a note
+    starts looking different for another reason: phase 3's hidden markers
+    will, since a thumbnail made now shows `##` and `**`.
+  - **One per turn of the main actor** (`ThumbnailStore.Gate`, a class: a
+    struct held across the gate's suspension was an exclusive-access trap),
+    each yielding before it starts; a request cancelled while it waits draws
+    nothing. A row that is being edited shows its last picture and waits 600ms
+    of quiet before asking for the next.
+  - A note whose deletion has been saved is never read (AGENTS.md, drawing
+    data): the store checks `modelContext` and `isDeleted` before touching it.
+  - macOS draws a placeholder; `PrintedNote` is UIKit.
+- **Debug launch:** `-debug-first-launch` and `-debug-home` (see the table).
+- **Not checked:** the Pencil; Reduce Motion's fade; the title screen in dark;
+  the Home row, a folder tile, Show All and the toolbar's search and + by a
+  tap; ⇧⌘H; Home on an 11-inch iPad or in portrait; a thumbnail updating after
+  an edit on screen; thumbnails of a note with ink on the iPad; the macOS
+  Home (it builds).
+
+## Writing: hidden Markdown markers, lists, checklists, links
+
+v3 phase 3 (12 Oct, `docs/ui-design-v3-implementation.md`).
+
+- **Markers take no room in a `rendered` note** (`Page.markdownLayout`,
+  `MarkdownLayout`). `BlankLineLayout`'s content-storage delegate swaps each
+  marker for U+2060 WORD JOINER in the paragraph TextKit lays out: same
+  length, so offsets map straight through, and the text storage still holds
+  the Markdown. The ranges are `DocumentStyler.layouts`' own (`blockMarkers`,
+  each inline's `markers`), so styling and layout can't disagree. Collapsed:
+  a heading's `# `, the markers of complete inline spans (inline code only its
+  backticks), a link's `[` and `](url)`, and a checkbox item's `- `. A bullet
+  `-`/`*`/`+` lays out as `•`; `[ ]` or `[x]` as an em space plus two joiners,
+  and the box is drawn in the em space. Nothing in a code block. A legacy note
+  (`markdownLayout` nil) swaps blank lines only, as before.
+  - **State-independent**: the swap is a function of the text alone. The caret,
+    the mode and Show Markdown never change it.
+  - **Probe, as tests** (`MarkdownLayoutTests`). Every line frame (fragments
+    and lines) of a note with bold, code, strike, a link, a heading, bullets
+    and boxes equals that of the same styled text with the markers physically
+    deleted, in seamless, print and landscape. A control test and a mutation
+    (swap off) both fail it. Carets beside a run are full height. A closing
+    marker typed, a span broken, and a fence opened or closed above all lay
+    out the same as a fresh note, *in the edit that makes them*: the styler's
+    attribute edit regenerates the paragraphs whose parse changed, so nothing
+    stale survives. A keystroke in a 500-line rendered note: 37.2ms against
+    37.0ms legacy (`MarkdownLayoutCostTests`); the runs are computed once per
+    edit (`layoutMarkerRuns`), not per paragraph, and a layout parses nothing.
+  - **Measured, so it isn't tried again**: a joiner is zero width in the body
+    font, next to an em space too (CoreText); `closestPosition` over a bold
+    word returned offsets on both sides of each marker and never inside one;
+    a test's ground truth has to keep the em space and `•` the swap puts in,
+    or the checkbox and bullet lines look 10pt off.
+  - **`PrintedNote` takes `rendersMarkdown`** (PDF and thumbnails), or the
+    paper breaks lines where the screen doesn't. `NoteEditor.rendersMarkdown`
+    carries it from the coordinator. A thumbnail's cache name has `-r` for a
+    rendered note, since hiding markers isn't an edit and leaves `modifiedAt`
+    alone, and `NoteThumbnail.version` is 2.
+  - **The parser got stricter on the way** (`InlineParser`): an emphasis span
+    can't start with a space or end after one, and `_` can't open or close
+    inside a word. `2 * 3 * 4`, `int *p and *q` and `snake_case_name` were
+    spans, which was a dimmed-asterisk quirk before and a vanished character
+    once markers are hidden.
+- **Reveal is drawing only.** `HeadingLayoutFragment` widens
+  `renderingSurfaceBounds` into the left margin and draws the hashes in
+  `secondaryLabel`, right-aligned 8pt left of the text on the first line's
+  baseline: while the caret or a selection is on that heading (Show Markdown ›
+  While Editing) or always (Always); never in ink mode, never printed (the
+  PDF draws lines, not fragments). Redrawn the way fences are
+  (`HeadingMarkerDisplay.swift`, state in `HeadingMarkerVisibility`, asked at
+  draw time, `setNeedsDisplay` on the changed fragment views): a caret move
+  makes no fragment and edits no storage (tested, as `CodeFenceCostTests`
+  does). **A unit test can't see the crop**: `layer.render` doesn't apply the
+  fragment view's bounds, so the pixel test passed with the reach removed. The
+  contract is tested instead (the area reaches past the hashes at every level;
+  fails without the union), and the real crop was looked at in the simulator.
+  A fragment's default area reaches only 11pt left of its text.
+- **Inline formatting shows in the hotbar** (`NoteEditor.caretFormatting`,
+  `MarkdownFormatting.formatting`): Bold, Italic and Code light up, Style ▾
+  and List ▾ show checkmarks. A caret is in a span from just after its first
+  marker character to the end of its text, which is what typing there makes.
+- **Caret stops** (`MarkdownFormatting.caretStop`, pure, on the one line,
+  parsed with the styling's parsers). Every offset in a hidden stretch is one
+  place on the page; the stop is its left edge for inline markers (the end of
+  a bold word is inside it, the start isn't) and after it for a heading's
+  marker or a checkbox's `- [x] `. Touching markers are one stretch.
+  Applied in `closestPosition(to:)` and in `textViewDidChangeSelection`
+  (`normalizeCaret`).
+  - **Never after an edit.** Typing the closing `**` leaves the caret after
+    it; normalising would put it back inside the bold and the next letter
+    with it (`typingIsLeftAlone`). An edit is told by `editCount`.
+  - **An arrow is a caret that moved one place with no finger down**
+    (`wasTouchedRecently`, from `hitTest`); a tap, or any other landing, goes
+    to the stop. An arrow leaves a stretch the way it came in: right from an
+    inline stop goes one visible place on, except at a line's end, where it
+    goes just past the markers, the only way out of bold there (invisible,
+    and the hotbar's Bold shows it). Left from a heading's stop goes to the
+    line above.
+- **Backspace** (`MarkdownFormatting.backspace`, applied in `shouldChangeTextIn`
+  through `Coordinator.apply`, which is `replace(_:withText:)`, so undoable and
+  restyled): at the start of a heading's or list item's text it removes the
+  marker (keeping indentation); in front of, inside or just past a closing
+  marker it deletes the last visible character of the span by grapheme, and an
+  emptied span goes with its markers. Elsewhere the ordinary Backspace.
+- **Return, Tab, ⇧Tab.** Return in a list item continues it (same bullet, next
+  number keeping `.` or `)`, an empty box); on an empty item it ends the list;
+  text after the caret moves to the new item; one undo step. In a rendered note
+  Return at the end of a line that ends in closing markers puts the newline
+  *after* them (the caret stands in front, and a plain newline split `**` from
+  its word). Tab nests two spaces, ⇧Tab takes them back, only on list items
+  (otherwise the key is given back). Tab arrives as `shouldChangeTextIn` with
+  `"\t"`; ⇧Tab is a `UIKeyCommand` on `DocumentUITextView` with priority,
+  not a menu button, since a bare Tab in the menu bar would take it from every
+  field. Numbers after an inserted item aren't renumbered.
+- **List ▾** has Bulleted, Numbered and Checklist (`toggleList`): another kind
+  converts, the same kind takes the list off, numbers count written lines.
+- **Checklists**: `- [ ]` / `- [x]` (any bullet char; `[ ]` then a space or the
+  line's end) is `ListMarker.checkbox`. `ChecklistLayoutFragment` draws the box
+  (2pt `tertiaryLabel` outline, 6pt radius; checked: accent fill and a white
+  tick) in the em space, or over the `[ ]` glyphs in a legacy note, and the PDF
+  draws it with its line (accent by name: paper has no tint). A ticked item is
+  struck through in `secondaryLabel`.
+- **Taps on boxes and links** (`MarkerTaps.swift`). **Decided without the
+  spike**: `textView(_:primaryActionFor:)` wasn't tried; the brief's fallback is
+  what a box needs anyway and one path serves both. The text view answers
+  `hitTest` with itself for a touch on a box or a link, so the text
+  interaction's recognisers (on an inner view; refusing them in
+  `gestureRecognizerShouldBegin` doesn't work) never see it and the caret
+  doesn't move or the keyboard rise; recognisers on the text view take the tap
+  and the hold. They live on a separate delegate object (`MarkerGestures`): a
+  scroll view is the delegate of its own pan and pinch. A box needs an
+  editable view; a link opens in a locked note too. Link text: `[text](url)`
+  and a bare `http(s)://` address shown exactly as typed, `#B85900` / `#FFAA33`
+  underlined (`DocumentStyler.linkColor`); inline code isn't a link. Only
+  http, https and mailto open (`LinkTarget`); no scheme means https. A hold
+  shows the address with Open Link and Copy Link (`UIEditMenuInteraction`).
+- **Hide Markdown Markers…** is in the title menu for a legacy note (not the
+  list's note menu), asks first with the board's wording, and sets `rendered`.
+  Not an edit. The words re-wrap once, so ink drawn before may need moving.
+- **Not checked** (see the PR's checklist): the Pencil; a real keyboard (⇧Tab,
+  Tab, arrows past markers, ⌘B on a double-tapped word); the link tap and hold
+  (a tap opens Safari, which the simulator tools weren't driven to); Return and
+  Backspace by the hardware keyboard; the margin hash in light mode on screen
+  (dark was looked at; light is covered by the pixel test); fast
+  typing and pasting into a rendered note; the title menu's conversion on a
+  note with ink; the macOS app running (it builds); `closestPosition` for a
+  selection drag handle.
+
+## Code: languages, the keys row, indentation, line numbers, output
+
+v3 phase 4 (13 Oct, `docs/ui-design-v3-implementation.md`).
+
+- **Eight languages** (`CodeLanguage`): C++, Java, Python, then C, JavaScript,
+  Rust, Go and SQL, in that order in every menu (`CodeBlockKind.menu`: the
+  languages, a divider, Output, Plain Text). Each has its tags (`js`, `golang`,
+  `rs`, `postgres`, …), `displayName`, `canonicalName` (Compiler Explorer's own
+  language id), `highlightName` (what highlight.js is asked for, so `golang` and
+  `js` colour without depending on its aliases) and `canRun`. The raw value is
+  what `insertCodeBlock` writes after the fence, and reads back as itself.
+  - **SQL is Copy only** (`canRun` false): the sites that take it run it against
+    a database of their own, so a Run would only open a page. No destination
+    lists it; the menu says "Copy only" under it.
+  - **Run mapping, checked on the live sites on 13 Oct.** Compiler Explorer
+    ids are pinned: C `cg152` (`-O2 -std=c17`), Rust `r1990` (`-O`), Go `gl1260`,
+    beside `g142` and `python313`. Each was compiled and run through
+    `/api/compiler/<id>/compile` with `execute` on, and a `clientstate` link
+    for each of C, Rust and Go was opened in a browser and landed on "Program
+    returned: 0" with the program's output (Go's first compile took 17s cold).
+    **The brief and canvas say JavaScript runs on Compiler Explorer. It can't:**
+    its only JavaScript compilers are two V8 builds with `supportsExecute` false,
+    so JavaScript is Programiz by paste, like Java. OnlineGDB has no JavaScript
+    or SQL page either (404), so its `supportedLanguages` drops JavaScript too.
+    The ids are a maintenance item: retired ones still show the code, with the
+    compiler pane complaining.
+  - Tags other than these are unknown, so a block tagged `ruby` still has no
+    Run and keeps its tag as the language button's label.
+- **Output blocks** (```` ```output ````, `CodeBlockKind.output`,
+  `CodeBlock.isOutput`): a console. Dark panel in both appearances
+  (`CodeOutputPanel`: `#141416`/`#E5E5EA`/`#A1A1A6` light, `#2C2C2E`/`#F2F2F7`/
+  `#8E8E93` dark), the label "Output", Copy and no Run, no highlighting, no
+  auto-indent, no line numbers. Measured contrast: text 14.7:1 light, 12.5:1
+  dark; the design's label colour is 7.2:1 light and **4.3:1 dark**, under 4.5
+  for 13pt text, kept as the design has it and tested at 4:1.
+  - **Three things the retag between a language and Output taught**, so they
+    aren't found again. (1) Python and output are both six letters, so the
+    styler's block signature didn't change and the text kept its old colour;
+    `styleDetail` now includes `isOutput`. (2) A highlighting pass handed an
+    output block resets its text to `.label` (`applyColors(clearing:)`), so
+    output is left out of the jobs, and `codeColors` doesn't carry the
+    console's text colour into a block just turned into code. (3) **A retag
+    between languages never re-coloured anything**, which predates v3:
+    `highlightedBlocks` was keyed by `CodeBlockID`, which is the block's
+    ordinal and code and not its tag, so python → sql left python's colours on
+    the text. It is keyed by the id and the tag now (`HighlightKey`).
+    `OutputBlockTests.retagRecolours` fails with the tag taken out of the key.
+    **That test restyles once before its first check**: the harness's window
+    applies its appearance after the first restyle, a change of appearance
+    forgets everything highlighted, and until then the mutation looked
+    harmless.
+  - The fragment's `isOutput` is set when it is made. A retag restyles the whole
+    block, which lays every paragraph of it out again, so none keeps the old
+    answer (`retagTurnsEveryLine`).
+- **Return in code** (`CodeIndent.returnEdit`, pure, applied from
+  `shouldChangeTextIn` through `Coordinator.apply`, so one undo step): keeps the
+  line's indent as far as the caret is in it; one level deeper after `{`, `(` or
+  `[` and, in Python only, a colon (not in a `#` comment; `case 1:` in C++ is a
+  plain newline); between a bracket and its own closer the closer goes to its
+  own line and the caret lands between; a line the caret leaves blank has its
+  indent moved down, not copied, so a blank line stays blank. Not on a fence
+  line, not in output, not for a selection that leaves the block. One level is
+  Settings › Code › Indent Width (2 or 4, default 4), or a tab if the line is
+  indented with one.
+- **⇥ and ⇧⇥** (`CodeIndent.indentEdit`; the hardware Tab arrives as a `"\t"`
+  in `shouldChangeTextIn`, ⇧Tab is the existing `UIKeyCommand`, which now
+  answers for code too): one level in or out on **every line the selection
+  touches, which with a caret is its line, wherever the caret is in it**, not
+  an insert at the caret. That is the brief's wording ("indent or outdent the
+  selected lines"), chosen over VS Code's tab-at-the-caret since on a tablet a
+  line is what is wanted. Blank lines in a multi-line selection are left alone;
+  a single blank line takes the indent, or ⇥ there would do nothing. ⇧⇥ with
+  nothing to take off hands the key back. Code lines only: a selection running
+  into a fence or prose isn't Tab's. Lists keep their own Tab.
+- **The code-keys row** (`CodeKeysRow`, `CodeKeys`): ⇥ ⇤ `{ } ( ) [ ] < > ; = " '
+  : / \ | & * #` ← →, on a glass capsule, 40pt keys in a 52pt row, an
+  `inputAccessoryView` set while `TextRewritingPolicy` says the caret is in
+  code, and swapped **before the one `reloadInputViews()`** that crossing
+  already does (`applyRewritingPolicy`), so the traits and the row change in a
+  single redraw. The first tap into a note that opens on code crosses nothing,
+  so the unchanged-policy path refreshes it too
+  (`refreshedWithoutCrossing` fails without that). The symbols scroll in a narrow Split
+  View; the indent and arrow keys stay at the ends. Each key goes through the
+  same paths as typing (`replace(_:withText:)`, `apply`), so it undoes like
+  typing; ← and → collapse a selection to its edge.
+  - **Not with a hardware keyboard** (`HardwareKeyboard`): `GCKeyboard.coalesced`
+    non-nil, with a refresh on `GCKeyboardDidConnect`/`DidDisconnect`. Not the
+    on-screen keyboard's visibility, which says nothing about whether a
+    hardware one is attached. Asked last (an autoclosure), since the row is
+    decided on every caret move. **Not checked with a real keyboard**, or in the
+    simulator with "Connect Hardware Keyboard" on.
+  - **`CanvasGeometry.keyboardInset` needed no change, measured.** UIKit's
+    `keyboardFrameEnd` includes the accessory: on the iPad Pro 13-inch
+    simulator in landscape it was `(0, 534, 1376, 498)` in prose and
+    `(0, 482, 1376, 550)` in code, 52pt taller and higher, and the move from one
+    to the other posts a new frame, so the text view re-insets as the caret
+    crosses. The hotbar, docked at the bottom, rides above the row.
+    `KeyboardInsetTests.codeKeysRow` and `PageViewTests` pin the arithmetic
+    with those numbers.
+- **Line numbers** (Settings › Code, off by default): `CodeBlockLayoutFragment`
+  draws each code line's number, right-aligned 16pt left of the panel, in the
+  page's margin, on the paragraph's first line's baseline (a wrapped line has
+  one), `secondaryLabel`, monospaced digits at 85% of the code's size. **Never a
+  gutter inside the panel**, which would shift the code, re-wrap it and move
+  ink. It's the way a heading's hash is drawn: the fragment's rendering surface
+  always reaches `PageLayout.margin + 5` to the left (on or off, so the setting
+  is a redraw and no layout), the number is asked for at draw time
+  (`lineNumber`), and the coordinator `setNeedsDisplay`s the on-screen fragment
+  views of every block when the setting changes. The number is the count of
+  newlines from the block's start, so an edit above renumbers nothing. Not on
+  fence lines or output. Printed when on (`NoteEditor.showsLineNumbers` →
+  `NotePDF.Note.lineNumbers`, once, on the page a split paragraph's first line
+  is on); thumbnails never show them. Measured: a keystroke in a 500-line note
+  30.9ms off, 30.7ms on; a rendered-note keystroke 34.4ms against legacy 35.3ms,
+  and the fence cost test 36ms — no worse than before. **A pixel test does see a
+  crop here**: with the surface's margin union removed, the digits vanished
+  from the render (`rightAligned`, `surfaceReach`), unlike the heading hash's.
+- **Settings › Code** has Code Keys, Indent Width and Line Numbers beside Run
+  Code In. `CodeEditorSettings` carries the three to the editor with one
+  `apply(to:in:)` (the repo's one-type rule), from `PageDetailView`'s
+  `@AppStorage`. Keys: `codeKeys`, `indentWidth`, `lineNumbers`, pinned in
+  `SettingsTests.keysAreStable`. A width the picker can't have made reads as 4.
+- **Not checked:** the Pencil; a real hardware keyboard (⇥, ⇧⇥, the row
+  disappearing); a floating keyboard; the row in a narrow Split View; VoiceOver
+  on the keys; Return in the Korean layout the simulator started with was the
+  only keyboard used; the Output panel's selection highlight (orange at 30% on
+  a near-black panel) beyond looking at it; line numbers at 4+ digits on
+  screen (the area is tested for five); the macOS app running (it builds).
+
 ## Settings
 
 A form sheet with a `NavigationStack`: a list of sections, each a page
@@ -1307,6 +1679,8 @@ rebuilt copy of the app with logging.
 | `-debug-then-mode <mode>` | Switches mode once the page has settled |
 | `-debug-then-delay <seconds>` | Wait before that switch; default 1 |
 | `-debug-report` | Writes `tmp/notecode-debug-state.json` in the app container each time layout settles |
+| `-debug-first-launch` | A fresh install: an empty in-memory store and the first-launch flags cleared, so the title screen and the Welcome note appear |
+| `-debug-home` | Home over a few weeks of sample notes and three folders, in memory, with the title screen already seen and a note to continue at page 3 |
 
 The report lists mode, orientation, page count, scroll offset, scale, zoom, the
 top line (character, page, whether it starts the page, its text) and

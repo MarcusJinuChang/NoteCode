@@ -27,6 +27,9 @@ struct SettingsTests {
         #expect(EraserSettings.defaultsKey == "eraser")
         #expect(InkPalette.defaultsKey(for: .pen) == "inkPalette")
         #expect(InkPalette.defaultsKey(for: .highlighter) == "highlighterPalette")
+        #expect(CodeIndent.widthKey == "indentWidth")
+        #expect(CodeKeys.enabledKey == "codeKeys")
+        #expect(LineNumbers.defaultsKey == "lineNumbers")
     }
 
     @Test("Appearance round-trips through its stored text, and system is the default")

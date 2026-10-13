@@ -51,7 +51,7 @@ struct NoteInfoTests {
         int x;
         int y;
         ```
-        ```rust
+        ```ruby
         fn main() {}
         ```
         ```cpp
@@ -64,7 +64,7 @@ struct NoteInfoTests {
 
         let info = NoteInfo(content: note)
 
-        // c++ and cpp are one language; rust, unknown to the app, and a
+        // c++ and cpp are one language; ruby, unknown to the app, and a
         // fence with no language both count as Other.
         #expect(info.code.map(\.language) == [.cpp, .python, nil])
         #expect(info.code.map(\.name) == ["C++", "Python", "Other"])
@@ -102,6 +102,6 @@ struct NoteInfoTests {
 
     @Test("Languages have the names people write")
     func displayNames() {
-        #expect(CodeLanguage.allCases.map(\.displayName) == ["C++", "Java", "Python"])
+        #expect(CodeLanguage.allCases.map(\.displayName) == ["C++", "Java", "Python", "C", "JavaScript", "Rust", "Go", "SQL"])
     }
 }

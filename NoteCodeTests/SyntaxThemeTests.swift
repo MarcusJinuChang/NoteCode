@@ -118,6 +118,123 @@ struct SyntaxThemeTests {
         #expect(found["f\"Hello, {name}!\""] == t.string.hex)
     }
 
+    // MARK: The languages added in v3
+
+    @Test("C tokens take the design's colours", arguments: [HighlightAppearance.light, .dark])
+    func c(appearance: HighlightAppearance) async {
+        let t = SyntaxTheme.theme(for: appearance)
+        let found = await Self.tokens(
+            "c",
+            "#include <stdio.h>\nint main(void) {\n  // note\n  char *s = \"hi\"; return 42;\n}",
+            appearance
+        )
+        #expect(found["return"] == t.keyword.hex)
+        #expect(found["int"] == t.type.hex)
+        #expect(found["char"] == t.type.hex)
+        #expect(found["void"] == t.type.hex)
+        #expect(found["main"] == t.function.hex)
+        #expect(found["42"] == t.number.hex)
+        #expect(found["\"hi\""] == t.string.hex)
+        #expect(found["// note"] == t.comment.hex)
+    }
+
+    @Test("JavaScript tokens take the design's colours", arguments: [HighlightAppearance.light, .dark])
+    func javascript(appearance: HighlightAppearance) async {
+        let t = SyntaxTheme.theme(for: appearance)
+        let found = await Self.tokens(
+            "javascript",
+            "const add = (a, b) => a + 42; // note\nclass Foo {}\nfunction go() { return \"hi\"; }\nlet n = null;",
+            appearance
+        )
+        #expect(found["const"] == t.keyword.hex)
+        #expect(found["class"] == t.keyword.hex)
+        #expect(found["function"] == t.keyword.hex)
+        #expect(found["null"] == t.keyword.hex)
+        #expect(found["Foo"] == t.type.hex)
+        #expect(found["go"] == t.function.hex)
+        #expect(found["42"] == t.number.hex)
+        #expect(found["\"hi\""] == t.string.hex)
+        #expect(found["// note"] == t.comment.hex)
+    }
+
+    @Test("Rust tokens take the design's colours", arguments: [HighlightAppearance.light, .dark])
+    func rust(appearance: HighlightAppearance) async {
+        let t = SyntaxTheme.theme(for: appearance)
+        let found = await Self.tokens(
+            "rust",
+            "fn add(a: i32) -> i32 { let s = \"hi\"; a + 42 } // note\nstruct P;\nimpl P { fn new() -> P { P } }",
+            appearance
+        )
+        #expect(found["fn"] == t.keyword.hex)
+        #expect(found["let"] == t.keyword.hex)
+        #expect(found["struct"] == t.keyword.hex)
+        #expect(found["i32"] == t.type.hex)
+        #expect(found["P"] == t.type.hex)
+        #expect(found["add"] == t.function.hex)
+        #expect(found["42"] == t.number.hex)
+        #expect(found["\"hi\""] == t.string.hex)
+        #expect(found["// note"] == t.comment.hex)
+    }
+
+    @Test("Go tokens take the design's colours", arguments: [HighlightAppearance.light, .dark])
+    func go(appearance: HighlightAppearance) async {
+        let t = SyntaxTheme.theme(for: appearance)
+        let found = await Self.tokens(
+            "go",
+            "package main\nfunc add(a int) int { s := \"hi\"; return a + 42 } // note\ntype P struct{}",
+            appearance
+        )
+        #expect(found["package"] == t.keyword.hex)
+        #expect(found["func"] == t.keyword.hex)
+        #expect(found["return"] == t.keyword.hex)
+        #expect(found["int"] == t.type.hex)
+        #expect(found["add"] == t.function.hex)
+        #expect(found["42"] == t.number.hex)
+        #expect(found["\"hi\""] == t.string.hex)
+        #expect(found["// note"] == t.comment.hex)
+    }
+
+    @Test("SQL tokens take the design's colours", arguments: [HighlightAppearance.light, .dark])
+    func sql(appearance: HighlightAppearance) async {
+        let t = SyntaxTheme.theme(for: appearance)
+        let found = await Self.tokens(
+            "sql",
+            "SELECT name FROM users WHERE id = 42; -- note\nINSERT INTO t VALUES ('hi');\nCREATE TABLE t (id INT);",
+            appearance
+        )
+        #expect(found["SELECT"] == t.keyword.hex)
+        #expect(found["FROM"] == t.keyword.hex)
+        #expect(found["WHERE"] == t.keyword.hex)
+        #expect(found["INT"] == t.type.hex)
+        #expect(found["42"] == t.number.hex)
+        #expect(found["'hi'"] == t.string.hex)
+        #expect(found["-- note"] == t.comment.hex)
+    }
+
+    @Test("Every colour a new language produces is one of the theme's six, all 4.5:1 on the panel",
+          arguments: [HighlightAppearance.light, .dark])
+    func onlyThemeColours(appearance: HighlightAppearance) async {
+        let theme = SyntaxTheme.theme(for: appearance)
+        let allowed = Set([theme.keyword, theme.type, theme.function, theme.string, theme.number, theme.comment].map(\.hex))
+        let samples: [CodeLanguage: String] = [
+            .c: "#include <stdio.h>\nstatic const int n = 3; /* x */ int main(void) { return n; }",
+            .javascript: "export default async function f(x) { for (const i of x) await i?.y ?? `t${i}`; }",
+            .rust: "#[derive(Debug)] pub struct S<'a> { r: &'a str } impl S<'_> { pub fn f(&self) -> Option<u8> { None } }",
+            .go: "package main\nimport \"fmt\"\nfunc main() { ch := make(chan int); go func() { ch <- 1 }(); fmt.Println(<-ch) }",
+            .sql: "WITH t AS (SELECT a, COUNT(*) FROM b GROUP BY a) SELECT * FROM t LEFT JOIN u ON t.a = u.a ORDER BY 1;",
+        ]
+        for (language, code) in samples {
+            let runs = await HighlightSwiftHighlighter()
+                .colorRuns(for: code, languageTag: language.highlightName, appearance: appearance)
+            #expect(!runs.isEmpty, "\(language)")
+            for run in runs {
+                let hex = Self.hex(run.color)
+                #expect(allowed.contains(hex), "\(language): \((code as NSString).substring(with: run.range)) is \(hex)")
+                #expect(Self.contrast(hex, Self.panel[appearance]!) >= 4.5)
+            }
+        }
+    }
+
     // MARK: Plain text
 
     @Test("Plain code gets no colour run, so it keeps the editor's label colour",

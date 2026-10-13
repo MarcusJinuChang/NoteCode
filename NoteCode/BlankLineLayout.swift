@@ -33,10 +33,23 @@ final class BlankLineLayout: NSObject, NSTextContentStorageDelegate {
 
     static let stand = "\u{200B}"
 
+    /// The Markdown markers to collapse, for a note laid out `rendered`
+    /// (`Page.markdownLayout`). `nil` for a legacy note, which swaps blank
+    /// lines only. Asked once per paragraph, so the owner caches the answer
+    /// until the text changes.
+    var markerRuns: (() -> [MarkdownLayout.Run])?
+
     func textContentStorage(_ textContentStorage: NSTextContentStorage, textParagraphWith range: NSRange) -> NSTextParagraph? {
+        guard let storage = textContentStorage.textStorage, range.location < storage.length else { return nil }
+
+        if let markerRuns {
+            let touching = MarkdownLayout.runs(in: markerRuns(), touching: range)
+            if !touching.isEmpty {
+                return NSTextParagraph(attributedString: MarkdownLayout.laidOut(range, of: storage, runs: touching))
+            }
+        }
+
         guard range.length == 1,
-              let storage = textContentStorage.textStorage,
-              range.location < storage.length,
               (storage.string as NSString).character(at: range.location) == 0x0A
         else { return nil }
 

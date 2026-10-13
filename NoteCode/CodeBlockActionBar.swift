@@ -83,11 +83,24 @@ final class CodeBlockActionBar: UIView {
         stack.frame = bounds
     }
 
-    /// - Parameter showsRun: false for a block whose fence carries no language
-    ///   the app knows, since `CodeDestination` has nowhere to send it.
-    func configure(showsRun: Bool) {
+    /// - Parameters:
+    ///   - showsRun: false for a block whose fence carries no language the app
+    ///     knows, or one it can't run (SQL), since `CodeDestination` has
+    ///     nowhere to send it.
+    ///   - isOutput: the block is a console, a dark panel in both
+    ///     appearances, so its copy button is a light grey and not
+    ///     `.secondaryLabel`, which would nearly vanish on it.
+    func configure(showsRun: Bool, isOutput: Bool = false) {
         runButton.isHidden = !showsRun
+        let tint: UIColor = isOutput ? CodeOutputPanel.controlColor : .secondaryLabel
+        if copyTint != tint {
+            copyTint = tint
+            copyButton.tintColor = tint
+        }
     }
+
+    /// The copy button's resting colour, which the tick returns to.
+    private var copyTint: UIColor = .secondaryLabel
 
     /// Confirms a copy on the button itself.
     ///
@@ -101,7 +114,7 @@ final class CodeBlockActionBar: UIView {
 
         let reset = DispatchWorkItem { [weak self] in
             self?.copyButton.setImage(Self.icon("doc.on.doc"), for: .normal)
-            self?.copyButton.tintColor = .secondaryLabel
+            self?.copyButton.tintColor = self?.copyTint
         }
         resetCopyIcon = reset
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: reset)

@@ -34,9 +34,12 @@ extension DocumentTextView.Coordinator {
     /// selection changes when it does.
     func connect(_ editor: NoteEditor?, to textView: UITextView) {
         self.editor = editor
+        editor?.rendersMarkdown = rendersMarkdown
+        editor?.showsLineNumbers = showsLineNumbers
         editor?.modeDidChange = { [weak self, weak textView] in
             guard let self, let textView else { return }
             refreshFenceVisibility(in: textView)
+            refreshHeadingMarkers(in: textView)
         }
         // ⌘R and ⇧⌘C act on the block the caret is in, in text mode.
         editor?.runBlockAtCaret = { [weak self, weak textView] in
@@ -115,7 +118,7 @@ extension DocumentTextView.Coordinator {
     /// has laid out in the viewport are looked at, so a caret move forces no
     /// layout; a block scrolled out of view draws its state when it comes
     /// back, since the fragment asks at draw time.
-    private func redrawFences(ofBlocks blocks: Set<Int>, ranges: [CodeRange], in textView: UITextView) {
+    func redrawFences(ofBlocks blocks: Set<Int>, ranges: [CodeRange], in textView: UITextView) {
         guard !blocks.isEmpty,
               let layoutManager = textView.textLayoutManager,
               let contentManager = layoutManager.textContentManager,
@@ -149,19 +152,19 @@ extension DocumentTextView.Coordinator {
 
     // MARK: Language
 
-    /// Points a block's opening fence at `language`, `nil` for plain text.
+    /// Points a block's opening fence at a language, Output or plain text.
     ///
     /// Through `replace(_:withText:)`, the path typing takes, so it is
     /// undoable and the text restyles; the block's Run follows, since its
     /// language is read from the text again.
-    func setLanguage(_ language: CodeLanguage?, of target: CodeBlockTarget, in textView: UITextView) {
+    func setKind(_ kind: CodeBlockKind, of target: CodeBlockTarget, in textView: UITextView) {
         guard textView.isEditable else { return }
 
         let text = textView.textStorage.string as NSString
         guard target.range.location < text.length else { return }
         let line = text.lineRange(for: NSRange(location: target.range.location, length: 0))
 
-        guard let edit = FenceTag.retag(line: text.substring(with: line), as: language),
+        guard let edit = FenceTag.retag(line: text.substring(with: line), to: kind),
               let start = textView.position(from: textView.beginningOfDocument, offset: line.location + edit.range.location),
               let end = textView.position(from: start, offset: edit.range.length),
               let range = textView.textRange(from: start, to: end)
