@@ -136,9 +136,13 @@ struct CodeEditingInTheEditorTests {
 
     @Test("A first tap straight into code has the row, with no prose before it to cross from")
     func firstTapIntoCode() async throws {
-        // The editor starts out in the code policy, so nothing is crossed.
-        let harness = Harness(Self.note)
+        // The editor starts out in the code policy, so a note that opens on
+        // code and a caret in it cross nothing: only the row's own refresh
+        // puts it there.
+        let harness = Harness("```cpp\nint x = 1;\n```\nProse after\n")
+        #expect(harness.coordinator.rewritingPolicy == .code)
         try await harness.caret(at: harness.offset(of: "int x"))
+        #expect(harness.coordinator.rewritingPolicy == .code, "nothing was crossed")
         #expect(row(of: harness) != nil)
     }
 

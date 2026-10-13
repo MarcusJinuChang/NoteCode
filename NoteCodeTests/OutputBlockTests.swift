@@ -181,6 +181,9 @@ struct OutputBlockTests {
             return flags
         }
         #expect(outputFlags() == [false, false, false, false, false])
+        try await harness.settle()
+        let initial = harness.textView.textStorage.attribute(.foregroundColor, at: harness.offset(of: "print(2)"), effectiveRange: nil) as? UIColor
+        #expect(initial != UIColor.label, "python was highlighted to begin with")
 
         // Python and output are the same length, so nothing about the block's
         // size tells the styler it changed.
@@ -202,6 +205,28 @@ struct OutputBlockTests {
         // its code, so highlighting has to be told by the tag.
         let keyword = harness.textView.textStorage.attribute(.foregroundColor, at: harness.offset(of: "print(2)"), effectiveRange: nil) as? UIColor
         #expect(keyword != UIColor.label, "python is highlighted again after the console")
+    }
+
+    @Test("A retag between languages colours the code as the new language: the block's id and code haven't changed")
+    func retagRecolours() async throws {
+        let source = "```python\ndef f(x): return x\n```\n"
+        let harness = CodeFenceDisplayTests.Harness(source, style: .light)
+        // The harness's first restyle runs before its window's appearance is
+        // applied, and a change of appearance forgets what was highlighted:
+        // restyle once more so the set is as it is in the app, kept.
+        harness.coordinator.restyle(harness.textView)
+        try await harness.caret(at: harness.source.length)
+        try await harness.settle()
+        func colour(_ text: String) -> UIColor? {
+            harness.textView.textStorage.attribute(.foregroundColor, at: harness.offset(of: text), effectiveRange: nil) as? UIColor
+        }
+        #expect(colour("def f") != UIColor.label, "python colours def")
+
+        let target = try #require(CodeBlockAction.targets(in: source, blocks: DocumentParser.parse(source)).first)
+        harness.coordinator.setKind(.language(.sql), of: target, in: harness.textView)
+        try await harness.settle()
+        try await harness.settle()
+        #expect(colour("def f") == UIColor.label, "sql has no def, so python's colour must not be left on it")
     }
 
     @Test("The language menu groups the languages, then Output and Plain Text, and SQL says Copy only")
