@@ -158,7 +158,8 @@ final class NoteEditor {
             ink: page.ink,
             orientation: page.pageLayout.orientation,
             pageCount: page.pageCount,
-            rendersMarkdown: rendersMarkdown
+            rendersMarkdown: rendersMarkdown,
+            lineNumbers: showsLineNumbers
         ))
     }
 
@@ -270,6 +271,10 @@ final class NoteEditor {
     /// by the text view's coordinator. The PDF and thumbnails need it: they
     /// lay the note out again, and have to break its lines where the screen does.
     @ObservationIgnored var rendersMarkdown = false
+
+    /// Whether the page shows line numbers beside its code
+    /// (Settings › Code), so a PDF of it does too.
+    @ObservationIgnored var showsLineNumbers = false
 
     /// The formatting at the caret, which the hotbar lights up: inline markers
     /// are never drawn in place, so this is where their state shows.

@@ -103,6 +103,40 @@ struct PageViewTests {
         #expect(abs(page.textView.contentInset.bottom - bare) < 0.5)
     }
 
+    @Test("The text view clears the code-keys row too: it is part of the keyboard's frame")
+    func keyboardInsetIncludesTheCodeKeysRow() throws {
+        let harness = Harness()
+        let page = harness.page
+        harness.window.frame = harness.window.screen.bounds
+        page.windowFrameForScreenFrame = { frame, _ in frame }
+        page.layoutIfNeeded()
+
+        let window = harness.window
+        let areaOnScreen = page.convert(page.bounds, to: window)
+        func post(_ keyboard: CGRect) {
+            NotificationCenter.default.post(
+                name: UIResponder.keyboardWillChangeFrameNotification,
+                object: nil,
+                userInfo: [UIResponder.keyboardFrameEndUserInfoKey: NSValue(cgRect: keyboard)]
+            )
+        }
+
+        // A keyboard 300pt over the page, as in the tests above; then the
+        // row comes onto it, which makes its frame taller and higher by the
+        // row's height.
+        let bare = CGRect(x: 0, y: areaOnScreen.maxY - 300, width: window.bounds.width, height: 400)
+        post(bare)
+        let withoutRow = page.textView.contentInset.bottom
+
+        post(CGRect(x: 0, y: bare.minY - CodeKeysRow.height, width: bare.width, height: bare.height + CodeKeysRow.height))
+        let withRow = page.textView.contentInset.bottom
+        #expect(abs((withRow - withoutRow) - CodeKeysRow.height / page.displayScale) < 0.5)
+
+        // And back, as the caret leaves the code.
+        post(bare)
+        #expect(abs(page.textView.contentInset.bottom - withoutRow) < 0.5)
+    }
+
     @MainActor
     private final class Harness {
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1400, height: 1400))

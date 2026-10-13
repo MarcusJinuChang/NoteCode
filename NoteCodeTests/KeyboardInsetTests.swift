@@ -75,6 +75,31 @@ struct KeyboardInsetTests {
         #expect(inset(keyboard: CGRect(x: 0, y: 1376, width: screenWidth, height: 0), clearance: 80) == 0)
     }
 
+    @Test("The code-keys row is in the keyboard's frame, so the inset already includes it")
+    func codeKeysRow() {
+        // What UIKit reported on the iPad Pro 13-inch simulator in landscape
+        // (13 Oct, with a temporary log in `keyboardWillChangeFrame`): the
+        // frame of a keyboard with the row is the row taller, with its top
+        // 52pt higher, and crossing from code to prose posts the new frame.
+        // `CodeKeysRow.height` is that 52.
+        let screen = CGSize(width: 1376, height: 1032)
+        let area = CGRect(x: 0, y: 100, width: screen.width, height: 900)
+        let bare = CGRect(x: 0, y: 534, width: screen.width, height: 498)
+        let withRow = CGRect(x: 0, y: 482, width: screen.width, height: 550)
+        #expect(withRow.height - bare.height == CodeKeysRow.height)
+        #expect(withRow.minY == bare.minY - CodeKeysRow.height)
+
+        func inset(_ keyboard: CGRect, scale: CGFloat = 1, clearance: CGFloat = 0) -> CGFloat {
+            CanvasGeometry.keyboardInset(
+                keyboard: keyboard, area: area, screenWidth: screen.width, displayScale: scale, clearance: clearance
+            )
+        }
+        #expect(inset(bare) == 466)
+        #expect(inset(withRow) == 466 + CodeKeysRow.height)
+        // In the text view's points, and with a hotbar riding above it.
+        #expect(inset(withRow, scale: 1.25, clearance: 52) == (466 + 52 + 52) / 1.25)
+    }
+
     @Test("A zero display scale insets nothing rather than dividing by it")
     func zeroScale() {
         #expect(inset(keyboard: CGRect(x: 0, y: 1000, width: screenWidth, height: 376), scale: 0) == 0)

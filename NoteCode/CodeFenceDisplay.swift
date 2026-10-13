@@ -35,6 +35,7 @@ extension DocumentTextView.Coordinator {
     func connect(_ editor: NoteEditor?, to textView: UITextView) {
         self.editor = editor
         editor?.rendersMarkdown = rendersMarkdown
+        editor?.showsLineNumbers = showsLineNumbers
         editor?.modeDidChange = { [weak self, weak textView] in
             guard let self, let textView else { return }
             refreshFenceVisibility(in: textView)
@@ -117,7 +118,7 @@ extension DocumentTextView.Coordinator {
     /// has laid out in the viewport are looked at, so a caret move forces no
     /// layout; a block scrolled out of view draws its state when it comes
     /// back, since the fragment asks at draw time.
-    private func redrawFences(ofBlocks blocks: Set<Int>, ranges: [CodeRange], in textView: UITextView) {
+    func redrawFences(ofBlocks blocks: Set<Int>, ranges: [CodeRange], in textView: UITextView) {
         guard !blocks.isEmpty,
               let layoutManager = textView.textLayoutManager,
               let contentManager = layoutManager.textContentManager,

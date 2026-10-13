@@ -117,14 +117,22 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
         // behind the line above, under its text and its descenders. Nothing is
         // added at the bottom: a panel reaching down would land in front of the
         // next line and paint over it.
-        super.renderingSurfaceBounds.union(
-            CGRect(
-                x: 0,
-                y: -Self.maximumOverhang,
-                width: panelWidth,
-                height: layoutFragmentFrame.height + Self.maximumOverhang
+        //
+        // The margin to the left is in it too, for the line numbers. Always,
+        // whether they are on or not: the area is the same either way, so
+        // switching them needs a redraw and no layout.
+        super.renderingSurfaceBounds
+            .union(
+                CGRect(
+                    x: 0,
+                    y: -Self.maximumOverhang,
+                    width: panelWidth,
+                    height: layoutFragmentFrame.height + Self.maximumOverhang
+                )
             )
-        )
+            .union(
+                CGRect(x: -Self.lineNumberReach, y: 0, width: Self.lineNumberReach, height: layoutFragmentFrame.height)
+            )
     }
 
     private let cornerRadius: CGFloat = 6
@@ -142,6 +150,12 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
     /// paragraph of it out again, so none keeps the old answer.
     var isOutput = false
 
+    /// This paragraph's line number within its block, from 1, or `nil` for
+    /// none: numbers off, or a line that isn't code. Asked at draw time, like
+    /// `fenceDisplay`, so turning the setting on or off redraws the fragment
+    /// views and lays nothing out.
+    var lineNumber: () -> Int? = { nil }
+
     private var fillColor: UIColor {
         isOutput ? CodeOutputPanel.fillColor : .secondarySystemBackground
     }
@@ -157,6 +171,45 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
         // attribute: see `CodeFenceDisplay.swift`.
         if isFence, !display.showsFences { return }
         super.draw(at: point, in: context)
+        drawLineNumber(at: point, in: context)
+    }
+
+    // MARK: Line numbers
+
+    /// Gap between a number's right edge and the panel.
+    static let lineNumberGap: CGFloat = 16
+
+    /// How far into the margin a fragment may paint: the page's margin and
+    /// the container's line fragment padding, as a heading's hashes have.
+    static let lineNumberReach = HeadingLayoutFragment.reach
+
+    /// Digits in the code's own face, a little smaller so they recede.
+    static var lineNumberFont: UIFont {
+        UIFont.monospacedDigitSystemFont(ofSize: (DocumentStyler.codeFont.pointSize * 0.85 * 2).rounded() / 2, weight: .regular)
+    }
+
+    /// Draws this paragraph's number in the page's left margin, right-aligned
+    /// against the panel, on its first line's baseline.
+    ///
+    /// Never a gutter inside the panel: that would shift the code to the
+    /// right, re-wrap it, and move ink off its words. This is paint in a
+    /// margin the text already has, so turning numbers on moves nothing.
+    /// Called with the context's origin at the fragment's, as `draw` is, and
+    /// by printing, which draws a page's lines one at a time.
+    func drawLineNumber(at point: CGPoint, in context: CGContext) {
+        guard !isFence, !isOutput, let number = lineNumber(), let line = textLineFragments.first else { return }
+
+        let font = Self.lineNumberFont
+        let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: UIColor.secondaryLabel]
+        let digits = String(number) as NSString
+        let width = digits.size(withAttributes: attributes).width
+
+        let baseline = point.y + line.typographicBounds.minY + line.glyphOrigin.y
+        let origin = CGPoint(x: point.x - Self.lineNumberGap - width, y: baseline - font.ascender)
+
+        UIGraphicsPushContext(context)
+        digits.draw(at: origin, withAttributes: attributes)
+        UIGraphicsPopContext()
     }
 
     /// Fills the selected part of this fragment, over the panel.

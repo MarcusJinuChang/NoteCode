@@ -45,6 +45,8 @@ enum NotePDF {
         var pageCount = 1
         /// Whether the note's Markdown markers take no room (`Page.markdownLayout`).
         var rendersMarkdown = false
+        /// Whether code is numbered in the margin, as on screen (Settings › Code).
+        var lineNumbers = false
     }
 
     /// PDF points per page point. A page 816 wide prints 612 wide: US
@@ -53,7 +55,7 @@ enum NotePDF {
 
     /// One PDF page per page of the note.
     static func render(_ note: Note) async -> Data {
-        let printed = await PrintedNote(text: note.text, orientation: note.orientation, rendersMarkdown: note.rendersMarkdown)
+        let printed = await PrintedNote(text: note.text, orientation: note.orientation, rendersMarkdown: note.rendersMarkdown, lineNumbers: note.lineNumbers)
         let ink = note.ink.flatMap { $0.subelements.isEmpty ? nil : $0 }
         let pageCount = printed.paginate(inkBottom: ink?.contentsRenderFrame.maxY, startingAt: note.pageCount)
         let layout = printed.layout
@@ -251,7 +253,7 @@ final class PrintedNote {
     /// for the editor, so code blocks get their panels and colours.
     private let coordinator: DocumentTextView.Coordinator
 
-    init(text: String, orientation: PageOrientation, rendersMarkdown: Bool = false) async {
+    init(text: String, orientation: PageOrientation, rendersMarkdown: Bool = false, lineNumbers: Bool = false) async {
         layout = PageLayout(orientation: orientation, mode: .print)
         coordinator = DocumentTextView.Coordinator(text: .constant(text))
         textView = DocumentTextView.makeConfiguredTextView()
@@ -276,6 +278,7 @@ final class PrintedNote {
         // on paper: the same lines on the same pages, which is what lets ink
         // print where it was drawn.
         coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
+        coordinator.setLineNumbers(lineNumbers, in: textView)
         coordinator.restyle(textView)
         await coordinator.highlightingFinished()
     }
@@ -383,6 +386,12 @@ final class PrintedNote {
                 // block's fence lines are never printed. They keep their
                 // lines, as on screen, and so does everything below them.
                 if code?.isFence == true { continue }
+                // A paragraph split by a page break is numbered on the page
+                // its first line is on, once.
+                if let code, let first = code.textLineFragments.first,
+                   paragraph.lines.contains(where: { $0 === first }) {
+                    code.drawLineNumber(at: origin, in: context)
+                }
                 for line in paragraph.lines {
                     let bounds = line.typographicBounds
                     line.draw(at: CGPoint(x: origin.x + bounds.minX, y: origin.y + bounds.minY), in: context)

@@ -1005,6 +1005,35 @@ struct DocumentTextView: UIViewRepresentable {
         func setLineNumbers(_ shown: Bool, in textView: UITextView) {
             guard shown != showsLineNumbers else { return }
             showsLineNumbers = shown
+            editor?.showsLineNumbers = shown
+            // Drawing only: the numbers are in the margin, so nothing is laid
+            // out again. Every block on screen draws once more.
+            let ranges = codeRanges(in: textView.textStorage)
+            redrawFences(ofBlocks: Set(ranges.indices), ranges: ranges, in: textView)
+        }
+
+        /// A paragraph's line number in its block, from 1 for the first line
+        /// after the opening fence, `nil` when numbers are off.
+        ///
+        /// Counted at draw time from the note as it is now: an edit above
+        /// moves a block without touching its fragments. A fence line gets a
+        /// number here too, which the fragment declines to draw.
+        func lineNumber(of fragment: NSTextLayoutFragment, in storage: NSTextStorage) -> Int? {
+            guard showsLineNumbers, let offset = offset(of: fragment),
+                  let block = codeRanges(in: storage).first(where: { NSLocationInRange(offset, $0.range) })
+            else { return nil }
+            // Each paragraph starts after a newline, so the newlines between
+            // the block's start and this paragraph are the paragraphs before it.
+            let text = storage.mutableString
+            var lines = 0
+            var cursor = block.range.location
+            while cursor < offset {
+                let found = text.range(of: "\n", range: NSRange(location: cursor, length: offset - cursor))
+                guard found.location != NSNotFound else { break }
+                lines += 1
+                cursor = NSMaxRange(found)
+            }
+            return lines
         }
     }
 
@@ -1098,6 +1127,10 @@ extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
             fragment.position = position
             fragment.closesBlock = code.isClosed && position.roundsBottom
             fragment.isOutput = code.isOutput
+            fragment.lineNumber = { [weak self, weak fragment, weak storage] in
+                guard let self, let fragment, let storage else { return nil }
+                return lineNumber(of: fragment, in: storage)
+            }
             fragment.selectedRanges = { [weak self, weak contentManager] in
                 self?.paintedTextRanges(in: contentManager) ?? []
             }
