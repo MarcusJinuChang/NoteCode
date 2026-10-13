@@ -38,6 +38,75 @@ nonisolated enum SnapHaptic {
     static let isOnByDefault = true
 }
 
+/// Settings › General › App Icon: the Default icon and the two alternates.
+///
+/// The choice isn't stored by the app. iOS keeps it
+/// (`UIApplication.alternateIconName`) and brings it back at every launch, so
+/// a second copy in `UserDefaults` could only disagree with what the Home
+/// Screen shows. This type is the names and colours; the setter is the
+/// picker in SettingsView.
+///
+/// The names are the asset catalog's icon sets and must match
+/// `ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES` in the target, and the
+/// colours must match `scripts/make-icons.swift`, which draws the art
+/// (`AppIconTests` checks both against the built app and the PNGs).
+nonisolated enum AppIconChoice: String, CaseIterable, Identifiable, Sendable {
+    case standard
+    case paper
+    case orange
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .standard: "Default"
+        case .paper:    "Paper"
+        case .orange:   "Orange"
+        }
+    }
+
+    /// What `setAlternateIconName` takes. `nil` is the primary icon, `AppIcon`.
+    var alternateIconName: String? {
+        switch self {
+        case .standard: nil
+        case .paper:    "AppIcon-Paper"
+        case .orange:   "AppIcon-Orange"
+        }
+    }
+
+    /// The choice that is showing, from the name the system reports. A name
+    /// this build doesn't know, say from a later build's alternate, reads as
+    /// the Default, since that is what a missing icon falls back to.
+    init(alternateIconName: String?) {
+        self = Self.allCases.first { $0.alternateIconName == alternateIconName } ?? .standard
+    }
+
+    /// The icon's three colours as RGB hex, on the design's Logo board.
+    var background: Int {
+        switch self {
+        case .standard: 0x141416
+        case .paper:    0xFFFFFF
+        case .orange:   0xFA8500
+        }
+    }
+
+    var brackets: Int {
+        switch self {
+        case .standard: 0xFFFFFF
+        case .paper:    0x141416
+        case .orange:   0xFFFFFF
+        }
+    }
+
+    var pencil: Int {
+        switch self {
+        case .standard: 0xFA8500
+        case .paper:    0xFA8500
+        case .orange:   0x141416
+        }
+    }
+}
+
 /// Settings › Help and About: where the reader can reach the developer, and
 /// what build this is.
 nonisolated enum AppInfo {
