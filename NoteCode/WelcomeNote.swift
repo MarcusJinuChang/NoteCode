@@ -26,9 +26,11 @@ nonisolated enum NewNotes {
     /// The folder the "+" button files a note in: the open note's, so adding
     /// notes while working through a class's folder keeps them together. Nil,
     /// the top of the list, when no note is open or the open one is unfiled.
+    /// A note in Recently Deleted isn't being worked in.
     @MainActor
     static func folder(whileViewing page: Page?) -> Folder? {
-        page?.folder
+        guard let page, page.isLive else { return nil }
+        return page.folder
     }
 }
 
@@ -119,6 +121,8 @@ nonisolated enum WelcomeNote {
         guard !defaults.bool(forKey: madeKey) else { return nil }
         defaults.set(true, forKey: madeKey)
 
+        // Every note, deleted ones too: a store holding only notes in Recently
+        // Deleted has been used, and isn't a first launch.
         let noteCount = (try? context.fetchCount(FetchDescriptor<Page>())) ?? 0
         let folderCount = (try? context.fetchCount(FetchDescriptor<Folder>())) ?? 0
         guard noteCount == 0, folderCount == 0 else { return nil }

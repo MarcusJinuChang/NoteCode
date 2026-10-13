@@ -24,8 +24,9 @@ struct PageDetailView: View {
     /// opens. Empty when it wasn't opened from a search.
     var revealing = NoteSearch("")
 
-    /// Closes the note and deletes it, once the reader has confirmed. `nil`
-    /// where nothing can close the note, which leaves Delete out of the menu.
+    /// Closes the note and moves it to Recently Deleted. Nothing asks first:
+    /// the caller's toast can undo it. `nil` where nothing can close the note,
+    /// which leaves Delete out of the menu.
     var onDelete: (() -> Void)? = nil
 
     /// Whether to open with the title being renamed: a note just made, so
@@ -83,12 +84,11 @@ struct PageDetailView: View {
 #endif
 
     @State private var showsInfo = false
-    @State private var confirmsDelete = false
     @State private var isNamingCustomSite = false
 
-    /// "New Folder…" in the title menu's Move to Folder, and the name typed.
-    @State private var isNamingFolder = false
-    @State private var typedFolderName = ""
+    /// "New Folder…" in the title menu's Move to Folder: the folder editor,
+    /// which moves this note into the folder it makes.
+    @State private var editingFolder: FolderEditing?
 
     /// Gap between the hotbar and the edges around it.
     private static let hotbarMargin: CGFloat = 12
@@ -137,12 +137,10 @@ struct PageDetailView: View {
             NoteTitleMenu(
                 page: page,
                 folders: folders,
-                onNewFolder: {
-                    typedFolderName = ""
-                    isNamingFolder = true
-                },
+                onNewFolder: { editingFolder = .new(moving: page) },
                 onGetInfo: { showsInfo = true },
-                onDelete: onDelete.map { _ in { confirmsDelete = true } }
+                onDuplicate: { page.duplicated(in: modelContext) },
+                onDelete: onDelete
             )
         }
         .toolbar { headerItems }
@@ -150,16 +148,8 @@ struct PageDetailView: View {
             NoteInfoView(page: page, pageCount: openPageCount)
         }
         .runDestinationSiteAlert(isPresented: $isNamingCustomSite, pageSetting: $page.runDestination)
-        .alert("Delete “\(page.title)”?", isPresented: $confirmsDelete) {
-            Button("Delete", role: .destructive) { onDelete?() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This note and its drawing will be deleted. This can't be undone.")
-        }
-        .alert("New Folder", isPresented: $isNamingFolder) {
-            TextField("Name", text: $typedFolderName)
-            Button("Cancel", role: .cancel) {}
-            Button("Create") { moveToNewFolder() }
+        .sheet(item: $editingFolder) { editing in
+            FolderEditor(editing: editing)
         }
         .onChange(of: page.title) { page.modifiedAt = .now }
         .onChange(of: page.content) { page.modifiedAt = .now }
@@ -262,14 +252,6 @@ struct PageDetailView: View {
 #endif
         } label: {
             Label("More", systemImage: "ellipsis")
-        }
-    }
-
-    private func moveToNewFolder() {
-        let folder = Folder(name: Folder.name(fromTyped: typedFolderName))
-        withAnimation {
-            modelContext.insert(folder)
-            page.folder = folder
         }
     }
 

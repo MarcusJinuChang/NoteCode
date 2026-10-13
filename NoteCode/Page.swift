@@ -6,7 +6,7 @@
 import Foundation
 import SwiftData
 
-extension NoteSchemaV6 {
+extension NoteSchemaV7 {
 
     @Model
     final class Page {
@@ -63,6 +63,33 @@ extension NoteSchemaV6 {
         /// unlocked. Like pinning, locking isn't an edit and keeps the date.
         var isTextLocked: Bool = false
 
+        /// When the note was moved to Recently Deleted, or `nil` for a note
+        /// that is where the reader left it. A note with a date is out of every
+        /// list, search and count (`isLive`) and is purged for good 30 days
+        /// after it (`Page.retention`).
+        var deletedAt: Date?
+
+        /// Which paper the pages are drawn on — plain, dots or grid — or `nil`,
+        /// which is plain. Phase 5 reads it; the field is here so v3 has one
+        /// model change.
+        var paperStyle: String?
+
+        /// `rendered` when Markdown's markers (`#`, `**`, backticks) take no
+        /// room on the page, or `nil` for the layout every note had before v3,
+        /// with the markers visible. See `Page.renderedMarkdown`.
+        ///
+        /// Not a preference: it decides where lines break, and a note with ink
+        /// can't re-wrap without moving every stroke off its words. So it is
+        /// set once, when the note is made, and a note with ink from before v3
+        /// stays `nil` until the reader converts it.
+        var markdownLayout: String?
+
+        /// The body text's size in points, or `nil` for the 17 every note
+        /// had before this. Like `markdownLayout` it sets where lines break;
+        /// the text options row (phase 6) changes it, and asks first when the
+        /// note has ink.
+        var textSize: Int?
+
         init(title: String = "Untitled", content: String = "", drawingData: Data = Data(), createdAt: Date = .now) {
             self.title = title
             self.content = content
@@ -71,6 +98,9 @@ extension NoteSchemaV6 {
             self.modifiedAt = createdAt
             self.runDestination = nil
             self.pageOrientation = nil
+            // Every new note, however it's made (the + button, the Welcome
+            // note, a template, an import), has the rendered layout.
+            self.markdownLayout = Self.renderedMarkdown
         }
     }
 }
@@ -109,5 +139,113 @@ extension Page {
             context.delete(page)
         }
         try context.save()
+    }
+}
+
+// MARK: - Recently Deleted
+
+extension Page {
+    /// `markdownLayout`'s value for a note whose Markdown markers take no room.
+    static let renderedMarkdown = "rendered"
+
+    /// How long a deleted note waits in Recently Deleted: 30 days.
+    static let retention: TimeInterval = 30 * 86_400
+
+    /// Whether the note is where the reader left it, and not in Recently
+    /// Deleted. **Every view of notes asks this** — the list, search, Home, a
+    /// folder's count, "the open note's folder", Export All — so a deleted note
+    /// is in none of them. Use `live` on a collection rather than testing
+    /// `deletedAt` at the call site.
+    var isLive: Bool { deletedAt == nil }
+
+    /// Matches the notes in Recently Deleted, for a `@Query` of just those.
+    /// The opposite of `isLive`; `PageDeletionTests` fetches with it.
+    static var deletedPredicate: Predicate<Page> {
+        #Predicate<Page> { $0.deletedAt != nil }
+    }
+
+    /// Whole days left before the note is purged: 30 on the day it was
+    /// deleted, then one fewer each day. `nil` for a note not in Recently
+    /// Deleted.
+    func daysLeft(now: Date = .now) -> Int? {
+        guard let deletedAt else { return nil }
+        let elapsedDays = Int(max(0, now.timeIntervalSince(deletedAt)) / 86_400)
+        return max(0, Int(Self.retention / 86_400) - elapsedDays)
+    }
+
+    /// Moves notes to Recently Deleted, and saves at once, for the reason
+    /// `Page.delete(_:from:)` gives.
+    ///
+    /// A note already there keeps its first date, so deleting twice doesn't
+    /// restart its 30 days. `modifiedAt` is left alone: deleting isn't an
+    /// edit, and a restored note should sort where it was.
+    ///
+    /// The ink isn't touched. It stays in the note, unread, until the note is
+    /// purged with `delete(_:from:)`.
+    static func moveToRecentlyDeleted(_ pages: some Sequence<Page>, from context: ModelContext, now: Date = .now) throws {
+        for page in pages where page.isLive {
+            page.deletedAt = now
+        }
+        try context.save()
+    }
+
+    /// Brings notes back from Recently Deleted, and saves.
+    ///
+    /// A note goes back to its folder. If the folder has been deleted since,
+    /// the relationship was cleared with it (`Folder.pages` nullifies), so the
+    /// note comes back at the top of the list.
+    static func restore(_ pages: some Sequence<Page>, in context: ModelContext) throws {
+        for page in pages {
+            page.deletedAt = nil
+        }
+        try context.save()
+    }
+
+    /// Deletes for good every note that has been in Recently Deleted for more
+    /// than 30 days. Run at launch.
+    ///
+    /// - Returns: how many were purged.
+    @discardableResult
+    static func purgeExpired(in context: ModelContext, now: Date = .now) throws -> Int {
+        let cutoff = now.addingTimeInterval(-retention)
+        let expired = try context.fetch(FetchDescriptor<Page>(predicate: deletedPredicate))
+            .filter { ($0.deletedAt ?? .distantFuture) < cutoff }
+        guard !expired.isEmpty else { return 0 }
+        // `delete` reads nothing from the notes: a deleted note's ink can't be
+        // read once the deletion is saved (see AGENTS.md).
+        try delete(expired, from: context)
+        return expired.count
+    }
+}
+
+extension Sequence where Element == Page {
+    /// The notes that aren't in Recently Deleted. See `Page.isLive`.
+    var live: [Page] { filter(\.isLive) }
+}
+
+// MARK: - Duplicate
+
+extension Page {
+    /// A copy of the note, inserted into `context`.
+    ///
+    /// It copies what makes the note the note: its text, ink, page orientation,
+    /// paper, Markdown layout, text size, folder and run destination. It leaves
+    /// out the pin and the text lock, which belong to the original, and has
+    /// dates of its own. The title gains " copy".
+    ///
+    /// The original's modified date doesn't move.
+    @discardableResult
+    func duplicated(in context: ModelContext) -> Page {
+        let copy = Page(title: "\(title) copy", content: content, drawingData: drawingData)
+        copy.pageOrientation = pageOrientation
+        copy.paperStyle = paperStyle
+        copy.markdownLayout = markdownLayout
+        copy.textSize = textSize
+        copy.runDestination = runDestination
+        context.insert(copy)
+        // After the insert, like `Page.create`: relationships are set on a
+        // note the context already knows.
+        copy.folder = folder
+        return copy
     }
 }

@@ -586,10 +586,11 @@ Laid out from the 12 September mockup.
     beside it and was dropped rather than kept as a duplicate.
   - **Title menu** (`NoteTitleMenu`): Rename (the system's `RenameButton`,
     disabled while the text is locked), Pin, Move to Folder, Remove from
-    Folder, Lock Text, Get Info, Delete. Delete asks once, in an alert rather
-    than a dialog, which on iPad would be a popover with an anchor to get
-    wrong. `ContentView.delete` clears the selection before deleting, as the
-    list does, and brings the list back, since the ☰ went with the page.
+    Folder, Lock Text, Duplicate, Get Info, Delete. Delete asked once, in an
+    alert, until v3 phase 1; now it asks nothing and moves the note to
+    Recently Deleted, and a toast offers Undo (see "Recently Deleted").
+    `ContentView.delete` clears the selection first, as the list does, and
+    brings the list back, since the ☰ went with the page.
   - **Right:** Share (`NoteShareButton`) and •••: a View section (the
     mode's `title` and `systemImage` from PageViewMenu.swift), Run Code In
     (`RunDestinationMenu`, now a submenu) and Find in Note. All in the label
@@ -847,6 +848,65 @@ Phase 9 of `docs/ui-design-v2-implementation.md` (12 Oct).
   taking ⇧⌘N and ⇧⌘F after it slides in (it waits 350ms for the slide), the
   pointer effects, the haptic, the edit menu on the iPad.
 
+## Recently Deleted and folder faces
+
+v3 phase 1 (12 Oct, `docs/ui-design-v3-implementation.md`).
+
+- **Deleting moves a note to Recently Deleted** (`Page.deletedAt`), from the
+  list's swipe and menu, the title menu, and a folder deleted with its notes.
+  Nothing asks first; a toast offers Undo for four seconds. `modifiedAt` is left
+  alone, so deleting and restoring don't reorder anything, and a note deleted
+  twice keeps its first date, so its 30 days don't restart.
+- **One rule decides what the reader sees: `Page.isLive`**, or `.live` on a
+  collection. The list's sections (`NoteListSections`), search
+  (`NoteSearch.results`), `Folder.livePages`, `NewNotes.folder(whileViewing:)`
+  and the list's empty state use it; Home and Export All will. The pure types
+  filter themselves, so the list can be handed every note and
+  `RecentlyDeletedTests` has a test per view that fails when its `.live` is
+  removed (each was removed in turn, 12 Oct, and the matching test failed).
+  `NoteList` keeps its one unfiltered `@Query`; `RecentlyDeletedView` runs its
+  own with `Page.deletedPredicate`, so a note it deletes for good leaves its
+  rows in the same update.
+- **A folder isn't soft-deleted.** `Folder.delete(_:_:from:)` removes the folder
+  and, with `.withNotes`, marks its *visible* notes deleted. The folder's
+  `nullify` rule then clears each note's `folder`, so a restored note lands at
+  the top of the list, and Undo on that toast does too. A note already in
+  Recently Deleted keeps its first date.
+- **Restoring** just clears `deletedAt`: back to its folder if the folder is
+  still there, else the top level, which the nullify rule already did.
+- **Purging** is `Page.purgeExpired`, once per launch from `ContentView.task`,
+  *after* the Welcome note's check. A store holding only deleted notes has been
+  used, so that check counts them too. It goes through `Page.delete`, which
+  reads nothing from a note. Notes older than 30 days (`Page.retention`) go.
+  The row's "days left" is `elapsed / 86,400` floored, so 30 on the day.
+- **The view** is a sheet from a row at the list's foot, shown only when it has
+  notes (`RecentlyDeletedView`): Restore and Delete Now by hold or swipe, and
+  Delete All… asking first. Delete Now doesn't ask, as on the `Library` board.
+- **The toast** (`ToastCenter`, `ToastView`, `ToastOverlay`): one at a time, a
+  new one replaces the last and restarts the clock. The list draws it at its
+  foot when the list is showing, and the open note's page draws it above the
+  hotbar when the list is away (`pageToastInset`; the hotbar's thickness plus
+  12pt around it when docked at the bottom). Phase 8 reuses it for Copied,
+  Exported and Imported. VoiceOver is told when it appears. The Undo pill looks
+  28pt and is 40pt tall to a finger.
+  - Undo from the title menu's Delete reopens the note, but only if no other
+    note has been opened since.
+- **Folder identity.** `Folder.colorName` and `symbolName` are names, not
+  colours, so one folder reads right in both appearances. `FolderColor` holds the
+  eight colours' tint and symbol per appearance (the brief's table);
+  `FolderAppearanceTests` computes the contrast of all 16 pairs, needs 3:1, and
+  checks the calculation can fail. An unknown stored name falls back to orange
+  and `folder` instead of failing.
+  - **The editor** (`FolderEditor`) replaces the name alert for New Folder, a
+    folder's Rename and the title menu's Move to Folder › New Folder…: preview,
+    name, eight colours, sixteen symbols. Its rules are a pure `FolderDraft`
+    (`apply(to:moving:in:)`). Renaming a note from the list is still an alert.
+  - `FolderBadge` is the symbol on its tint, 26pt in the list's rows.
+- **Duplicate** (`Page.duplicated(in:)`) copies text, ink, orientation, paper,
+  Markdown layout, text size, folder and run destination, and leaves the pin and
+  lock behind. A copy of a note with the old layout keeps it, since its ink
+  depends on the layout it was drawn on.
+
 ## Settings
 
 A form sheet with a `NavigationStack`: a list of sections, each a page
@@ -989,7 +1049,8 @@ so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
   leading to a column of their own: the list slides over the page, and a
   second column would cover more of it. Open state is per launch.
 - **Deleting a folder asks** whether its notes go too, or move to the top.
-  `Folder.delete` saves at once, like `Page.delete`.
+  `Folder.delete` saves at once, like `Page.delete`. "Go too" means Recently
+  Deleted now, not gone for good (see "Recently Deleted").
 - **Moving a note isn't an edit.** It keeps its date modified, or filing a
   week of notes would make them all look written today.
 - The list's grouping and order are pure (`NoteListSections`): folders sort
@@ -1107,6 +1168,20 @@ else says `Page` and `Folder`, which are typealiases for the current version.
 - **Version 5 is frozen in NoteSchema.swift** (4 Oct), like 1 to 4, and the
   live classes in Page.swift and Folder.swift are version 6's. `Folder` didn't
   change, but a version lists its own classes, so it moved up with `Page`.
+- **Version 7 (12 Oct, v3 phase 1)** is v3's only model change, and version 6
+  is frozen beside 5. It adds `Page.deletedAt`, `paperStyle`, `markdownLayout`
+  and `textSize`, and `Folder.colorName` and `symbolName`, all optional with
+  `nil` meaning the old behaviour. Only `deletedAt`, `markdownLayout` and the
+  folder pair are used so far; the rest wait for their phases.
+  - **The one custom stage** (`NoteMigrationPlan.migrateToVersionSeven`): a
+    lightweight stage can give a column only one value, and `markdownLayout`
+    depends on the note: `rendered` where `drawingData` is empty, `nil` (visible
+    markers, as drawn) where there is any ink at all. It runs inside the
+    migration, once, and writes nothing else, so `modifiedAt` doesn't move
+    (`SchemaMigrationTests` checks the dates). The cost is reading every note's
+    ink once, since an external-storage column can't be tested in the store.
+  - **Every new note is `rendered`**, set in `Page.init`, so the + button, the
+    Welcome note, templates and imports can't forget.
 - **Older builds don't know the newest version.** A build from before 3 Oct
   opens the store without versions and would likely migrate it back to its
   own shape, dropping folders and pins. A build with version 5 but not 6
@@ -1146,6 +1221,14 @@ What an upload checks before a person sees the app (4 Oct).
   Marcus Chang" certificate issued 8 Oct to 8 Oct 2027, and the app's
   team provisioning profile, made 8 Oct and valid a year. When an on-device
   build misbehaves, check which team signed it before reading any Swift.
+  - **Marcus's working tree carries an uncommitted `project.pbxproj` edit**,
+    and has since 8 Oct: Xcode set `CODE_SIGN_IDENTITY = "Apple Development"`
+    for every SDK, in place of ad-hoc `-` for macOS (`"CODE_SIGN_IDENTITY
+    [sdk=macosx*]" = "-"`), and added an empty `PROVISIONING_PROFILE_SPECIFIER`,
+    when the paid account came back. It is his local state: **leave it
+    unstaged, never commit or revert it, and don't mention it in summaries or
+    PRs** (he knows). Stage files by name, never `git add -A` or `-a`. If a
+    change needs `project.pbxproj` itself, stop and ask first.
 - **The app icon** (10 Oct, phase 7 of `docs/ui-design-v2-implementation.md`):
   the set had no images, which fails an upload; it has them now. They are
   **drawn by `scripts/make-icons.swift`** (Core Graphics, the Logo board's
@@ -1285,12 +1368,14 @@ the same arguments in the scheme's Run → Arguments.
 - Never read `Page.drawingData` from a page whose deletion has been saved.
   SwiftData traps ("backing data was detached … without resolving attribute
   faults"), since external storage leaves the attribute unloaded, and
-  `isDeleted` reads false again by then — check `modelContext` too.
-- Delete notes with `Page.delete(_:from:)`, which saves at once. Other
-  changes are saved by autosave, or when the app leaves the screen with a
-  note open, and a deletion from the note list had neither: killed within
-  a few seconds — a crash, or Xcode starting the next build — the note came
-  back.
+  `isDeleted` reads false again by then — check `modelContext` too. (A note
+  in Recently Deleted isn't deleted yet and can be read; this is about
+  `Page.delete`, which purging uses.)
+- Deleting a note is `Page.moveToRecentlyDeleted`; only purging and Delete
+  Now use `Page.delete(_:from:)`. Both save at once. Other changes are saved
+  by autosave, or when the app leaves the screen with a note open, and a
+  deletion from the note list had neither: killed within a few seconds — a
+  crash, or Xcode starting the next build — the note came back.
 - Walk a `MarkupOrderedSet` with `for … in`, never `map`, `reduce`, an
   index or anything else that reads it by position. Reading one element by
   index costs what `count` does, and both grow with the set (16ms each at

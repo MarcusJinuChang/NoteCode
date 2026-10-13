@@ -19,6 +19,9 @@ import SwiftData
 /// - **Notes** in no folder come last.
 ///
 /// Notes are in the reader's `NoteSort` order everywhere.
+///
+/// Notes in Recently Deleted are left out of all of it (`Page.isLive`), so the
+/// list can be handed every note and show only the ones the reader has.
 struct NoteListSections {
     struct FolderSection: Identifiable {
         let folder: Folder
@@ -40,7 +43,7 @@ struct NoteListSections {
     var hasPinned: Bool { !pinnedFolders.isEmpty || !pinnedNotes.isEmpty }
 
     init(pages: [Page], folders: [Folder], sort: NoteSort = .default) {
-        let sorted = pages.sorted {
+        let sorted = pages.live.sorted {
             sort.areInIncreasingOrder(
                 ($0.title, $0.modifiedAt, $0.createdAt),
                 ($1.title, $1.modifiedAt, $1.createdAt)

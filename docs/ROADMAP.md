@@ -21,6 +21,20 @@ pinch zoom, the note page and its hotbar, and a PaperKit canvas that a finger
 or the Pencil draws on, with ink undo of its own, saved with the note and
 drawn at the screen's density. 25 pull requests, all merged.
 
+- **UI design v3, phase 1: model v7, Recently Deleted, folder identity,
+  Duplicate** (12 Oct, branch `claude/v3-phase-1-recently-deleted`, off
+  `main`, not merged): deleting a note now moves it to Recently Deleted for 30
+  days, with a toast and Undo and nothing asking first; the list's foot shows
+  a Recently Deleted row, only when it holds something, which opens a sheet to
+  Restore, Delete Now or Delete All…. Notes are purged at launch once they are
+  past 30 days. Folders have a colour and a symbol, set in a new editor sheet
+  in place of the name alert. Duplicate is in the note menu. Model v7 adds the
+  fields v3 needs (only some used so far); notes without ink migrate as
+  `rendered`, notes with ink keep their layout. Builds for iPad and Mac, and
+  784 unit tests pass; three `HotbarUITests` reach tests fail the same way on
+  `main` (they look for a "Red" swatch). Looked at in the simulator, dark only:
+  the folder editor, the toast, the list foot and the sheet; not light mode,
+  Restore, Undo, hold menus, Delete All or the Pencil.
 - **UI design v2, phase 1: colour** (7 Oct, branch `claude/ui-phase-1-colour`,
   not merged): the orange accent, with its Increase Contrast variants, and the
   design's syntax colours for code in light and dark. Run is orange. Builds
