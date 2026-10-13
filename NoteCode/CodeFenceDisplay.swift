@@ -37,6 +37,7 @@ extension DocumentTextView.Coordinator {
         editor?.modeDidChange = { [weak self, weak textView] in
             guard let self, let textView else { return }
             refreshFenceVisibility(in: textView)
+            refreshHeadingMarkers(in: textView)
         }
         // ⌘R and ⇧⌘C act on the block the caret is in, in text mode.
         editor?.runBlockAtCaret = { [weak self, weak textView] in

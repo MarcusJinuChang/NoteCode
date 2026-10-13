@@ -134,6 +134,7 @@ struct DocumentTextView: UIViewRepresentable {
         }
         // After the text, so the setting is applied to the blocks it has now.
         context.coordinator.refreshFenceVisibility(in: textView)
+        context.coordinator.refreshHeadingMarkers(in: textView)
     }
 
     /// The page is going: ink still on its way in is taken in now, so it
@@ -184,6 +185,14 @@ struct DocumentTextView: UIViewRepresentable {
 
         /// Which blocks show their fences. See `CodeFenceDisplay.swift`.
         var fenceVisibility = FenceVisibility.away
+
+        /// Which headings draw their hashes in the margin. See
+        /// `HeadingMarkerDisplay.swift`.
+        var headingVisibility = HeadingMarkerVisibility.hidden
+
+        /// The text view this coordinator serves, for the parts of the layout
+        /// delegate that need its geometry.
+        weak var textView: DocumentUITextView?
 
         /// Set while a language pick rewrites a fence's tag, which the
         /// keyboard-rewrite guard in `shouldChangeTextIn` would turn away: it
@@ -245,6 +254,7 @@ struct DocumentTextView: UIViewRepresentable {
 
         /// Forgets `layoutCodeRanges` whenever the text storage is edited.
         func observeEdits(of textView: UITextView) {
+            self.textView = textView as? DocumentUITextView
             NotificationCenter.default.addObserver(
                 self,
                 selector: #selector(textStorageDidProcessEditing),
@@ -395,6 +405,7 @@ struct DocumentTextView: UIViewRepresentable {
             // Before the overlay places its buttons: an edit can add a block or
             // move the one the caret is in.
             refreshFenceVisibility(in: textView, repositioning: false)
+            refreshHeadingMarkers(in: textView)
             overlay?.update(targets: CodeBlockAction.targets(in: source, blocks: blocks))
             scheduleHighlighting(for: textView, source: source, blocks: blocks)
         }
@@ -635,6 +646,7 @@ struct DocumentTextView: UIViewRepresentable {
             applyRewritingPolicy(to: textView, source: source, blocks: blocks)
             updateCodeSelectionHighlight(in: textView)
             refreshFenceVisibility(in: textView)
+            refreshHeadingMarkers(in: textView)
         }
 
         /// Sets the keyboard up for where the caret is, before it appears.
@@ -788,7 +800,33 @@ extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
             return fragment
         }
 
-        return plain
+        return proseFragment(for: textElement, range: element, in: storage) ?? plain
+    }
+
+    /// A heading, which can draw its hashes, or a checklist item, which draws
+    /// its box. `nil` for anything else.
+    private func proseFragment(for textElement: NSTextElement, range element: NSRange, in storage: NSTextStorage) -> NSTextLayoutFragment? {
+        guard element.length > 0, element.location + element.length <= storage.length else { return nil }
+        let text = storage.mutableString
+
+        if rendersMarkdown, let hashes = ProseLine.headingHashes(in: text, line: element) {
+            let fragment = HeadingLayoutFragment(textElement: textElement, range: textElement.elementRange)
+            fragment.hashes = hashes
+            fragment.showsMarker = { [weak self, weak fragment] in
+                guard let self, let fragment, let offset = self.offset(of: fragment) else { return false }
+                return self.headingVisibility.shows(headingAt: offset)
+            }
+            return fragment
+        }
+
+        if let box = ProseLine.checkbox(in: text, line: element) {
+            let fragment = ChecklistLayoutFragment(textElement: textElement, range: textElement.elementRange)
+            fragment.isChecked = box.checked
+            fragment.boxIndex = box.indent + 2
+            fragment.collapsed = rendersMarkdown
+            return fragment
+        }
+        return nil
     }
 }
 
