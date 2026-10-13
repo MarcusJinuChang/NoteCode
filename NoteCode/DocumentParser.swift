@@ -161,7 +161,11 @@ nonisolated enum DocumentParser {
         if line[cursor] == "-" || line[cursor] == "*" || line[cursor] == "+" {
             let afterMarker = line.index(after: cursor)
             guard afterMarker < line.endIndex, line[afterMarker] == " " else { return nil }
-            return (depth, .bullet, line.index(after: afterMarker))
+            let afterSpace = line.index(after: afterMarker)
+            if let box = checkbox(line, from: afterSpace) {
+                return (depth, .checkbox(checked: box.checked), box.contentStart)
+            }
+            return (depth, .bullet, afterSpace)
         }
 
         if line[cursor].isNumber {
@@ -178,6 +182,24 @@ nonisolated enum DocumentParser {
         }
 
         return nil
+    }
+
+    /// `[ ]`, `[x]` or `[X]` right after a bullet, then a space or the line's
+    /// end. Returns where the item's text starts: after that space, or at the
+    /// line's end for an empty item typed without one.
+    private static func checkbox(_ line: Substring, from start: String.Index) -> (checked: Bool, contentStart: String.Index)? {
+        var cursor = start
+        guard cursor < line.endIndex, line[cursor] == "[" else { return nil }
+        cursor = line.index(after: cursor)
+        guard cursor < line.endIndex else { return nil }
+        let mark = line[cursor]
+        guard mark == " " || mark == "x" || mark == "X" else { return nil }
+        cursor = line.index(after: cursor)
+        guard cursor < line.endIndex, line[cursor] == "]" else { return nil }
+        cursor = line.index(after: cursor)
+        if cursor == line.endIndex { return (mark != " ", cursor) }
+        guard line[cursor] == " " else { return nil }
+        return (mark != " ", line.index(after: cursor))
     }
 
     /// Recognizes `#` through `######` followed by a space.

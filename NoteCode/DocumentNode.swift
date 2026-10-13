@@ -81,6 +81,9 @@ nonisolated enum ListMarker: Equatable, Sendable {
     case bullet
     /// `1.` or `1)`, carrying the number the user actually typed.
     case ordered(Int)
+    /// `- [ ]` or `- [x]`: a bullet with a box. The marker range covers the
+    /// bullet, the box and the space after it.
+    case checkbox(checked: Bool)
 }
 
 // MARK: - Inline
@@ -97,6 +100,10 @@ nonisolated struct InlineNode: Equatable, Sendable {
         case inlineCode
         /// `~~struck~~`
         case strikethrough
+        /// `[text](url)`, or a bare `http(s)://` address. For the first the
+        /// content is the text and the markers are `[` and `](url)`; for the
+        /// second the whole span is the content and there are no markers.
+        case link
         // .math arrives with a later step.
 
         var discriminant: Int {
@@ -106,6 +113,7 @@ nonisolated struct InlineNode: Equatable, Sendable {
             case .emphasis:      2
             case .inlineCode:    3
             case .strikethrough: 4
+            case .link:          5
             }
         }
     }
@@ -119,6 +127,9 @@ nonisolated struct InlineNode: Equatable, Sendable {
     /// Two ranges for the same reason `CodeBlock` has them: the markers are
     /// part of the document and stay visible, but they aren't the content.
     var contentRange: Range<String.Index>
+    /// Where a link goes: the address inside `(…)`, or the span itself for a
+    /// bare address. `nil` for everything else.
+    var destination: Range<String.Index>? = nil
 
     /// The marker characters, as the ranges either side of the content.
     var markerRanges: [Range<String.Index>] {

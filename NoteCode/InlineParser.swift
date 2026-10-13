@@ -12,7 +12,7 @@ nonisolated enum InlineParser {
     /// Scans `range` within `text` for inline markdown spans.
     ///
     /// A deliberately small subset — inline code, strong, emphasis,
-    /// strikethrough. Spans don't nest. Full
+    /// strikethrough, and links. Spans don't nest. Full
     /// CommonMark inline parsing (reference links, nested emphasis, HTML) is a
     /// famous tar pit and none of it is needed for class notes.
     ///
@@ -42,6 +42,22 @@ nonisolated enum InlineParser {
                     let end = text.index(after: closing)
                     nodes.append(InlineNode(kind: .inlineCode, range: cursor..<end, contentRange: contentStart..<closing))
                     cursor = end
+                    plainStart = cursor
+                    continue
+                }
+            } else if character == "[" {
+                if let link = markdownLink(in: text, at: cursor, limit: range.upperBound) {
+                    flushPlainText(upTo: cursor)
+                    nodes.append(link)
+                    cursor = link.range.upperBound
+                    plainStart = cursor
+                    continue
+                }
+            } else if character == "h" {
+                if let link = bareLink(in: text, at: cursor, limit: range.upperBound, plainStart: plainStart) {
+                    flushPlainText(upTo: cursor)
+                    nodes.append(link)
+                    cursor = link.range.upperBound
                     plainStart = cursor
                     continue
                 }
@@ -93,6 +109,89 @@ nonisolated enum InlineParser {
 
         flushPlainText(upTo: range.upperBound)
         return nodes
+    }
+
+    // MARK: Links
+
+    /// `[text](address)` starting at `open`. The text can't be empty or blank
+    /// and neither part crosses a bracket or a parenthesis, so `[ ] (x)` and
+    /// `arr[i](j)` stay text only when they have nothing between the brackets;
+    /// a note about `f[i](x)` does link, which is what Markdown does too.
+    private static func markdownLink(
+        in text: String,
+        at open: String.Index,
+        limit: String.Index
+    ) -> InlineNode? {
+        let contentStart = text.index(after: open)
+        guard contentStart < limit else { return nil }
+
+        var cursor = contentStart
+        while cursor < limit, text[cursor] != "]", text[cursor] != "[" {
+            cursor = text.index(after: cursor)
+        }
+        guard cursor < limit, text[cursor] == "]", cursor > contentStart else { return nil }
+        guard text[contentStart..<cursor].contains(where: { !$0.isWhitespace }) else { return nil }
+
+        let closeBracket = cursor
+        let parenthesis = text.index(after: closeBracket)
+        guard parenthesis < limit, text[parenthesis] == "(" else { return nil }
+
+        let destinationStart = text.index(after: parenthesis)
+        var end = destinationStart
+        while end < limit, text[end] != ")", !text[end].isWhitespace {
+            end = text.index(after: end)
+        }
+        guard end < limit, text[end] == ")", end > destinationStart else { return nil }
+
+        return InlineNode(
+            kind: .link,
+            range: open..<text.index(after: end),
+            contentRange: contentStart..<closeBracket,
+            destination: destinationStart..<end
+        )
+    }
+
+    /// A bare `http://` or `https://` address, shown exactly as typed. It runs
+    /// to the next space, less the punctuation a sentence puts after it.
+    private static func bareLink(
+        in text: String,
+        at start: String.Index,
+        limit: String.Index,
+        plainStart: String.Index
+    ) -> InlineNode? {
+        // Not the tail of a longer word: `xhttp://` isn't an address.
+        if start > plainStart {
+            let previous = text[text.index(before: start)]
+            if previous.isLetter || previous.isNumber { return nil }
+        }
+
+        let rest = text[start..<limit]
+        let schemeLength: Int
+        if rest.hasPrefix("https://") {
+            schemeLength = 8
+        } else if rest.hasPrefix("http://") {
+            schemeLength = 7
+        } else {
+            return nil
+        }
+
+        var end = text.index(start, offsetBy: schemeLength)
+        let hostStart = end
+        while end < limit, !text[end].isWhitespace {
+            end = text.index(after: end)
+        }
+        // A sentence's own punctuation, and a closing bracket the address
+        // didn't open.
+        while end > hostStart {
+            let last = text[text.index(before: end)]
+            if ".,;:!?'\"".contains(last) || (last == ")" && !text[hostStart..<end].contains("(")) {
+                end = text.index(before: end)
+            } else {
+                break
+            }
+        }
+        guard end > hostStart else { return nil }
+        return InlineNode(kind: .link, range: start..<end, contentRange: start..<end, destination: start..<end)
     }
 
     // MARK: Private

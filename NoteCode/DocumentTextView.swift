@@ -53,6 +53,11 @@ struct DocumentTextView: UIViewRepresentable {
     /// show only while it is being edited, or always.
     var showMarkdown = ShowMarkdown.whileEditing
 
+    /// Whether the note's Markdown markers take no room on the page
+    /// (`Page.markdownLayout == rendered`). A legacy note keeps them visible,
+    /// because its ink was drawn against that layout.
+    var rendersMarkdown = false
+
     // MARK: UIViewRepresentable
 
     func makeUIView(context: Context) -> PageView {
@@ -64,6 +69,7 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.observeEdits(of: textView)
         context.coordinator.attachOverlay(to: textView)
         context.coordinator.observeAppearance(of: textView)
+        context.coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
         textView.text = text
         context.coordinator.invalidateStyling()
         context.coordinator.restyle(textView)
@@ -107,6 +113,7 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.runDestination = runDestination
         context.coordinator.editor = editor
         context.coordinator.showMarkdown = showMarkdown
+        context.coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
 
         // Only push text down when it actually differs. Assigning `.text`
         // unconditionally would reset the selection on every render and fight
@@ -166,6 +173,14 @@ struct DocumentTextView: UIViewRepresentable {
 
         /// Settings › Writing › Show Markdown, as `DocumentTextView` last had it.
         var showMarkdown = ShowMarkdown.whileEditing
+
+        /// Whether the note lays its Markdown markers out at zero width.
+        /// See `MarkdownLayout`. Set through `setRendersMarkdown`.
+        private(set) var rendersMarkdown = false
+
+        /// The runs `MarkdownLayout` collapses, worked out once per edit for
+        /// the content storage delegate, which asks once per paragraph.
+        private var layoutMarkerRuns: [MarkdownLayout.Run]?
 
         /// Which blocks show their fences. See `CodeFenceDisplay.swift`.
         var fenceVisibility = FenceVisibility.away
@@ -243,6 +258,35 @@ struct DocumentTextView: UIViewRepresentable {
                   storage.editedMask.contains(.editedCharacters)
             else { return }
             layoutCodeRanges = nil
+            layoutMarkerRuns = nil
+        }
+
+        /// Turns the collapsed layout on or off, laying the whole note out
+        /// again when that changes it. The text storage's elements are cached
+        /// per paragraph, so a flag alone would leave every one as it was.
+        func setRendersMarkdown(_ renders: Bool, in textView: DocumentUITextView) {
+            guard renders != rendersMarkdown else { return }
+            rendersMarkdown = renders
+            layoutMarkerRuns = nil
+            textView.blankLineLayout?.markerRuns = renders ? { [weak self, weak textView] in
+                guard let self, let textView else { return [] }
+                return markerRuns(in: textView.textStorage)
+            } : nil
+            invalidateStyling()
+            if textView.textStorage.length > 0 {
+                // Regenerates every paragraph element.
+                textView.textStorage.edited(.editedAttributes, range: NSRange(location: 0, length: textView.textStorage.length), changeInLength: 0)
+                restyle(textView)
+            }
+        }
+
+        /// The runs to collapse in `storage`, worked out once per edit.
+        func markerRuns(in storage: NSTextStorage) -> [MarkdownLayout.Run] {
+            if let layoutMarkerRuns { return layoutMarkerRuns }
+            let source = storage.string.nativeUTF8
+            let runs = MarkdownLayout.runs(for: documentCache.blocks(for: source), in: source)
+            layoutMarkerRuns = runs
+            return runs
         }
 
         /// The code blocks' ranges in `storage`, worked out once per edit.
@@ -344,9 +388,10 @@ struct DocumentTextView: UIViewRepresentable {
                 to: textView,
                 source: source,
                 blocks: blocks,
-                previousSignatures: styleSignatures
+                previousSignatures: styleSignatures,
+                rendered: rendersMarkdown
             )
-            DocumentStyler.applyTypingAttributes(to: textView, source: source, blocks: blocks)
+            DocumentStyler.applyTypingAttributes(to: textView, source: source, blocks: blocks, rendered: rendersMarkdown)
             // Before the overlay places its buttons: an edit can add a block or
             // move the one the caret is in.
             refreshFenceVisibility(in: textView, repositioning: false)
@@ -586,7 +631,7 @@ struct DocumentTextView: UIViewRepresentable {
             // rather than re-parsing.
             let source = (textView.text ?? "").nativeUTF8
             let blocks = documentCache.blocks(for: source)
-            DocumentStyler.applyTypingAttributes(to: textView, source: source, blocks: blocks)
+            DocumentStyler.applyTypingAttributes(to: textView, source: source, blocks: blocks, rendered: rendersMarkdown)
             applyRewritingPolicy(to: textView, source: source, blocks: blocks)
             updateCodeSelectionHighlight(in: textView)
             refreshFenceVisibility(in: textView)

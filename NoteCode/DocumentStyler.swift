@@ -92,6 +92,15 @@ enum DocumentStyler {
     /// is elsewhere is a later refinement.
     static let markerColor = UIColor.tertiaryLabel
 
+    /// Link text: the accent's dark-on-light and light-on-dark pair, the
+    /// Increase Contrast slots of `AccentColor`, which read as text rather
+    /// than as a control.
+    static let linkColor = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0xFF / 255, green: 0xAA / 255, blue: 0x33 / 255, alpha: 1)
+            : UIColor(red: 0xB8 / 255, green: 0x59 / 255, blue: 0x00 / 255, alpha: 1)
+    }
+
     /// How far each nesting level indents, on top of the whitespace the user
     /// actually typed.
     static let listIndentPerLevel: CGFloat = 16
@@ -102,7 +111,7 @@ enum DocumentStyler {
     /// document of bullets asks for the width of "- " hundreds of times.
     private static var markerWidths: [String: CGFloat] = [:]
 
-    static func listParagraphStyle(for block: BlockNode, in source: String) -> NSParagraphStyle {
+    static func listParagraphStyle(for block: BlockNode, in source: String, rendered: Bool = false) -> NSParagraphStyle {
         let style = NSMutableParagraphStyle()
         let depth = block.listDepth ?? 0
         let levelIndent = CGFloat(depth) * listIndentPerLevel
@@ -110,7 +119,7 @@ enum DocumentStyler {
         // Width of the literal marker text, indentation included, so a wrapped
         // line starts exactly where the item's text does.
         let markerWidth: CGFloat = if let marker = block.markerRange {
-            width(ofMarker: String(source[marker]))
+            width(ofMarker: laidOutMarker(String(source[marker]), of: block, rendered: rendered))
         } else {
             0
         }
@@ -118,6 +127,19 @@ enum DocumentStyler {
         style.firstLineHeadIndent = levelIndent
         style.headIndent = levelIndent + markerWidth
         return style
+    }
+
+    /// The marker as TextKit lays it out, so a wrapped line hangs under the
+    /// words: a rendered note's `- ` is `• `, and a checkbox item's marker is
+    /// the box's em space and the gap after it. Indentation stays as typed.
+    private static func laidOutMarker(_ marker: String, of block: BlockNode, rendered: Bool) -> String {
+        guard rendered, let kind = block.listMarker else { return marker }
+        let indent = marker.prefix { $0 == " " || $0 == "\t" }
+        switch kind {
+        case .ordered:  return marker
+        case .bullet:   return indent + "\(MarkdownLayout.bullet) "
+        case .checkbox: return indent + "\(MarkdownLayout.box) "
+        }
     }
 
     private static func width(ofMarker marker: String) -> CGFloat {
@@ -140,10 +162,10 @@ enum DocumentStyler {
     /// Convenience for callers without a cache of their own (tests, previews).
     /// The editor goes through the `regions:` variant so it parses once per edit.
     @discardableResult
-    static func applyStyling(to textView: UITextView) -> [BlockNode] {
+    static func applyStyling(to textView: UITextView, rendered: Bool = false) -> [BlockNode] {
         let source = (textView.text ?? "").nativeUTF8
         let blocks = DocumentParser.parse(source)
-        applyStyling(to: textView, source: source, blocks: blocks, previousSignatures: [])
+        applyStyling(to: textView, source: source, blocks: blocks, previousSignatures: [], rendered: rendered)
         return blocks
     }
 
@@ -163,7 +185,8 @@ enum DocumentStyler {
         to textView: UITextView,
         source: String,
         blocks: [BlockNode],
-        previousSignatures: [BlockSignature] = []
+        previousSignatures: [BlockSignature] = [],
+        rendered: Bool = false
     ) -> [BlockSignature] {
         // Rewriting attributes mid-composition destroys the marked-text
         // underline and can drop the in-progress character entirely, which
@@ -220,15 +243,21 @@ enum DocumentStyler {
             case .paragraph:
                 apply(layout.inlines, over: proseFont, to: styled)
 
-            case .listItem:
+            case .listItem(_, let marker, _):
                 styled.addAttribute(
                     .paragraphStyle,
-                    value: listParagraphStyle(for: layout.block, in: source),
+                    value: listParagraphStyle(for: layout.block, in: source, rendered: rendered),
                     range: layout.range
                 )
                 apply(layout.inlines, over: proseFont, to: styled)
-                for marker in layout.blockMarkers {
-                    styled.addAttribute(.foregroundColor, value: markerColor, range: marker)
+                for range in layout.blockMarkers {
+                    styled.addAttribute(.foregroundColor, value: markerColor, range: range)
+                }
+                // A ticked item is done: struck through, and quieter.
+                if marker == .checkbox(checked: true), layout.contentRange.length > 0 {
+                    let content = trimmingNewline(layout.contentRange, in: source, of: layout)
+                    styled.addAttribute(.foregroundColor, value: UIColor.secondaryLabel, range: content)
+                    styled.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: content)
                 }
 
             case .heading(let level, _):
@@ -307,7 +336,7 @@ enum DocumentStyler {
     // MARK: Offsets
 
     /// A block and its spans, as UTF-16 ranges ready to hand to NSTextStorage.
-    private struct BlockLayout {
+    struct BlockLayout {
         var block: BlockNode
         var range: NSRange
         var contentRange: NSRange
@@ -334,7 +363,7 @@ enum DocumentStyler {
         }
     }
 
-    private struct InlineLayout {
+    struct InlineLayout {
         var kind: InlineNode.Kind
         var contentRange: NSRange
         var markers: [NSRange]
@@ -348,7 +377,7 @@ enum DocumentStyler {
     /// 184ms for a 500-line note, on every keystroke. Blocks are contiguous and
     /// in order, and so are the inline spans inside them, so their lengths can
     /// simply be accumulated instead.
-    private static func layouts(for blocks: [BlockNode], in source: String) -> [BlockLayout] {
+    static func layouts(for blocks: [BlockNode], in source: String) -> [BlockLayout] {
         var layouts: [BlockLayout] = []
         layouts.reserveCapacity(blocks.count)
 
@@ -433,6 +462,14 @@ enum DocumentStyler {
         return preserved
     }
 
+    /// A list item's text without its line terminator, so a strikethrough
+    /// doesn't run on into the gap after the line.
+    private static func trimmingNewline(_ range: NSRange, in source: String, of layout: BlockLayout) -> NSRange {
+        let text = source[layout.block.contentRange]
+        guard let last = text.last, last.isNewline else { return range }
+        return NSRange(location: range.location, length: max(range.length - last.utf16.count, 0))
+    }
+
     /// Applies inline spans over a block whose base font is already set.
     ///
     /// Traits are derived from the block's own font rather than a fixed one, so
@@ -455,6 +492,9 @@ enum DocumentStyler {
                 storage.addAttribute(.backgroundColor, value: UIColor.secondarySystemFill, range: inline.contentRange)
             case .strikethrough:
                 storage.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: inline.contentRange)
+            case .link:
+                storage.addAttribute(.foregroundColor, value: linkColor, range: inline.contentRange)
+                storage.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: inline.contentRange)
             case .text:
                 break
             }
@@ -508,7 +548,7 @@ enum DocumentStyler {
     /// monospaced on a grey background. This is the "attribute bleed" problem;
     /// setting typing attributes from the *parsed* region under the caret is the
     /// fix, rather than letting the text system guess.
-    static func applyTypingAttributes(to textView: UITextView, source: String, blocks: [BlockNode]) {
+    static func applyTypingAttributes(to textView: UITextView, source: String, blocks: [BlockNode], rendered: Bool = false) {
         let caret = textView.selectedRange.location
 
         let current = block(at: caret, in: source, blocks: blocks)
@@ -534,7 +574,7 @@ enum DocumentStyler {
             // Carry the indent, or text typed into a wrapped list line jumps
             // back to the margin.
             var attributes = proseAttributes
-            attributes[.paragraphStyle] = listParagraphStyle(for: current!, in: source)
+            attributes[.paragraphStyle] = listParagraphStyle(for: current!, in: source, rendered: rendered)
             textView.typingAttributes = attributes
         default:
             textView.typingAttributes = proseAttributes

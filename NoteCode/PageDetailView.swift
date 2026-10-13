@@ -292,7 +292,8 @@ struct PageDetailView: View {
                         NoteMemory().setPlace(place, of: id)
                     }
                 },
-                showMarkdown: showMarkdown
+                showMarkdown: showMarkdown,
+                rendersMarkdown: page.markdownLayout == Page.renderedMarkdown
             )
             // The page draws its own border, on the page's edges rather than
             // the area's — see PageView.outline. Clipping keeps anything that
