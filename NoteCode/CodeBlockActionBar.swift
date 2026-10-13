@@ -125,6 +125,9 @@ final class CodeBlockActionBar: UIView {
         button.setImage(icon(systemName), for: .normal)
         button.tintColor = tint
         button.accessibilityLabel = label
+        // The pointer lifts the button, instead of showing the text view's
+        // I-beam over it.
+        button.isPointerInteractionEnabled = true
         return button
     }
 

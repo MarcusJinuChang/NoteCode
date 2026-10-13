@@ -51,6 +51,7 @@ final class CodeBlockLanguageButton: UIButton {
             return attributes
         }
         self.configuration = configuration
+        isPointerInteractionEnabled = true
 
         // Built when the menu opens, so it ticks the language the block has
         // then rather than the one it had when the button was made.

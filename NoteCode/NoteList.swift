@@ -32,6 +32,28 @@ struct NoteList: View {
     /// Asked to show Settings, from the gear at the foot of the list.
     var onShowSettings: () -> Void = {}
 
+    /// What the menu bar has asked the list to do (New Folder, Search Notes).
+    /// Answered when the list is on screen, then cleared.
+    @Binding var request: ListRequest?
+
+    init(
+        storageIsEphemeral: Bool = false,
+        selection: Binding<Page?>,
+        searchText: Binding<String>,
+        onNewPage: @escaping (Page) -> Void = { _ in },
+        onShowSettings: @escaping () -> Void = {},
+        request: Binding<ListRequest?> = .constant(nil)
+    ) {
+        self.storageIsEphemeral = storageIsEphemeral
+        _selection = selection
+        _searchText = searchText
+        self.onNewPage = onNewPage
+        self.onShowSettings = onShowSettings
+        _request = request
+    }
+
+    @FocusState private var searchIsFocused: Bool
+
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Query(sort: \Page.modifiedAt, order: .reverse) private var pages: [Page]
@@ -120,6 +142,12 @@ struct NoteList: View {
             }
         }
         .searchable(text: $searchText, prompt: "Search Notes")
+        .searchFocused($searchIsFocused)
+        .onChange(of: request, initial: true) { _, asked in
+            guard let asked else { return }
+            request = nil
+            answer(asked)
+        }
         // A bar at the foot of the list that holds only the gear, for now.
         // Not a `.bottomBar` toolbar item: in the simulator that placement
         // put the gear at the centre of the screen with the list hidden, and
@@ -183,6 +211,19 @@ struct NoteList: View {
             TextField("Name", text: $typedName)
             Button("Cancel", role: .cancel) {}
             Button(naming?.confirmation ?? "OK") { finishNaming() }
+        }
+    }
+
+    /// Does what the menu bar asked. The list may have only just slid in, and
+    /// a field focused or an alert raised in the same frame is dropped, so it
+    /// waits for the slide.
+    private func answer(_ request: ListRequest) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(350))
+            switch request {
+            case .newFolder:   startNaming(.new(moving: nil))
+            case .searchNotes: searchIsFocused = true
+            }
         }
     }
 

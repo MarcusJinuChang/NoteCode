@@ -13,14 +13,38 @@ enum DocumentStyler {
 
     // MARK: Attributes
 
-    /// Body text. Tracks Dynamic Type because it's derived from the preferred
-    /// body font rather than a hardcoded size.
-    static var proseFont: UIFont {
-        UIFont.preferredFont(forTextStyle: .body)
+    /// The text sizes the note is laid out in, which are the system's at the
+    /// default Dynamic Type setting and stay there.
+    ///
+    /// **The note body does not follow Dynamic Type** (Phase 9). Its size is
+    /// part of its pagination: a larger body re-wraps every line and moves the
+    /// page breaks, and ink stays where it was drawn, so a reader who changed
+    /// the system's text size would find their handwriting on the wrong words.
+    /// The list, Settings and the menus scale; the page doesn't, the way a
+    /// printed page doesn't. Zoom is how a page is made larger.
+    private static let defaultSize = UITraitCollection(preferredContentSizeCategory: .large)
+
+    /// The system's font for a text style *as it is at the default setting*,
+    /// leading and all: not `systemFont(ofSize:)` of the same size, which has
+    /// none, so every line came out 1.7pt shorter (measured: body leading
+    /// 1.71pt, line height 20.29 either way). That moved the page breaks of
+    /// every note already written, away from its ink, and a test of where
+    /// the top line lands after a re-wrap is what caught it.
+    ///
+    /// Not rescaled afterwards: the text view has
+    /// `adjustsFontForContentSizeCategory` off, and nothing else re-resolves
+    /// a font put in the text storage.
+    private static func fixedFont(for style: UIFont.TextStyle) -> UIFont {
+        UIFont.preferredFont(forTextStyle: style, compatibleWith: defaultSize)
     }
 
-    /// Monospaced at whatever size body currently is, so code scales with
-    /// Dynamic Type alongside prose instead of staying fixed.
+    /// Body text: 17pt, whatever the system's text size is.
+    static var proseFont: UIFont {
+        fixedFont(for: .body)
+    }
+
+    /// Monospaced at body's size, so a line of code is as tall as a line of
+    /// prose.
     static var codeFont: UIFont {
         UIFont.monospacedSystemFont(ofSize: proseFont.pointSize, weight: .regular)
     }
@@ -42,8 +66,8 @@ enum DocumentStyler {
         ]
     }
 
-    /// Headings scale with Dynamic Type by mapping onto real text styles
-    /// rather than hardcoded sizes.
+    /// Headings are bold, at the sizes the text styles have at the default
+    /// setting (see `defaultSize`).
     static func headingFont(level: Int) -> UIFont {
         let style: UIFont.TextStyle = switch level {
         case 1:  .largeTitle
@@ -53,7 +77,7 @@ enum DocumentStyler {
         case 5:  .headline
         default: .subheadline
         }
-        return UIFont.preferredFont(forTextStyle: style).withTraits(.traitBold)
+        return fixedFont(for: style).withTraits(.traitBold)
     }
 
     static func headingAttributes(level: Int) -> [NSAttributedString.Key: Any] {

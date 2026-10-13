@@ -383,6 +383,7 @@ private struct HotbarMenuStyle: ViewModifier {
         content
             .menuStyle(.button)
             .buttonStyle(.plain)
+            .hoverEffect(.highlight)
             .menuIndicator(.hidden)
     }
 }

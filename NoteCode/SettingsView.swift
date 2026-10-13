@@ -47,7 +47,7 @@ struct SettingsCommands: Commands {
             Button("Settings…") {
                 showsSettings?.wrappedValue = true
             }
-            .keyboardShortcut(",", modifiers: .command)
+            .keyboardShortcut(.settings)
             .disabled(showsSettings == nil)
         }
     }

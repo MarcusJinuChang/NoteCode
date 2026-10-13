@@ -38,6 +38,19 @@ extension DocumentTextView.Coordinator {
             guard let self, let textView else { return }
             refreshFenceVisibility(in: textView)
         }
+        // ⌘R and ⇧⌘C act on the block the caret is in, in text mode.
+        editor?.runBlockAtCaret = { [weak self, weak textView] in
+            guard let self, let textView, editor?.mode == .text,
+                  let target = target(atCaret: textView.selectedRange.location, in: textView)
+            else { return }
+            run(target, from: textView)
+        }
+        editor?.copyBlockAtCaret = { [weak self, weak textView] in
+            guard let self, let textView, editor?.mode == .text,
+                  let target = target(atCaret: textView.selectedRange.location, in: textView)
+            else { return }
+            copy(target)
+        }
         refreshFenceVisibility(in: textView)
     }
 

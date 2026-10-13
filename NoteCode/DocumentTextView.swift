@@ -255,8 +255,8 @@ struct DocumentTextView: UIViewRepresentable {
         func attachOverlay(to textView: DocumentUITextView) {
             let overlay = CodeBlockOverlay(textView: textView)
 
-            overlay.onCopy = { target in
-                UIPasteboard.general.string = target.code
+            overlay.onCopy = { [weak self] target in
+                self?.copy(target)
             }
 
             overlay.onRun = { [weak textView] target in
@@ -279,12 +279,26 @@ struct DocumentTextView: UIViewRepresentable {
             textView.addViewportLayoutObserver { [weak overlay] in overlay?.reposition(laysOutViewport: false) }
         }
 
+        /// Puts a block's code on the pasteboard, with a light tap. One path
+        /// for the button, the edit menu and ⇧⌘C.
+        func copy(_ target: CodeBlockTarget) {
+            UIPasteboard.general.string = target.code
+            Haptics.copyBlock()
+        }
+
+        /// The code block the caret is in, for the edit menu and ⌘R and ⇧⌘C.
+        func target(atCaret caret: Int, in textView: UITextView) -> CodeBlockTarget? {
+            let source = (textView.text ?? "").nativeUTF8
+            let targets = CodeBlockAction.targets(in: source, blocks: documentCache.blocks(for: source))
+            return CodeBlockAction.target(atCaret: caret, in: targets, sourceLength: textView.textStorage.length)
+        }
+
         /// Hands a block to whichever site the page is pointed at.
         ///
         /// Nothing is executed here or anywhere else in the app. Where the code
         /// travels in the link the student lands on a finished run; where it
         /// can't, it goes on the pasteboard and they paste it on arrival.
-        private func run(_ target: CodeBlockTarget, from textView: UITextView) {
+        func run(_ target: CodeBlockTarget, from textView: UITextView) {
             guard let language = target.language else { return }
 
             let request = CodeDestination.request(
@@ -437,7 +451,8 @@ struct DocumentTextView: UIViewRepresentable {
             editor?.refreshUndoState()
         }
 
-        /// Adds copy and share for the code block under the caret.
+        /// The edit menu: Run Block, Copy Block and Share for the code block
+        /// under the caret, and Bold, Italic, Code and Format › in prose.
         ///
         /// The edit menu is the right home for this: no new chrome, no overlay
         /// to position, and it appears exactly where a selection already is.
@@ -465,25 +480,72 @@ struct DocumentTextView: UIViewRepresentable {
             at caret: Int,
             suggestedActions: [UIMenuElement]
         ) -> UIMenu? {
-            let source = (textView.text ?? "").nativeUTF8
-            let blocks = documentCache.blocks(for: source)
+            if let target = target(atCaret: caret, in: textView) {
+                // An empty block has nothing to run or copy.
+                guard !target.code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    return UIMenu(children: suggestedActions)
+                }
+                return UIMenu(children: [codeBlockMenu(for: target, in: textView)] + suggestedActions)
+            }
 
-            guard let code = CodeBlockAction.code(atCaret: caret, in: source, blocks: blocks),
-                  !code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            else {
+            // Formatting changes the text, and ink mode and a locked note
+            // leave it alone (`NoteEditor.perform` would do nothing).
+            guard let editor, editor.mode == .text, !editor.isTextLocked else {
                 return UIMenu(children: suggestedActions)
             }
+            return UIMenu(children: [proseMenu(editor)] + suggestedActions)
+        }
 
-            let copy = UIAction(title: "Copy Code Block", image: UIImage(systemName: "doc.on.doc")) { _ in
-                UIPasteboard.general.string = code
+        /// Run Block and Copy Block, then Share, which was here first.
+        ///
+        /// Run is left out for a block with no language the app knows, as the
+        /// action bar leaves out its play button: there's nowhere to send it.
+        private func codeBlockMenu(for target: CodeBlockTarget, in textView: UITextView) -> UIMenu {
+            var actions: [UIMenuElement] = []
+
+            if target.language != nil {
+                actions.append(UIAction(title: "Run Block", image: UIImage(systemName: "play")) { [weak self, weak textView] _ in
+                    guard let self, let textView else { return }
+                    run(target, from: textView)
+                })
             }
 
-            let share = UIAction(title: "Share Code Block", image: UIImage(systemName: "square.and.arrow.up")) { [weak textView] _ in
+            actions.append(UIAction(title: "Copy Block", image: UIImage(systemName: "doc.on.doc")) { [weak self] _ in
+                self?.copy(target)
+            })
+
+            actions.append(UIAction(title: "Share Block", image: UIImage(systemName: "square.and.arrow.up")) { [weak textView] _ in
                 guard let textView else { return }
-                Self.share(code, from: textView)
-            }
+                Self.share(target.code, from: textView)
+            })
 
-            return UIMenu(children: [UIMenu(options: .displayInline, children: [copy, share])] + suggestedActions)
+            return UIMenu(options: .displayInline, children: actions)
+        }
+
+        /// Bold, Italic and Code, then a Format submenu for the rest.
+        ///
+        /// The same edits the hotbar's buttons make, through the editor, so
+        /// they land on the undo stack and are styled like typed text.
+        private func proseMenu(_ editor: NoteEditor) -> UIMenu {
+            let inline = UIMenu(options: .displayInline, children: [
+                UIAction(title: "Bold", image: UIImage(systemName: "bold")) { _ in editor.toggle(.bold) },
+                UIAction(title: "Italic", image: UIImage(systemName: "italic")) { _ in editor.toggle(.italic) },
+                UIAction(title: "Code", image: UIImage(systemName: "chevron.left.forwardslash.chevron.right")) { _ in
+                    editor.toggle(.code)
+                },
+            ])
+
+            let format = UIMenu(title: "Format", image: UIImage(systemName: "textformat"), children: [
+                UIAction(title: "Strikethrough", image: UIImage(systemName: "strikethrough")) { _ in
+                    editor.toggle(.strikethrough)
+                },
+                UIAction(title: "Heading 1") { _ in editor.setHeading(level: 1) },
+                UIAction(title: "Heading 2") { _ in editor.setHeading(level: 2) },
+                UIAction(title: "Heading 3") { _ in editor.setHeading(level: 3) },
+                UIAction(title: "Body") { _ in editor.setHeading(level: 0) },
+            ])
+
+            return UIMenu(options: .displayInline, children: [inline, format])
         }
 
         private static func share(_ code: String, from textView: UITextView) {
@@ -612,9 +674,10 @@ struct DocumentTextView: UIViewRepresentable {
         )
 
         // Prose is the document's default; code styling arrives with fence
-        // rendering. Dynamic Type so the editor respects the reader's text size.
-        textView.font = UIFont.preferredFont(forTextStyle: .body)
-        textView.adjustsFontForContentSizeCategory = true
+        // rendering. Not Dynamic Type: the body's size is part of the page's
+        // pagination (see `DocumentStyler.proseFont`).
+        textView.font = DocumentStyler.proseFont
+        textView.adjustsFontForContentSizeCategory = false
 
         // All the text-rewriting traits live in TextRewritingPolicy, so
         // switching them as the caret moves between prose and code is one

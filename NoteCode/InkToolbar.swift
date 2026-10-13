@@ -330,6 +330,8 @@ struct InkSwatches: View {
             HotbarSwatch(color: shown, isSelected: isSelected)
         }
         .buttonStyle(.plain)
+        // The pointer lifts the control it is over.
+        .hoverEffect(.highlight)
         .contextMenu {
             Button("Remove", systemImage: "trash", role: .destructive) { remove(color) }
                 .disabled(!canRemove)
@@ -419,6 +421,8 @@ struct InkWidths: View {
                     HotbarDot(diameter: Self.diameters[width] ?? 10, isSelected: isSelected)
                 }
                 .buttonStyle(.plain)
+                // The pointer lifts the control it is over.
+                .hoverEffect(.highlight)
                 .accessibilityLabel("\(width.title) \(kind.label)")
                 .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
@@ -482,6 +486,8 @@ struct EraserOptions: View {
             HotbarDot(diameter: diameter, isSelected: isSelected)
         }
         .buttonStyle(.plain)
+        // The pointer lifts the control it is over.
+        .hoverEffect(.highlight)
         .accessibilityLabel("\(size.rawValue.capitalized) Eraser")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
@@ -557,6 +563,8 @@ struct HotbarButton: View {
             HotbarIcon(systemImage: systemImage, isSelected: isSelected)
         }
         .buttonStyle(.plain)
+        // The pointer lifts the control it is over.
+        .hoverEffect(.highlight)
         .accessibilityLabel(label)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }

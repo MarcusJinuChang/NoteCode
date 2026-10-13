@@ -36,6 +36,14 @@ struct ContentView: View {
     /// whether or not the list is on screen.
     @State private var showsSettings = false
 
+    /// Something for the list to do when it is on screen: the menu bar's
+    /// New Folder and Search Notes.
+    @State private var listRequest: ListRequest?
+
+    /// Which way up ⌘N makes a note's pages (Settings › Notes › New Notes),
+    /// as the + button's tap does.
+    @AppStorage(NewNotes.defaultsKey) private var newNoteOrientation = PageOrientation.default
+
     @Environment(\.modelContext) private var modelContext
 
     /// True when a debug launch argument opened a note, in a store of its own.
@@ -57,7 +65,8 @@ struct ContentView: View {
                 selection: opening,
                 searchText: $searchText,
                 onNewPage: { newPage = $0 },
-                onShowSettings: { showsSettings = true }
+                onShowSettings: { showsSettings = true },
+                request: $listRequest
             )
                 // Searching the list brings the keyboard up; the list stays its
                 // size and the keyboard covers its lower rows.
@@ -85,6 +94,13 @@ struct ContentView: View {
         // opening it never re-wraps the note underneath.
         .navigationSplitViewStyle(.prominentDetail)
         .settingsSheet(isPresented: $showsSettings, onOpenWelcomeNote: openWelcomeNote)
+        .windowActions(WindowActions(
+            newNote: newNote,
+            newFolder: { ask(.newFolder) },
+            searchNotes: { ask(.searchNotes) },
+            toggleNoteList: toggleNoteList,
+            isCovered: showsSettings
+        ))
         .task { makeWelcomeNoteOnFirstLaunch() }
         .onChange(of: selection) {
             if selection != newPage { newPage = nil }
@@ -105,6 +121,35 @@ struct ContentView: View {
         } set: { page in
             openedSearch = NoteSearch(searchText)
             selection = page
+        }
+    }
+
+    /// ⌘N: the + button's tap. A note in the open note's folder, opened with
+    /// its title ready to rename, through `Page.create` like every other way
+    /// of making one.
+    private func newNote() {
+        let page = Page.create(
+            orientation: newNoteOrientation,
+            in: NewNotes.folder(whileViewing: selection),
+            context: modelContext
+        )
+        newPage = page
+        openedSearch = NoteSearch("")
+        selection = page
+    }
+
+    /// ⇧⌘N and ⇧⌘F belong to the list, so it comes first.
+    private func ask(_ request: ListRequest) {
+        withAnimation { columnVisibility = .all }
+        listRequest = request
+    }
+
+    /// ⌃⌘S: the list over the page, or away. With no note open the list is
+    /// all there is, and stays.
+    private func toggleNoteList() {
+        guard selection != nil else { return }
+        withAnimation {
+            columnVisibility = columnVisibility == .detailOnly ? .all : .detailOnly
         }
     }
 
