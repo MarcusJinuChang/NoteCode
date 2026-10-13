@@ -166,6 +166,42 @@ nonisolated enum CodeIndent {
         }
     }
 
+    // MARK: Backspace
+
+    /// What Backspace does with a collapsed caret in a code line's indent: it
+    /// takes the indent back one level, to the previous multiple of the
+    /// width, rather than one space. Four spaces typed by ⇥ then go with one
+    /// press, and an indent of six goes to four.
+    ///
+    /// `nil` for anything else, which is the ordinary delete: a caret that
+    /// isn't in a code block's lines, one with text before it on its line, an
+    /// indent of tabs (one tab is one level already) and the line's first
+    /// column.
+    static func backspaceEdit(
+        in text: NSString,
+        caret: Int,
+        codeRanges: [CodeRange],
+        width: Int
+    ) -> TextEdit? {
+        guard caret > 0, caret <= text.length,
+              block(holding: caret...caret, in: text, codeRanges: codeRanges) != nil
+        else { return nil }
+
+        var lineStart = 0, lineEnd = 0, contentsEnd = 0
+        text.getLineStart(&lineStart, end: &lineEnd, contentsEnd: &contentsEnd, for: NSRange(location: caret, length: 0))
+        guard caret > lineStart, caret <= contentsEnd else { return nil }
+
+        let before = text.substring(with: NSRange(location: lineStart, length: caret - lineStart))
+        guard before.allSatisfy({ $0 == " " }) else { return nil }
+
+        let remainder = before.count % width
+        let removed = min(remainder == 0 ? width : remainder, before.count)
+        // One space is the ordinary delete.
+        guard removed > 1 else { return nil }
+        let range = NSRange(location: caret - removed, length: removed)
+        return TextEdit(range: range, replacement: "", selection: NSRange(location: range.location, length: 0))
+    }
+
     // MARK: Tab and ⇧Tab
 
     /// ⇥ and ⇧⇥: one level in or out on every line the selection touches.

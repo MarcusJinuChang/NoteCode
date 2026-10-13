@@ -756,6 +756,9 @@ struct DocumentTextView: UIViewRepresentable {
             let offset = textView.selectedRange.location
             let step = offset - lastCaret
             let arrow = abs(step) == 1 && (textView as? DocumentUITextView)?.wasTouchedRecently != true
+            // A tap in the empty space after a line's last markers means the
+            // end of the line, after them.
+            if !arrow, (textView as? DocumentUITextView)?.lastTapIsBeyondLineEnd(at: offset) == true { return }
             let stop = caretStop(for: offset, direction: arrow ? step : 0, in: textView)
             guard stop != offset else { return }
 
@@ -814,6 +817,14 @@ struct DocumentTextView: UIViewRepresentable {
                 return MarkdownFormatting.indent(
                     in: text, selection: range, outdent: false, codeRanges: codeRanges(in: storage)
                 )
+            }
+            // In code, Backspace in a line's indent takes back a whole level.
+            if replacement.isEmpty, range.length == 1, textView.selectedRange.length == 0,
+               NSMaxRange(range) == textView.selectedRange.location,
+               let edit = CodeIndent.backspaceEdit(
+                   in: text, caret: NSMaxRange(range), codeRanges: codeRanges(in: storage), width: indentWidth
+               ) {
+                return edit
             }
             guard rendersMarkdown, textView.selectedRange.length == 0,
                   replacement.isEmpty, range.length >= 1,

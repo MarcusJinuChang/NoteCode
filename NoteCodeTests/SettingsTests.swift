@@ -148,6 +148,46 @@ struct AppearanceSettingTests {
         settle(window)
         #expect(host.traitCollection.userInterfaceStyle == window.windowScene?.traitCollection.userInterfaceStyle)
     }
+
+    @Test("A sheet over the window follows Light and then System, as the page does")
+    func sheetFollowsSystemAfterAnOverride() throws {
+        let key = AppAppearance.defaultsKey
+        let saved = UserDefaults.standard.object(forKey: key)
+        defer {
+            if let saved { UserDefaults.standard.set(saved, forKey: key) } else { UserDefaults.standard.removeObject(forKey: key) }
+        }
+
+        let window = HotbarLayoutTests.makeWindow()
+        UserDefaults.standard.set(AppAppearance.system.rawValue, forKey: key)
+        // A SwiftUI sheet, as Settings is: the bug lived in how SwiftUI
+        // presents one, and a controller presented from UIKit never showed it.
+        let host = UIHostingController(rootView: Color.clear
+            .sheet(isPresented: .constant(true)) { Color.clear }
+            .modifier(AppearanceModifier()))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        settle(window, 1)
+
+        let system = window.windowScene?.traitCollection.userInterfaceStyle ?? .light
+        let other: UIUserInterfaceStyle = system == .dark ? .light : .dark
+
+        let sheet = try #require(host.presentedViewController)
+        #expect(sheet.traitCollection.userInterfaceStyle == system)
+
+        // The reader picks the opposite of the device's appearance: the sheet
+        // goes that way…
+        UserDefaults.standard.set(other == .dark ? AppAppearance.dark.rawValue : AppAppearance.light.rawValue, forKey: key)
+        settle(window, 1)
+        #expect(sheet.traitCollection.userInterfaceStyle == other)
+
+        // …and System takes it back to the device's. It stayed on the
+        // override while `preferredColorScheme` was doing this.
+        UserDefaults.standard.set(AppAppearance.system.rawValue, forKey: key)
+        settle(window, 1)
+        #expect(sheet.traitCollection.userInterfaceStyle == system, "the sheet is still on the override")
+        #expect(host.traitCollection.userInterfaceStyle == system)
+    }
 }
 
 #endif

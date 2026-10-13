@@ -125,6 +125,12 @@ nonisolated struct CodeBlock: Equatable, Sendable {
     var isOutput: Bool {
         CodeBlockKind.isOutputTag(infoString.split(separator: " ").first)
     }
+
+    /// Whether the fence names anything at all, known or not. A bare fence is
+    /// plain text, and nothing is ever coloured in one.
+    var hasLanguageTag: Bool {
+        infoString.split(separator: " ").first != nil
+    }
 }
 
 /// What a code block can be turned into, from the Code Block ▾ menu and a

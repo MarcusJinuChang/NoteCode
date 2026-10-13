@@ -63,13 +63,71 @@ struct SettingsCommands: Commands {
 ///
 /// At the root of the scene, so a change reaches every window, its sheets and
 /// the UIKit controllers presented from it, the moment the setting changes.
+///
+/// **On UIKit it is the window's `overrideUserInterfaceStyle`, not
+/// `preferredColorScheme`.** `preferredColorScheme` puts an override on each
+/// controller SwiftUI presents, and giving it `nil` afterwards doesn't take it
+/// off again: with the device in dark, Light and then System left the open
+/// Settings sheet light under a dark page (13 Oct). A window's override can be
+/// set back to `.unspecified`, and everything presented from the window,
+/// sheets and pickers included, takes its traits from it.
 struct AppearanceModifier: ViewModifier {
     @AppStorage(AppAppearance.defaultsKey) private var appearance = AppAppearance.default
 
     func body(content: Content) -> some View {
+        #if canImport(UIKit)
+        content.background(WindowAppearance(style: appearance.userInterfaceStyle))
+        #else
         content.preferredColorScheme(appearance.colorScheme)
+        #endif
     }
 }
+
+#if canImport(UIKit)
+
+extension AppAppearance {
+    /// `.unspecified` follows the system.
+    var userInterfaceStyle: UIUserInterfaceStyle {
+        switch self {
+        case .system: .unspecified
+        case .light:  .light
+        case .dark:   .dark
+        }
+    }
+}
+
+/// Sets the override of the window it is in, now and whenever it changes
+/// windows.
+private struct WindowAppearance: UIViewRepresentable {
+    var style: UIUserInterfaceStyle
+
+    final class Anchor: UIView {
+        var style: UIUserInterfaceStyle = .unspecified {
+            didSet { apply() }
+        }
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            apply()
+        }
+        func apply() {
+            guard let window, window.overrideUserInterfaceStyle != style else { return }
+            window.overrideUserInterfaceStyle = style
+        }
+    }
+
+    func makeUIView(context: Context) -> Anchor {
+        let anchor = Anchor()
+        anchor.isUserInteractionEnabled = false
+        anchor.style = style
+        return anchor
+    }
+
+    func updateUIView(_ anchor: Anchor, context: Context) {
+        anchor.style = style
+    }
+}
+
+#endif
 
 extension AppAppearance {
     /// `nil` follows the system.
