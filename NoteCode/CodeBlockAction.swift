@@ -32,6 +32,25 @@ nonisolated struct CodeBlockTarget: Equatable, Sendable {
     var languageLabel: String {
         FenceTag.label(language: language, tag: tag)
     }
+
+    /// Whether this is an output block: a console panel with Copy and no Run.
+    var isOutput: Bool {
+        language == nil && CodeBlockKind.isOutputTag(Substring(tag))
+    }
+
+    /// Whether the block gets a Run button. Not for a block with no language
+    /// the app knows, nor for one it knows but has nowhere to run (SQL).
+    var canRun: Bool {
+        language?.canRun == true
+    }
+
+    /// The kind the block is now, for the language menu to tick. `nil` for a
+    /// tag the app doesn't know, which stays as typed.
+    var kind: CodeBlockKind? {
+        if let language { return .language(language) }
+        if isOutput { return .output }
+        return tag.isEmpty ? .plain : nil
+    }
 }
 
 /// Where a code block is, for layout and for deciding what shows its fences.
@@ -48,9 +67,13 @@ nonisolated struct CodeRange: Equatable, Sendable {
     /// an unclosed block. The caret one past it is on the line after.
     var lastCaret: Int
 
-    init(range: NSRange, isClosed: Bool, lastCaret: Int? = nil) {
+    /// Whether this is an output block, which has its own panel colours.
+    var isOutput: Bool
+
+    init(range: NSRange, isClosed: Bool, lastCaret: Int? = nil, isOutput: Bool = false) {
         self.range = range
         self.isClosed = isClosed
+        self.isOutput = isOutput
         let end = range.location + range.length
         // Without the terminator's length, assume a one-unit newline ends a
         // closed block, as it does everywhere but the note's last line.

@@ -135,7 +135,16 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
     /// and three in a row read as a single block — you can't see where one ends
     /// and the next begins.
     static let endInset: CGFloat = 2
-    private let fillColor = UIColor.secondarySystemBackground
+
+    /// Whether this paragraph is part of an output block, whose panel is a
+    /// console: dark in both appearances. Set when the fragment is made. A
+    /// retag to or from output restyles the whole block, which lays every
+    /// paragraph of it out again, so none keeps the old answer.
+    var isOutput = false
+
+    private var fillColor: UIColor {
+        isOutput ? CodeOutputPanel.fillColor : .secondarySystemBackground
+    }
 
     override func draw(at point: CGPoint, in context: CGContext) {
         let display = fenceDisplay()
@@ -535,7 +544,8 @@ final class DocumentCache {
             return CodeRange(
                 range: range,
                 isClosed: code.isClosed,
-                lastCaret: range.location + range.length - terminator
+                lastCaret: range.location + range.length - terminator,
+                isOutput: code.isOutput
             )
         }
         cachedCodeRanges = ranges

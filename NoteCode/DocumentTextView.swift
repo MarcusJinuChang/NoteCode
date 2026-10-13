@@ -232,7 +232,20 @@ struct DocumentTextView: UIViewRepresentable {
         /// Blocks already coloured, keyed by content. A block whose code hasn't
         /// changed keeps the colours already in the text storage, so only the
         /// block being edited needs re-highlighting.
-        private var highlightedBlocks: Set<CodeBlockID> = []
+        private var highlightedBlocks: Set<HighlightKey> = []
+
+        /// A block as it was coloured: its code and the language it was
+        /// coloured as. The tag is part of it because a retag changes neither
+        /// the block's id nor its code, and the colours must still follow.
+        struct HighlightKey: Hashable {
+            var id: CodeBlockID
+            var language: String
+
+            init(block: CodeBlock) {
+                id = block.id
+                language = block.infoString.split(separator: " ").first.map { $0.lowercased() } ?? ""
+            }
+        }
 
         /// The appearance `highlightedBlocks` were coloured for.
         ///
@@ -352,9 +365,9 @@ struct DocumentTextView: UIViewRepresentable {
                 self.run(target, from: textView)
             }
 
-            overlay.onChooseLanguage = { [weak textView, weak self] target, language in
+            overlay.onChooseLanguage = { [weak textView, weak self] target, kind in
                 guard let textView else { return }
-                self?.setLanguage(language, of: target, in: textView)
+                self?.setKind(kind, of: target, in: textView)
             }
             overlay.allowsEditing = { [weak self] in self?.editor?.isTextLocked != true }
 
@@ -387,7 +400,7 @@ struct DocumentTextView: UIViewRepresentable {
         /// travels in the link the student lands on a finished run; where it
         /// can't, it goes on the pasteboard and they paste it on arrival.
         func run(_ target: CodeBlockTarget, from textView: UITextView) {
-            guard let language = target.language else { return }
+            guard let language = target.language, language.canRun else { return }
 
             let request = CodeDestination.request(
                 for: target.code,
@@ -453,20 +466,25 @@ struct DocumentTextView: UIViewRepresentable {
             }
 
             // Forget blocks that no longer exist, so the set can't grow forever.
-            highlightedBlocks.formIntersection(Set(blocks.compactMap(\.codeBlock?.id)))
+            highlightedBlocks.formIntersection(Set(blocks.compactMap { $0.codeBlock.map(HighlightKey.init(block:)) }))
 
             // Snapshot of what to send, taken before any await. Only blocks
             // whose code changed since the last pass — everything else still
             // holds the right colours, which applyStyling carries across.
-            let jobs: [(id: CodeBlockID, code: String, tag: String, offset: Int)] = blocks.compactMap { node in
-                guard let code = node.codeBlock,
+            let jobs: [(key: HighlightKey, code: String, tag: String, offset: Int)] = blocks.compactMap { node in
+                // Output isn't a language: nothing in it is coloured, and a
+                // pass over it would only reset its text to `.label`.
+                guard let code = node.codeBlock, !code.isOutput,
                       let tag = code.infoString.split(separator: " ").first,
-                      !highlightedBlocks.contains(code.id)
+                      !highlightedBlocks.contains(HighlightKey(block: code))
                 else { return nil }
                 return (
-                    code.id,
+                    HighlightKey(block: code),
                     String(source[code.contentRange]),
-                    String(tag),
+                    // The name highlight.js knows the language by, for a
+                    // language the app knows; what was typed otherwise, so
+                    // any of its other languages still colours.
+                    code.language?.highlightName ?? String(tag),
                     NSRange(code.contentRange, in: source).location
                 )
             }
@@ -502,7 +520,7 @@ struct DocumentTextView: UIViewRepresentable {
 
                 let covered = jobs.map { NSRange(location: $0.offset, length: ($0.code as NSString).length) }
                 DocumentStyler.applyColors(painted, clearing: covered, to: textView)
-                self.highlightedBlocks.formUnion(jobs.map(\.id))
+                self.highlightedBlocks.formUnion(jobs.map(\.key))
             }
         }
 
@@ -594,7 +612,7 @@ struct DocumentTextView: UIViewRepresentable {
         private func codeBlockMenu(for target: CodeBlockTarget, in textView: UITextView) -> UIMenu {
             var actions: [UIMenuElement] = []
 
-            if target.language != nil {
+            if target.canRun {
                 actions.append(UIAction(title: "Run Block", image: UIImage(systemName: "play")) { [weak self, weak textView] _ in
                     guard let self, let textView else { return }
                     run(target, from: textView)
@@ -939,6 +957,7 @@ extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
             let fragment = CodeBlockLayoutFragment(textElement: textElement, range: textElement.elementRange)
             fragment.position = position
             fragment.closesBlock = code.isClosed && position.roundsBottom
+            fragment.isOutput = code.isOutput
             fragment.selectedRanges = { [weak self, weak contentManager] in
                 self?.paintedTextRanges(in: contentManager) ?? []
             }

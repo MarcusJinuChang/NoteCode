@@ -28,7 +28,7 @@ final class CodeBlockOverlay {
 
     /// Called when the student picks a language from a block's menu, `nil`
     /// for plain text. The overlay decides nothing about the edit.
-    var onChooseLanguage: ((CodeBlockTarget, CodeLanguage?) -> Void)?
+    var onChooseLanguage: ((CodeBlockTarget, CodeBlockKind) -> Void)?
 
     /// Which blocks are being edited, and so show their fence in place of a
     /// language button. Set by the coordinator; positions follow on the next
@@ -155,8 +155,8 @@ final class CodeBlockOverlay {
         let bar = bars[index]
         let target = targets[index]
 
-        let showsRun = target.language != nil
-        bar.configure(showsRun: showsRun)
+        let showsRun = target.canRun
+        bar.configure(showsRun: showsRun, isOutput: target.isOutput)
 
         let size = showsRun ? CodeBlockActionBar.size : CodeBlockActionBar.copyOnlySize
         bar.frame = CodeBlockActionBar.frame(size: size, panelRight: panelRight, lineFrame: lineFrame)
@@ -169,8 +169,8 @@ final class CodeBlockOverlay {
 
         button.configure(
             label: target.languageLabel,
-            language: target.language,
-            isPlain: target.tag.isEmpty,
+            kind: target.kind,
+            isOutput: target.isOutput,
             isEnabled: allowsEditing()
         )
         // It may reach as far as the bar, and no further.
@@ -198,7 +198,7 @@ final class CodeBlockOverlay {
             bar.onCopy = { [weak self] in self?.copy(at: index) }
 
             let button = CodeBlockLanguageButton(frame: .zero)
-            button.onChoose = { [weak self] language in self?.chooseLanguage(language, at: index) }
+            button.onChoose = { [weak self] kind in self?.chooseKind(kind, at: index) }
             button.isHidden = true
 
             for view in [bar, button] {
@@ -218,9 +218,9 @@ final class CodeBlockOverlay {
         }
     }
 
-    private func chooseLanguage(_ language: CodeLanguage?, at index: Int) {
+    private func chooseKind(_ kind: CodeBlockKind, at index: Int) {
         guard targets.indices.contains(index) else { return }
-        onChooseLanguage?(targets[index], language)
+        onChooseLanguage?(targets[index], kind)
     }
 
     private func run(at index: Int) {

@@ -66,6 +66,14 @@ enum DocumentStyler {
         ]
     }
 
+    /// An output block's text: light on its dark panel, in both appearances.
+    static var outputAttributes: [NSAttributedString.Key: Any] {
+        [
+            .font: codeFont,
+            .foregroundColor: CodeOutputPanel.textColor,
+        ]
+    }
+
     /// Headings are bold, at the sizes the text styles have at the default
     /// setting (see `defaultSize`).
     static func headingFont(level: Int) -> UIFont {
@@ -232,12 +240,15 @@ enum DocumentStyler {
 
         for layout in touched {
             switch layout.block.kind {
-            case .code:
-                styled.setAttributes(codeAttributes, range: layout.range)
+            case .code(let code):
+                let output = code.isOutput
+                styled.setAttributes(output ? outputAttributes : codeAttributes, range: layout.range)
                 // The fence lines are markers like any other, so they recede
-                // too — the code inside is what should carry the eye.
+                // too — the code inside is what should carry the eye. On an
+                // output block's dark panel the usual marker grey would sink
+                // into it, so they take the panel's own label colour.
                 for marker in layout.blockMarkers {
-                    styled.addAttribute(.foregroundColor, value: markerColor, range: marker)
+                    styled.addAttribute(.foregroundColor, value: output ? CodeOutputPanel.labelColor : markerColor, range: marker)
                 }
 
             case .paragraph:
@@ -449,12 +460,18 @@ enum DocumentStyler {
         var preserved: [ColorRun] = []
         let defaultColor = UIColor.label
 
-        for layout in layouts where layout.block.isCode {
+        for layout in layouts where layout.block.isCode && layout.block.codeBlock?.isOutput != true {
             let range = layout.contentRange
             guard range.location >= 0, range.location + range.length <= storage.length else { continue }
 
             storage.enumerateAttribute(.foregroundColor, in: range) { value, subrange, _ in
-                guard let color = value as? UIColor, color != defaultColor else { return }
+                // An output block's text colour is its default, not a syntax
+                // colour: carried into a block just retagged to a language,
+                // it would show as pale grey on the page until highlighting
+                // caught up.
+                guard let color = value as? UIColor, color != defaultColor,
+                      color != CodeOutputPanel.textColor
+                else { return }
                 preserved.append(ColorRun(range: subrange, color: color))
             }
         }
@@ -554,6 +571,9 @@ enum DocumentStyler {
         let current = block(at: caret, in: source, blocks: blocks)
 
         switch current?.kind {
+        case .code(let code) where code.isOutput:
+            // One colour all the way through: nothing is highlighted.
+            textView.typingAttributes = outputAttributes
         case .code:
             // Carry the neighbouring syntax colour onto whatever is typed next.
             //

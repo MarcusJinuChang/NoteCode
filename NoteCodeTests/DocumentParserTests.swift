@@ -174,11 +174,11 @@ struct LanguageTagTests {
 
     @Test("An unknown tag is preserved verbatim but maps to no language")
     func unknownTag() throws {
-        let blocks = try parse("```rust\nfn main() {}\n```", expecting: 1)
+        let blocks = try parse("```ruby\nfn main() {}\n```", expecting: 1)
         let block = try #require(blocks[0].codeBlock)
 
         #expect(block.language == nil)
-        #expect(block.infoString == "rust")
+        #expect(block.infoString == "ruby")
     }
 
     @Test("Canonical names match what online compilers spell")

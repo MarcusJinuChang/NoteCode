@@ -20,14 +20,27 @@ nonisolated enum CodeLanguage: String, CaseIterable, Sendable {
     case cpp
     case java
     case python
+    case c
+    case javascript
+    case rust
+    case go
+    case sql
 
     /// Maps what the user typed after the fence onto a known language.
-    /// People write `c++`, `py`, `python3` — all of them should work.
+    /// People write `c++`, `py`, `python3`, `js`, `golang` — all of them
+    /// should work.
     init?(tag: String) {
         switch tag.lowercased() {
         case "cpp", "c++", "cc", "cxx":  self = .cpp
         case "java":                     self = .java
         case "py", "python", "python3":  self = .python
+        case "c":                        self = .c
+        case "js", "javascript", "node", "nodejs", "mjs":
+                                         self = .javascript
+        case "rs", "rust":               self = .rust
+        case "go", "golang":             self = .go
+        case "sql", "sqlite", "mysql", "postgres", "postgresql", "pgsql":
+                                         self = .sql
         default:                         return nil
         }
     }
@@ -35,9 +48,14 @@ nonisolated enum CodeLanguage: String, CaseIterable, Sendable {
     /// The language's name as people write it, for menus and note info.
     var displayName: String {
         switch self {
-        case .cpp:    "C++"
-        case .java:   "Java"
-        case .python: "Python"
+        case .cpp:        "C++"
+        case .java:       "Java"
+        case .python:     "Python"
+        case .c:          "C"
+        case .javascript: "JavaScript"
+        case .rust:       "Rust"
+        case .go:         "Go"
+        case .sql:        "SQL"
         }
     }
 
@@ -45,13 +63,43 @@ nonisolated enum CodeLanguage: String, CaseIterable, Sendable {
     ///
     /// Named after the Piston API originally, which the cut run phase was going
     /// to post to. The strings outlived it: `CodeDestination` hands exactly
-    /// these to Compiler Explorer.
+    /// these to Compiler Explorer, whose own language ids they are.
     var canonicalName: String {
         switch self {
-        case .cpp:    "c++"
-        case .java:   "java"
-        case .python: "python"
+        case .cpp:        "c++"
+        case .java:       "java"
+        case .python:     "python"
+        case .c:          "c"
+        case .javascript: "javascript"
+        case .rust:       "rust"
+        case .go:         "go"
+        case .sql:        "sql"
         }
+    }
+
+    /// The name highlight.js knows the language by. Used instead of whatever
+    /// was typed after the fence, so `golang`, `js` and `postgres` colour as
+    /// the language they mean without depending on highlight.js's aliases.
+    var highlightName: String {
+        switch self {
+        case .cpp:        "cpp"
+        case .java:       "java"
+        case .python:     "python"
+        case .c:          "c"
+        case .javascript: "javascript"
+        case .rust:       "rust"
+        case .go:         "go"
+        case .sql:        "sql"
+        }
+    }
+
+    /// Whether a block in this language gets a Run button.
+    ///
+    /// SQL has nowhere free to run: the sites that take it keep their editor
+    /// in the browser and run it against a database of their own, so a run
+    /// would only open a page with a different schema. Copy is all it keeps.
+    var canRun: Bool {
+        self != .sql
     }
 }
 
@@ -71,6 +119,54 @@ nonisolated struct CodeBlock: Equatable, Sendable {
     /// This is what gets copied or sent to a compiler; the block's `range` is
     /// what gets styled.
     var contentRange: Range<String.Index>
+
+    /// Whether this is an output block: what a program printed, kept beside
+    /// the code that printed it. Not a language, so it has no `language`.
+    var isOutput: Bool {
+        CodeBlockKind.isOutputTag(infoString.split(separator: " ").first)
+    }
+}
+
+/// What a code block can be turned into, from the Code Block ▾ menu and a
+/// block's language button.
+///
+/// A language is one kind of block. Output is another: a console panel with
+/// Copy and no Run, tagged ```` ```output ````. Plain text is a fence with no
+/// tag. Tags the app doesn't know are none of these; they stay as typed.
+nonisolated enum CodeBlockKind: Equatable, Hashable, Sendable {
+    case language(CodeLanguage)
+    case output
+    case plain
+
+    /// The fence tag for a new block of this kind, `nil` for none.
+    var tag: String? {
+        switch self {
+        case .language(let language): language.rawValue
+        case .output:                 Self.outputTag
+        case .plain:                  nil
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .language(let language): language.displayName
+        case .output:                 "Output"
+        case .plain:                  "Plain Text"
+        }
+    }
+
+    static let outputTag = "output"
+
+    /// Every choice, in the order a menu lists them: the languages, then
+    /// Output, then Plain Text. The hotbar's Code Block ▾ and a block's
+    /// language button both read this, so they can't disagree.
+    static let menu: [CodeBlockKind] =
+        CodeLanguage.allCases.map(CodeBlockKind.language) + [.output, .plain]
+
+    /// Whether the first word of an info string names an output block.
+    static func isOutputTag(_ word: Substring?) -> Bool {
+        word?.lowercased() == outputTag
+    }
 }
 
 // MARK: - Lists
@@ -211,7 +307,10 @@ nonisolated struct BlockNode: Equatable, Sendable {
         case .paragraph:                 0
         case .heading(let level, _):     level
         case .listItem(let depth, _, _): depth
-        case .code(let code):            Int(truncatingIfNeeded: code.id.contentHash)
+        // Output is part of it: python -> output is the same length, and the
+        // styler must still notice, since the text colour changes.
+        case .code(let code):
+            code.isOutput ? ~Int(truncatingIfNeeded: code.id.contentHash) : Int(truncatingIfNeeded: code.id.contentHash)
         }
     }
 

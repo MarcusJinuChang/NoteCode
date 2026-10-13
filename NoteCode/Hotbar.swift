@@ -214,10 +214,9 @@ struct Hotbar: View {
         .accessibilityLabel("List")
 
         Menu {
-            ForEach(CodeLanguage.allCases, id: \.self) { language in
-                Button(language.displayName) { editor.insertCodeBlock(language: language) }
+            ForEach(CodeBlockKind.menu, id: \.self) { kind in
+                Button(kind.displayName) { editor.insertCodeBlock(kind: kind) }
             }
-            Button("Plain Text") { editor.insertCodeBlock(language: nil) }
         } label: {
             HotbarIcon(systemImage: "curlybraces.square")
         }

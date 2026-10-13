@@ -446,6 +446,16 @@ nonisolated enum MarkdownFormatting {
     /// Fences only count at the start of a line, so the block gets a line of
     /// its own whatever was either side of it.
     static func insertCodeBlock(language: CodeLanguage?, in text: String, selection: NSRange) -> TextEdit {
+        insertCodeBlock(tag: language?.rawValue, in: text, selection: selection)
+    }
+
+    /// `insertCodeBlock(language:in:selection:)` for any kind of block,
+    /// Output and Plain Text included.
+    static func insertCodeBlock(kind: CodeBlockKind, in text: String, selection: NSRange) -> TextEdit {
+        insertCodeBlock(tag: kind.tag, in: text, selection: selection)
+    }
+
+    private static func insertCodeBlock(tag: String?, in text: String, selection: NSRange) -> TextEdit {
         let ns = text as NSString
         let selection = clamped(selection, to: ns.length)
 
@@ -458,7 +468,7 @@ nonisolated enum MarkdownFormatting {
         let after = end < ns.length && ns.character(at: end) != newline && !endsOnNewline ? "\n" : ""
         let trailing = endsOnNewline ? "\n" : after
 
-        let opening = before + "```" + (language?.rawValue ?? "") + "\n"
+        let opening = before + "```" + (tag ?? "") + "\n"
         let bodyStart = selection.location + (opening as NSString).length
 
         return TextEdit(
