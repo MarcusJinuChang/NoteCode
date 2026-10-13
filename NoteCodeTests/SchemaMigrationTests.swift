@@ -12,10 +12,11 @@ import Testing
 ///
 /// Each test writes a store on disk with one of the shapes builds wrote
 /// before versions existed (`NoteSchemaV1` to `NoteSchemaV4`, opened without
-/// a version, the way those builds opened them), or with version 5, the
-/// first written as a version, then opens it the way the app does now. A store that fails to migrate doesn't crash: `Storage` falls
-/// back to memory, and the notes look gone. So these check `Storage` itself,
-/// not a container opened some other way.
+/// a version, the way those builds opened them), or with version 5 or 6, the
+/// first written as versions, then opens it the way the app does now. A store
+/// that fails to migrate doesn't crash: `Storage` falls back to memory, and the
+/// notes look gone. So these check `Storage` itself, not a container opened
+/// some other way.
 @Suite("Migrating the store")
 @MainActor
 struct SchemaMigrationTests {
@@ -115,8 +116,14 @@ struct SchemaMigrationTests {
 
         // What later versions add starts empty.
         #expect(notes.allSatisfy { $0.folder == nil && !$0.isPinned && !$0.isTextLocked })
+        #expect(notes.allSatisfy { $0.isLive && $0.paperStyle == nil && $0.textSize == nil })
         #expect(notes[1].drawingData.isEmpty)
         #expect(notes[1].orientation == .portrait)
+
+        // Version 7's one rule, whatever the shape the store started in: a
+        // note with ink keeps the layout it was drawn on, the other is rendered.
+        #expect(drawn.markdownLayout == nil)
+        #expect(notes[1].markdownLayout == Page.renderedMarkdown)
     }
 
     @Test("The settings a store from just before versions holds come across")
@@ -239,5 +246,165 @@ struct SchemaMigrationTests {
         #expect(relaunched[0].folder?.name == "CS133")
         #expect(relaunched[0].isPinned)
         #expect(relaunched[1].folder == nil)
+    }
+}
+
+// MARK: - Version 7
+
+extension SchemaMigrationTests {
+
+    /// Writes a store the way a build from 4 October until v3 did, with
+    /// version 6: a pinned folder holding a drawn, pinned, locked note, and two
+    /// notes at the top, one plain and one with only a little ink.
+    private func writeVersionSixStore() throws {
+        let schema = Schema(versionedSchema: NoteSchemaV6.self)
+        let container = try ModelContainer(
+            for: schema,
+            configurations: [ModelConfiguration(schema: schema, url: storeURL)]
+        )
+        let context = ModelContext(container)
+
+        let cs133 = NoteSchemaV6.Folder(name: "CS133", createdAt: Date(timeIntervalSince1970: 500))
+        cs133.isPinned = true
+        cs133.runDestination = "godbolt"
+        context.insert(cs133)
+
+        let drawn = NoteSchemaV6.Page(
+            title: "Lecture 1", content: Self.content, drawingData: Self.ink,
+            createdAt: Date(timeIntervalSince1970: 1_000)
+        )
+        drawn.pageOrientation = "landscape"
+        drawn.modifiedAt = Date(timeIntervalSince1970: 2_000)
+        drawn.isPinned = true
+        drawn.isTextLocked = true
+        drawn.runDestination = "programiz"
+        context.insert(drawn)
+        drawn.folder = cs133
+
+        let plain = NoteSchemaV6.Page(title: "Plain", content: "# Notes\n", createdAt: Date(timeIntervalSince1970: 3_000))
+        plain.modifiedAt = Date(timeIntervalSince1970: 4_000)
+        context.insert(plain)
+
+        // Any ink at all counts, however little.
+        context.insert(NoteSchemaV6.Page(
+            title: "Doodle", drawingData: Data([1, 2, 3]), createdAt: Date(timeIntervalSince1970: 5_000)
+        ))
+        try context.save()
+    }
+
+    @Test("A version 6 store opens with every note, folder, pin, lock and stroke it had")
+    func versionSixStoreMigrates() throws {
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writeVersionSixStore()
+
+        let storage = Storage.open(at: storeURL)
+
+        #expect(storage.reason == nil)
+        #expect(storage.isEphemeral == false)
+
+        let notes = try openedNotes(storage)
+        #expect(notes.map(\.title) == ["Lecture 1", "Plain", "Doodle"])
+
+        let drawn = try #require(notes.first)
+        #expect(drawn.content == Self.content)
+        #expect(drawn.drawingData == Self.ink)
+        #expect(drawn.orientation == .landscape)
+        #expect(drawn.runDestination == "programiz")
+        #expect(drawn.isPinned)
+        #expect(drawn.isTextLocked)
+
+        let folder = try #require(drawn.folder)
+        #expect(folder.name == "CS133")
+        #expect(folder.isPinned)
+        #expect(folder.runDestination == "godbolt")
+        #expect(folder.pages?.map(\.title) == ["Lecture 1"])
+        #expect(notes[1].folder == nil)
+    }
+
+    @Test("What v7 adds starts empty, and a folder reads as orange with the folder symbol")
+    func versionSevenFieldsStartEmpty() throws {
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writeVersionSixStore()
+
+        let notes = try openedNotes(Storage.open(at: storeURL))
+
+        for note in notes {
+            #expect(note.deletedAt == nil)
+            #expect(note.isLive)
+            #expect(note.paperStyle == nil)
+            #expect(note.textSize == nil)
+        }
+        let folder = try #require(notes.first?.folder)
+        #expect(folder.colorName == nil && folder.symbolName == nil)
+        #expect(folder.color == .orange)
+        #expect(folder.symbol == "folder")
+    }
+
+    @Test("Notes without ink come across rendered; notes with any ink keep the old layout")
+    func markdownLayoutRule() throws {
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writeVersionSixStore()
+
+        let notes = try openedNotes(Storage.open(at: storeURL))
+
+        #expect(notes.map(\.markdownLayout) == [nil, Page.renderedMarkdown, nil])
+    }
+
+    @Test("Migrating moves no note's date, so the list doesn't reorder itself")
+    func migrationKeepsDates() throws {
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writeVersionSixStore()
+
+        let notes = try openedNotes(Storage.open(at: storeURL))
+
+        #expect(notes.map(\.modifiedAt) == [2_000, 4_000, 5_000].map(Date.init(timeIntervalSince1970:)))
+        #expect(notes.map(\.createdAt) == [1_000, 3_000, 5_000].map(Date.init(timeIntervalSince1970:)))
+    }
+
+    @Test("The rule runs once: a note drawn on after migrating isn't marked on the next launch")
+    func ruleRunsOnce() throws {
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writeVersionSixStore()
+
+        do {
+            let container = try #require(Storage.open(at: storeURL).container)
+            let context = ModelContext(container)
+            let notes = try context.fetch(FetchDescriptor<Page>(sortBy: [SortDescriptor(\.createdAt)]))
+            // The rendered note gets ink; the old-layout one is cleared.
+            notes[1].drawingData = Self.ink
+            notes[2].drawingData = Data()
+            try context.save()
+        }
+
+        let relaunched = try openedNotes(Storage.open(at: storeURL))
+        #expect(relaunched.map(\.markdownLayout) == [nil, Page.renderedMarkdown, nil])
+    }
+
+    @Test("Deleting and a folder's colour survive a relaunch of a migrated store")
+    func newFieldsSurviveRelaunch() throws {
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writeVersionSixStore()
+
+        let deletedAt = Date(timeIntervalSince1970: 9_000)
+        do {
+            let container = try #require(Storage.open(at: storeURL).container)
+            let context = ModelContext(container)
+            let notes = try context.fetch(FetchDescriptor<Page>(sortBy: [SortDescriptor(\.createdAt)]))
+            notes[1].deletedAt = deletedAt
+            notes[1].paperStyle = "grid"
+            notes[1].textSize = 19
+            notes[0].folder?.colorName = "blue"
+            notes[0].folder?.symbolName = "cpu"
+            try context.save()
+        }
+
+        let relaunched = try openedNotes(Storage.open(at: storeURL))
+        #expect(relaunched[1].deletedAt == deletedAt)
+        #expect(!relaunched[1].isLive)
+        #expect(relaunched[1].paperStyle == "grid")
+        #expect(relaunched[1].textSize == 19)
+        #expect(relaunched[0].folder?.color == .blue)
+        #expect(relaunched[0].folder?.symbol == "cpu")
+        #expect(relaunched[0].isLive)
     }
 }

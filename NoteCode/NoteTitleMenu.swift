@@ -17,7 +17,8 @@ import SwiftUI
 ///
 /// Nothing here writes `modifiedAt`. Pinning, locking and moving aren't edits
 /// (see "Organising notes" in AGENTS.md), and renaming is picked up from the
-/// title's change by `PageDetailView`.
+/// title's change by `PageDetailView`. Delete moves the note to Recently
+/// Deleted without asking; the caller's toast offers the way back.
 struct NoteTitleMenu: View {
     let page: Page
 
@@ -26,6 +27,9 @@ struct NoteTitleMenu: View {
 
     var onNewFolder: () -> Void
     var onGetInfo: () -> Void
+
+    /// Makes a copy (`Page.duplicated(in:)`). The caller has the context.
+    var onDuplicate: () -> Void
 
     /// `nil` under a navigation title, where the system's `RenameButton`
     /// edits the title in place. The list has no title to edit, so it passes
@@ -72,6 +76,8 @@ struct NoteTitleMenu: View {
         ) {
             page.isTextLocked.toggle()
         }
+
+        Button("Duplicate", systemImage: "plus.square.on.square", action: onDuplicate)
 
         Button("Get Info", systemImage: "info.circle", action: onGetInfo)
 

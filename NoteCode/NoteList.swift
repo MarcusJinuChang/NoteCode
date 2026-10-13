@@ -36,13 +36,18 @@ struct NoteList: View {
     /// Answered when the list is on screen, then cleared.
     @Binding var request: ListRequest?
 
+    /// Whether the list is the one to draw the toast: it is when the list is
+    /// on screen, and the open note's page draws it when the list is away.
+    var showsToasts = true
+
     init(
         storageIsEphemeral: Bool = false,
         selection: Binding<Page?>,
         searchText: Binding<String>,
         onNewPage: @escaping (Page) -> Void = { _ in },
         onShowSettings: @escaping () -> Void = {},
-        request: Binding<ListRequest?> = .constant(nil)
+        request: Binding<ListRequest?> = .constant(nil),
+        showsToasts: Bool = true
     ) {
         self.storageIsEphemeral = storageIsEphemeral
         _selection = selection
@@ -50,12 +55,16 @@ struct NoteList: View {
         self.onNewPage = onNewPage
         self.onShowSettings = onShowSettings
         _request = request
+        self.showsToasts = showsToasts
     }
 
     @FocusState private var searchIsFocused: Bool
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(ToastCenter.self) private var toasts: ToastCenter?
+    // Every note, deleted ones included: the sections and search leave out
+    // what is in Recently Deleted (`Page.live`), and the foot counts it.
     @Query(sort: \Page.modifiedAt, order: .reverse) private var pages: [Page]
     @Query private var folders: [Folder]
 
@@ -76,11 +85,18 @@ struct NoteList: View {
     /// notes are never hidden behind a row nobody has tapped yet.
     @State private var closedFolders: Set<PersistentIdentifier> = []
 
-    /// What the name alert is naming. Kept after the alert closes, since
+    /// The note the rename alert is for. Kept after the alert closes, since
     /// its button may run after the alert has said it's gone.
-    @State private var naming: FolderNaming?
+    @State private var renamingPage: Page?
     @State private var showsNameAlert = false
     @State private var typedName = ""
+
+    /// The folder editor's sheet: a new folder, or a folder's name, colour
+    /// and symbol.
+    @State private var editingFolder: FolderEditing?
+
+    /// Whether the Recently Deleted sheet is showing.
+    @State private var showsRecentlyDeleted = false
 
     /// The folder whose deletion is waiting on the reader's choice.
     @State private var deleting: Folder?
@@ -98,6 +114,7 @@ struct NoteList: View {
         let search = NoteSearch(searchText)
         let sections = NoteListSections(pages: pages, folders: folders, sort: sort)
         let results = search.results(in: pages, sort: sort)
+        let hasLiveNotes = pages.contains(where: \.isLive)
 
         List(selection: $selection) {
             if storageIsEphemeral {
@@ -137,8 +154,13 @@ struct NoteList: View {
         .overlay {
             if !search.isEmpty && results.isEmpty {
                 ContentUnavailableView.search(text: searchText)
-            } else if search.isEmpty && pages.isEmpty && folders.isEmpty {
+            } else if search.isEmpty && !hasLiveNotes && folders.isEmpty {
                 emptyList
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if showsToasts, let toasts {
+                ToastOverlay(center: toasts, bottomInset: 12)
             }
         }
         .searchable(text: $searchText, prompt: "Search Notes")
@@ -148,17 +170,34 @@ struct NoteList: View {
             request = nil
             answer(asked)
         }
-        // A bar at the foot of the list that holds only the gear, for now.
+        // A bar at the foot of the list: Recently Deleted, when it holds
+        // anything, and the gear.
         // Not a `.bottomBar` toolbar item: in the simulator that placement
         // put the gear at the centre of the screen with the list hidden, and
         // it wasn't there in portrait. An inset on the list stays with it.
         .safeAreaInset(edge: .bottom) {
             HStack {
+                let deletedCount = pages.filter { !$0.isLive }.count
+                if deletedCount > 0 {
+                    Button {
+                        showsRecentlyDeleted = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "trash")
+                            Text("Recently Deleted")
+                            Text(deletedCount, format: .number)
+                                .foregroundStyle(.secondary)
+                        }
+                        .font(.subheadline)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("recentlyDeletedRow")
+                }
+                Spacer()
                 Button("Settings", systemImage: "gearshape", action: onShowSettings)
                     .labelStyle(.iconOnly)
                     .font(.title3)
                     .accessibilityIdentifier("settingsButton")
-                Spacer()
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
@@ -191,7 +230,7 @@ struct NoteList: View {
                     newNoteButtons(in: newNoteFolder)
                     Divider()
                     Button("New Folder", systemImage: "folder.badge.plus") {
-                        startNaming(.new(moving: nil))
+                        editingFolder = .new(moving: nil)
                     }
                 } label: {
                     Label("New", systemImage: "plus")
@@ -207,10 +246,16 @@ struct NoteList: View {
         .sheet(item: $infoPage) { page in
             NoteInfoView(page: page)
         }
-        .alert(naming?.title ?? "", isPresented: $showsNameAlert) {
+        .sheet(item: $editingFolder) { editing in
+            FolderEditor(editing: editing)
+        }
+        .sheet(isPresented: $showsRecentlyDeleted) {
+            RecentlyDeletedView()
+        }
+        .alert("Rename Note", isPresented: $showsNameAlert) {
             TextField("Name", text: $typedName)
             Button("Cancel", role: .cancel) {}
-            Button(naming?.confirmation ?? "OK") { finishNaming() }
+            Button("Rename") { finishRenamingPage() }
         }
     }
 
@@ -221,7 +266,7 @@ struct NoteList: View {
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(350))
             switch request {
-            case .newFolder:   startNaming(.new(moving: nil))
+            case .newFolder:   editingFolder = .new(moving: nil)
             case .searchNotes: searchIsFocused = true
             }
         }
@@ -349,7 +394,12 @@ struct NoteList: View {
     private func folderRow(_ section: NoteListSections.FolderSection) -> some View {
         let folder = section.folder
         return HStack {
-            Label(folder.name, systemImage: "folder")
+            HStack(spacing: 10) {
+                FolderBadge(folder: folder)
+                Text(folder.name)
+                    .fontWeight(.semibold)
+            }
+            .accessibilityElement(children: .combine)
             Spacer()
             Text(section.notes.count, format: .number)
                 .foregroundStyle(.secondary)
@@ -362,7 +412,7 @@ struct NoteList: View {
             isPresented: isDeleting(folder),
             titleVisibility: .visible
         ) {
-            let count = folder.pages?.count ?? 0
+            let count = folder.livePages.count
             if count == 0 {
                 Button("Delete Folder", role: .destructive) {
                     delete(folder, .keepingNotes)
@@ -377,8 +427,8 @@ struct NoteList: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            if folder.pages?.isEmpty == false {
-                Text("Kept notes move out of the folder, to the top of the list.")
+            if !folder.livePages.isEmpty {
+                Text("Kept notes move out of the folder, to the top of the list. Deleted notes wait in Recently Deleted for 30 days.")
             }
         }
     }
@@ -437,14 +487,15 @@ struct NoteList: View {
     /// The note's long-press menu is the title menu: the same view, so the
     /// same rows in the same order. The list renames through the name alert,
     /// since it has no title to edit in place, and deletes without asking, as
-    /// it always has.
+    /// it always has: the note goes to Recently Deleted, and the toast undoes it.
     private func noteMenu(_ page: Page) -> some View {
         NoteTitleMenu(
             page: page,
             folders: folders,
-            onNewFolder: { startNaming(.new(moving: page)) },
+            onNewFolder: { editingFolder = .new(moving: page) },
             onGetInfo: { infoPage = page },
-            onRename: { startNaming(.renamePage(page)) },
+            onDuplicate: { page.duplicated(in: modelContext) },
+            onRename: { startRenaming(page) },
             onDelete: { deletePages([page]) }
         )
     }
@@ -461,7 +512,7 @@ struct NoteList: View {
             newNoteButtons(in: folder)
         }
         Button("Rename…", systemImage: "pencil") {
-            startNaming(.rename(folder))
+            editingFolder = .rename(folder)
         }
         Picker(selection: runDestination(of: folder)) {
             Text("Default (\(RunDestinationPreference.resolve([appDefaultDestination]).name))")
@@ -541,82 +592,57 @@ struct NoteList: View {
         selection = page
     }
 
-    private func startNaming(_ naming: FolderNaming) {
-        switch naming {
-        case .rename(let folder):   typedName = folder.name
-        case .renamePage(let page): typedName = page.title
-        case .new:                  typedName = ""
-        }
-        self.naming = naming
+    private func startRenaming(_ page: Page) {
+        typedName = page.title
+        renamingPage = page
         showsNameAlert = true
     }
 
-    private func finishNaming() {
-        let name = Folder.name(fromTyped: typedName)
-        switch naming {
-        case .new(let moving):
-            let folder = Folder(name: name)
-            withAnimation {
-                modelContext.insert(folder)
-                moving?.folder = folder
-            }
-        case .rename(let folder):
-            folder.name = name
-        case .renamePage(let page):
-            // An edit, as renaming from the title is: the date moves.
-            page.title = Page.title(fromTyped: typedName)
-            page.modifiedAt = .now
-        case nil:
-            break
-        }
+    private func finishRenamingPage() {
+        guard let page = renamingPage else { return }
+        // An edit, as renaming from the title is: the date moves.
+        page.title = Page.title(fromTyped: typedName)
+        page.modifiedAt = .now
     }
 
+    /// Moves notes to Recently Deleted, with a toast that puts them back.
     private func deletePages(_ deleted: [Page]) {
         if let selection, deleted.contains(selection) {
             self.selection = nil
         }
         withAnimation {
-            // If saving fails, the deletion is still pending in the context,
+            // If saving fails, the change is still pending in the context,
             // and autosave tries again.
-            try? Page.delete(deleted, from: modelContext)
+            try? Page.moveToRecentlyDeleted(deleted, from: modelContext)
+        }
+        announceMoved(deleted)
+    }
+
+    private func announceMoved(_ moved: [Page]) {
+        guard !moved.isEmpty, let toasts else { return }
+        let context = modelContext
+        toasts.show(
+            moved.count == 1 ? "Moved to Recently Deleted" : "Moved \(moved.count) notes to Recently Deleted",
+            actionTitle: "Undo"
+        ) {
+            withAnimation { try? Page.restore(moved, in: context) }
         }
     }
 
     private func delete(_ folder: Folder, _ deletion: Folder.Deletion) {
-        // The open note closes first if it's going: a deleted note's ink
-        // can't be read once the deletion is saved (see AGENTS.md).
-        if deletion == .withNotes, let selection, selection.folder == folder {
+        // Only the notes the reader could see go to Recently Deleted; the ones
+        // already there keep their first date.
+        let going = deletion == .withNotes ? folder.livePages : []
+        // The open note closes first if it's going.
+        if let selection, going.contains(selection) {
             self.selection = nil
         }
         withAnimation {
             try? Folder.delete(folder, deletion, from: modelContext)
         }
-    }
-}
-
-/// What the name alert is for.
-private enum FolderNaming {
-    /// A new folder, with the note to move into it when it came from a
-    /// note's "Move to Folder" menu.
-    case new(moving: Page?)
-    case rename(Folder)
-    /// A note, renamed from the list's menu.
-    case renamePage(Page)
-
-    var title: String {
-        switch self {
-        case .new:        "New Folder"
-        case .rename:     "Rename Folder"
-        case .renamePage: "Rename Note"
-        }
-    }
-
-    var confirmation: String {
-        switch self {
-        case .new:        "Create"
-        case .rename,
-             .renamePage: "Rename"
-        }
+        // The folder is gone for good, so Undo brings the notes back to the
+        // top of the list, not into a folder.
+        announceMoved(going)
     }
 }
 

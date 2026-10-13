@@ -44,6 +44,15 @@ struct ContentView: View {
     /// as the + button's tap does.
     @AppStorage(NewNotes.defaultsKey) private var newNoteOrientation = PageOrientation.default
 
+    /// The message that follows a deletion, with its Undo. Drawn by the list
+    /// when the list is showing and by the open note's page when it isn't.
+    @State private var toasts = ToastCenter()
+
+#if canImport(UIKit)
+    /// Where the hotbar is docked, so a toast on the page sits clear of it.
+    @AppStorage(HotbarDock.defaultsKey) private var dock: HotbarDock = .default
+#endif
+
     @Environment(\.modelContext) private var modelContext
 
     /// True when a debug launch argument opened a note, in a store of its own.
@@ -66,7 +75,8 @@ struct ContentView: View {
                 searchText: $searchText,
                 onNewPage: { newPage = $0 },
                 onShowSettings: { showsSettings = true },
-                request: $listRequest
+                request: $listRequest,
+                showsToasts: columnVisibility != .detailOnly
             )
                 // Searching the list brings the keyboard up; the list stays its
                 // size and the keyboard covers its lower rows.
@@ -82,6 +92,11 @@ struct ContentView: View {
                     // A fresh editor per note. Reusing one would carry the last
                     // note's undo stack across, and undo would type it back in.
                     .id(ObjectIdentifier(page))
+                    .overlay(alignment: .bottom) {
+                        if columnVisibility == .detailOnly {
+                            ToastOverlay(center: toasts, bottomInset: pageToastInset)
+                        }
+                    }
             } else {
                 ContentUnavailableView(
                     "No Note Open",
@@ -93,6 +108,7 @@ struct ContentView: View {
         // The list slides over the page instead of pushing it narrower, so
         // opening it never re-wraps the note underneath.
         .navigationSplitViewStyle(.prominentDetail)
+        .environment(toasts)
         .settingsSheet(isPresented: $showsSettings, onOpenWelcomeNote: openWelcomeNote)
         .windowActions(WindowActions(
             newNote: newNote,
@@ -101,7 +117,10 @@ struct ContentView: View {
             toggleNoteList: toggleNoteList,
             isCovered: showsSettings
         ))
-        .task { makeWelcomeNoteOnFirstLaunch() }
+        .task {
+            makeWelcomeNoteOnFirstLaunch()
+            purgeExpiredNotes()
+        }
         .onChange(of: selection) {
             if selection != newPage { newPage = nil }
             if selection != nil {
@@ -175,19 +194,46 @@ struct ContentView: View {
         WelcomeNote.makeOnFirstLaunch(in: modelContext)
     }
 
-    /// Closes the open note and deletes it.
+    /// How far above the page's bottom edge a toast sits: clear of the hotbar
+    /// when it is docked there.
+    private var pageToastInset: CGFloat {
+#if canImport(UIKit)
+        // The bar's thickness and the 12pt around it that `keyboardClearance`
+        // also reserves, then a gap.
+        dock == .bottom ? Hotbar.thickness + 12 + 12 : 16
+#else
+        16
+#endif
+    }
+
+    /// Deletes notes past their 30 days in Recently Deleted, once a launch.
     ///
-    /// The note closes first: a deleted note's ink can't be read once the
-    /// deletion is saved (see AGENTS.md), and the page that shows it is the
-    /// one reading it. The list comes back, since the page it slid away for
-    /// is gone and its ☰ with it.
+    /// After the Welcome note's check, not before: a store whose only notes
+    /// were deleted has been used, and the Welcome note's check counts them.
+    private func purgeExpiredNotes() {
+        try? Page.purgeExpired(in: modelContext)
+    }
+
+    /// Closes the open note and moves it to Recently Deleted.
+    ///
+    /// The note closes first, and the page that shows it with it. The list
+    /// comes back, since the page it slid away for is gone and its ☰ with it.
+    /// Nothing asks: the toast's Undo puts the note back and, if the reader
+    /// hasn't opened another since, reopens it.
     private func delete(_ page: Page) {
         selection = nil
         withAnimation {
             columnVisibility = .all
-            // If saving fails, the deletion is still pending in the context,
+            // If saving fails, the change is still pending in the context,
             // and autosave tries again.
-            try? Page.delete([page], from: modelContext)
+            try? Page.moveToRecentlyDeleted([page], from: modelContext)
+        }
+        toasts.show("Moved to Recently Deleted", actionTitle: "Undo") {
+            withAnimation { try? Page.restore([page], in: modelContext) }
+            if selection == nil {
+                openedSearch = NoteSearch("")
+                selection = page
+            }
         }
     }
 }

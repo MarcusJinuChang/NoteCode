@@ -148,8 +148,10 @@ extension NoteSearch {
     /// Folders and pins don't group results: a search is for one note, and
     /// one flat list is quicker to read than sections that might each hold
     /// one row.
+    ///
+    /// Notes in Recently Deleted aren't found (`Page.isLive`).
     func results(in pages: [Page], sort: NoteSort) -> [Result] {
-        pages
+        pages.live
             .compactMap { page in match(title: page.title, content: page.content).map { Result(page: page, match: $0) } }
             .sorted { a, b in
                 if a.match.inTitle != b.match.inTitle { return a.match.inTitle }

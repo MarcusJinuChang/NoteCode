@@ -66,17 +66,22 @@ struct FolderTests {
         #expect(try ModelContext(container).fetch(FetchDescriptor<Folder>()).isEmpty)
     }
 
-    @Test("Deleting a folder with its notes deletes only those, and saves")
+    @Test("Deleting a folder with its notes moves only those to Recently Deleted, and saves")
     func deleteWithNotes() throws {
         let cs133 = folder("CS133")
-        _ = note("Lecture 1", in: cs133)
-        _ = note("Lecture 2", in: cs133)
-        _ = note("Loose")
+        let one = note("Lecture 1", in: cs133)
+        let two = note("Lecture 2", in: cs133)
+        let loose = note("Loose")
         try context.save()
 
         try Folder.delete(cs133, .withNotes, from: context)
 
-        #expect(try titlesInStore() == ["Loose"])
+        // Nothing is deleted for good: the notes wait to be restored.
+        #expect(try titlesInStore() == ["Lecture 1", "Lecture 2", "Loose"])
+        let live = try ModelContext(container).fetch(FetchDescriptor<Page>()).live
+        #expect(live.map(\.title) == ["Loose"])
+        #expect(!one.isLive && !two.isLive && loose.isLive)
+        #expect(try ModelContext(container).fetch(FetchDescriptor<Folder>()).isEmpty)
     }
 
     @Test("Deleting a note takes it out of its folder")
