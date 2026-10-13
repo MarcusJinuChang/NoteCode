@@ -38,10 +38,14 @@ struct ContentView: View {
 
     @Environment(\.modelContext) private var modelContext
 
+    /// True when a debug launch argument opened a note, in a store of its own.
+    private let opensDebugNote: Bool
+
     /// - Parameter openedPage: a note to open straight away, with the list
     ///   hidden. Only debug launch arguments pass one.
     init(storageIsEphemeral: Bool = false, openedPage: Page? = nil) {
         self.storageIsEphemeral = storageIsEphemeral
+        opensDebugNote = openedPage != nil
         _selection = State(initialValue: openedPage)
         _columnVisibility = State(initialValue: openedPage == nil ? .all : .detailOnly)
     }
@@ -80,7 +84,8 @@ struct ContentView: View {
         // The list slides over the page instead of pushing it narrower, so
         // opening it never re-wraps the note underneath.
         .navigationSplitViewStyle(.prominentDetail)
-        .settingsSheet(isPresented: $showsSettings)
+        .settingsSheet(isPresented: $showsSettings, onOpenWelcomeNote: openWelcomeNote)
+        .task { makeWelcomeNoteOnFirstLaunch() }
         .onChange(of: selection) {
             if selection != newPage { newPage = nil }
             if selection != nil {
@@ -101,6 +106,28 @@ struct ContentView: View {
             openedSearch = NoteSearch(searchText)
             selection = page
         }
+    }
+
+    /// Settings › Help and About › Welcome Note: a new copy each time, opened.
+    ///
+    /// Opened like a note the reader made, so the list slides away for it.
+    /// Other notes are untouched, dates included.
+    private func openWelcomeNote() {
+        let page = WelcomeNote.make(in: modelContext)
+        openedSearch = NoteSearch("")
+        selection = page
+    }
+
+    /// Gives a first launch its tour. Left in the list rather than opened:
+    /// the list is where a new reader should see that there's a list.
+    ///
+    /// Not when the on-disk store failed: the note would live in memory for
+    /// one session, and the flag would say a first launch had happened. And
+    /// not under a debug launch that opened a note of its own, whose store is
+    /// in memory and meant to hold exactly that note.
+    private func makeWelcomeNoteOnFirstLaunch() {
+        guard !storageIsEphemeral, !opensDebugNote else { return }
+        WelcomeNote.makeOnFirstLaunch(in: modelContext)
     }
 
     /// Closes the open note and deletes it.

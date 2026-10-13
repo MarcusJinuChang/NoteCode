@@ -23,11 +23,15 @@ private extension FocusedValues {
 
 extension View {
     /// Presents Settings as a form sheet, and lets ⌘, open it.
-    func settingsSheet(isPresented: Binding<Bool>) -> some View {
+    ///
+    /// - Parameter onOpenWelcomeNote: called when Help and About › Welcome
+    ///   Note is chosen, after the sheet has been asked to close. The note is
+    ///   opened by the window, which owns what's selected.
+    func settingsSheet(isPresented: Binding<Bool>, onOpenWelcomeNote: @escaping () -> Void = {}) -> some View {
         self
             .focusedSceneValue(\.showsSettings, isPresented)
             .sheet(isPresented: isPresented) {
-                SettingsView()
+                SettingsView(onOpenWelcomeNote: onOpenWelcomeNote)
                     .presentationSizing(.form)
             }
     }
@@ -77,6 +81,9 @@ extension AppAppearance {
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
+    /// Makes the Welcome note and opens it. Settings dismisses itself first.
+    var onOpenWelcomeNote: () -> Void = {}
+
     var body: some View {
         NavigationStack {
             List {
@@ -108,7 +115,10 @@ struct SettingsView: View {
                 }
 #endif
                 NavigationLink {
-                    AboutSettings()
+                    AboutSettings(onOpenWelcomeNote: {
+                        dismiss()
+                        onOpenWelcomeNote()
+                    })
                 } label: {
                     Label("Help and About", systemImage: "questionmark.circle")
                 }
@@ -229,11 +239,20 @@ extension HotbarDock {
 // MARK: - Notes
 
 private struct NotesSettings: View {
+    @AppStorage(NewNotes.defaultsKey) private var newNotes = PageOrientation.default
     @AppStorage(PageViewMode.defaultsKey) private var viewMode = PageViewMode.default
     @AppStorage(NoteSort.defaultsKey) private var sort = NoteSort.default
 
     var body: some View {
         Form {
+            Section {
+                Picker("New Notes", selection: $newNotes) {
+                    ForEach(PageOrientation.allCases, id: \.self) { Text($0.title) }
+                }
+            } footer: {
+                Text("Which way up the + button's tap makes a note's pages. Hold + to choose the other for one note. A note keeps its orientation once it's made.")
+            }
+
             Section {
                 Picker("View", selection: $viewMode) {
                     ForEach(PageViewMode.allCases, id: \.self) { Text($0.title) }
@@ -328,6 +347,8 @@ private struct CodeSettings: View {
 // MARK: - Help and About
 
 private struct AboutSettings: View {
+    var onOpenWelcomeNote: () -> Void
+
     var body: some View {
         Form {
             Section {
@@ -346,6 +367,10 @@ private struct AboutSettings: View {
             }
 
             Section {
+                // A new note each time it's asked for; the first launch's
+                // copy, if it's still there, is left alone.
+                Button("Welcome Note", action: onOpenWelcomeNote)
+                    .accessibilityIdentifier("welcomeNoteButton")
                 if let feedback = AppInfo.feedbackURL() {
                     Link("Send Feedback", destination: feedback)
                 }

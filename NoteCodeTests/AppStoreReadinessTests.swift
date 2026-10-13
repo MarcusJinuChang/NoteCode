@@ -46,6 +46,19 @@ struct AppStoreReadinessTests {
         #expect(Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") == nil)
     }
 
+#if os(iOS)
+    @Test("The launch screen is the system background and nothing else")
+    func launchScreenIsPlain() throws {
+        // INFOPLIST_KEY_UILaunchScreen_Generation writes an empty
+        // UILaunchScreen dictionary. A UIImageName or UIColorName in it, or a
+        // storyboard, would be a splash screen (phase 8 of the UI design).
+        let launchScreen = try #require(Bundle.main.object(forInfoDictionaryKey: "UILaunchScreen") as? [String: Any])
+        #expect(launchScreen["UIImageName"] == nil)
+        #expect(launchScreen["UIColorName"] == nil)
+        #expect(Bundle.main.object(forInfoDictionaryKey: "UILaunchStoryboardName") == nil)
+    }
+#endif
+
 #if canImport(UIKit)
     @Test("The app carries its icon, which an upload rejects the app for lacking")
     func appIconShips() throws {

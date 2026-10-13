@@ -76,6 +76,13 @@ extension NoteSchemaV6 {
 }
 
 extension Page {
+    /// The title to give a note, from what was typed: trimmed, and never
+    /// blank, as a folder's name isn't.
+    static func title(fromTyped typed: String) -> String {
+        let trimmed = typed.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Untitled" : trimmed
+    }
+
     var orientation: PageOrientation {
         get { pageOrientation.flatMap(PageOrientation.init(rawValue:)) ?? .default }
         set { pageOrientation = newValue.rawValue }
