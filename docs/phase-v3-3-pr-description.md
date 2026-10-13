@@ -98,7 +98,7 @@ a word (`InlineMarkupLookalikeTests`). `__init__` is still bold, as in CommonMar
 deleted, in seamless, print and landscape; carets; edits that change the parse,
 including a fence opened above; paper; typing cost), `HeadingMarkerTests`,
 `MarkerEditingTests` (caret stops, Backspace, Return, Tab, boxes, links, state as
-tables), `InlineParserTests`. 895 unit tests pass on the iPad Pro 13-inch (M5);
+tables), `InlineParserTests`. 897 unit tests pass on the iPad Pro 13-inch (M5);
 the macOS build succeeds. Three `HotbarUITests` reach tests fail looking for a
 "Red" swatch, **identically on the phase 2 branch** (checked on a clean
 worktree), as in phase 1.
