@@ -120,7 +120,7 @@ drawn at the screen's density. 25 pull requests, all merged.
   only while the caret or a selection is in it. Away, the opening line shows the
   language's name (a menu: C++, Java, Python, Plain Text, which rewrites the
   fence's tag and can be undone) with Copy and Run on the right; editing, it
-  shows "```cpp" and an accent ring round the block. Ink mode and the PDF
+  shows "```cpp" in the marker colour. Ink mode and the PDF
   show no fences. Nothing moves when a block switches: the lines keep their
   height, and nothing is laid out or edited (a caret move costs 1.5ms, a
   keystroke 35ms on a 500-line note). The brief's first choice, a clear

@@ -461,6 +461,10 @@ enum DocumentStyler {
         let defaultColor = UIColor.label
 
         for layout in layouts where layout.block.isCode && layout.block.codeBlock?.isOutput != true {
+            // A block with no language is plain text: its old colours belong to
+            // a tag that was just deleted, and no highlight pass will come to
+            // take them off, since there is nothing to ask highlight.js for.
+            guard layout.block.codeBlock?.hasLanguageTag == true else { continue }
             let range = layout.contentRange
             guard range.location >= 0, range.location + range.length <= storage.length else { continue }
 

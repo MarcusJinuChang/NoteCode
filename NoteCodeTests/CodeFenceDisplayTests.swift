@@ -326,7 +326,7 @@ struct CodeFenceDisplayTests {
         view.subviews.forEach(redrawAll)
     }
 
-    // MARK: The ring
+    // MARK: The edge of the block
 
     /// A rendered text view, read by the pixel.
     @MainActor
@@ -364,60 +364,15 @@ struct CodeFenceDisplayTests {
         }
     }
 
-    @Test("The block being edited has a ring in the accent colour along its edge; away it doesn't",
+    @Test("The block being edited has no ring: its edge is the panel's, edited or away",
           arguments: [UIUserInterfaceStyle.light, .dark])
-    func ring(style: UIUserInterfaceStyle) async throws {
+    func noRing(style: UIUserInterfaceStyle) async throws {
         let harness = Harness(style: style)
         let line = harness.rect(of: "int other = 2;")
-        let columns: ClosedRange<CGFloat> = 60...140
-
-        try await harness.caret(at: 2)
-        #expect(Pixels(of: harness.textView).orangeColumn(inRow: line.midY, from: columns) == nil, "orange away")
+        let columns: ClosedRange<CGFloat> = 60...(line.minX + 2)
 
         try await harness.caret(at: harness.offset(of: "int other") + 3)
-        let column = Pixels(of: harness.textView).orangeColumn(inRow: line.midY, from: columns)
-        #expect(column != nil, "no ring along the block's left edge")
-        // The panel's edge, a point or so either side of the text's start.
-        if let column {
-            #expect(abs(CGFloat(column) / 2 - line.minX) < 8, "ring at \(CGFloat(column) / 2), code starts at \(line.minX)")
-        }
-    }
-
-    @Test("The ring runs the block's whole height, top to bottom, without a gap",
-          arguments: [UIUserInterfaceStyle.light, .dark])
-    func ringIsContinuous(style: UIUserInterfaceStyle) async throws {
-        let harness = Harness(style: style)
-        try await harness.caret(at: harness.offset(of: "int other") + 3)
-        let pixels = Pixels(of: harness.textView)
-        let line = harness.rect(of: "int other = 2;")
-        let column = try #require(pixels.orangeColumn(inRow: line.midY, from: 60...140))
-
-        let top = harness.rect(of: "```cpp").midY
-        let bottom = harness.rect(of: "```", backwards: true).midY
-        var gaps: [CGFloat] = []
-        var y = top
-        while y <= bottom {
-            let row = Int(y * 2)
-            if !(pixels.isOrange(column: column, row: row) || pixels.isOrange(column: column + 1, row: row)
-                 || pixels.isOrange(column: column - 1, row: row)) {
-                gaps.append(y)
-            }
-            y += 0.5
-        }
-        #expect(gaps.isEmpty, "no orange down the left edge at y = \(gaps.prefix(5))")
-    }
-
-    @Test("The ring's path is open where the panel continues")
-    func ringShape() {
-        let panel = CGRect(x: 0, y: 0, width: 100, height: 20)
-        let middle = CodeBlockLayoutFragment.ringPath(around: panel, radius: 6, roundsTop: false, roundsBottom: false)
-        // Two sides and nothing across: no point of it lies inside the panel.
-        #expect(middle.bounds.width > 98)
-        #expect(!middle.contains(CGPoint(x: 50, y: 10)))
-        #expect(!middle.contains(CGPoint(x: 50, y: 0.5)))
-
-        let only = CodeBlockLayoutFragment.ringPath(around: panel, radius: 6, roundsTop: true, roundsBottom: true)
-        #expect(only.bounds.height > 18, "closed all round")
+        #expect(Pixels(of: harness.textView).orangeColumn(inRow: line.midY, from: columns) == nil, "orange along the edge")
     }
 
     // MARK: The language name
@@ -589,7 +544,7 @@ struct CodeFenceDisplayTests {
         #expect(harness.languageButton?.configuration?.title == "Python")
     }
 
-    @Test("A block added above moves the one the caret is in, and the ring follows it")
+    @Test("A block added above moves the one the caret is in, and the editing state follows it")
     func blockAbove() async throws {
         let harness = Harness("```java\na\n```\nmiddle\n```cpp\nb\n```\n")
         try await harness.caret(at: harness.offset(of: "b\n"))

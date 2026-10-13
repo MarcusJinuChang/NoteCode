@@ -110,9 +110,32 @@ final class DocumentUITextView: UITextView {
         CACurrentMediaTime() - lastPressTime < 0.5
     }
 
-    private func resolvingCaretStop(_ position: UITextPosition?) -> UITextPosition? {
+    /// Whether a touch at `point` is out beyond the end of the line whose end
+    /// is `offset`. Such a tap means "the end", and a line that ends in a
+    /// bold word or a link has two places there, either side of its hidden
+    /// markers: the one inside the span, which a tap on its last letter
+    /// wants, and the one after, which a tap in the empty space wants.
+    func isBeyondLineEnd(_ point: CGPoint, at offset: Int) -> Bool {
+        let text = textStorage.string as NSString
+        guard offset >= 0, offset <= text.length else { return false }
+        var lineEnd = 0, contentsEnd = 0
+        text.getLineStart(nil, end: &lineEnd, contentsEnd: &contentsEnd, for: NSRange(location: offset, length: 0))
+        guard offset == contentsEnd,
+              let position = position(from: beginningOfDocument, offset: offset)
+        else { return false }
+        // Past the glyph by more than a finger's sloppiness.
+        return point.x > caretRect(for: position).midX + 8
+    }
+
+    /// `isBeyondLineEnd` for the touch that has just landed the caret, if one did.
+    func lastTapIsBeyondLineEnd(at offset: Int) -> Bool {
+        wasTouchedRecently && isBeyondLineEnd(lastPressPoint, at: offset)
+    }
+
+    private func resolvingCaretStop(_ position: UITextPosition?, tappedAt point: CGPoint? = nil) -> UITextPosition? {
         guard let position, let caretStopResolver else { return position }
         let offset = self.offset(from: beginningOfDocument, to: position)
+        if let point, isBeyondLineEnd(point, at: offset) { return position }
         let stop = caretStopResolver(offset)
         guard stop != offset else { return position }
         return self.position(from: beginningOfDocument, offset: stop) ?? position
@@ -182,14 +205,14 @@ final class DocumentUITextView: UITextView {
     /// the answer should be right for whatever does.
     override func closestPosition(to point: CGPoint) -> UITextPosition? {
         guard let position = super.closestPosition(to: point) else { return nil }
-        return resolvingCaretStop(blankLine(before: position, tappedAt: point) ?? position)
+        return resolvingCaretStop(blankLine(before: position, tappedAt: point) ?? position, tappedAt: point)
     }
 
     override func closestPosition(to point: CGPoint, within range: UITextRange) -> UITextPosition? {
         guard let position = super.closestPosition(to: point, within: range) else { return nil }
         guard let blank = blankLine(before: position, tappedAt: point),
               compare(blank, to: range.start) != .orderedAscending
-        else { return resolvingCaretStop(position) }
+        else { return resolvingCaretStop(position, tappedAt: point) }
         return blank
     }
 

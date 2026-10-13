@@ -1107,6 +1107,16 @@ v3 phase 3 (12 Oct, `docs/ui-design-v3-implementation.md`).
     goes just past the markers, the only way out of bold there (invisible,
     and the hotbar's Bold shows it). Left from a heading's stop goes to the
     line above.
+  - **A tap past a line's end goes after its markers** (13 Oct). A line that
+    ends in a bold word or a link has two places at its end, either side of
+    the hidden markers, and the stop rule put every tap on the one inside
+    the span, so tapping in the empty space after such a line left the caret
+    short of the end. `DocumentUITextView.isBeyondLineEnd` asks whether the
+    touch is more than 8pt right of the line's last glyph; if so
+    `closestPosition` and `normalizeCaret` leave the caret at the line's end
+    (`CodeEditingFixesTests.tapAfterBold`, `.tapAfterLink`). A tap *on* the
+    last letter still stands inside the span. Not tried with a real
+    finger.
 - **Backspace** (`MarkdownFormatting.backspace`, applied in `shouldChangeTextIn`
   through `Coordinator.apply`, which is `replace(_:withText:)`, so undoable and
   restyled): at the start of a heading's or list item's text it removes the
@@ -1221,6 +1231,20 @@ v3 phase 4 (13 Oct, `docs/ui-design-v3-implementation.md`).
   line, not in output, not for a selection that leaves the block. One level is
   Settings › Code › Indent Width (2 or 4, default 4), or a tab if the line is
   indented with one.
+- **Backspace in an indent takes back a level** (`CodeIndent.backspaceEdit`,
+  13 Oct): with a collapsed caret in a code line's leading spaces, one press
+  deletes back to the previous multiple of the indent width, so four spaces
+  typed by ⇥ go in one press and six go to four. One space over a level, a
+  tab indent (already one level a character), a caret after text and a
+  caret outside a block's own lines are the ordinary delete. Applied from
+  `shouldChangeTextIn` like Return, so one undo step.
+- **A block with no language is plain** (13 Oct). The styler carries syntax
+  colours across a restyle, since highlighting is async; it carried them
+  for a block whose tag had just been deleted too, and no highlight pass
+  comes for a bare fence, so the old language's colours stayed on the text
+  (`DocumentStyler.codeColors` now skips blocks with no tag,
+  `CodeBlock.hasLanguageTag`). A tag the app doesn't know (`ruby`) still keeps
+  what highlight.js makes of it.
 - **⇥ and ⇧⇥** (`CodeIndent.indentEdit`; the hardware Tab arrives as a `"\t"`
   in `shouldChangeTextIn`, ⇧Tab is the existing `UIKeyCommand`, which now
   answers for code too): one level in or out on **every line the selection
@@ -1366,7 +1390,7 @@ phase 5 of `docs/ui-design-v2-implementation.md`). Pure rules are in
   note. A selection counts if it overlaps the block by a character. In ink
   mode nothing is being edited. Settings › Writing › Show Markdown is
   `ShowMarkdown` (`showMarkdown`, While Editing or Always); Always draws every
-  fence, and still rings only the block being edited. Its row is in Settings › Writing
+  fence. Its row is in Settings › Writing
   (see "Settings"); `PageDetailView` reads the key. Always keeps fences
   in ink mode too, which the brief didn't say either way.
 - **Hide glyphs, never lines.** An away block's fence lines keep their
@@ -1398,17 +1422,16 @@ phase 5 of `docs/ui-design-v2-implementation.md`). Pure rules are in
   (`FenceTag.retag`, pure): undoable, Run follows. It is an action-bar
   control: the overlay keeps it beneath the canvas, in `containsInteractiveElement`,
   and a locked note shows it dimmed with nothing behind it. Editing shows
-  the fence in the marker colour instead, no button, and an accent ring
-  (`CodeBlockLayoutFragment.ringPath`, 1.5pt) drawn in `drawPanel`, open
-  where the panel continues, so it splits at page breaks. The PDF never
-  prints fence lines (`NotePDF` skips `isFence`) or the ring.
+  the fence in the marker colour instead, and no button. There was an accent
+  ring round the block being edited until 13 Oct; Marcus found it ugly and it
+  went (`CodeFenceDisplayTests.noRing` pixel-checks the edge). The PDF never
+  prints fence lines (`NotePDF` skips `isFence`).
 - **Undo and redo pass the keyboard-rewrite guard.** Undoing a retag puts text
   back by replacing it inside a code line, which is what a keyboard
   correction looks like, so `shouldChangeTextIn` turned it away and spent
   the undo step. Found by the retag's undo test.
-- Panel and ring start at the fragment's x, 5pt in from the container, and
-  code text starts at that edge too: the first glyph touches the ring. That
-  was already how the panel sat against the text.
+- The panel starts at the fragment's x, 5pt in from the container, and
+  code text starts at that edge too: the first glyph touches the panel's edge.
 - **Not checked:** a real tap on the name, the menu on the iPad, fast typing
   into a new block, a paste, a block scrolled out of view while its state
   changes (it draws its state when it returns, since it asks at draw time),
