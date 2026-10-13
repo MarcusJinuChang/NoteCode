@@ -563,8 +563,11 @@ struct HotbarButton: View {
             HotbarIcon(systemImage: systemImage, isSelected: isSelected)
         }
         .buttonStyle(.plain)
-        // The pointer lifts the control it is over.
-        .hoverEffect(.highlight)
+        // No `.hoverEffect` here. Phase 9 had one, and a touch in the 8pt gap
+        // between the options row and the bar then ran the Text button, 18pt
+        // from where the touch was (the reach tests found it; removing this
+        // effect, and only this one, passes them). The pointer still gets
+        // the highlight on the row's controls and the bar's menus.
         .accessibilityLabel(label)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
