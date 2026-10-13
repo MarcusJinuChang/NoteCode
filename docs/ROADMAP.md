@@ -21,6 +21,20 @@ pinch zoom, the note page and its hotbar, and a PaperKit canvas that a finger
 or the Pencil draws on, with ink undo of its own, saved with the note and
 drawn at the screen's density. 25 pull requests, all merged.
 
+- **UI design v3, phase 4: code** (13 Oct, branch `claude/v3-phase-4-code`,
+  off phase 3's branch, not merged): C, JavaScript, Rust, Go and SQL join C++,
+  Java and Python (SQL keeps Copy only; Compiler Explorer runs C, Rust and Go
+  from a link, checked on the live site, but **not JavaScript**, which it can't
+  execute); ```` ```output ```` blocks are a dark console with Copy and no Run;
+  Return in code keeps the indent, goes deeper after `{ ( [` or a Python colon
+  and opens a pair of braces onto their own lines; ⇥ and ⇧⇥ indent lines;
+  a row of code keys sits above the on-screen keyboard while the caret is in
+  code (not with a hardware keyboard); line numbers go in the page's margin,
+  and print. Settings › Code has Code Keys, Indent Width and Line Numbers.
+  Also fixed: a language retag never re-coloured the code. Builds for iPad and
+  Mac, and 1,000 unit tests pass; looked at in the simulator (the row, Return after a Python colon, ⇥,
+  the language menu and an Output block, line numbers, light and dark); not
+  with a hardware keyboard or the Pencil.
 - **UI design v3, phase 3: writing, with Markdown markers hidden** (12 Oct,
   branch `claude/v3-phase-3-writing`, off phase 2, not merged): in a note made
   from now on, `#`, `**`, backticks, `~~` and link syntax take no room on the

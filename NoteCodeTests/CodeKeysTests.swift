@@ -134,14 +134,20 @@ struct CodeEditingInTheEditorTests {
         #expect(row(of: harness) != nil, "a fence line is code")
     }
 
-    @Test("A first tap straight into code has the row, with no prose before it to cross from")
-    func firstTapIntoCode() async throws {
-        // The editor starts out in the code policy, so a note that opens on
-        // code and a caret in it cross nothing: only the row's own refresh
-        // puts it there.
-        let harness = Harness("```cpp\nint x = 1;\n```\nProse after\n")
-        #expect(harness.coordinator.rewritingPolicy == .code)
+    @Test("The row is put back when the caret moves within code and the policy doesn't change")
+    func refreshedWithoutCrossing() async throws {
+        // A note that opens on code and a first tap into it cross nothing:
+        // the editor starts in the code policy. Only the row's own refresh,
+        // on the path where the policy is unchanged, puts it there. Taken off
+        // by hand here so the test doesn't depend on where UIKit left the
+        // caret as the harness was made.
+        let harness = Harness("```cpp\nint x = 1;\nint y = 2;\n```\nProse after\n")
         try await harness.caret(at: harness.offset(of: "int x"))
+        #expect(harness.coordinator.rewritingPolicy == .code)
+        #expect(row(of: harness) != nil)
+
+        harness.textView.inputAccessoryView = nil
+        try await harness.caret(at: harness.offset(of: "int y") + 2)
         #expect(harness.coordinator.rewritingPolicy == .code, "nothing was crossed")
         #expect(row(of: harness) != nil)
     }
