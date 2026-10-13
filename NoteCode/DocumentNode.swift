@@ -160,8 +160,18 @@ nonisolated enum CodeBlockKind: Equatable, Hashable, Sendable {
     /// Every choice, in the order a menu lists them: the languages, then
     /// Output, then Plain Text. The hotbar's Code Block ▾ and a block's
     /// language button both read this, so they can't disagree.
-    static let menu: [CodeBlockKind] =
-        CodeLanguage.allCases.map(CodeBlockKind.language) + [.output, .plain]
+    static let menu: [CodeBlockKind] = languages + others
+
+    /// The menu's first group, and its second after a divider.
+    static let languages: [CodeBlockKind] = CodeLanguage.allCases.map(CodeBlockKind.language)
+    static let others: [CodeBlockKind] = [.output, .plain]
+
+    /// What the menu says under the name, where a choice needs it: SQL has
+    /// nowhere free to run, so a block in it keeps only Copy.
+    var subtitle: String? {
+        if case .language(let language) = self, !language.canRun { return "Copy only" }
+        return nil
+    }
 
     /// Whether the first word of an info string names an output block.
     static func isOutputTag(_ word: Substring?) -> Bool {

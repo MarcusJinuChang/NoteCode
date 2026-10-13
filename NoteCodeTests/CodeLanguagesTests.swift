@@ -190,6 +190,13 @@ struct CodeLanguagesTests {
             ["C++", "Java", "Python", "C", "JavaScript", "Rust", "Go", "SQL", "Output", "Plain Text"])
     }
 
+    @Test("Only SQL carries a subtitle, and the two groups are the menu")
+    func subtitles() {
+        #expect(CodeBlockKind.menu.compactMap(\.subtitle) == ["Copy only"])
+        #expect(CodeBlockKind.language(.sql).subtitle == "Copy only")
+        #expect(CodeBlockKind.languages + CodeBlockKind.others == CodeBlockKind.menu)
+    }
+
     @Test("A new block's tag", arguments: [
         (CodeBlockKind.language(.rust), "rust"), (.language(.cpp), "cpp"), (.output, "output"),
     ])

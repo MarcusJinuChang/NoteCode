@@ -214,9 +214,9 @@ struct Hotbar: View {
         .accessibilityLabel("List")
 
         Menu {
-            ForEach(CodeBlockKind.menu, id: \.self) { kind in
-                Button(kind.displayName) { editor.insertCodeBlock(kind: kind) }
-            }
+            ForEach(CodeBlockKind.languages, id: \.self, content: codeBlockButton)
+            Divider()
+            ForEach(CodeBlockKind.others, id: \.self, content: codeBlockButton)
         } label: {
             HotbarIcon(systemImage: "curlybraces.square")
         }
@@ -268,6 +268,18 @@ struct Hotbar: View {
 
     private var divider: some View {
         HotbarDivider(isVertical: dock.isVertical)
+    }
+
+    /// One row of Code Block ▾: the name, and under it what it can't do
+    /// (SQL, "Copy only").
+    @ViewBuilder
+    private func codeBlockButton(_ kind: CodeBlockKind) -> some View {
+        Button {
+            editor.insertCodeBlock(kind: kind)
+        } label: {
+            Text(kind.displayName)
+            if let subtitle = kind.subtitle { Text(subtitle) }
+        }
     }
 
     private func button(

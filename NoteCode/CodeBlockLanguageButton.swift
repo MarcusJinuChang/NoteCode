@@ -57,7 +57,7 @@ final class CodeBlockLanguageButton: UIButton {
         // then rather than the one it had when the button was made.
         menu = UIMenu(children: [
             UIDeferredMenuElement.uncached { [weak self] completion in
-                completion(self?.choices() ?? [])
+                completion(self?.groupedChoices() ?? [])
             }
         ])
         showsMenuAsPrimaryAction = true
@@ -92,10 +92,22 @@ final class CodeBlockLanguageButton: UIButton {
     /// text. The same list as the hotbar's Code Block ▾, from `CodeBlockKind.menu`.
     func choices() -> [UIAction] {
         CodeBlockKind.menu.map { kind in
-            UIAction(title: kind.displayName, state: kind == current ? .on : .off) { [weak self] _ in
+            let action = UIAction(title: kind.displayName, state: kind == current ? .on : .off) { [weak self] _ in
                 self?.onChoose?(kind)
             }
+            action.subtitle = kind.subtitle
+            return action
         }
+    }
+
+    /// The same choices with a divider between the languages and the rest.
+    func groupedChoices() -> [UIMenuElement] {
+        let actions = choices()
+        let split = CodeBlockKind.languages.count
+        return [
+            UIMenu(options: .displayInline, children: Array(actions[..<split])),
+            UIMenu(options: .displayInline, children: Array(actions[split...])),
+        ]
     }
 
     /// The size the button wants for its name.

@@ -157,6 +157,30 @@ struct LineNumbersTests {
         #expect(edits == 0)
     }
 
+    /// `CodeFenceCostTests`' method: a keystroke near the top of a 500-line
+    /// note, timed through the layout it causes.
+    @Test("A keystroke with numbers on costs no more than with them off, on a 500-line note")
+    func keystrokeCost() async throws {
+        func median(numbers: Bool) async throws -> TimeInterval {
+            let harness = Harness(StylingPerformanceTests.document(lines: 500))
+            harness.coordinator.setLineNumbers(numbers, in: harness.textView)
+            try await harness.settle()
+            var times: [TimeInterval] = []
+            for index in 0..<9 {
+                let position = harness.textView.position(from: harness.textView.beginningOfDocument, offset: 10 + index)!
+                let start = Date()
+                harness.textView.replace(harness.textView.textRange(from: position, to: position)!, withText: "z")
+                harness.textView.layoutIfNeeded()
+                times.append(Date().timeIntervalSince(start))
+            }
+            return times.sorted()[4]
+        }
+        let off = try await median(numbers: false)
+        let on = try await median(numbers: true)
+        print("LINENUMBERCOST keystroke in a block, numbers off \(off * 1000)ms, on \(on * 1000)ms")
+        #expect(on < off * 1.5 + 0.01, "numbers made a keystroke \(on / off) times as slow")
+    }
+
     // MARK: What's drawn
 
     /// The ink in a column of the text view, left of the page's text, beside

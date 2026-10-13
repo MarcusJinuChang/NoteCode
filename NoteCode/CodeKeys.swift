@@ -87,12 +87,15 @@ nonisolated enum CodeKeys {
     /// Not with a hardware keyboard, which has these keys. Not in a note that
     /// can't be edited, which has no keyboard at all. Not when the reader
     /// turned it off.
+    ///
+    /// The hardware keyboard is asked last, and only when the rest says yes:
+    /// this is decided on every caret move.
     static func isShown(
         enabled: Bool,
         policy: TextRewritingPolicy,
-        hardwareKeyboard: Bool,
+        hardwareKeyboard: @autoclosure () -> Bool,
         isEditable: Bool
     ) -> Bool {
-        enabled && isEditable && !hardwareKeyboard && !keys(for: policy).isEmpty
+        enabled && isEditable && !keys(for: policy).isEmpty && !hardwareKeyboard()
     }
 }

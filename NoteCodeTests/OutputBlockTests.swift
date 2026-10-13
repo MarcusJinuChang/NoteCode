@@ -198,6 +198,28 @@ struct OutputBlockTests {
         #expect(outputFlags() == [false, false, false, false, false])
         let back = harness.textView.textStorage.attribute(.foregroundColor, at: harness.offset(of: "print(2)"), effectiveRange: nil) as? UIColor
         #expect(back != CodeOutputPanel.textColor, "python's text isn't left in the console's colour")
+        // And is coloured again: a retag changes neither the block's id nor
+        // its code, so highlighting has to be told by the tag.
+        let keyword = harness.textView.textStorage.attribute(.foregroundColor, at: harness.offset(of: "print(2)"), effectiveRange: nil) as? UIColor
+        #expect(keyword != UIColor.label, "python is highlighted again after the console")
+    }
+
+    @Test("The language menu groups the languages, then Output and Plain Text, and SQL says Copy only")
+    func menuGroups() throws {
+        let button = CodeBlockLanguageButton(frame: .zero)
+        button.configure(label: "Output", kind: .output, isOutput: true, isEnabled: true)
+
+        let groups = button.groupedChoices().compactMap { $0 as? UIMenu }
+        #expect(groups.count == 2)
+        #expect(groups.allSatisfy { $0.options.contains(.displayInline) }, "a divider, not a submenu")
+        #expect(groups[0].children.map(\.title) == ["C++", "Java", "Python", "C", "JavaScript", "Rust", "Go", "SQL"])
+        #expect(groups[1].children.map(\.title) == ["Output", "Plain Text"])
+
+        let actions = button.choices()
+        #expect(actions.first { $0.title == "SQL" }?.subtitle == "Copy only")
+        #expect(actions.filter { $0.subtitle != nil }.count == 1)
+        #expect(actions.first { $0.title == "Output" }?.state == .on, "the block's own kind is ticked")
+        #expect(actions.filter { $0.state == .on }.count == 1)
     }
 
     @Test("The action bar: Copy alone for Output and SQL, both for a language that runs")

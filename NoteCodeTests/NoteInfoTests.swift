@@ -102,6 +102,6 @@ struct NoteInfoTests {
 
     @Test("Languages have the names people write")
     func displayNames() {
-        #expect(CodeLanguage.allCases.map(\.displayName) == ["C++", "Java", "Python"])
+        #expect(CodeLanguage.allCases.map(\.displayName) == ["C++", "Java", "Python", "C", "JavaScript", "Rust", "Go", "SQL"])
     }
 }

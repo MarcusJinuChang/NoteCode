@@ -134,6 +134,14 @@ struct CodeEditingInTheEditorTests {
         #expect(row(of: harness) != nil, "a fence line is code")
     }
 
+    @Test("A first tap straight into code has the row, with no prose before it to cross from")
+    func firstTapIntoCode() async throws {
+        // The editor starts out in the code policy, so nothing is crossed.
+        let harness = Harness(Self.note)
+        try await harness.caret(at: harness.offset(of: "int x"))
+        #expect(row(of: harness) != nil)
+    }
+
     @Test("Settings › Code › Code Keys turns it off, and on again")
     func setting() async throws {
         let harness = Harness(Self.note)
