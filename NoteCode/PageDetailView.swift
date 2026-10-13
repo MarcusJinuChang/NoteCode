@@ -48,6 +48,10 @@ struct PageDetailView: View {
     /// Saves this note's ink. One per open note, like the editor.
     @State private var inkSaver: DrawingSaveScheduler
 
+    /// The page the note was last read at on this device, read once as the
+    /// note opens: the page then writes its own place back as it is read.
+    @State private var resumingAtPage: Int?
+
     @Environment(\.scenePhase) private var scenePhase
 
     @AppStorage(HotbarDock.defaultsKey)
@@ -107,6 +111,7 @@ struct PageDetailView: View {
         // Cheap: the ink is read when the page is made, not here. SwiftUI
         // builds this view far more often than it keeps a new state.
         _inkSaver = State(initialValue: DrawingSaveScheduler(page: page))
+        _resumingAtPage = State(initialValue: Self.lastReadPage(of: page))
 #endif
     }
 
@@ -279,6 +284,14 @@ struct PageDetailView: View {
                 keyboardClearance: dock == .bottom ? Hotbar.thickness + Self.hotbarMargin : 0,
                 inkSaver: inkSaver,
                 revealing: revealing,
+                resumingAtPage: resumingAtPage,
+                onReadingPlaceChanged: { [weak page] place in
+                    // A note made moments ago has no permanent ID until it is
+                    // saved; `settledID` saves it, as the autosave would.
+                    if let page, let id = page.settledID {
+                        NoteMemory().setPlace(place, of: id)
+                    }
+                },
                 showMarkdown: showMarkdown
             )
             // The page draws its own border, on the page's edges rather than
@@ -328,6 +341,15 @@ struct PageDetailView: View {
         }
         // What each ink tool is set to carries over from note to note.
         .modifier(InkToolPersistence(editor: editor))
+    }
+
+    /// The page this note was left at, from the device's memory. Nothing for a
+    /// note that has none, or one never saved, which has no place yet.
+    private static func lastReadPage(of page: Page) -> Int? {
+        guard !page.persistentModelID.isTemporary,
+              let place = NoteMemory().place(of: page.persistentModelID)
+        else { return nil }
+        return place.page
     }
 
     /// Does what the reader has set a Pencil gesture to do, in ink mode.

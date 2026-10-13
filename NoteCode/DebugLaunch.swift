@@ -109,6 +109,12 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
     var thenDelay: Double = 1
     /// Writes `DebugStateReport` each time layout settles.
     var writesReport = false
+    /// A fresh install: an empty store in memory, and the first-launch flags
+    /// cleared, so the title screen and the Welcome note appear.
+    var firstLaunch = false
+    /// Home, over a store of sample notes and folders in memory, with the
+    /// title screen already seen.
+    var home = false
 
     /// Arguments that couldn't be used. Reported rather than ignored, so a
     /// typo can't pass for a check that ran.
@@ -116,6 +122,7 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
 
     var isActive: Bool {
         note != nil || mode != nil || orientation != nil || page != nil || thenMode != nil || writesReport
+            || firstLaunch || home
     }
 
     static let current = parse(ProcessInfo.processInfo.arguments)
@@ -184,6 +191,10 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
                 }
             case "-debug-report":
                 options.writesReport = true
+            case "-debug-first-launch":
+                options.firstLaunch = true
+            case "-debug-home":
+                options.home = true
             default:
                 if flag.hasPrefix("-debug-") {
                     options.problems.append("unknown argument \(flag)")
@@ -194,6 +205,15 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
 
         if options.orientation != nil && options.note == nil {
             options.problems.append("-debug-orientation applies to a seeded note; add -debug-note")
+        }
+        if options.firstLaunch && options.home {
+            options.problems.append("-debug-first-launch and -debug-home both given; using -debug-first-launch")
+            options.home = false
+        }
+        if (options.firstLaunch || options.home) && options.note != nil {
+            options.problems.append("-debug-first-launch and -debug-home show what is there with no note open; the note given opens instead")
+            options.firstLaunch = false
+            options.home = false
         }
         if arguments.contains("-debug-then-delay") && options.thenMode == nil {
             options.problems.append("-debug-then-delay does nothing without -debug-then-mode")
@@ -359,6 +379,97 @@ enum DebugLaunch {
         }
         container.mainContext.insert(page)
         return (.persistent(container), page)
+    }
+
+    /// The store for `-debug-first-launch` and `-debug-home`: in memory, so the
+    /// simulator's own notes are left alone. Empty for a first launch, which
+    /// also clears the flags a first launch is decided by; for Home, a few
+    /// weeks of a student's notes, with the title screen marked as seen.
+    ///
+    /// The flags live in the simulator's defaults, so clearing them is felt by
+    /// the next normal launch: its store isn't empty, so no Welcome note is made
+    /// (`WelcomeNote.makeOnFirstLaunch`), but the title screen shows once more.
+    ///
+    /// - Parameter defaults: where the flags and remembered places live; a
+    ///   test passes its own, so it doesn't clear the device's.
+    static func firstLaunchOrHomeStorage(
+        _ options: DebugLaunchOptions,
+        session: DebugSession,
+        defaults: UserDefaults = .standard
+    ) -> Storage? {
+        guard options.firstLaunch || options.home else { return nil }
+
+        let schema = NoteSchema.current
+        let container: ModelContainer
+        do {
+            container = try ModelContainer(
+                for: schema,
+                configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)]
+            )
+        } catch {
+            session.record("couldn't open an in-memory store: \(error.localizedDescription)")
+            return nil
+        }
+
+        for key in [WelcomeScreen.shownKey, WelcomeNote.madeKey, NoteMemory.lastOpenedKey, NoteMemory.placesKey] {
+            defaults.removeObject(forKey: key)
+        }
+        if options.home {
+            defaults.set(true, forKey: WelcomeScreen.shownKey)
+            defaults.set(true, forKey: WelcomeNote.madeKey)
+            seedHome(in: container.mainContext, session: session, defaults: defaults)
+        }
+        return .persistent(container)
+    }
+
+    /// Notes shaped like the `Home` board: a note to continue, a week's more,
+    /// and three folders.
+    private static func seedHome(in context: ModelContext, session: DebugSession, defaults: UserDefaults) {
+        let cs133 = Folder(name: "CS133")
+        cs133.symbolName = "chevron.left.forwardslash.chevron.right"
+        let practice = Folder(name: "Algorithm practice")
+        practice.colorName = FolderColor.blue.rawValue
+        practice.symbolName = "function"
+        let discrete = Folder(name: "Discrete math")
+        discrete.colorName = FolderColor.purple.rawValue
+        discrete.symbolName = "point.3.connected.trianglepath.dotted"
+        for folder in [cs133, practice, discrete] {
+            context.insert(folder)
+        }
+
+        let now = Date.now
+        func note(_ title: String, _ content: String, in folder: Folder?, ago: TimeInterval) -> Page {
+            let page = Page(title: title, content: content, createdAt: now.addingTimeInterval(-ago - 3600))
+            page.modifiedAt = now.addingTimeInterval(-ago)
+            context.insert(page)
+            page.folder = folder
+            return page
+        }
+
+        let prose = "\n\n" + DebugFixture.pages.text
+        let hash = note(
+            "Week 6 · Hash tables",
+            "A hash table keeps each key in one of m buckets, picked by a hash function.\n\n## Chaining\n\n```cpp\nstruct Node { int key; Node* next; };\nint bucket(int key, int m) { return key % m; }\n```" + prose,
+            in: cs133, ago: 600
+        )
+        _ = note("Lab 3 · Linked lists", "A singly linked list, then a doubly linked one.\n\n```cpp\nstruct Node {\n    int value;\n    Node* next;\n};\n```", in: cs133, ago: 100_000)
+        _ = note("Two pointers", "Sorted input and a pair that sums to a target.\n\n```python\ndef pair(nums, target):\n    lo, hi = 0, len(nums) - 1\n```", in: practice, ago: 110_000)
+        _ = note("Exam 1 review", "Everything from weeks 1 to 5 on one page.\n\n## Topics\n\nArrays, pointers, classes, linked lists.", in: cs133, ago: 4 * 86_400)
+        _ = note("Big-O cheat sheet", "O(1), O(log n), O(n), O(n log n), O(n²).", in: nil, ago: 21 * 86_400)
+        _ = note("Week 5 · Binary search trees", "Insert, find and remove in a BST.\n\n```java\nclass Tree { Node root; }\n```", in: cs133, ago: 14 * 86_400)
+        _ = note("Proof by induction", "Base case, hypothesis, step.", in: discrete, ago: 9 * 86_400)
+
+        // Saved so the notes have permanent IDs to be remembered by.
+        do {
+            try context.save()
+        } catch {
+            session.record("couldn't save the sample notes: \(error.localizedDescription)")
+        }
+        if let id = hash.settledID {
+            let memory = NoteMemory(defaults: defaults)
+            memory.setLastOpened(id)
+            memory.setPlace(NoteMemory.Place(page: 2, of: 5), of: id)
+        }
     }
 
     /// Sets the view mode before any view reads it, in the saved setting the

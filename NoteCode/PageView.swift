@@ -72,6 +72,17 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// first to scroll to, and all of them to highlight.
     private var pendingReveal: (first: NSRange, all: [NSRange])?
 
+    /// The page to open the note at, waiting for its first layout.
+    private var pendingRestore: Int?
+    private var restoreScheduled = false
+
+    /// Told which page the reader is on whenever that changes, or the page
+    /// count does: the device remembers it for next time. Held back until the
+    /// note has been scrolled to where it is opening (`restore`), so opening
+    /// at page 4 doesn't first report page 1.
+    var onReadingPlaceChanged: ((NoteMemory.Place) -> Void)?
+    private var lastReportedPlace: NoteMemory.Place?
+
     /// The scale the page is drawn at right now.
     private(set) var displayScale: CGFloat = 1
 
@@ -435,6 +446,64 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             // After this layout pass rather than inside it.
             DispatchQueue.main.async { [weak self] in self?.show(reveal) }
         }
+        if let index = pendingRestore, !restoreScheduled, pendingReveal == nil, textView.bounds.height > 0 {
+            restoreScheduled = true
+            DispatchQueue.main.async { [weak self] in self?.finishRestore(toPage: index) }
+        }
+        reportReadingPlace()
+    }
+
+    // MARK: Reopening where the reader left off
+
+    /// Opens the note at the top of page `index` (counted from 0) once it has
+    /// laid out, the way `reveal` waits for it. A search's match wins if
+    /// both are asked for.
+    func restore(toPage index: Int) {
+        pendingRestore = index > 0 ? index : nil
+    }
+
+    private func finishRestore(toPage index: Int) {
+        let layout = pageLayout
+        // Lay the text out down to the page the way scrolling there by hand
+        // would, so the page count is the note's rather than an estimate from
+        // the little that is laid out, and the page's first line is placed
+        // below every break above it. Not the whole note: what's below can
+        // wait for the reader to get there.
+        textView.textLayoutManager?.ensureLayout(for: CGRect(
+            x: 0,
+            y: 0,
+            width: layout.textWidth,
+            height: layout.scrollTop(forPage: index) + textView.bounds.height
+        ))
+        textView.setNeedsLayout()
+        textView.layoutIfNeeded()
+        // A note shortened since lands on its last page.
+        let landing = min(index, max(pageCount - 1, 0))
+        textView.contentOffset.y = clampedOffset(layout.scrollTop(forPage: landing))
+
+        pendingRestore = nil
+        restoreScheduled = false
+        reportReadingPlace()
+    }
+
+    /// The page at the top of the view, and how many pages the note has.
+    ///
+    /// By the top edge, a point inside it: exactly on a page's scroll-top the
+    /// edge is the middle of a band, and rounding there could name the page
+    /// before.
+    var readingPlace: NoteMemory.Place {
+        let index = pageLayout.pageIndex(atY: textView.contentOffset.y + 1)
+        return NoteMemory.Place(page: min(index, max(pageCount - 1, 0)), of: max(pageCount, 1))
+    }
+
+    private func reportReadingPlace() {
+        guard let onReadingPlaceChanged, pendingRestore == nil, pendingReveal == nil,
+              textView.bounds.height > 0
+        else { return }
+        let place = readingPlace
+        guard place != lastReportedPlace else { return }
+        lastReportedPlace = place
+        onReadingPlaceChanged(place)
     }
 
     // MARK: Search

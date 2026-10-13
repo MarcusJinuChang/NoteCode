@@ -98,7 +98,7 @@ enum NotePDF {
     /// of the note's ink. Overflow doesn't print, as print layout doesn't
     /// show it: a stroke drawn across a page break stops at the edge of the
     /// page it was started on.
-    private static func sheetsInk(_ ink: PaperMarkup, layout: PageLayout, pageCount: Int) -> [[any Markup]] {
+    static func sheetsInk(_ ink: PaperMarkup, layout: PageLayout, pageCount: Int) -> [[any Markup]] {
         var sheets = Array(repeating: [any Markup](), count: pageCount)
         guard pageCount > 0 else { return sheets }
         for element in ink.subelements where !InkPages.isOverflow(element) {
@@ -134,7 +134,16 @@ enum NotePDF {
     /// (probe on the simulator, 4 October), and the PDF's ink came out
     /// blank. Added one at a time, each costs what the set's `count` does,
     /// and a note of 2,000 strokes took 7 seconds to print (10 October).
-    private static func drawInk(_ elements: [any Markup], onSheet sheet: CGRect, in context: CGContext) async {
+    ///
+    /// - Parameter pixelsPerPagePoint: the bitmap's resolution. The PDF draws
+    ///   at print resolution; a thumbnail asks for the few pixels it will show,
+    ///   since a sheet's worth at 288 dots per inch is 31MB.
+    static func drawInk(
+        _ elements: [any Markup],
+        onSheet sheet: CGRect,
+        in context: CGContext,
+        pixelsPerPagePoint: CGFloat = inkPixelsPerPagePoint
+    ) async {
         let page = CGRect(origin: .zero, size: sheet.size)
         let toSheet = CGAffineTransform(translationX: -sheet.minX, y: -sheet.minY)
 
@@ -152,7 +161,7 @@ enum NotePDF {
         let area = inked.insetBy(dx: -4, dy: -4).intersection(page).integral
         guard !area.isNull, !area.isEmpty else { return }
 
-        guard let image = await bitmap(of: markup, in: page, cropping: area) else { return }
+        guard let image = await bitmap(of: markup, in: page, cropping: area, pixelsPerPagePoint: pixelsPerPagePoint) else { return }
 
         context.saveGState()
         context.clip(to: page)
@@ -168,8 +177,12 @@ enum NotePDF {
     /// a transparent background.
     ///
     /// - Parameter page: the frame the markup is drawn into, in page points.
-    private static func bitmap(of markup: PaperMarkup, in page: CGRect, cropping area: CGRect) async -> CGImage? {
-        let scale = inkPixelsPerPagePoint
+    private static func bitmap(
+        of markup: PaperMarkup,
+        in page: CGRect,
+        cropping area: CGRect,
+        pixelsPerPagePoint scale: CGFloat
+    ) async -> CGImage? {
         let width = Int((area.width * scale).rounded(.up))
         let height = Int((area.height * scale).rounded(.up))
         guard width > 0, height > 0,

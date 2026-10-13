@@ -27,11 +27,17 @@ extension View {
     /// - Parameter onOpenWelcomeNote: called when Help and About › Welcome
     ///   Note is chosen, after the sheet has been asked to close. The note is
     ///   opened by the window, which owns what's selected.
-    func settingsSheet(isPresented: Binding<Bool>, onOpenWelcomeNote: @escaping () -> Void = {}) -> some View {
+    /// - Parameter onShowWelcomeScreen: called when Help and About › Welcome
+    ///   Screen is chosen, likewise after the sheet has been asked to close.
+    func settingsSheet(
+        isPresented: Binding<Bool>,
+        onOpenWelcomeNote: @escaping () -> Void = {},
+        onShowWelcomeScreen: @escaping () -> Void = {}
+    ) -> some View {
         self
             .focusedSceneValue(\.showsSettings, isPresented)
             .sheet(isPresented: isPresented) {
-                SettingsView(onOpenWelcomeNote: onOpenWelcomeNote)
+                SettingsView(onOpenWelcomeNote: onOpenWelcomeNote, onShowWelcomeScreen: onShowWelcomeScreen)
                     .presentationSizing(.form)
             }
     }
@@ -84,6 +90,9 @@ struct SettingsView: View {
     /// Makes the Welcome note and opens it. Settings dismisses itself first.
     var onOpenWelcomeNote: () -> Void = {}
 
+    /// Shows the title screen again. Settings dismisses itself first.
+    var onShowWelcomeScreen: () -> Void = {}
+
     var body: some View {
         NavigationStack {
             List {
@@ -115,10 +124,16 @@ struct SettingsView: View {
                 }
 #endif
                 NavigationLink {
-                    AboutSettings(onOpenWelcomeNote: {
-                        dismiss()
-                        onOpenWelcomeNote()
-                    })
+                    AboutSettings(
+                        onOpenWelcomeNote: {
+                            dismiss()
+                            onOpenWelcomeNote()
+                        },
+                        onShowWelcomeScreen: {
+                            dismiss()
+                            onShowWelcomeScreen()
+                        }
+                    )
                 } label: {
                     Label("Help and About", systemImage: "questionmark.circle")
                 }
@@ -348,6 +363,7 @@ private struct CodeSettings: View {
 
 private struct AboutSettings: View {
     var onOpenWelcomeNote: () -> Void
+    var onShowWelcomeScreen: () -> Void
 
     var body: some View {
         Form {
@@ -371,6 +387,9 @@ private struct AboutSettings: View {
                 // copy, if it's still there, is left alone.
                 Button("Welcome Note", action: onOpenWelcomeNote)
                     .accessibilityIdentifier("welcomeNoteButton")
+                // The title screen of a first launch, shown again.
+                Button("Welcome Screen", action: onShowWelcomeScreen)
+                    .accessibilityIdentifier("welcomeScreenButton")
                 if let feedback = AppInfo.feedbackURL() {
                     Link("Send Feedback", destination: feedback)
                 }

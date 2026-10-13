@@ -27,7 +27,7 @@ struct NoteShortcutTests {
         (.seamless, "⌘1"), (.compressed, "⌘2"), (.printLayout, "⌘3"),
         (.find, "⌘F"), (.print, "⌘P"),
         (.newNote, "⌘N"), (.newFolder, "⇧⌘N"), (.searchNotes, "⇧⌘F"),
-        (.noteList, "⌃⌘S"), (.settings, "⌘,"),
+        (.noteList, "⌃⌘S"), (.home, "⇧⌘H"), (.settings, "⌘,"),
     ]
 
     @Test("Every shortcut is the one the brief lists, and the table has no others")

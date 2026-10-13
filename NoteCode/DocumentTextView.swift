@@ -40,6 +40,15 @@ struct DocumentTextView: UIViewRepresentable {
     /// list's business, not the page's.
     var revealing = NoteSearch("")
 
+    /// The page to open the note at (counted from 0): where it was last read
+    /// on this device. Ignored when the note was opened from a search, which
+    /// shows its match instead.
+    var resumingAtPage: Int? = nil
+
+    /// Told which page the reader is on as it changes, so the device can
+    /// remember it. Optional, like `editor`, so the editor still stands alone.
+    var onReadingPlaceChanged: ((NoteMemory.Place) -> Void)? = nil
+
     /// Settings › Writing › Show Markdown: whether a code block's backticks
     /// show only while it is being edited, or always.
     var showMarkdown = ShowMarkdown.whileEditing
@@ -78,7 +87,10 @@ struct DocumentTextView: UIViewRepresentable {
         let matches = revealing.matches(in: text)
         if let first = matches.first {
             page.reveal(first, highlighting: matches)
+        } else if let resumingAtPage {
+            page.restore(toPage: resumingAtPage)
         }
+        page.onReadingPlaceChanged = onReadingPlaceChanged
         return page
     }
 
@@ -86,6 +98,7 @@ struct DocumentTextView: UIViewRepresentable {
         let textView = page.textView
         page.pageLayout = pageLayout
         page.keyboardClearance = keyboardClearance
+        page.onReadingPlaceChanged = onReadingPlaceChanged
 
         // The struct is recreated on every SwiftUI render but the Coordinator
         // persists, so hand it the current binding or it will keep writing

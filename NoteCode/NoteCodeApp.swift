@@ -22,6 +22,11 @@ struct NoteCodeApp: App {
         // See DebugLaunch.swift. A no-op unless a -debug- argument was passed.
         let session = DebugSession.shared
         DebugLaunch.applyViewMode(session.options)
+        if let fresh = DebugLaunch.firstLaunchOrHomeStorage(session.options, session: session) {
+            storage = fresh
+            openedPage = nil
+            return
+        }
         if let seeded = DebugLaunch.seededStorage(session.options, session: session) {
             storage = seeded.storage
             openedPage = seeded.page

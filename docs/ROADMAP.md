@@ -21,6 +21,16 @@ pinch zoom, the note page and its hotbar, and a PaperKit canvas that a finger
 or the Pencil draws on, with ink undo of its own, saved with the note and
 drawn at the screen's density. 25 pull requests, all merged.
 
+- **UI design v3, phase 2: title screen, Home, thumbnails, reopening** (12 Oct,
+  branch `claude/v3-phase-2-home`, off phase 1, not merged): the app opens on
+  Home, in the page area, with the list behind ☰: the note to continue (with
+  "page 3 of 5"), the eight most recent, folder tiles, New Note, and an empty
+  state. A Home row tops the list (⇧⌘H). A first launch opens a title screen
+  (Settings › Help and About shows it again). Rows and cards show a picture of
+  the note's first page, made one at a time and cached. A note reopens at the
+  page it was left at. Builds for iPad and Mac; looked at in the simulator
+  (Home light and dark, the title screen light, a note reopening at page 3),
+  not with the Pencil or a real keyboard.
 - **UI design v3, phase 1: model v7, Recently Deleted, folder identity,
   Duplicate** (12 Oct, branch `claude/v3-phase-1-recently-deleted`, off
   `main`, not merged): deleting a note now moves it to Recently Deleted for 30
