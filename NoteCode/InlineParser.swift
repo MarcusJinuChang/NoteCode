@@ -63,13 +63,14 @@ nonisolated enum InlineParser {
                 }
             } else if character == "*" || character == "_" {
                 let second = text.index(after: cursor)
+                let intraword = character == "_"
 
                 // Doubled marker first, or `**bold**` would parse as emphasis
                 // wrapping `*bold*`.
                 if second < range.upperBound, text[second] == character {
                     let contentStart = text.index(after: second)
-                    if let closing = firstDoubled(character, in: text, from: contentStart, limit: range.upperBound),
-                       closing > contentStart {
+                    if canOpen(at: cursor, contentStart: contentStart, in: text, range: range, intraword: intraword),
+                       let closing = closingMarker(character, doubled: true, in: text, from: contentStart, limit: range.upperBound) {
                         flushPlainText(upTo: cursor)
                         let end = text.index(closing, offsetBy: 2)
                         nodes.append(InlineNode(kind: .strong, range: cursor..<end, contentRange: contentStart..<closing))
@@ -77,8 +78,8 @@ nonisolated enum InlineParser {
                         plainStart = cursor
                         continue
                     }
-                } else if let closing = firstIndex(of: character, in: text, from: second, limit: range.upperBound),
-                          closing > second {
+                } else if canOpen(at: cursor, contentStart: second, in: text, range: range, intraword: intraword),
+                          let closing = closingMarker(character, doubled: false, in: text, from: second, limit: range.upperBound) {
                     flushPlainText(upTo: cursor)
                     let end = text.index(after: closing)
                     nodes.append(InlineNode(kind: .emphasis, range: cursor..<end, contentRange: second..<closing))
@@ -109,6 +110,58 @@ nonisolated enum InlineParser {
 
         flushPlainText(upTo: range.upperBound)
         return nodes
+    }
+
+    // MARK: Emphasis rules
+
+    /// Whether the marker at `cursor` may open a span whose text starts at
+    /// `contentStart`. CommonMark's rule, less its corners: the text must not
+    /// start with a space, so `2 * 3 * 4` and `a * b` stay arithmetic and
+    /// prose; and an underscore can't open inside a word, so `snake_case_name`
+    /// stays an identifier. A note about code is full of both, and with
+    /// markers hidden a false span would make characters vanish.
+    private static func canOpen(
+        at cursor: String.Index,
+        contentStart: String.Index,
+        in text: String,
+        range: Range<String.Index>,
+        intraword: Bool
+    ) -> Bool {
+        guard contentStart < range.upperBound, !text[contentStart].isWhitespace else { return false }
+        if intraword, cursor > range.lowerBound {
+            let before = text[text.index(before: cursor)]
+            if before.isLetter || before.isNumber { return false }
+        }
+        return true
+    }
+
+    /// The first marker at or after `start` that can close a span: not
+    /// preceded by a space, and for an underscore not followed by a letter.
+    private static func closingMarker(
+        _ character: Character,
+        doubled: Bool,
+        in text: String,
+        from start: String.Index,
+        limit: String.Index
+    ) -> String.Index? {
+        var cursor = start
+        while cursor < limit {
+            guard text[cursor] == character else {
+                cursor = text.index(after: cursor)
+                continue
+            }
+            let next = text.index(after: cursor)
+            if doubled, !(next < limit && text[next] == character) {
+                cursor = next
+                continue
+            }
+            let after = doubled ? text.index(after: next) : next
+            let precededBySpace = cursor > start && text[text.index(before: cursor)].isWhitespace
+            let followedByWord = character == "_" && after < limit && (text[after].isLetter || text[after].isNumber)
+            if cursor > start, !precededBySpace, !followedByWord { return cursor }
+            cursor = doubled ? after : next
+        }
+        return nil
     }
 
     // MARK: Links

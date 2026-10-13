@@ -175,3 +175,41 @@ struct HeadingTests {
         #expect(blocks[0].isCode)
     }
 }
+
+// MARK: - Prose that only looks like markup
+
+/// With markers hidden, a false span makes characters vanish from the page, so
+/// what looks like arithmetic, a pointer or an identifier has to stay text.
+@Suite("Inline parser: not markup")
+struct InlineMarkupLookalikeTests {
+
+    private func kinds(_ text: String) -> [InlineNode.Kind] {
+        InlineParser.parse(text, in: text.startIndex..<text.endIndex).map(\.kind).filter { $0 != .text }
+    }
+
+    @Test("Stars and underscores that aren't markup", arguments: [
+        "2 * 3 * 4",
+        "a * b * c",
+        "int *p and *q",
+        "snake_case_name",
+        "a_b_c and my_var_x",
+        "x ** 2 ** 3",
+    ])
+    func isText(_ text: String) {
+        let found = kinds(text)
+        #expect(found.isEmpty, "\(text) parsed as \(found)")
+    }
+
+    @Test("Real spans still parse next to the same characters", arguments: [
+        ("a *b* c", InlineNode.Kind.emphasis),
+        ("a _b_ c", .emphasis),
+        ("(**b**)", .strong),
+        ("x *b c* y", .emphasis),
+        ("a __b__ c", .strong),
+        ("*b*.", .emphasis),
+        ("_b_,", .emphasis),
+    ])
+    func stillSpans(_ text: String, _ kind: InlineNode.Kind) {
+        #expect(kinds(text) == [kind])
+    }
+}

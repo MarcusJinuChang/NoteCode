@@ -24,7 +24,7 @@ nonisolated enum NoteThumbnail {
     /// Bumped when the picture changes for a reason other than the note, so
     /// thumbnails made the old way aren't shown (phase 3's hidden markers will
     /// change how every note's first page looks).
-    static let version = 1
+    static let version = 2
 
     /// Pixels per page point: a Letter page is 449 by 581.
     ///
@@ -68,12 +68,16 @@ nonisolated enum NoteThumbnail {
     /// manifest would need a reason for that).
     ///
     /// `nil` for a note that has no permanent ID yet.
-    static func cacheName(for id: PersistentIdentifier, modifiedAt: Date) -> String? {
+    ///
+    /// A note's layout is part of the name too: hiding its Markdown markers
+    /// (the title menu) isn't an edit and leaves `modifiedAt` alone, but the
+    /// first page looks different afterwards.
+    static func cacheName(for id: PersistentIdentifier, modifiedAt: Date, rendersMarkdown: Bool = false) -> String? {
         guard let key = NoteMemory.key(for: id) else { return nil }
         let digest = SHA256.hash(data: Data(key.utf8))
         let owner = digest.prefix(8).map { String(format: "%02x", $0) }.joined()
         let milliseconds = Int((modifiedAt.timeIntervalSince1970 * 1000).rounded())
-        return "\(owner)-\(milliseconds).png"
+        return "\(owner)-\(milliseconds)\(rendersMarkdown ? "-r" : "").png"
     }
 
     /// The part of a cache name that is the note's alone, to find the older
@@ -94,6 +98,7 @@ extension NoteThumbnail {
         var text: String
         var orientation: PageOrientation
         var drawingData: Data
+        var rendersMarkdown = false
     }
 
     /// The first page of a note, drawn the way the PDF draws a sheet
@@ -104,7 +109,9 @@ extension NoteThumbnail {
     /// is the same in a dark list.
     @MainActor
     static func render(_ source: Source) async -> UIImage? {
-        let printed = await PrintedNote(text: prefix(of: source.text), orientation: source.orientation)
+        let printed = await PrintedNote(
+            text: prefix(of: source.text), orientation: source.orientation, rendersMarkdown: source.rendersMarkdown
+        )
         // The prefix's own pages: enough bands for its lines to fall where
         // they would in the whole note, which is all page 1 needs.
         let pageCount = printed.paginate(inkBottom: nil, startingAt: 1)
@@ -210,7 +217,8 @@ final class ThumbnailStore {
         let source = NoteThumbnail.Source(
             text: page.content,
             orientation: page.orientation,
-            drawingData: page.drawingData
+            drawingData: page.drawingData,
+            rendersMarkdown: page.markdownLayout == Page.renderedMarkdown
         )
         guard let image = await NoteThumbnail.render(source) else { return nil }
         rendered += 1
@@ -224,7 +232,9 @@ final class ThumbnailStore {
         guard page.modelContext != nil, !page.isDeleted,
               let id = page.settledID
         else { return nil }
-        return NoteThumbnail.cacheName(for: id, modifiedAt: page.modifiedAt)
+        return NoteThumbnail.cacheName(
+            for: id, modifiedAt: page.modifiedAt, rendersMarkdown: page.markdownLayout == Page.renderedMarkdown
+        )
     }
 
     private func stored(_ name: String) -> UIImage? {

@@ -34,6 +34,7 @@ extension DocumentTextView.Coordinator {
     /// selection changes when it does.
     func connect(_ editor: NoteEditor?, to textView: UITextView) {
         self.editor = editor
+        editor?.rendersMarkdown = rendersMarkdown
         editor?.modeDidChange = { [weak self, weak textView] in
             guard let self, let textView else { return }
             refreshFenceVisibility(in: textView)

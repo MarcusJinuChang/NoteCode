@@ -194,26 +194,145 @@ nonisolated enum MarkdownFormatting {
         }
     }
 
+    enum ListStyle: CaseIterable, Sendable {
+        case bullet, numbered, checklist
+
+        var title: String {
+            switch self {
+            case .bullet:    "Bulleted List"
+            case .numbered:  "Numbered List"
+            case .checklist: "Checklist"
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .bullet:    "list.bullet"
+            case .numbered:  "list.number"
+            case .checklist: "checklist"
+            }
+        }
+
+        func matches(_ marker: ListMarker) -> Bool {
+            switch (self, marker) {
+            case (.bullet, .bullet), (.numbered, .ordered), (.checklist, .checkbox): true
+            default: false
+            }
+        }
+    }
+
     /// Bullets the touched lines, or un-bullets them if every one already is.
     ///
     /// A numbered item becomes a bullet, rather than gaining one in front of
     /// its number. Indentation is kept, since it is what sets a list's depth.
     static func toggleBullet(in text: String, selection: NSRange) -> TextEdit {
+        toggleList(.bullet, in: text, selection: selection)
+    }
+
+    /// Makes the touched lines a list of `style`, or takes the list off them
+    /// if every one already is one. A line in another kind of list changes
+    /// kind; numbers count the written lines from 1.
+    static func toggleList(_ style: ListStyle, in text: String, selection: NSRange) -> TextEdit {
         let ns = text as NSString
         let touched = lines(touching: selection, in: ns)
 
-        let allBulleted = candidates(touched, in: ns).allSatisfy {
-            listItem(ns.substring(with: $0))?.isBullet == true
+        let allThere = candidates(touched, in: ns).allSatisfy {
+            listItem(ns.substring(with: $0)).map { style.matches($0.kind) } == true
         }
-        let marker = allBulleted ? "" : "- "
 
+        var number = 0
         return replaceMarkers(on: touched, in: ns, selection: selection) { line in
             let item = listItem(line)
+            var marker = ""
+            if !allThere {
+                if !isBlank(line) { number += 1 }
+                marker = switch style {
+                case .bullet:    "- "
+                case .numbered:  "\(number). "
+                case .checklist: "- [ ] "
+                }
+            }
             return LineMarker(
                 indent: item?.indent ?? indentation(of: line),
                 length: item?.length ?? 0,
                 replacement: marker
             )
+        }
+    }
+
+    // MARK: Return, Tab, and checkboxes
+
+    /// What Return does at a collapsed caret, when that isn't a plain newline.
+    ///
+    /// - In a list item with text, a new item follows: the same bullet, the
+    ///   next number, or an empty box. Whatever follows the caret moves to it.
+    /// - In an empty item, the list ends: the marker goes and the line is
+    ///   left empty.
+    /// - In a rendered note, at the end of a line whose last characters are a
+    ///   closing marker, the newline goes after the marker. The caret stands
+    ///   in front of it (inside the bold) and the page can't show that, so a
+    ///   plain newline would have split `**` from its word.
+    ///
+    /// `nil` means a plain newline.
+    static func returnEdit(
+        in text: NSString,
+        caret: Int,
+        rendered: Bool,
+        codeRanges: [CodeRange]
+    ) -> TextEdit? {
+        guard caret >= 0, caret <= text.length, !isCode(caret, in: codeRanges) else { return nil }
+
+        let line = contentLine(containing: caret, in: text)
+        let original = caret
+        var caret = caret
+        if rendered,
+           let stretch = hiddenStretches(inLine: line, of: text).first(where: { !$0.pinsAfter && caret >= $0.start && caret <= $0.end }),
+           stretch.end >= NSMaxRange(line) {
+            caret = NSMaxRange(line)
+        }
+
+        let lineText = text.substring(with: line)
+        if let block = DocumentParser.parse(lineText).first, let marker = block.listMarker, let markerRange = block.markerRange {
+            let markerEnd = line.location + NSRange(markerRange, in: lineText).upperBound
+            guard caret >= markerEnd else { return nil }
+
+            let indent = String(lineText.prefix { $0 == " " || $0 == "\t" })
+            let after = text.substring(with: NSRange(location: markerEnd, length: NSMaxRange(line) - markerEnd))
+
+            if after.allSatisfy({ $0 == " " || $0 == "\t" }) {
+                // Nothing after the marker: end the list.
+                return TextEdit(range: line, replacement: "", selection: NSRange(location: line.location, length: 0))
+            }
+
+            let written = String(lineText[markerRange].dropFirst(indent.count))
+            let next = nextMarker(after: marker, written: written)
+            let insertion = "\n" + indent + next
+            return TextEdit(
+                range: NSRange(location: caret, length: 0),
+                replacement: insertion,
+                selection: NSRange(location: caret + (insertion as NSString).length, length: 0)
+            )
+        }
+
+        // Not a list. Only a caret moved past closing markers needs an edit.
+        guard caret != original else { return nil }
+        return TextEdit(
+            range: NSRange(location: caret, length: 0),
+            replacement: "\n",
+            selection: NSRange(location: caret + 1, length: 0)
+        )
+    }
+
+    /// The marker the next item gets, given the one the line has as typed.
+    private static func nextMarker(after marker: ListMarker, written: String) -> String {
+        switch marker {
+        case .bullet:
+            return written
+        case .ordered(let number):
+            let digits = written.prefix { $0.isNumber }
+            return "\(number + 1)" + written.dropFirst(digits.count)
+        case .checkbox:
+            return "\(written.first ?? "-") [ ] "
         }
     }
 
@@ -307,16 +426,16 @@ nonisolated enum MarkdownFormatting {
     }
 
     /// A list item's indentation and marker lengths, as the parser reads it.
-    private static func listItem(_ line: String) -> (indent: Int, length: Int, isBullet: Bool)? {
+    private static func listItem(_ line: String) -> (indent: Int, length: Int, kind: ListMarker)? {
         guard let block = DocumentParser.parse(line).first,
               let kind = block.listMarker,
               let marker = block.markerRange
         else { return nil }
         let indent = indentation(of: line)
-        return (indent, line[marker].utf16.count - indent, kind == .bullet)
+        return (indent, line[marker].utf16.count - indent, kind)
     }
 
-    private static func indentation(of line: String) -> Int {
+    static func indentation(of line: String) -> Int {
         line.prefix { $0 == " " || $0 == "\t" }.utf16.count
     }
 
@@ -388,7 +507,7 @@ nonisolated enum MarkdownFormatting {
 
     private static let newline = unichar(0x0A)
 
-    private static func isBlank(_ line: String) -> Bool {
+    static func isBlank(_ line: String) -> Bool {
         line.allSatisfy { $0 == " " || $0 == "\t" }
     }
 
@@ -397,7 +516,7 @@ nonisolated enum MarkdownFormatting {
         return NSRange(location: location, length: min(max(range.length, 0), length - location))
     }
 
-    private static func shifted(_ range: NSRange, by offset: Int) -> NSRange {
+    static func shifted(_ range: NSRange, by offset: Int) -> NSRange {
         NSRange(location: range.location + offset, length: range.length)
     }
 }

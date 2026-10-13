@@ -43,6 +43,8 @@ enum NotePDF {
         /// laying out with the right number of page breaks the first time
         /// saves laying the whole note out again.
         var pageCount = 1
+        /// Whether the note's Markdown markers take no room (`Page.markdownLayout`).
+        var rendersMarkdown = false
     }
 
     /// PDF points per page point. A page 816 wide prints 612 wide: US
@@ -51,7 +53,7 @@ enum NotePDF {
 
     /// One PDF page per page of the note.
     static func render(_ note: Note) async -> Data {
-        let printed = await PrintedNote(text: note.text, orientation: note.orientation)
+        let printed = await PrintedNote(text: note.text, orientation: note.orientation, rendersMarkdown: note.rendersMarkdown)
         let ink = note.ink.flatMap { $0.subelements.isEmpty ? nil : $0 }
         let pageCount = printed.paginate(inkBottom: ink?.contentsRenderFrame.maxY, startingAt: note.pageCount)
         let layout = printed.layout
@@ -249,7 +251,7 @@ final class PrintedNote {
     /// for the editor, so code blocks get their panels and colours.
     private let coordinator: DocumentTextView.Coordinator
 
-    init(text: String, orientation: PageOrientation) async {
+    init(text: String, orientation: PageOrientation, rendersMarkdown: Bool = false) async {
         layout = PageLayout(orientation: orientation, mode: .print)
         coordinator = DocumentTextView.Coordinator(text: .constant(text))
         textView = DocumentTextView.makeConfiguredTextView()
@@ -270,6 +272,10 @@ final class PrintedNote {
         textView.text = text
         textView.textLayoutManager?.delegate = coordinator
         coordinator.observeEdits(of: textView)
+        // A rendered note's markers take no room on screen, so they take none
+        // on paper: the same lines on the same pages, which is what lets ink
+        // print where it was drawn.
+        coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
         coordinator.restyle(textView)
         await coordinator.highlightingFinished()
     }
@@ -380,6 +386,13 @@ final class PrintedNote {
                 for line in paragraph.lines {
                     let bounds = line.typographicBounds
                     line.draw(at: CGPoint(x: origin.x + bounds.minX, y: origin.y + bounds.minY), in: context)
+                }
+                // A checklist's box, with its item's first line. Hashes in
+                // the margin are never printed: nothing here draws them.
+                if let checklist = paragraph.fragment as? ChecklistLayoutFragment,
+                   let first = checklist.textLineFragments.first,
+                   paragraph.lines.contains(where: { $0 === first }) {
+                    checklist.drawBox(at: origin, in: context)
                 }
             }
         }

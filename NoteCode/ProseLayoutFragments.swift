@@ -189,6 +189,12 @@ final class ChecklistLayoutFragment: NSTextLayoutFragment {
 
     override func draw(at point: CGPoint, in context: CGContext) {
         super.draw(at: point, in: context)
+        drawBox(at: point, in: context)
+    }
+
+    /// The box alone, over its line. The PDF draws a page's lines one at a
+    /// time and calls this with them.
+    func drawBox(at point: CGPoint, in context: CGContext) {
         guard let rect = boxRect() else { return }
         let origin = CGPoint(x: point.x, y: point.y)
         let box = rect.box.offsetBy(dx: origin.x, dy: origin.y)
@@ -208,7 +214,8 @@ final class ChecklistLayoutFragment: NSTextLayoutFragment {
     static func drawBox(in rect: CGRect, checked: Bool, context: CGContext) {
         if checked {
             let path = UIBezierPath(roundedRect: rect, cornerRadius: cornerRadius)
-            context.setFillColor(UIColor.tintColor.cgColor)
+            // The asset by name: `tintColor` is the view's, and paper has none.
+            context.setFillColor((UIColor(named: "AccentColor") ?? .tintColor).cgColor)
             context.addPath(path.cgPath)
             context.fillPath()
 

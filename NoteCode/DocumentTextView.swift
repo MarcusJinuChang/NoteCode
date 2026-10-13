@@ -190,6 +190,20 @@ struct DocumentTextView: UIViewRepresentable {
         /// `HeadingMarkerDisplay.swift`.
         var headingVisibility = HeadingMarkerVisibility.hidden
 
+        /// How many times the text's characters have been edited, so a
+        /// selection change can tell typing from an arrow key.
+        private var editCount = 0
+        private var editCountAtLastSelection = 0
+        /// Where the caret was at the last selection change, for the
+        /// direction an arrow key walked it.
+        private var lastCaret = 0
+        private var isNormalizingCaret = false
+
+        /// Set while the coordinator applies an edit of its own (a Backspace
+        /// at a hidden marker, a list's Return), so `shouldChangeTextIn`
+        /// doesn't take it for another keystroke.
+        private(set) var isApplyingMarkerEdit = false
+
         /// The text view this coordinator serves, for the parts of the layout
         /// delegate that need its geometry.
         weak var textView: DocumentUITextView?
@@ -255,6 +269,7 @@ struct DocumentTextView: UIViewRepresentable {
         /// Forgets `layoutCodeRanges` whenever the text storage is edited.
         func observeEdits(of textView: UITextView) {
             self.textView = textView as? DocumentUITextView
+            if let documentView = self.textView { installMarkerGestures(on: documentView) }
             NotificationCenter.default.addObserver(
                 self,
                 selector: #selector(textStorageDidProcessEditing),
@@ -269,6 +284,7 @@ struct DocumentTextView: UIViewRepresentable {
             else { return }
             layoutCodeRanges = nil
             layoutMarkerRuns = nil
+            editCount += 1
         }
 
         /// Turns the collapsed layout on or off, laying the whole note out
@@ -277,10 +293,15 @@ struct DocumentTextView: UIViewRepresentable {
         func setRendersMarkdown(_ renders: Bool, in textView: DocumentUITextView) {
             guard renders != rendersMarkdown else { return }
             rendersMarkdown = renders
+            editor?.rendersMarkdown = renders
             layoutMarkerRuns = nil
             textView.blankLineLayout?.markerRuns = renders ? { [weak self, weak textView] in
                 guard let self, let textView else { return [] }
                 return markerRuns(in: textView.textStorage)
+            } : nil
+            textView.caretStopResolver = renders ? { [weak self, weak textView] offset in
+                guard let self, let textView else { return offset }
+                return caretStop(for: offset, direction: 0, in: textView)
             } : nil
             invalidateStyling()
             if textView.textStorage.length > 0 {
@@ -406,6 +427,7 @@ struct DocumentTextView: UIViewRepresentable {
             // move the one the caret is in.
             refreshFenceVisibility(in: textView, repositioning: false)
             refreshHeadingMarkers(in: textView)
+            refreshCaretFormatting(in: textView)
             overlay?.update(targets: CodeBlockAction.targets(in: source, blocks: blocks))
             scheduleHighlighting(for: textView, source: source, blocks: blocks)
         }
@@ -635,6 +657,11 @@ struct DocumentTextView: UIViewRepresentable {
 
         func textViewDidChangeSelection(_ textView: UITextView) {
             (textView as? DocumentUITextView)?.placeCaretOnTappedBlankLine()
+            normalizeCaret(in: textView)
+            defer {
+                lastCaret = textView.selectedRange.location
+                editCountAtLastSelection = editCount
+            }
 
             // Moving the caret across a fence boundary changes what the next
             // character should look like, even though no text changed. This
@@ -647,6 +674,119 @@ struct DocumentTextView: UIViewRepresentable {
             updateCodeSelectionHighlight(in: textView)
             refreshFenceVisibility(in: textView)
             refreshHeadingMarkers(in: textView)
+            refreshCaretFormatting(in: textView)
+        }
+
+        // MARK: Hidden markers
+
+        /// The offset a caret landing on `offset` should stand at.
+        func caretStop(for offset: Int, direction: Int, in textView: UITextView) -> Int {
+            MarkdownFormatting.caretStop(
+                for: offset,
+                direction: direction,
+                in: textView.textStorage.mutableString,
+                codeRanges: codeRanges(in: textView.textStorage)
+            )
+        }
+
+        /// Moves a collapsed caret off the inside of a hidden marker.
+        ///
+        /// Not after an edit: the caret typing leaves is where typing put it,
+        /// and moving it would put the next letter on the other side of the
+        /// marker just typed. An arrow key is told by its caret having moved
+        /// one place with no finger down; a tap, or anything else, lands on
+        /// the stretch's stop.
+        ///
+        private func normalizeCaret(in textView: UITextView) {
+            guard rendersMarkdown, !isNormalizingCaret,
+                  editCount == editCountAtLastSelection,
+                  textView.selectedRange.length == 0,
+                  textView.markedTextRange == nil
+            else { return }
+
+            let offset = textView.selectedRange.location
+            let step = offset - lastCaret
+            let arrow = abs(step) == 1 && (textView as? DocumentUITextView)?.wasTouchedRecently != true
+            let stop = caretStop(for: offset, direction: arrow ? step : 0, in: textView)
+            guard stop != offset else { return }
+
+            isNormalizingCaret = true
+            textView.selectedRange = NSRange(location: stop, length: 0)
+            isNormalizingCaret = false
+        }
+
+        /// An edit of the coordinator's own, through `replace(_:withText:)`
+        /// like typing: undoable, restyled, written back to the page.
+        func apply(_ edit: TextEdit, to textView: UITextView) {
+            guard let start = textView.position(from: textView.beginningOfDocument, offset: edit.range.location),
+                  let end = textView.position(from: start, offset: edit.range.length),
+                  let range = textView.textRange(from: start, to: end)
+            else { return }
+            isApplyingMarkerEdit = true
+            textView.replace(range, withText: edit.replacement)
+            isApplyingMarkerEdit = false
+            textView.selectedRange = edit.selection
+            editor?.refreshUndoState()
+        }
+
+        /// The edit a keystroke should make instead of its own, or `nil` to
+        /// let it through: Backspace at a hidden marker, Return in a list or
+        /// at the end of a bold word, and Tab on a list item.
+        ///
+        /// Never during marked text, where a keystroke belongs to the
+        /// composition. Return and Tab work in legacy notes too; Backspace's
+        /// rule is about markers nobody can see.
+        private func markerEdit(for range: NSRange, replacement: String, in textView: UITextView) -> TextEdit? {
+            guard textView.markedTextRange == nil else { return nil }
+            let storage = textView.textStorage
+            let text = storage.mutableString
+
+            if replacement == "\n", range == textView.selectedRange, range.length == 0 {
+                return MarkdownFormatting.returnEdit(
+                    in: text, caret: range.location, rendered: rendersMarkdown, codeRanges: codeRanges(in: storage)
+                )
+            }
+            if replacement == "\t", range == textView.selectedRange {
+                return MarkdownFormatting.indent(
+                    in: text, selection: range, outdent: false, codeRanges: codeRanges(in: storage)
+                )
+            }
+            guard rendersMarkdown, textView.selectedRange.length == 0,
+                  replacement.isEmpty, range.length >= 1,
+                  NSMaxRange(range) == textView.selectedRange.location
+            else { return nil }
+            return MarkdownFormatting.backspace(
+                at: NSMaxRange(range), in: text, codeRanges: codeRanges(in: storage)
+            )
+        }
+
+        /// ⇧Tab, and whether it has anything to do.
+        func outdentListItems(in textView: UITextView) {
+            guard let edit = outdentEdit(in: textView) else { return }
+            apply(edit, to: textView)
+        }
+
+        func canOutdentListItems(in textView: UITextView) -> Bool {
+            textView.isEditable && outdentEdit(in: textView) != nil
+        }
+
+        private func outdentEdit(in textView: UITextView) -> TextEdit? {
+            MarkdownFormatting.indent(
+                in: textView.textStorage.mutableString,
+                selection: textView.selectedRange,
+                outdent: true,
+                codeRanges: codeRanges(in: textView.textStorage)
+            )
+        }
+
+        /// Tells the hotbar what the caret is in. Called on every caret move
+        /// and edit, so it parses one line and assigns only on a change.
+        func refreshCaretFormatting(in textView: UITextView) {
+            editor?.setCaretFormatting(MarkdownFormatting.formatting(
+                at: textView.selectedRange,
+                in: textView.textStorage.mutableString,
+                codeRanges: codeRanges(in: textView.textStorage)
+            ))
         }
 
         /// Sets the keyboard up for where the caret is, before it appears.
@@ -674,9 +814,16 @@ struct DocumentTextView: UIViewRepresentable {
             // was replaced inside a fence, was turned away, and used up the
             // undo step without changing the text.
             let undoManager = textView.undoManager
+            if !isApplyingMarkerEdit, editor?.isFormatting != true, !isRetagging,
+               undoManager?.isUndoing != true, undoManager?.isRedoing != true,
+               let edit = markerEdit(for: range, replacement: text, in: textView) {
+                apply(edit, to: textView)
+                return false
+            }
+
             guard range.length > 0, !text.isEmpty, range != textView.selectedRange,
                   textView.markedTextRange == nil, editor?.isFormatting != true, !isRetagging,
-                  undoManager?.isUndoing != true, undoManager?.isRedoing != true
+                  !isApplyingMarkerEdit, undoManager?.isUndoing != true, undoManager?.isRedoing != true
             else { return true }
 
             let source = (textView.text ?? "").nativeUTF8
@@ -719,6 +866,10 @@ struct DocumentTextView: UIViewRepresentable {
         // Blank lines are laid out as zero-width spaces, or TextKit lets them
         // run through page breaks — see BlankLineLayout. The text view holds
         // it, since the content storage's delegate is weak.
+        let gestures = MarkerGestures()
+        gestures.install(on: textView)
+        textView.markerGestures = gestures
+
         let blankLines = BlankLineLayout()
         textView.blankLineLayout = blankLines
         (textView.textLayoutManager?.textContentManager as? NSTextContentStorage)?.delegate = blankLines

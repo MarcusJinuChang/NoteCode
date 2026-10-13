@@ -157,7 +157,8 @@ final class NoteEditor {
             text: page.textView.text ?? "",
             ink: page.ink,
             orientation: page.pageLayout.orientation,
-            pageCount: page.pageCount
+            pageCount: page.pageCount,
+            rendersMarkdown: rendersMarkdown
         ))
     }
 
@@ -258,7 +259,27 @@ final class NoteEditor {
     }
 
     func toggleBullet() {
-        perform { MarkdownFormatting.toggleBullet(in: $0, selection: $1) }
+        toggleList(.bullet)
+    }
+
+    func toggleList(_ style: MarkdownFormatting.ListStyle) {
+        perform { MarkdownFormatting.toggleList(style, in: $0, selection: $1) }
+    }
+
+    /// Whether the open note lays its Markdown markers out at zero width, set
+    /// by the text view's coordinator. The PDF and thumbnails need it: they
+    /// lay the note out again, and have to break its lines where the screen does.
+    @ObservationIgnored var rendersMarkdown = false
+
+    /// The formatting at the caret, which the hotbar lights up: inline markers
+    /// are never drawn in place, so this is where their state shows.
+    private(set) var caretFormatting = MarkdownFormatting.CaretFormatting()
+
+    /// Assigns only on a real change: this runs on every caret move and
+    /// keystroke, and an observable property invalidates its readers on any
+    /// assignment, equal value or not.
+    func setCaretFormatting(_ formatting: MarkdownFormatting.CaretFormatting) {
+        if caretFormatting != formatting { caretFormatting = formatting }
     }
 
     /// Starts a code block, and remembers its language for

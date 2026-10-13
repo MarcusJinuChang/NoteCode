@@ -36,6 +36,12 @@ struct NoteTitleMenu: View {
     /// an action that asks for a name.
     var onRename: (() -> Void)?
 
+    /// `nil` where the caller can't hide a note's Markdown markers. Offered
+    /// only for a note that still shows them (`Page.markdownLayout`): one
+    /// made before v3 with ink on it, whose layout is left as it was drawn
+    /// until the reader chooses.
+    var onHideMarkers: (() -> Void)?
+
     /// `nil` where the caller can't close the note, which hides Delete.
     var onDelete: (() -> Void)?
 
@@ -78,6 +84,11 @@ struct NoteTitleMenu: View {
         }
 
         Button("Duplicate", systemImage: "plus.square.on.square", action: onDuplicate)
+
+        if let onHideMarkers, page.markdownLayout != Page.renderedMarkdown {
+            Button("Hide Markdown Markers…", systemImage: "eye.slash", action: onHideMarkers)
+                .disabled(page.isTextLocked)
+        }
 
         Button("Get Info", systemImage: "info.circle", action: onGetInfo)
 

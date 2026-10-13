@@ -90,6 +90,11 @@ struct PageDetailView: View {
     @State private var showsInfo = false
     @State private var isNamingCustomSite = false
 
+    /// "Hide Markdown Markers…" in the title menu, asking first. An alert
+    /// can't hang off the menu's content, which is gone the moment an item
+    /// is chosen, so the menu raises this.
+    @State private var confirmsHidingMarkers = false
+
     /// "New Folder…" in the title menu's Move to Folder: the folder editor,
     /// which moves this note into the folder it makes.
     @State private var editingFolder: FolderEditing?
@@ -145,10 +150,18 @@ struct PageDetailView: View {
                 onNewFolder: { editingFolder = .new(moving: page) },
                 onGetInfo: { showsInfo = true },
                 onDuplicate: { page.duplicated(in: modelContext) },
+                onHideMarkers: { confirmsHidingMarkers = true },
                 onDelete: onDelete
             )
         }
         .toolbar { headerItems }
+        .alert("Hide Markdown Markers?", isPresented: $confirmsHidingMarkers) {
+            Button("Cancel", role: .cancel) {}
+            // Not an edit: the words are the same, only where they sit changes.
+            Button("Hide") { page.markdownLayout = Page.renderedMarkdown }
+        } message: {
+            Text("Headings and formatted text move into place once. Ink drawn before now may need moving.")
+        }
         .sheet(isPresented: $showsInfo) {
             NoteInfoView(page: page, pageCount: openPageCount)
         }
