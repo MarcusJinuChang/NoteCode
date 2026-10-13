@@ -86,8 +86,8 @@ a word (`InlineMarkupLookalikeTests`). `__init__` is still bold, as in CommonMar
   it serves links too. Easy to revisit if you'd rather use the system's.
 - **Numbers aren't renumbered** after an inserted item (`1. 2. 2. 3.`), as the
   brief says "next number".
-- **Return/Backspace/Tab rules apply in legacy notes where they make sense**
-  (Return, Tab, list Backspace not: Backspace's rule is about *hidden* markers).
+- **Return and Tab work in old notes too** (list continuation, nesting).
+  Backspace's rule is only for notes whose markers are hidden.
 - **Exit from bold at a line's end** is an invisible caret stop (arrow right
   moves from inside the bold to just past the markers); the hotbar's Bold shows
   which side you're on. Mid-line the arrow moves one visible place.
@@ -127,8 +127,8 @@ rendered note; Hide Markdown Markers… on a note with ink; the macOS app runnin
 1. New note. Type `# Hash tables`, Return, then `A **bold** word and `code``.
    Expect: the `#` and `**` vanish as you finish each; the words don't jump
    afterwards. Tap the heading: `#` appears in the margin and the text doesn't move.
-2. Hold Return/Backspace at the start of the heading: Backspace removes the
-   heading (one press).
+2. With the caret at the start of the heading's text, press Backspace once: the
+   heading becomes body text (the `#` and its space go together).
 3. Put the caret at the end of "bold" with the arrow keys. Bold lights up in the
    hotbar; typing stays bold. Press → : you're past the closing markers, typing
    is plain. At the end of a line, Return keeps the bold whole.
