@@ -817,9 +817,16 @@ Phase 9 of `docs/ui-design-v2-implementation.md` (12 Oct).
 - **Copy Block taps** (`Haptics.copyBlock`, a light impact), from the button,
   the edit menu and ⇧⌘C; a seam so a test can see it. The dock's snap tap
   was already there and is behind its setting; this one isn't.
-- **Pointer:** `.hoverEffect(.highlight)` on every hotbar and options-row
-  control and menu, and `isPointerInteractionEnabled` on the run, copy and
-  language buttons.
+- **Pointer:** `.hoverEffect(.highlight)` on the options-row controls and the
+  bar's menus, and `isPointerInteractionEnabled` on the run, copy and language
+  buttons. **Not on `HotbarButton`** (12 Oct): with it, a touch in the 8pt gap
+  between the options row and the bar ran the Text button, 18pt away, and the
+  three `HotbarUITests` reach tests failed from Phase 9 on (bisected: they pass
+  at the Phase 8 merge, and with only that effect removed). Moving the effect
+  onto the icon, or pinning it with `contentShape(.hoverEffect, .rect)`, didn't
+  help. The bar's undo, redo, mode and tool buttons therefore have no pointer
+  highlight; an `onHover` highlight would be the way to give them one. Seen
+  with the simulator's synthesized taps, not a finger or the Pencil.
 - **Print (⌘P)** opens the system's print dialog on the note's PDF
   (`NoteEditor.printNote`), the same PDF the share button makes.
 - **The note body no longer follows Dynamic Type.** It did: the text view's
