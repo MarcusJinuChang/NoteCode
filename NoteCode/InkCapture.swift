@@ -44,6 +44,12 @@ nonisolated enum InkCapture {
         /// differs from this.
         var shown: [ElementID: CGRect] = [:]
 
+        /// `InkContent.fingerprint` of each shape, text box and image on the
+        /// canvas when it was last shown or read. A frame doesn't tell these
+        /// apart from what the reader did to them: a shape recoloured, a text
+        /// box retyped, an image faded all leave it where it was.
+        var contents: [ElementID: Int] = [:]
+
         /// Strokes stored cut into pieces that the canvas still holds whole.
         ///
         /// Seamless shows a stroke across a break whole, so a stroke drawn
@@ -87,6 +93,7 @@ nonisolated enum InkCapture {
     static func capture(_ canvas: PaperMarkup, into state: State, layout: PageLayout, pageCount: Int) -> Result {
         // One walk of the canvas, with `for`: see `PageView.frames(of:)`.
         var frames: [ElementID: CGRect] = [:]
+        var contents: [ElementID: Int] = [:]
         var touched: [any Markup] = []
         var bottom: CGFloat?
         for element in canvas.subelements {
@@ -94,9 +101,19 @@ nonisolated enum InkCapture {
             let frame = element.renderFrame
             frames[id] = frame
             bottom = max(bottom ?? frame.maxY, frame.maxY)
-            // New, or moved by the lasso. Ink nobody touched keeps its stored
-            // copy, so it is never converted back from the screen.
+            let fingerprint = InkContent.fingerprint(of: element)
+            if let fingerprint {
+                contents[id] = fingerprint
+            }
+            // New, moved by the lasso, or (for the elements that have one)
+            // edited in place. Ink nobody touched keeps its stored copy, so
+            // it is never converted back from the screen. An element with no
+            // record of its content is taken as unchanged: ink is always
+            // shown with its record, so a missing one means a new element,
+            // which its missing frame already catches.
             if state.shown[id] != frame {
+                touched.append(element)
+            } else if let fingerprint, let known = state.contents[id], known != fingerprint {
                 touched.append(element)
             }
         }
@@ -104,6 +121,8 @@ nonisolated enum InkCapture {
         guard !touched.isEmpty || !gone.isEmpty else {
             return Result(state: state, changed: false, inkBottom: bottom)
         }
+        // Past this point something changed, and `contents` is what the next
+        // capture compares against.
 
         let print = PageLayout(orientation: layout.orientation, mode: .print)
         let regions = layout.inkRegions(pageCount: pageCount)
@@ -240,7 +259,7 @@ nonisolated enum InkCapture {
         }
 
         return Result(
-            state: State(ink: updated, shown: frames, wholeOnCanvas: whole, specked: specked, buried: buried),
+            state: State(ink: updated, shown: frames, contents: contents, wholeOnCanvas: whole, specked: specked, buried: buried),
             changed: true,
             inkBottom: bottom,
             reshow: reshow
@@ -258,6 +277,56 @@ nonisolated enum InkCapture {
             element.applyTransform(CGAffineTransform(translationX: 0, y: target - middle))
         }
         return element
+    }
+}
+
+// MARK: - Edits that don't move anything
+
+/// A number for what a shape, text box or image looks like apart from where it
+/// is, so `InkCapture` can tell that one was edited in place.
+///
+/// Strokes have none: PencilKit's are immutable once drawn, and the lasso only
+/// moves them. A text box is a `ShapeMarkup` carrying `attributedText`, so one
+/// hash covers shapes and text boxes alike.
+///
+/// Hashed rather than compared: the elements aren't `Equatable`, and keeping
+/// a copy of each to compare against would keep every photo twice. The hash
+/// is per process (`Hasher` is seeded), which is enough, since it lives in
+/// `InkCapture.State` and is never stored.
+nonisolated enum InkContent {
+
+    static func fingerprint(of element: any Markup) -> Int? {
+        if element is PKStroke {
+            return nil
+        }
+        var hasher = Hasher()
+        if let shape = element as? ShapeMarkup {
+            hasher.combine(shape.shape)
+            hasher.combine(components(of: shape.fillColor))
+            hasher.combine(components(of: shape.strokeColor))
+            hasher.combine(shape.lineWidth)
+            hasher.combine(shape.opacity)
+            hasher.combine(shape.startLineMarker)
+            hasher.combine(shape.endLineMarker)
+            hasher.combine(shape.attributedText)
+            hasher.combine(shape.frame)
+            hasher.combine(shape.rotation)
+            return hasher.finalize()
+        }
+        if let image = element as? ImageMarkup {
+            hasher.combine(image.opacity)
+            hasher.combine(image.contentsBounds)
+            hasher.combine(image.orientation)
+            hasher.combine(image.frame)
+            hasher.combine(image.rotation)
+            return hasher.finalize()
+        }
+        return nil
+    }
+
+    /// A colour as numbers, or `nil` for none. `CGColor` isn't hashable.
+    private static func components(of color: CGColor?) -> [CGFloat]? {
+        color?.components
     }
 }
 

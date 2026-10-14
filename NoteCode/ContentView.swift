@@ -106,6 +106,7 @@ struct ContentView: View {
                     HomeView(
                         onOpen: open,
                         onNewNote: newNote,
+                        onNewNoteFromTemplate: { newNote(from: $0) },
                         onShowList: showList,
                         onShowFolder: { ask(.showFolder($0.persistentModelID)) },
                         onSearch: { ask(.searchNotes) },
@@ -177,6 +178,19 @@ struct ContentView: View {
     /// of making one.
     private func newNote() {
         let page = Page.create(
+            orientation: newNoteOrientation,
+            in: NewNotes.folder(whileViewing: selection),
+            context: modelContext
+        )
+        newPage = page
+        openedSearch = NoteSearch("")
+        selection = page
+    }
+
+    /// A note from a template, made and opened the way ⌘N makes one.
+    private func newNote(from template: NoteTemplate) {
+        let page = Page.create(
+            from: template,
             orientation: newNoteOrientation,
             in: NewNotes.folder(whileViewing: selection),
             context: modelContext

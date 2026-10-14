@@ -855,8 +855,9 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
 
         // The canvas holds exactly the stored elements this mode shows now,
         // pieces included, and nothing is left to undo.
-        let frames = PageView.frames(of: canvas.markup)
+        let (frames, contents) = PageView.frames(of: canvas.markup)
         inkState.shown = frames
+        inkState.contents = contents
         inkState.wholeOnCanvas = []
         inkState.specked = []
         inkState.buried = [:]
@@ -864,6 +865,26 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         // The page count depends on the ink, and nothing about the text changed.
         textView.reapplyContentHeightAdjustment()
         textView.setNeedsLayout()
+    }
+
+    /// Runs one of PaperKit's inserts so what it adds lands on the page the
+    /// reader is looking at: see `InkInsertion.centre`.
+    ///
+    /// The insert tells the canvas's delegate, so it is captured, saved and
+    /// undone like any other change the reader makes.
+    func insertIntoInk(extent: CGSize, _ insert: () -> Void) {
+        let centre = InkInsertion.centre(
+            in: canvas.coveredPart,
+            regions: pageLayout.inkRegions(pageCount: pageCount),
+            extent: extent
+        )
+        canvas.inserting(around: centre, insert)
+    }
+
+    /// The tallest a photo is first shown: a share of what is on screen, and
+    /// of a page's body, so it fits one page.
+    var insertionMaxHeight: CGFloat {
+        min(canvas.coveredPart.height, pageLayout.bodyHeight) * InkInsertion.photoWidthShare
     }
 
     /// Takes what the reader just drew, erased or moved into the stored ink,
@@ -979,12 +1000,19 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// for a note of 500 strokes and 10.6s for 2,000 (simulator, 10
     /// October), after every stroke, and drawing stalled. With `for` it
     /// takes 4.7ms at 500.
-    private static func frames(of markup: PaperMarkup) -> [MarkupOrderedSet.ElementID: CGRect] {
+    ///
+    /// With each shape, text box and image's `InkContent` fingerprint, taken
+    /// in the same walk.
+    private static func frames(of markup: PaperMarkup) -> (frames: [MarkupOrderedSet.ElementID: CGRect], contents: [MarkupOrderedSet.ElementID: Int]) {
         var frames: [MarkupOrderedSet.ElementID: CGRect] = [:]
+        var contents: [MarkupOrderedSet.ElementID: Int] = [:]
         for element in markup.subelements {
             frames[element.elementID] = element.renderFrame
+            if let fingerprint = InkContent.fingerprint(of: element) {
+                contents[element.elementID] = fingerprint
+            }
         }
-        return frames
+        return (frames, contents)
     }
 
     /// `markup` without the overflow of strokes drawn across a page break,

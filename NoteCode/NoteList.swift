@@ -239,6 +239,8 @@ struct NoteList: View {
                 Menu {
                     newNoteButtons(in: newNoteFolder)
                     Divider()
+                    templateMenu(in: newNoteFolder)
+                    Divider()
                     Button("New Folder", systemImage: "folder.badge.plus") {
                         editingFolder = .new(moving: nil)
                     }
@@ -531,6 +533,23 @@ struct NoteList: View {
         }
     }
 
+    /// From Template ›: a note that starts with its headings, in the open
+    /// note's folder like the + button's tap.
+    private func templateMenu(in folder: Folder?) -> some View {
+        Menu {
+            ForEach(NoteTemplate.allCases) { template in
+                Button {
+                    addPage(from: template, in: folder)
+                } label: {
+                    Label(template.title, systemImage: template.systemImage)
+                }
+            }
+        } label: {
+            Label("From Template", systemImage: "doc.badge.plus")
+        }
+        .accessibilityIdentifier("fromTemplateMenu")
+    }
+
     /// The note's long-press menu is the title menu: the same view, so the
     /// same rows in the same order. The list renames through the name alert,
     /// since it has no title to edit in place, and deletes without asking, as
@@ -634,6 +653,17 @@ struct NoteList: View {
                 closedFolders.remove(folder.persistentModelID)
             }
             return Page.create(orientation: orientation, in: folder, context: modelContext)
+        }
+        onNewPage(page)
+        selection = page
+    }
+
+    private func addPage(from template: NoteTemplate, in folder: Folder?) {
+        let page: Page = withAnimation {
+            if let folder {
+                closedFolders.remove(folder.persistentModelID)
+            }
+            return Page.create(from: template, orientation: newNoteOrientation, in: folder, context: modelContext)
         }
         onNewPage(page)
         selection = page

@@ -293,6 +293,25 @@ final class DrawingCanvas: UIView {
     /// The part of the note the canvas was last told to cover.
     private var covered: CGRect = .zero
 
+    /// The part of the note on screen, in note coordinates.
+    var coveredPart: CGRect { covered }
+
+    /// Runs one of PaperKit's inserts so what it adds lands around `centre`.
+    ///
+    /// PaperKit puts new content at the middle of the visible frame it has
+    /// (probed in `InkInsertTests`, which is also where it says that the
+    /// insert tells the delegate once, registers one undo and selects what it
+    /// added). The page may want it somewhere else — in a page's body
+    /// rather than in a margin print layout hides — so the frame is moved
+    /// for the length of the insert and put back. Nothing else reads it in
+    /// between; the page sets it on its next layout pass in any case.
+    func inserting(around centre: CGPoint, _ insert: () -> Void) {
+        let real = controller.contentVisibleFrame
+        controller.contentVisibleFrame = real.offsetBy(dx: centre.x - real.midX, dy: centre.y - real.midY)
+        insert()
+        controller.contentVisibleFrame = real
+    }
+
     /// Covers `visible`, part of the note, and draws the ink that falls there.
     ///
     /// The canvas used to be as tall as the note. PencilKit sizes the buffer a

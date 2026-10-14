@@ -68,7 +68,7 @@ final class InkColorPicker: NSObject {
 
     /// The controller to present from: the one hosting the anchor, or
     /// whatever it's already showing — a popover the button is inside.
-    private static func topController(above view: UIView) -> UIViewController? {
+    static func topController(above view: UIView) -> UIViewController? {
         var responder: UIResponder? = view
         while let current = responder, !(current is UIViewController) {
             responder = current.next
