@@ -25,6 +25,9 @@ struct HomeView: View {
     /// Makes a note from a template and opens it.
     var onNewNoteFromTemplate: (NoteTemplate) -> Void = { _ in }
 
+    /// Asks for files to import as notes.
+    var onImport: () -> Void = {}
+
     /// Brings the note list in over Home ("Show All").
     var onShowList: () -> Void
 
@@ -125,7 +128,6 @@ struct HomeView: View {
                     newFolderTile
                 }
 
-                // Import (phase 7) joins this row when it exists.
                 HStack(spacing: 12) {
                     Button(action: onNewNote) {
                         Label("New Note", systemImage: "plus")
@@ -139,6 +141,7 @@ struct HomeView: View {
                     .accessibilityIdentifier("homeNewNote")
 
                     fromTemplate
+                    importButton
                 }
                 .padding(.top, 26)
             }
@@ -383,10 +386,24 @@ struct HomeView: View {
         .accessibilityIdentifier("homeFromTemplate")
     }
 
+    /// Import…: notes from Files, as written, or a source file as a code block.
+    private var importButton: some View {
+        Button(action: onImport) {
+            Label("Import", systemImage: "square.and.arrow.down")
+                .font(.headline)
+                .foregroundStyle(Color.accentColor)
+                .padding(.horizontal, 22)
+                .frame(minHeight: 48)
+                .overlay { Capsule().strokeBorder(Color.accentColor, lineWidth: 1.5) }
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("homeImport")
+    }
+
     // MARK: Empty
 
     /// No notes at all: the mark, an invitation, and the ways to start.
-    /// Import joins the buttons when it exists.
     private var empty: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -417,6 +434,9 @@ struct HomeView: View {
                 .accessibilityIdentifier("homeEmptyNewNote")
 
                 fromTemplate
+                    .padding(.top, 14)
+
+                importButton
                     .padding(.top, 14)
 
                 Button("Open the Welcome Note", action: onOpenWelcomeNote)

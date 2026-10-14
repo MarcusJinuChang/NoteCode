@@ -297,7 +297,7 @@ struct PageDetailView: View {
         }
 
         ToolbarItem(placement: .primaryAction) {
-            NoteShareButton(editor: editor, title: page.title)
+            NoteShareButton(editor: editor, title: page.title, fallbackText: page.content)
                 .tint(.primary)
         }
 #endif
