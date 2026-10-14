@@ -22,6 +22,9 @@ struct HomeView: View {
     /// Makes a note and opens it, the way ⌘N does.
     var onNewNote: () -> Void
 
+    /// Makes a note from a template and opens it.
+    var onNewNoteFromTemplate: (NoteTemplate) -> Void = { _ in }
+
     /// Brings the note list in over Home ("Show All").
     var onShowList: () -> Void
 
@@ -122,8 +125,7 @@ struct HomeView: View {
                     newFolderTile
                 }
 
-                // From Template (phase 5) and Import (phase 7) join this row
-                // when they exist.
+                // Import (phase 7) joins this row when it exists.
                 HStack(spacing: 12) {
                     Button(action: onNewNote) {
                         Label("New Note", systemImage: "plus")
@@ -135,6 +137,8 @@ struct HomeView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("homeNewNote")
+
+                    fromTemplate
                 }
                 .padding(.top, 26)
             }
@@ -356,10 +360,33 @@ struct HomeView: View {
         .accessibilityIdentifier("homeNewFolder")
     }
 
+    /// From Template ▾: Lecture, Problem and Lab.
+    private var fromTemplate: some View {
+        Menu {
+            ForEach(NoteTemplate.allCases) { template in
+                Button {
+                    onNewNoteFromTemplate(template)
+                } label: {
+                    Label(template.title, systemImage: template.systemImage)
+                }
+            }
+        } label: {
+            Label("From Template", systemImage: "doc.badge.plus")
+                .font(.headline)
+                .foregroundStyle(Color.accentColor)
+                .padding(.horizontal, 22)
+                .frame(minHeight: 48)
+                .overlay { Capsule().strokeBorder(Color.accentColor, lineWidth: 1.5) }
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("homeFromTemplate")
+    }
+
     // MARK: Empty
 
-    /// No notes at all: the mark, an invitation, and the two ways to start.
-    /// From Template and Import join the buttons when they exist.
+    /// No notes at all: the mark, an invitation, and the ways to start.
+    /// Import joins the buttons when it exists.
     private var empty: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -388,6 +415,9 @@ struct HomeView: View {
                 .buttonStyle(.plain)
                 .padding(.top, 32)
                 .accessibilityIdentifier("homeEmptyNewNote")
+
+                fromTemplate
+                    .padding(.top, 14)
 
                 Button("Open the Welcome Note", action: onOpenWelcomeNote)
                     .font(.body)

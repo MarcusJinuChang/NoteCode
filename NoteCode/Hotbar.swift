@@ -52,6 +52,9 @@ struct Hotbar: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// Insert's popover, which points at its button.
+    @State private var inserter = InkInserter()
+
     private var axis: Axis.Set {
         dock.isVertical ? .vertical : .horizontal
     }
@@ -230,6 +233,13 @@ struct Hotbar: View {
     @ViewBuilder
     private var inkTools: some View {
         InkToolButtons(editor: editor, isVertical: dock.isVertical)
+
+        // A popover rather than a tool: shapes, a text box and a photo are
+        // put on the page, and the lasso is the tool that moves them.
+        button("Insert", "plus.circle", isSelected: inserter.isPresented) {
+            inserter.present(for: editor)
+        }
+        .background(InkInserter.Anchor(inserter: inserter))
         divider
 
         // Off, a finger scrolls and selects instead of drawing. Worth a

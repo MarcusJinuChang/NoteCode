@@ -21,6 +21,16 @@ pinch zoom, the note page and its hotbar, and a PaperKit canvas that a finger
 or the Pencil draws on, with ink undo of its own, saved with the note and
 drawn at the screen's density. 25 pull requests, all merged.
 
+- **UI design v3, phase 5: insert and templates** (13 Oct, branch
+  `claude/v3-phase-5-ink-paper-templates`, off `main`, not merged): ink mode's
+  hotbar has Insert, PaperKit's own popover of shapes, arrows and a text box
+  plus Photo… (downscaled to 2 pixels a point of page width), placed at the
+  middle of the page on screen and kept like any ink (saved, undone, moved with
+  its page between modes, printed); edits to a shape or text box that don't move
+  it are now saved too, which `InkCapture` missed. Lecture, Problem and Lab
+  templates from + › From Template and Home, their code block in the folder's
+  usual language. **Paper (dots and grid) was dropped from this phase and
+  postponed until after v3.** Builds for iPad and Mac.
 - **UI design v3, phase 4: code** (13 Oct, branch `claude/v3-phase-4-code`,
   off phase 3's branch, not merged): C, JavaScript, Rust, Go and SQL join C++,
   Java and Python (SQL keeps Copy only; Compiler Explorer runs C, Rust and Go

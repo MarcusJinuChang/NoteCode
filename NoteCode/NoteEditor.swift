@@ -8,6 +8,7 @@
 #if canImport(UIKit)
 
 import Observation
+import PaperKit
 import UIKit
 
 /// A note page's editing state, shared by the hotbar and the editor.
@@ -137,6 +138,34 @@ final class NoteEditor {
     /// nothing on screen shows it.
     var pageCount: Int? {
         page?.pageCount
+    }
+
+    // MARK: Insert
+
+    /// The page's width in points, which a photo's size and resolution are
+    /// measured against. `nil` until the page exists.
+    var insertionPageWidth: CGFloat? {
+        page?.pageLayout.pageSize.width
+    }
+
+    /// The tallest a photo is first shown. See `PageView.insertionMaxHeight`.
+    var insertionMaxHeight: CGFloat {
+        page?.insertionMaxHeight ?? 0
+    }
+
+    /// Runs one of PaperKit's inserts at the middle of the page on screen, and
+    /// hands the reader the lasso, so what was added can be moved and resized
+    /// at once. Ink mode only; `false` if there was nothing to insert into.
+    ///
+    /// The lasso is a choice made without a Pencil to hand: PaperKit selects
+    /// what it inserts, but whether that selection takes a drag while the pen
+    /// is the tool has not been seen on a device.
+    @discardableResult
+    func insertIntoInk(extent: CGSize, _ insert: (PaperMarkupViewController) -> Void) -> Bool {
+        guard mode == .ink, let page, let controller = canvas?.controller else { return false }
+        page.insertIntoInk(extent: extent) { insert(controller) }
+        inkTool.kind = .lasso
+        return true
     }
 
     /// Takes in what the reader drew that is still on its way into the
