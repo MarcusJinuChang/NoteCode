@@ -306,6 +306,21 @@ extension MarkdownFormatting {
         /// 1 to 6, or 0 for body text.
         var headingLevel = 0
         var list: ListStyle?
+        /// What the caret is in, which decides what the text options row
+        /// offers after the size stepper.
+        var block = Block.paragraph
+
+        /// The kinds of place the row has its own controls for.
+        enum Block: Equatable, Sendable {
+            /// A paragraph or a heading: Body, H1 to H3, Link.
+            case paragraph
+            /// A list item: the list kinds, outdent and indent.
+            case listItem
+            /// A code block. `kind` is `nil` for a tag the app doesn't know
+            /// (it keeps its tag in the menu, ticking nothing). An unclosed
+            /// block runs to the end of the note, so nothing can follow it.
+            case code(label: String, kind: CodeBlockKind?, isClosed: Bool)
+        }
     }
 
     /// The caret's formatting. Inline markers are never drawn in place, so
@@ -317,7 +332,18 @@ extension MarkdownFormatting {
     /// A selection has a style when it lies wholly inside one span of it.
     static func formatting(at selection: NSRange, in text: NSString, codeRanges: [CodeRange]) -> CaretFormatting {
         var state = CaretFormatting()
-        guard selection.location <= text.length, !isCode(selection.location, in: codeRanges) else { return state }
+        if let code = codeRanges.first(where: { $0.contains(NSRange(location: selection.location, length: 0)) }) {
+            let kind: CodeBlockKind? = if let language = code.language {
+                .language(language)
+            } else if code.isOutput {
+                .output
+            } else {
+                code.tag.isEmpty ? .plain : nil
+            }
+            state.block = .code(label: FenceTag.label(language: code.language, tag: code.tag), kind: kind, isClosed: code.isClosed)
+            return state
+        }
+        guard selection.location <= text.length else { return state }
 
         let line = contentLine(containing: selection.location, in: text)
         guard line.length > 0 else { return state }
@@ -331,6 +357,7 @@ extension MarkdownFormatting {
         case .checkbox?: state.list = .checklist
         case nil:        break
         }
+        if state.list != nil { state.block = .listItem }
 
         for inline in block.inlines where inline.kind != .text {
             let whole = shifted(NSRange(inline.range, in: lineText), by: line.location)

@@ -199,6 +199,9 @@ extension EnvironmentValues {
 /// the page.
 private struct HotbarTarget: ViewModifier {
     var isHighlighted: Bool
+    /// A cell's length along the row where 34pt is too short for its words
+    /// ("Body", "+ Output"); `nil` for the pitch.
+    var along: CGFloat?
     @Environment(\.optionsRow) private var row
 
     private var highlight: some View {
@@ -207,15 +210,16 @@ private struct HotbarTarget: ViewModifier {
 
     func body(content: Content) -> some View {
         if let row {
+            let length = along ?? OptionsRowStyle.pitch
             content
                 .frame(
-                    width: row.isVertical ? OptionsRowStyle.thickness : OptionsRowStyle.pitch,
-                    height: row.isVertical ? OptionsRowStyle.pitch : OptionsRowStyle.thickness
+                    width: row.isVertical ? OptionsRowStyle.thickness : length,
+                    height: row.isVertical ? length : OptionsRowStyle.thickness
                 )
                 .background { highlight }
                 .frame(
-                    width: row.isVertical ? row.controlThickness : OptionsRowStyle.pitch,
-                    height: row.isVertical ? OptionsRowStyle.pitch : row.controlThickness,
+                    width: row.isVertical ? row.controlThickness : length,
+                    height: row.isVertical ? length : row.controlThickness,
                     alignment: row.faceAlignment
                 )
                 .contentShape(.rect)
@@ -252,8 +256,8 @@ private struct RowGroupBackground: ViewModifier {
 
 extension View {
     /// - Parameter isHighlighted: draws the selection circle behind the face.
-    func hotbarTarget(isHighlighted: Bool = false) -> some View {
-        modifier(HotbarTarget(isHighlighted: isHighlighted))
+    func hotbarTarget(isHighlighted: Bool = false, along: CGFloat? = nil) -> some View {
+        modifier(HotbarTarget(isHighlighted: isHighlighted, along: along))
     }
 }
 

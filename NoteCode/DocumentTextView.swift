@@ -61,6 +61,14 @@ struct DocumentTextView: UIViewRepresentable {
     /// Settings › Code: indent width, the code-keys row, line numbers.
     var codeSettings = CodeEditorSettings()
 
+    /// The note's text size (`Page.textSize`), which sets every font the
+    /// note is laid out in.
+    var typography = NoteTypography.standard
+
+    /// Told whenever the page scrolls, with the place it is scrolled to, for
+    /// the page badge. Optional, like `editor`.
+    var onScrolled: ((NoteMemory.Place) -> Void)? = nil
+
     // MARK: UIViewRepresentable
 
     func makeUIView(context: Context) -> PageView {
@@ -73,6 +81,7 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.attachOverlay(to: textView)
         context.coordinator.observeAppearance(of: textView)
         context.coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
+        context.coordinator.setTypography(typography, in: textView)
         codeSettings.apply(to: context.coordinator, in: textView)
         textView.text = text
         context.coordinator.invalidateStyling()
@@ -101,6 +110,7 @@ struct DocumentTextView: UIViewRepresentable {
             page.restore(toPage: resumingAtPage)
         }
         page.onReadingPlaceChanged = onReadingPlaceChanged
+        page.onScrolled = onScrolled
         return page
     }
 
@@ -109,6 +119,15 @@ struct DocumentTextView: UIViewRepresentable {
         page.pageLayout = pageLayout
         page.keyboardClearance = keyboardClearance
         page.onReadingPlaceChanged = onReadingPlaceChanged
+        page.onScrolled = onScrolled
+
+        // A new text size re-wraps the whole note, so the page keeps the
+        // reader on the line they were reading, as a new orientation does.
+        // The flag and the size are compared first: this runs on every
+        // keystroke.
+        if typography != context.coordinator.typography {
+            page.reflow { context.coordinator.setTypography(typography, in: textView) }
+        }
 
         // The struct is recreated on every SwiftUI render but the Coordinator
         // persists, so hand it the current binding or it will keep writing
@@ -198,6 +217,11 @@ struct DocumentTextView: UIViewRepresentable {
         /// Whether the note lays its Markdown markers out at zero width.
         /// See `MarkdownLayout`. Set through `setRendersMarkdown`.
         private(set) var rendersMarkdown = false
+
+        /// The size the note is styled in. A value the coordinator owns, not
+        /// a global: a PDF or a thumbnail made while another note is open
+        /// has a coordinator of its own. Set through `setTypography`.
+        private(set) var typography = NoteTypography.standard
 
         /// The runs `MarkdownLayout` collapses, worked out once per edit for
         /// the content storage delegate, which asks once per paragraph.
@@ -355,6 +379,29 @@ struct DocumentTextView: UIViewRepresentable {
             }
         }
 
+        /// Sets the note's text size, restyling the whole note in it.
+        ///
+        /// Restyled from scratch (`invalidateStyling`): a block's signature
+        /// says nothing about its font. The styler writes only where the
+        /// result differs, so this is one edit of the storage's attributes and
+        /// one layout. `UITextView.font` is deliberately not set: that
+        /// replaces every run's font with one, which the restyle would then
+        /// undo with a second layout.
+        func setTypography(_ new: NoteTypography, in textView: UITextView) {
+            guard new != typography else { return }
+            typography = new
+            invalidateStyling()
+            if textView.textStorage.length > 0 {
+                restyle(textView)
+            } else {
+                let source = (textView.text ?? "").nativeUTF8
+                DocumentStyler.applyTypingAttributes(
+                    to: textView, source: source, blocks: documentCache.blocks(for: source),
+                    rendered: rendersMarkdown, typography: typography
+                )
+            }
+        }
+
         /// The runs to collapse in `storage`, worked out once per edit.
         func markerRuns(in storage: NSTextStorage) -> [MarkdownLayout.Run] {
             if let layoutMarkerRuns { return layoutMarkerRuns }
@@ -464,9 +511,12 @@ struct DocumentTextView: UIViewRepresentable {
                 source: source,
                 blocks: blocks,
                 previousSignatures: styleSignatures,
-                rendered: rendersMarkdown
+                rendered: rendersMarkdown,
+                typography: typography
             )
-            DocumentStyler.applyTypingAttributes(to: textView, source: source, blocks: blocks, rendered: rendersMarkdown)
+            DocumentStyler.applyTypingAttributes(
+                to: textView, source: source, blocks: blocks, rendered: rendersMarkdown, typography: typography
+            )
             // Before the overlay places its buttons: an edit can add a block or
             // move the one the caret is in.
             refreshFenceVisibility(in: textView, repositioning: false)
@@ -718,7 +768,9 @@ struct DocumentTextView: UIViewRepresentable {
             // rather than re-parsing.
             let source = (textView.text ?? "").nativeUTF8
             let blocks = documentCache.blocks(for: source)
-            DocumentStyler.applyTypingAttributes(to: textView, source: source, blocks: blocks, rendered: rendersMarkdown)
+            DocumentStyler.applyTypingAttributes(
+                to: textView, source: source, blocks: blocks, rendered: rendersMarkdown, typography: typography
+            )
             applyRewritingPolicy(to: textView, source: source, blocks: blocks)
             updateCodeSelectionHighlight(in: textView)
             refreshFenceVisibility(in: textView)
@@ -837,19 +889,22 @@ struct DocumentTextView: UIViewRepresentable {
 
         /// ⇧Tab, and whether it has anything to do.
         func outdentListItems(in textView: UITextView) {
-            guard let edit = outdentEdit(in: textView) else { return }
+            guard let edit = indentEdit(outdent: true, in: textView) else { return }
             apply(edit, to: textView)
         }
 
         func canOutdentListItems(in textView: UITextView) -> Bool {
-            textView.isEditable && outdentEdit(in: textView) != nil
+            textView.isEditable && indentEdit(outdent: true, in: textView) != nil
         }
 
-        private func outdentEdit(in textView: UITextView) -> TextEdit? {
+        /// One level in or out at the caret: the code lines' rule in a code
+        /// block, the list item's elsewhere. Tab, ⇧Tab and the text options
+        /// row's ⇥ and ⇤ all ask here.
+        func indentEdit(outdent: Bool, in textView: UITextView) -> TextEdit? {
             if let edit = CodeIndent.indentEdit(
                 in: textView.textStorage.mutableString,
                 selection: textView.selectedRange,
-                outdent: true,
+                outdent: outdent,
                 codeRanges: codeRanges(in: textView.textStorage),
                 width: indentWidth
             ) {
@@ -858,7 +913,7 @@ struct DocumentTextView: UIViewRepresentable {
             return MarkdownFormatting.indent(
                 in: textView.textStorage.mutableString,
                 selection: textView.selectedRange,
-                outdent: true,
+                outdent: outdent,
                 codeRanges: codeRanges(in: textView.textStorage)
             )
         }
@@ -1052,7 +1107,7 @@ struct DocumentTextView: UIViewRepresentable {
 
     /// Builds the text view. Kept separate from `makeUIView` so tests can
     /// inspect the configuration without standing up a SwiftUI hierarchy.
-    static func makeConfiguredTextView() -> DocumentUITextView {
+    static func makeConfiguredTextView(typography: NoteTypography = .standard) -> DocumentUITextView {
         // Opt into TextKit 2 explicitly.
         //
         // Careful: reading the legacy `.layoutManager` property anywhere on this
@@ -1094,8 +1149,8 @@ struct DocumentTextView: UIViewRepresentable {
 
         // Prose is the document's default; code styling arrives with fence
         // rendering. Not Dynamic Type: the body's size is part of the page's
-        // pagination (see `DocumentStyler.proseFont`).
-        textView.font = DocumentStyler.proseFont
+        // pagination (see `NoteTypography`).
+        textView.font = typography.prose
         textView.adjustsFontForContentSizeCategory = false
 
         // All the text-rewriting traits live in TextRewritingPolicy, so

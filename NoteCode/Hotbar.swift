@@ -25,6 +25,10 @@ struct Hotbar: View {
     /// decides which edge that is.
     var onDrop: (DragGesture.Value) -> Void
 
+    /// Whether a sheet covers the page, which takes the text options row away
+    /// (the page decides: only it knows which sheets it has).
+    var textRowHidden = false
+
     /// How far the bar has been dragged from its dock.
     ///
     /// Gesture state rather than the page's own, so a drag that is cancelled
@@ -95,6 +99,7 @@ struct Hotbar: View {
             BesideBar(dock: dock, gap: Self.optionsGap) { optionsRow }
         }
         .animation(.snappy, value: showsOptions)
+        .animation(.snappy, value: showsTextRow)
         .offset(dragOffset)
     }
 
@@ -105,19 +110,33 @@ struct Hotbar: View {
         editor.mode == .ink && editor.inkTool.hasOptions
     }
 
-    /// The selected ink tool's options, 8pt from the bar on the page's side
-    /// and centred along it.
+    /// Whether the text options row is out: in text mode, for a note whose
+    /// text can be changed, with nothing over the page.
+    private var showsTextRow: Bool {
+        editor.mode == .text && !editor.isTextLocked && !textRowHidden
+    }
+
+    /// The row beside the bar, 8pt from it on the page's side and centred
+    /// along it: the selected ink tool's options in ink mode, the text size
+    /// and the paragraph's controls in text mode.
     ///
     /// `fixedSize` because an overlay is proposed the bar's size, and the
     /// pen's row is longer than a side-docked bar. It slides out from the
     /// bar, or under Reduce Motion fades.
     @ViewBuilder
     private var optionsRow: some View {
+        let style = OptionsRowStyle(isVertical: dock.isVertical, reach: dock.pageEdge)
+        let transition: AnyTransition = reduceMotion ? .opacity : .move(edge: dock.barEdge).combined(with: .opacity)
         if showsOptions {
             InkOptionsRow(editor: editor, isVertical: dock.isVertical)
-                .environment(\.optionsRow, OptionsRowStyle(isVertical: dock.isVertical, reach: dock.pageEdge))
+                .environment(\.optionsRow, style)
                 .fixedSize()
-                .transition(reduceMotion ? .opacity : .move(edge: dock.barEdge).combined(with: .opacity))
+                .transition(transition)
+        } else if showsTextRow {
+            TextOptionsRow(editor: editor, isVertical: dock.isVertical)
+                .environment(\.optionsRow, style)
+                .fixedSize()
+                .transition(transition)
         }
     }
 
@@ -421,7 +440,7 @@ private extension HotbarDock {
 /// Makes a menu look like the buttons beside it. A `Menu` tints its label
 /// with the accent colour by default, which reads as "selected" in a bar
 /// where tint means exactly that.
-private struct HotbarMenuStyle: ViewModifier {
+struct HotbarMenuStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
             .menuStyle(.button)

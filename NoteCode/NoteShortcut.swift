@@ -28,6 +28,7 @@ enum NoteShortcut: CaseIterable, Sendable {
     case pen, highlighter, eraser, lasso
     case thinner, thicker
     case seamless, compressed, printLayout
+    case outline, biggerText, smallerText
     case find, print
     case newNote, newFolder, searchNotes, noteList, home
     case settings
@@ -58,6 +59,9 @@ enum NoteShortcut: CaseIterable, Sendable {
         case .seamless:      "Seamless"
         case .compressed:    "Compressed"
         case .printLayout:   "Print Layout"
+        case .outline:       "Outline"
+        case .biggerText:    "Bigger Text"
+        case .smallerText:   "Smaller Text"
         case .find:          "Find in Note"
         case .print:         "Print…"
         case .newNote:       "New Note"
@@ -94,6 +98,9 @@ enum NoteShortcut: CaseIterable, Sendable {
         case .seamless:      "1"
         case .compressed:    "2"
         case .printLayout:   "3"
+        case .outline:       "o"
+        case .biggerText:    "+"
+        case .smallerText:   "-"
         case .find:          "f"
         case .print:         "p"
         case .newNote:       "n"
@@ -108,14 +115,14 @@ enum NoteShortcut: CaseIterable, Sendable {
     var modifiers: EventModifiers {
         switch self {
         case .undo, .bold, .italic, .inlineCode, .runBlock, .seamless, .compressed, .printLayout,
-             .find, .print, .newNote, .settings:
+             .find, .print, .newNote, .settings, .biggerText, .smallerText:
             .command
         case .redo, .strikethrough, .bulletedList, .codeBlock, .copyBlock, .toggleMode,
              .newFolder, .searchNotes, .home:
             [.command, .shift]
         case .heading1, .heading2, .heading3, .body:
             [.command, .option]
-        case .noteList:
+        case .noteList, .outline:
             [.command, .control]
         case .pen, .highlighter, .eraser, .lasso, .thinner, .thicker:
             []

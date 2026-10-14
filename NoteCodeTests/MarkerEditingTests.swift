@@ -352,7 +352,10 @@ struct ListEditingTests {
         #expect(state("3. ite|m").list == .numbered)
         #expect(state("- [ ] ite|m").list == .checklist)
         #expect(state("plain| text") == MarkdownFormatting.CaretFormatting())
-        #expect(state("```\n**x|**\n```") == MarkdownFormatting.CaretFormatting(), "code has no formatting")
+        // Code has no inline formatting, though the row now knows it is in code.
+        var inCode = MarkdownFormatting.CaretFormatting()
+        inCode.block = .code(label: "Plain Text", kind: .plain, isClosed: true)
+        #expect(state("```\n**x|**\n```") == inCode, "code has no formatting")
         #expect(!state("**a** b *c|*").bold)
     }
 

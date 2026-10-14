@@ -188,7 +188,8 @@ final class NoteEditor {
             orientation: page.pageLayout.orientation,
             pageCount: page.pageCount,
             rendersMarkdown: rendersMarkdown,
-            lineNumbers: showsLineNumbers
+            lineNumbers: showsLineNumbers,
+            typography: typography
         ))
     }
 
@@ -349,9 +350,14 @@ final class NoteEditor {
     /// page, exactly as if it had been typed. Assigning `.text` would do
     /// neither, and would throw away the selection besides.
     private func perform(_ makeEdit: (String, NSRange) -> TextEdit) {
+        perform { Optional(makeEdit($0, $1)) }
+    }
+
+    /// `perform` for an edit that may have nothing to do.
+    private func perform(_ makeEdit: (String, NSRange) -> TextEdit?) {
         guard mode == .text, !isTextLocked, let textView else { return }
 
-        let edit = makeEdit(textView.text ?? "", textView.selectedRange)
+        guard let edit = makeEdit(textView.text ?? "", textView.selectedRange) else { return }
 
         guard let start = textView.position(from: textView.beginningOfDocument, offset: edit.range.location),
               let end = textView.position(from: start, offset: edit.range.length),
@@ -367,6 +373,202 @@ final class NoteEditor {
         isFormatting = false
         textView.selectedRange = edit.selection
         refreshUndoState()
+    }
+
+    // MARK: The text options row
+
+    /// The code blocks, for the edits that need to know where one is. The
+    /// text view's coordinator sets it: it owns the parse.
+    @ObservationIgnored var codeRanges: (() -> [CodeRange])?
+
+    /// Indents or outdents the list item or code lines at the caret, as Tab
+    /// and ⇧Tab do. Set by the coordinator, which owns both rules.
+    @ObservationIgnored var indentAtCaret: ((_ outdent: Bool) -> Void)?
+
+    /// Points the code block at the caret at another language, as its
+    /// language button does.
+    @ObservationIgnored var retagBlockAtCaret: ((CodeBlockKind) -> Void)?
+
+    /// ⇥ and ⇤. Text mode, unlocked.
+    func indent(outdent: Bool) {
+        guard mode == .text, !isTextLocked else { return }
+        indentAtCaret?(outdent)
+        refreshUndoState()
+    }
+
+    /// The language menu's pick for the block the caret is in.
+    func setCodeBlockKind(_ kind: CodeBlockKind) {
+        guard mode == .text, !isTextLocked else { return }
+        retagBlockAtCaret?(kind)
+        refreshUndoState()
+    }
+
+    /// + Output: an empty output block under the code block the caret is in.
+    func addOutputBlock() {
+        perform { [codeRanges] text, selection in
+            MarkdownFormatting.insertOutputBlock(
+                afterBlockAt: selection.location, in: text as NSString, codeRanges: codeRanges?() ?? []
+            )
+        }
+    }
+
+    /// What Link will wrap, kept while the address is asked for: the alert
+    /// takes the keyboard, and with it the text view's selection is not
+    /// something to read back afterwards. `nil` when no address is being
+    /// asked for.
+    private(set) var linkTarget: NSRange?
+
+    /// Whether Link has anything to wrap here: not in code, not across a
+    /// line, not inside a link that is already there.
+    var canLink: Bool {
+        guard mode == .text, !isTextLocked, let textView else { return false }
+        return MarkdownFormatting.linkTarget(
+            in: textView.textStorage.mutableString, selection: textView.selectedRange, codeRanges: codeRanges?() ?? []
+        ) != nil
+    }
+
+    /// Link: asks for the address (`PageDetailView`'s alert), for the
+    /// selection, or the word at the caret, or a placeholder.
+    func beginLink() {
+        guard mode == .text, !isTextLocked, let textView,
+              let target = MarkdownFormatting.linkTarget(
+                  in: textView.textStorage.mutableString,
+                  selection: textView.selectedRange,
+                  codeRanges: codeRanges?() ?? []
+              )
+        else { return }
+        linkTarget = target
+    }
+
+    func cancelLink() {
+        linkTarget = nil
+    }
+
+    /// The alert's Add: wraps what was asked about in `[text](address)`. An
+    /// address with nothing in it adds nothing.
+    func finishLink(address typed: String) {
+        defer { linkTarget = nil }
+        guard let target = linkTarget, let address = MarkdownFormatting.linkAddress(from: typed) else { return }
+        perform { text, _ in
+            MarkdownFormatting.link(address: address, over: target, in: text as NSString)
+        }
+    }
+
+    // MARK: Text size
+
+    /// The size the stepper shows: the reader's latest tap, which the note
+    /// catches up to once they stop (`settleDelay`) and, for a note with ink,
+    /// say yes.
+    private(set) var textSize = NoteTypography.defaultSize
+
+    /// The size the note is laid out in now, from `Page.textSize`.
+    private(set) var appliedTextSize = NoteTypography.defaultSize
+
+    /// The note's typography as it is now, for a PDF made of it.
+    var typography: NoteTypography { NoteTypography(bodySize: appliedTextSize) }
+
+    /// A size waiting for the reader's yes, because the note has ink: the
+    /// text re-flows and ink stays where it was drawn. `nil` unless the alert
+    /// is up.
+    private(set) var sizeAwaitingConfirmation: Int?
+
+    /// Whether the reader has said yes since this note was opened ("once
+    /// each time the note is opened"). The editor is made per note.
+    @ObservationIgnored private var inkQuestionAnswered = false
+
+    /// Writes the size into the note (`Page.textSize`). Set by the page.
+    /// Not an edit: the page leaves `modifiedAt` and the undo stack alone.
+    @ObservationIgnored var commitTextSize: ((Int?) -> Void)?
+
+    /// How long the stepper waits after a tap before the note re-flows, so a
+    /// run of taps lays the note out once.
+    @ObservationIgnored var settleDelay = Duration.milliseconds(300)
+    @ObservationIgnored private var settleTask: Task<Void, Never>?
+
+    /// Follows the note's stored size (`Page.textSize`), as the page opens
+    /// and whenever something else changes it. A tap in flight wins until it
+    /// settles.
+    func syncTextSize(to stored: Int?) {
+        let size = NoteTypography(bodySize: stored).bodySize
+        appliedTextSize = size
+        if settleTask == nil, sizeAwaitingConfirmation == nil, textSize != size { textSize = size }
+    }
+
+    /// + and −: one step bigger or smaller. Text mode only, and not for a
+    /// locked note, whose text is read and not changed.
+    func stepTextSize(by steps: Int) {
+        guard let size = NoteTypography(bodySize: textSize).size(steppedBy: steps) else { return }
+        setTextSize(size)
+    }
+
+    /// A size picked from the list, or stepped to.
+    func setTextSize(_ size: Int) {
+        guard mode == .text, !isTextLocked, sizeAwaitingConfirmation == nil else { return }
+        let size = NoteTypography(bodySize: size).bodySize
+        guard size != textSize else { return }
+        textSize = size
+        settleTask?.cancel()
+        settleTask = Task { [weak self, settleDelay] in
+            try? await Task.sleep(for: settleDelay)
+            guard !Task.isCancelled else { return }
+            self?.settleTextSize()
+        }
+    }
+
+    /// ⌘+ and ⌘−.
+    var canStepTextSize: (bigger: Bool, smaller: Bool) {
+        let typography = NoteTypography(bodySize: textSize)
+        return (typography.size(steppedBy: 1) != nil, typography.size(steppedBy: -1) != nil)
+    }
+
+    private func settleTextSize() {
+        settleTask = nil
+        guard textSize != appliedTextSize else { return }
+        if hasInk, !inkQuestionAnswered {
+            sizeAwaitingConfirmation = textSize
+        } else {
+            commitTextSize?(NoteTypography(bodySize: textSize).storedSize)
+            appliedTextSize = textSize
+        }
+    }
+
+    /// The alert's Change.
+    func confirmTextSize() {
+        guard let size = sizeAwaitingConfirmation else { return }
+        inkQuestionAnswered = true
+        sizeAwaitingConfirmation = nil
+        commitTextSize?(NoteTypography(bodySize: size).storedSize)
+        appliedTextSize = size
+        textSize = size
+    }
+
+    /// The alert's Cancel: the stepper goes back to the size the note has.
+    func cancelTextSize() {
+        sizeAwaitingConfirmation = nil
+        textSize = appliedTextSize
+    }
+
+    /// Whether the note has any ink. The page's own copy, so strokes drawn
+    /// moments ago count.
+    private var hasInk: Bool {
+        guard let page else { return false }
+        return !page.ink.subelements.isEmpty
+    }
+
+    // MARK: Outline
+
+    /// The note's headings, and which one the reader is under: the last at or
+    /// above the line at the top of the page. Worked out when the popover
+    /// opens, from the text as it is.
+    func outline() -> (entries: [NoteOutline.Entry], current: Int?) {
+        let entries = NoteOutline.entries(in: (textView?.text ?? "").nativeUTF8)
+        let top = page?.topLineCharacter() ?? 0
+        return (entries, NoteOutline.currentIndex(in: entries, atCharacter: top))
+    }
+
+    /// An outline tap: the heading's line at the top of the page.
+    func scroll(toHeading entry: NoteOutline.Entry) {
+        page?.scroll(toLineAt: entry.location)
     }
 
     // MARK: Undo

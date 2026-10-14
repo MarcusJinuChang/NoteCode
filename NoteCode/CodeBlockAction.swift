@@ -74,8 +74,21 @@ nonisolated struct CodeRange: Equatable, Sendable {
     /// Python colon, and only that.
     var language: CodeLanguage?
 
-    init(range: NSRange, isClosed: Bool, lastCaret: Int? = nil, isOutput: Bool = false, language: CodeLanguage? = nil) {
+    /// The first word of the opening fence's info string, as typed: what the
+    /// text options row's language button says for a tag the app doesn't
+    /// know. Empty for a bare fence.
+    var tag: String
+
+    init(
+        range: NSRange,
+        isClosed: Bool,
+        lastCaret: Int? = nil,
+        isOutput: Bool = false,
+        language: CodeLanguage? = nil,
+        tag: String = ""
+    ) {
         self.range = range
+        self.tag = tag
         self.isClosed = isClosed
         self.isOutput = isOutput
         self.language = language
