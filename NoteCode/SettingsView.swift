@@ -29,15 +29,23 @@ extension View {
     ///   opened by the window, which owns what's selected.
     /// - Parameter onShowWelcomeScreen: called when Help and About › Welcome
     ///   Screen is chosen, likewise after the sheet has been asked to close.
+    /// - Parameter onExportFinished: called with the number of notes when
+    ///   Notes › Export All Notes… has written them, likewise after the
+    ///   sheet has been asked to close, so the window's toast isn't hidden by it.
     func settingsSheet(
         isPresented: Binding<Bool>,
         onOpenWelcomeNote: @escaping () -> Void = {},
-        onShowWelcomeScreen: @escaping () -> Void = {}
+        onShowWelcomeScreen: @escaping () -> Void = {},
+        onExportFinished: @escaping (Int) -> Void = { _ in }
     ) -> some View {
         self
             .focusedSceneValue(\.showsSettings, isPresented)
             .sheet(isPresented: isPresented) {
-                SettingsView(onOpenWelcomeNote: onOpenWelcomeNote, onShowWelcomeScreen: onShowWelcomeScreen)
+                SettingsView(
+                    onOpenWelcomeNote: onOpenWelcomeNote,
+                    onShowWelcomeScreen: onShowWelcomeScreen,
+                    onExportFinished: onExportFinished
+                )
                     .presentationSizing(.form)
             }
     }
@@ -151,6 +159,9 @@ struct SettingsView: View {
     /// Shows the title screen again. Settings dismisses itself first.
     var onShowWelcomeScreen: () -> Void = {}
 
+    /// Told how many notes Export All wrote. Settings dismisses itself first.
+    var onExportFinished: (Int) -> Void = { _ in }
+
     var body: some View {
         NavigationStack {
             List {
@@ -160,7 +171,10 @@ struct SettingsView: View {
                     Label("General", systemImage: "gearshape")
                 }
                 NavigationLink {
-                    NotesSettings()
+                    NotesSettings(onExportFinished: { count in
+                        dismiss()
+                        onExportFinished(count)
+                    })
                 } label: {
                     Label("Notes", systemImage: "note.text")
                 }
@@ -312,6 +326,8 @@ extension HotbarDock {
 // MARK: - Notes
 
 private struct NotesSettings: View {
+    var onExportFinished: (Int) -> Void
+
     @AppStorage(NewNotes.defaultsKey) private var newNotes = PageOrientation.default
     @AppStorage(PageViewMode.defaultsKey) private var viewMode = PageViewMode.default
     @AppStorage(NoteSort.defaultsKey) private var sort = NoteSort.default
@@ -342,6 +358,14 @@ private struct NotesSettings: View {
                     Text(sort.orderTitles.descending).tag(false)
                     Text(sort.orderTitles.ascending).tag(true)
                 }
+            }
+
+            Section {
+                NavigationLink("Export All Notes…") {
+                    ExportAllView(onFinished: onExportFinished)
+                }
+            } footer: {
+                Text("Every note as a Markdown file, in a folder for each of yours, to keep or move to another app.")
             }
         }
         .navigationTitle("Notes")

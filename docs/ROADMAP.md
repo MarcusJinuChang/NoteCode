@@ -21,6 +21,17 @@ pinch zoom, the note page and its hotbar, and a PaperKit canvas that a finger
 or the Pencil draws on, with ink undo of its own, saved with the note and
 drawn at the screen's density. 25 pull requests, all merged.
 
+- **UI design v3, phase 7: getting notes in and out, and windows** (14 Oct,
+  branch `claude/v3-phase-7-notes-in-and-out`, off phase 6's branch, not
+  merged): Share is a menu (tap for the PDF; hold for PDF, Markdown, Copy as
+  Markdown, Print…); Export All Notes… (the list's ••• and Settings › Notes)
+  writes a folder with a subfolder per folder and a `.md` per note, plus a PDF
+  beside each note with ink, with progress and Cancel, through Files; Import…
+  (Home and the list's •••) brings in `.md`/`.txt` as written and source files
+  as one tagged code block; a second window that selects a note the first has
+  open shows "Open in Another Window" instead of a second editor. Builds for
+  iPad and Mac; 1,134 unit tests pass. **Not looked at on screen**, and the
+  folder export through Files is untried.
 - **UI design v3, phase 6: navigation, and the text options row** (14 Oct,
   branch `claude/v3-phase-6-navigation-text-row`, off `main`, not merged): an
   Outline button in the header (and ⌃⌘O) lists the note's headings and jumps

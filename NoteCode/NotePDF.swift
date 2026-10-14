@@ -228,13 +228,9 @@ enum NotePDF {
     // MARK: Files
 
     /// A name for the shared file: the note's title, without the characters
-    /// a file name can't hold.
+    /// a file name can't hold (`NoteFileName`).
     static func fileName(for title: String) -> String {
-        let cleaned = title
-            .components(separatedBy: CharacterSet(charactersIn: "/\\:"))
-            .joined(separator: "-")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return (cleaned.isEmpty ? "Untitled" : cleaned) + ".pdf"
+        NoteFileName.fileName(for: title, extension: "pdf")
     }
 
     /// Writes the PDF where the share sheet can hand it on, named for the

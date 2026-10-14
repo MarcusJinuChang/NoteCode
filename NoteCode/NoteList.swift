@@ -39,6 +39,10 @@ struct NoteList: View {
     /// Answered when the list is on screen, then cleared.
     @Binding var request: ListRequest?
 
+    /// Ask the window for the file picker, and for the Export All sheet.
+    var onImport: () -> Void
+    var onExportAll: () -> Void
+
     /// Whether the list is the one to draw the toast: it is when the list is
     /// on screen, and the open note's page draws it when the list is away.
     var showsToasts = true
@@ -50,6 +54,8 @@ struct NoteList: View {
         onNewPage: @escaping (Page) -> Void = { _ in },
         onShowSettings: @escaping () -> Void = {},
         onShowHome: @escaping () -> Void = {},
+        onImport: @escaping () -> Void = {},
+        onExportAll: @escaping () -> Void = {},
         request: Binding<ListRequest?> = .constant(nil),
         showsToasts: Bool = true
     ) {
@@ -59,6 +65,8 @@ struct NoteList: View {
         self.onNewPage = onNewPage
         self.onShowSettings = onShowSettings
         self.onShowHome = onShowHome
+        self.onImport = onImport
+        self.onExportAll = onExportAll
         _request = request
         self.showsToasts = showsToasts
     }
@@ -493,6 +501,9 @@ struct NoteList: View {
             }
 #endif
             sortMenu
+            Divider()
+            Button("Import…", systemImage: "square.and.arrow.down", action: onImport)
+            Button("Export All Notes…", systemImage: "square.and.arrow.up.on.square", action: onExportAll)
         } label: {
             Label("More", systemImage: "ellipsis")
         }

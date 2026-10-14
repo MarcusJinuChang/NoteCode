@@ -5,6 +5,7 @@
 
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     /// True when the on-disk store failed and edits live only in memory.
@@ -51,6 +52,19 @@ struct ContentView: View {
     /// as the + button's tap does.
     @AppStorage(NewNotes.defaultsKey) private var newNoteOrientation = PageOrientation.default
 
+    /// Whether Export All's sheet and the Files picker for Import are showing.
+    @State private var showsExportAll = false
+    @State private var showsImporter = false
+
+    /// What an import couldn't bring in, for an alert. `nil` when nothing.
+    @State private var importProblems: String?
+
+    /// This window's identity in `OpenNoteRegistry`, and the note it has
+    /// claimed there, so a second window never edits the same note.
+    @State private var window = WindowToken()
+    @State private var claimedKey: String?
+    private let openNotes = OpenNoteRegistry.shared
+
     /// The message that follows a deletion, with its Undo. Drawn by the list
     /// when the list is showing and by the open note's page when it isn't.
     @State private var toasts = ToastCenter()
@@ -84,6 +98,8 @@ struct ContentView: View {
                 onNewPage: { newPage = $0 },
                 onShowSettings: { showsSettings = true },
                 onShowHome: goHome,
+                onImport: { showsImporter = true },
+                onExportAll: { showsExportAll = true },
                 request: $listRequest,
                 showsToasts: columnVisibility != .detailOnly
             )
@@ -92,7 +108,9 @@ struct ContentView: View {
                 .ignoresSafeArea(.keyboard)
         } detail: {
             Group {
-                if let page = selection {
+                if let page = selection, isOpenElsewhere {
+                    OpenElsewhereView(title: page.title, onGoHome: goHome)
+                } else if let page = selection {
                     PageDetailView(
                         page: page,
                         revealing: openedSearch,
@@ -107,6 +125,7 @@ struct ContentView: View {
                         onOpen: open,
                         onNewNote: newNote,
                         onNewNoteFromTemplate: { newNote(from: $0) },
+                        onImport: { showsImporter = true },
                         onShowList: showList,
                         onShowFolder: { ask(.showFolder($0.persistentModelID)) },
                         onSearch: { ask(.searchNotes) },
@@ -134,8 +153,30 @@ struct ContentView: View {
         .settingsSheet(
             isPresented: $showsSettings,
             onOpenWelcomeNote: openWelcomeNote,
-            onShowWelcomeScreen: showWelcomeScreen
+            onShowWelcomeScreen: showWelcomeScreen,
+            onExportFinished: exported
         )
+        .sheet(isPresented: $showsExportAll) {
+            ExportAllSheet(onFinished: { count in
+                showsExportAll = false
+                exported(count)
+            })
+            .presentationSizing(.form)
+        }
+        .fileImporter(
+            isPresented: $showsImporter,
+            allowedContentTypes: NoteImport.contentTypes,
+            allowsMultipleSelection: true,
+            onCompletion: importFiles
+        )
+        .alert("Some files weren't imported", isPresented: Binding(
+            get: { importProblems != nil },
+            set: { if !$0 { importProblems = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(importProblems ?? "")
+        }
         .windowActions(WindowActions(
             newNote: newNote,
             newFolder: { ask(.newFolder) },
@@ -145,6 +186,7 @@ struct ContentView: View {
             isCovered: showsSettings || showsWelcomeScreen
         ))
         .task {
+            syncOpenNoteClaim()
             claimWelcomeScreenOnFirstLaunch()
             makeWelcomeNoteOnFirstLaunch()
             purgeExpiredNotes()
@@ -152,11 +194,74 @@ struct ContentView: View {
         }
         .onChange(of: selection) {
             if selection != newPage { newPage = nil }
+            syncOpenNoteClaim()
             if let selection {
                 NoteMemory().rememberOpened(selection)
                 withAnimation { columnVisibility = .detailOnly }
             }
         }
+        // The other window let the note go: it's free to be opened here.
+        .onChange(of: isOpenElsewhere) { syncOpenNoteClaim() }
+        .onDisappear {
+            if let claimedKey { openNotes.release(claimedKey, by: window) }
+            claimedKey = nil
+        }
+    }
+
+    // MARK: One editor per note
+
+    /// Whether another window has the open note, so this one shows
+    /// "Open in another window" instead of a second editor.
+    private var isOpenElsewhere: Bool {
+        guard let selection, let key = NoteMemory.key(for: selection.persistentModelID) else { return false }
+        return openNotes.isOpenElsewhere(key, for: window)
+    }
+
+    /// Keeps this window's claim in step with its selection: gives up the
+    /// note it left, takes the one it opened if no other window has it.
+    private func syncOpenNoteClaim() {
+        let key = selection?.settledID.flatMap(NoteMemory.key(for:))
+        if let claimedKey, claimedKey != key {
+            openNotes.release(claimedKey, by: window)
+            self.claimedKey = nil
+        }
+        if let key, openNotes.claim(key, for: window) {
+            claimedKey = key
+        }
+    }
+
+    // MARK: Import and export
+
+    /// Makes a note of each file the reader chose, in the open note's folder
+    /// (or the top of the list), like a new note. One file opens; several are
+    /// left in the list, with a toast saying how many and where.
+    private func importFiles(_ result: Result<[URL], Error>) {
+        let urls: [URL]
+        switch result {
+        case .success(let chosen): urls = chosen
+        case .failure(let error):
+            importProblems = error.localizedDescription
+            return
+        }
+        let folder = NewNotes.folder(whileViewing: selection)
+        let imported = Page.importFiles(
+            urls,
+            orientation: newNoteOrientation,
+            into: folder,
+            context: modelContext
+        )
+        importProblems = imported.skippedMessage
+        if let summary = imported.summary(into: folder) {
+            toasts.show(summary)
+        }
+        if imported.pages.count == 1, let page = imported.pages.first {
+            open(page)
+        }
+    }
+
+    /// Told Export All has written its notes where the reader chose.
+    private func exported(_ count: Int) {
+        toasts.show(count == 1 ? "Exported 1 note" : "Exported \(count) notes")
     }
 
     /// The list's selection, noting the search each note is opened from.
@@ -324,6 +429,24 @@ struct ContentView: View {
                 selection = page
             }
         }
+    }
+}
+
+/// Shown in place of the editor when another window has the note open, so
+/// two editors never write one note (`OpenNoteRegistry`).
+struct OpenElsewhereView: View {
+    var title: String
+    var onGoHome: () -> Void
+
+    var body: some View {
+        ContentUnavailableView {
+            Label("Open in Another Window", systemImage: "rectangle.on.rectangle")
+        } description: {
+            Text("\u{201C}\(title)\u{201D} is open in another window. Close it there to edit it here, or open a different note.")
+        } actions: {
+            Button("Go Home", action: onGoHome)
+        }
+        .accessibilityIdentifier("openElsewhere")
     }
 }
 

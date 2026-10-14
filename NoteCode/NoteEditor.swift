@@ -193,6 +193,16 @@ final class NoteEditor {
         ))
     }
 
+    /// The note's text as it is now, which is its Markdown: the text storage
+    /// holds `#` and `**` as typed (hiding them is layout only,
+    /// `MarkdownLayout`). `nil` until the text view exists.
+    ///
+    /// Read from the text view rather than the model, as the PDF is, so the
+    /// last keystrokes are in it.
+    var currentText: String? {
+        textView?.text
+    }
+
     /// ⌘P: the system's print dialog for the note's PDF.
     ///
     /// The same PDF the share button makes, so what prints is what Save to
