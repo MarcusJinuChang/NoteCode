@@ -83,6 +83,13 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     var onReadingPlaceChanged: ((NoteMemory.Place) -> Void)?
     private var lastReportedPlace: NoteMemory.Place?
 
+    /// Told whenever the note scrolls, with the page then at the top: the
+    /// page badge shows while this keeps arriving and fades once it stops.
+    /// Unlike the reading place this fires on every move, not only on a new
+    /// page, since a scroll within a page still keeps the badge up.
+    var onScrolled: ((NoteMemory.Place) -> Void)?
+    private var lastScrolledOffset: CGFloat = 0
+
     /// The scale the page is drawn at right now.
     private(set) var displayScale: CGFloat = 1
 
@@ -451,6 +458,21 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             DispatchQueue.main.async { [weak self] in self?.finishRestore(toPage: index) }
         }
         reportReadingPlace()
+        reportScroll()
+    }
+
+    /// Tells `onScrolled` the note has moved. Not while it is opening at a
+    /// place, which is the app positioning the note rather than the reader.
+    private func reportScroll() {
+        let offset = textView.contentOffset.y
+        defer { lastScrolledOffset = offset }
+        guard let onScrolled, abs(offset - lastScrolledOffset) > 0.5,
+              pendingRestore == nil, pendingReveal == nil, textView.bounds.height > 0
+        else { return }
+        let place = readingPlace
+        // After this layout pass: the callback changes SwiftUI state, and a
+        // pass can be inside a SwiftUI update.
+        DispatchQueue.main.async { onScrolled(place) }
     }
 
     // MARK: Reopening where the reader left off
@@ -515,19 +537,25 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         pendingReveal = (first, all)
     }
 
-    private func show(_ reveal: (first: NSRange, all: [NSRange])) {
+    /// Lays the text out down to `character`, the way scrolling there by hand
+    /// would, so its line is placed below every page break above it. Not the
+    /// whole note: what's below can wait for the reader to get there.
+    /// Whether there was anywhere to lay out to.
+    @discardableResult
+    private func layOut(downTo character: Int) -> Bool {
         guard let manager = textView.textLayoutManager,
               let content = manager.textContentManager,
-              let match = content.location(content.documentRange.location, offsetBy: reveal.first.location),
-              let above = NSTextRange(location: content.documentRange.location, end: match)
-        else { return }
-
-        // Lay out down to the match, the way scrolling there by hand would,
-        // so its line is placed below every page break above it. Not the
-        // whole note: what's below can wait for the reader to get there.
+              let target = content.location(content.documentRange.location, offsetBy: character),
+              let above = NSTextRange(location: content.documentRange.location, end: target)
+        else { return false }
         manager.ensureLayout(for: above)
         textView.setNeedsLayout()
         textView.layoutIfNeeded()
+        return true
+    }
+
+    private func show(_ reveal: (first: NSRange, all: [NSRange])) {
+        guard layOut(downTo: reveal.first.location) else { return }
 
         if let top = lineTop(atCharacter: reveal.first.location) {
             // A quarter of the way down, so the lines leading up to the match
@@ -535,6 +563,77 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             textView.contentOffset.y = clampedOffset(top - textView.bounds.height / 4)
         }
         textView.highlightSearchMatches(reveal.all, current: reveal.first)
+    }
+
+    // MARK: Outline
+
+    /// Scrolls so the line holding `character` is the first the reader sees:
+    /// the outline's tap, which goes where a search result does (lay out
+    /// down to it, then scroll) but puts the line at the top rather than a
+    /// quarter of the way down. A page's first line shows that page from its
+    /// top edge, the rule a mode switch keeps; and a line too near the end
+    /// to reach the top lands as far up as the note scrolls.
+    func scroll(toLineAt character: Int) {
+        guard layOut(downTo: character) else { return }
+        settleOffset(onLineAt: character)
+    }
+
+    /// Puts the offset where `character`'s line starts the view, set again
+    /// while it moves: the page count, and so the bands, can still change as
+    /// the text settles, which shifts everything below them.
+    private func settleOffset(onLineAt character: Int) {
+        for _ in 0..<4 {
+            guard let top = lineTop(atCharacter: character) else { return }
+            let index = pageLayout.pageIndex(atY: top)
+            let startsPage = top - pageLayout.bodyTop(ofPage: index) < 1
+            let target = clampedOffset(startsPage ? pageLayout.scrollTop(forPage: index) : pixelCeiling(top))
+            if abs(textView.contentOffset.y - target) < 0.5 { return }
+            textView.contentOffset.y = target
+            textView.layoutIfNeeded()
+        }
+    }
+
+    /// `y` rounded up to a whole pixel. A scroll offset snaps to the screen's
+    /// pixels, and one that snaps down from a line's top leaves the line above
+    /// showing by a fraction of a point, which is then the first line the
+    /// reader sees (a size change landed one line early, and a test of the
+    /// line at the top caught it).
+    private func pixelCeiling(_ y: CGFloat) -> CGFloat {
+        let scale = max(textView.traitCollection.displayScale, 1)
+        return (y * scale).rounded(.up) / scale
+    }
+
+    // MARK: Re-wrapping
+
+    /// Runs a change that re-wraps the text (a new text size), and puts the
+    /// reader back on the line they were reading.
+    ///
+    /// A re-wrap moves every line, and no scroll offset converts across it,
+    /// so the line at the top is kept instead, as for a new orientation (see
+    /// `applyPageLayout`). The same two precautions: the page count comes out
+    /// right before the bands it sets (the count is worked out from the text
+    /// as TextKit sets its height, here the new layout's), and TextKit is
+    /// re-anchored at the top of the note before going back, or it keeps
+    /// the old layout's viewport and the lines on screen sit a stale
+    /// break's worth off.
+    func reflow(_ change: () -> Void) {
+        let anchor = topLineCharacter()
+        change()
+
+        setNeedsLayout()
+        layoutIfNeeded()
+        textView.layoutIfNeeded()
+        textView.contentOffset.y = 0
+        setNeedsLayout()
+        layoutIfNeeded()
+        textView.layoutIfNeeded()
+
+        guard let anchor, anchor > 0 else {
+            textView.contentOffset.y = clampedOffset(0)
+            return
+        }
+        layOut(downTo: anchor)
+        settleOffset(onLineAt: anchor)
     }
 
     // MARK: Pages

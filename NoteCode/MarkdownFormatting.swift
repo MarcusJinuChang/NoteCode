@@ -515,13 +515,13 @@ nonisolated enum MarkdownFormatting {
 
     // MARK: Helpers
 
-    private static let newline = unichar(0x0A)
+    static let newline = unichar(0x0A)
 
     static func isBlank(_ line: String) -> Bool {
         line.allSatisfy { $0 == " " || $0 == "\t" }
     }
 
-    private static func clamped(_ range: NSRange, to length: Int) -> NSRange {
+    static func clamped(_ range: NSRange, to length: Int) -> NSRange {
         let location = min(max(range.location, 0), length)
         return NSRange(location: location, length: min(max(range.length, 0), length - location))
     }

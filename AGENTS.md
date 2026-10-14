@@ -851,6 +851,11 @@ Phase 9 of `docs/ui-design-v2-implementation.md` (12 Oct).
   - `KeyboardAndMenuTests.bodyIgnoresTextSize` puts an accessibility size on
     the text view and window and checks the font, the styled text and the
     content height didn't move; it fails with the old two lines back.
+  - **Decided 12 Oct (Marcus), built in v3 phase 6:** text size is a property
+    of each note (`Page.textSize`), set from the text options row. It is
+    still never an app-wide setting and never follows Dynamic Type, which is
+    what the two bullets above are about. See "Navigation and the text
+    options row".
 - **Not checked:** any shortcut with a real keyboard (the simulator tools
   can't send modifier chords: the ⌘ overlay, the menu bar, the bare keys
   being off in a field, ⌘Z in ink mode), ⌘P's dialog on the iPad, the list
@@ -1380,6 +1385,132 @@ v3 phase 5 (13 Oct, `docs/ui-design-v3-implementation.md`).
   Pencil or a finger; From Template on Home and in the + menu on screen; the UI
   tests (`HotbarUITests`) were not run for the extra button.
 
+## Navigation and the text options row
+
+v3 phase 6 (14 Oct, `docs/ui-design-v3-implementation.md`).
+
+- **The outline** (`NoteOutline`, `NoteOutlineView`) lists the headings the
+  parser finds (`DocumentParser`, so a `#` line in code isn't one and
+  `#hashtag` isn't), computed when the popover opens and never stored. A header
+  button left of Share and ⌃⌘O (View menu, through `OpenNote.showOutline`)
+  open it; rows are indented by level from the note's highest, the heading
+  the reader is under is ticked (the last at or above the line at the top),
+  and an empty heading reads "Untitled". Offsets are UTF-16, accumulated in
+  one pass as `DocumentStyler.layouts` does.
+  - **A tap is `PageView.scroll(toLineAt:)`**, which shares `reveal`'s way of
+    getting there (`layOut(downTo:)`, then the offset) but puts the line at
+    the top rather than a quarter down. A page's first line shows that page
+    from its top edge, as a mode switch does; a heading too near the end to
+    reach the top lands as far up as the note scrolls.
+  - **The offset is rounded up to a whole pixel** (`pixelCeiling`). A scroll
+    offset snaps to the screen's pixels, and one that snapped down from a
+    line's top left the line above showing by a fraction of a point, which is
+    then the first line the reader sees: a size change landed one line early
+    in five of six cases until this.
+- **The page badge** ("2 / 5", `PageBadge`): `PageView.onScrolled` fires
+  after any layout pass that moved the offset, hopped to the next turn of the
+  main queue (a pass can be inside a SwiftUI update, and the callback sets
+  state); `PageDetailView` shows it 18pt under the header and fades it a second
+  after the last move. Not while the app is positioning the note
+  (`pendingRestore`, `pendingReveal`); the first move after a restore does
+  show it once, which reads right ("page 3 of 5") and was not looked at.
+- **Text size is `NoteTypography`** (a value, `NoteTypography.swift`), seven
+  steps: 14, 15, 16, 17 (default), 19, 21, 23, each the system's body at one
+  Dynamic Type step (xSmall to xxxLarge), so every size keeps that step's
+  leading. `bodySize` snaps a stored value that isn't a step to the nearest;
+  `storedSize` is `nil` at 17, so a note nobody resized keeps today's model
+  and today's thumbnail name.
+  - **Everything that reads a note's fonts takes it:** the styler
+    (`DocumentStyler`'s attributes, `applyStyling`, `applyTypingAttributes` and
+    `listParagraphStyle` all take a `typography`, defaulting to `.standard`,
+    so a caller that never asks gets exactly today's fonts), the list-marker
+    width cache (keyed by size), line numbers (sized by the code beside them,
+    `NoteTypography.lineNumberFont(forCodeSize:)`), the hanging heading marker
+    and the checkbox (both already took the paragraph's own font),
+    `PrintedNote`/`NotePDF.Note.typography`, `NoteThumbnail.Source.typography`,
+    and `-debug-text-size` with `topLinePoints` in the report.
+  - **A coordinator owns it** (`Coordinator.typography`, `setTypography`), not
+    a global, so a PDF or a thumbnail made while another note is open has its
+    own note's size (`notesDontShareASize`). `UITextView.font` is not set on a
+    change: that replaces every run's font and the restyle would undo it with
+    a second layout.
+  - **A thumbnail's cache name has `-t<size>`** when the size isn't the
+    default, since a size isn't an edit and leaves `modifiedAt` alone, and its
+    row's task restarts on the size as well as the date.
+  - **Applying a size re-wraps**, so `PageView.reflow` keeps the reader on the
+    line they were on, as an orientation switch does: it takes the top line,
+    runs the change, lays out, re-anchors TextKit at the note's top, lays out
+    down to the line and settles the offset on it, again while it moves (the
+    page count, and so the bands, can still change). The test checks the line
+    at the top against the same note laid out from scratch at the new size.
+  - **A stepper tap isn't a change yet.** `NoteEditor.textSize` is what the
+    stepper shows; the note catches up 300ms after the last tap, so a run of
+    taps lays out once (`settleDelay`). A note with ink asks first, in the
+    board's wording, **once each time the note is opened** (the editor is made
+    per note): Cancel puts the stepper back. The size is written through
+    `commitTextSize` into `Page.textSize` and nothing else: `modifiedAt`
+    stays, nothing goes on the text undo stack.
+  - **⌘+ and ⌘−** (Bigger Text, Smaller Text, in Format) are bound; the system
+    left both free. Not tried with a real keyboard (the key is "+", which on a
+    US layout is ⇧⌘=).
+  - **Measured while writing the tests:** TextKit 2 sets a line taller than
+    the font's own `lineHeight` (19.0pt a line at 14, 22.0 at 17; the font
+    says 16.7 and 20.3), so a Letter page holds 48 lines at 14 and 41 at 17.
+    A test of page counts at two sizes needs enough lines for that to show:
+    200 lines were five pages at 14, 15, 16 and 17 alike.
+  - **A test harness whose caret is at the note's end scrolls there** after a
+    restyle (`PageSettlingTests.openNote` leaves it there on purpose): the
+    size-change tests started at the end and "jumped" there, which looked
+    like a `reflow` bug for an hour. They use `ReopenTests.open`, whose caret
+    is untouched.
+- **The text options row** (`TextOptionsRow`) is text mode's counterpart of
+  the ink options row: the same `BesideBar` overlay 8pt from the bar on its
+  page side, in `OptionsRowStyle` (40pt to the eye, 44pt reach, glass), so it
+  reserves nothing. `HotbarLayoutTests` passes with it. It is out in text
+  mode, for a note that isn't locked, with no sheet over the page
+  (`Hotbar.textRowHidden`: the info sheet and the folder editor); it slides
+  in with the bar's own transition and cross-fades under Reduce Motion.
+  Docked at a side it is vertical.
+  - **With the keyboard up**, docked at the bottom, `keyboardClearance` adds the
+    row's gap and reach (8 + 44) while it is showing, so the caret's line
+    stays above it (`PageDetailView.keyboardClearance`).
+  - **The stepper comes first**, `+ 17 −` across and `+` over `17` over `−`
+    down, with the size on a `secondarySystemFill` pill; tapping it lists the
+    steps (the default marked). `+` and `−` are disabled at the ends.
+  - **The rest follows the caret** (`CaretFormatting.block`, from the parse
+    of one line, and for code from the `CodeRange` list, which now carries the
+    fence's tag): a paragraph or heading shows Body, H1, H2, H3 (the current
+    one tinted) and Link; a list item the three kinds and ⇤ ⇥; a code block
+    its language (the block's own button's list, `CodeBlockKind.menu`), ⇤ ⇥
+    and + Output (not on an output block, and off for an unclosed one, which
+    has no place after it).
+  - **Every control does what a menu already did**, through
+    `replace(_:withText:)`, so it undoes like typing: Body and H1 to H3 are
+    `setHeading`, the lists `toggleList`, ⇥ and ⇤ the coordinator's
+    `indentEdit(outdent:)` (code lines' rule in a block, the list item's
+    elsewhere: Tab, ⇧Tab and the row ask the same function), the language
+    the block's retag (`setKind`), + Output `MarkdownFormatting.insertOutputBlock`
+    and Link `linkTarget`/`link` (pure, `MarkdownFormatting+TextRow.swift`).
+  - **Link wraps the selection, or the word at the caret, or a placeholder**,
+    as `[text](address)`, and asks for the address in an alert on the page
+    (an alert can't hang off the row). It does nothing in code, across lines,
+    over brackets or in a link that is already there. An address is trimmed
+    and its spaces and parentheses escaped (`linkAddress`); no scheme still
+    means https at tap time (`LinkTarget`). The caret ends after the link.
+  - **Tests undo in separate turns.** UIKit closes an undo group at the end
+    of a run-loop turn, and a test makes its chips' edits back to back, so one
+    `undo()` takes them all: `TextRowEditorTests` waits between taps.
+- **Checked in the simulator** (iPad Pro 13-inch, dark, a 21pt debug note):
+  the row's look and order, with the keyboard up above the bar and clear of the
+  caret, `+` to 23 re-flowing the note with its heading kept at the top and
+  `+` going dim at the end, and the outline popover and a jump to a heading
+  (it landed at the top of the page). **Not checked:** the page badge on
+  screen, any dock but the bottom, an 11-inch iPad, portrait, the ink question
+  on a note with ink, Link's alert, the language menu and + Output by a tap,
+  ⌘+ and ⌘− and ⌃⌘O with a real keyboard, Reduce Motion, light mode and the
+  Pencil. `HotbarUITests` (seven tests, the reach and the ink row beside the
+  bar on every edge) ran with the text row in place and pass.
+
 ## Settings
 
 A form sheet with a `NavigationStack`: a list of sections, each a page
@@ -1778,6 +1909,7 @@ rebuilt copy of the app with logging.
 | `-debug-note pages\|code\|empty` | Opens a built-in note, in an in-memory store — the simulator's notes are untouched |
 | `-debug-note-file <path>` | Opens a note read from a file on the Mac |
 | `-debug-orientation portrait\|landscape` | The seeded note's pages |
+| `-debug-text-size 14\|15\|16\|17\|19\|21\|23` | The seeded note's text size |
 | `-debug-mode seamless\|compressed\|print` | Sets the view mode, in the saved setting the menu uses |
 | `-debug-page <n>` | Scrolls to page n's top edge, counted from 1 |
 | `-debug-then-mode <mode>` | Switches mode once the page has settled |
@@ -1787,7 +1919,8 @@ rebuilt copy of the app with logging.
 | `-debug-home` | Home over a few weeks of sample notes and three folders, in memory, with the title screen already seen and a note to continue at page 3 |
 
 The report lists mode, orientation, page count, scroll offset, scale, zoom, the
-top line (character, page, whether it starts the page, its text) and
+top line (character, page, whether it starts the page, its text), the point
+size of the text there (`topLinePoints`) and
 `visibleLinesAcrossBreaks`. It is built from where TextKit actually has the
 lines, not from page geometry, and the last two fields are the ones that would
 have shown the 13 September view-switch bug. Bad or misspelt arguments land in

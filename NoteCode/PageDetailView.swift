@@ -95,6 +95,18 @@ struct PageDetailView: View {
     /// Whether the ink tools are showing beside the Pencil, and where.
     @State private var showsInkTools = false
     @State private var inkToolsAnchor = UnitPoint.center
+
+    /// The header's outline popover (also ⌃⌘O).
+    @State private var showsOutline = false
+
+    /// The page badge: where the reader is while the note scrolls, which
+    /// shows until a second after the scrolling stops.
+    @State private var badge: NoteMemory.Place?
+    @State private var badgeVisible = false
+    @State private var badgeTimer: Task<Void, Never>?
+
+    /// What the Link alert's field holds.
+    @State private var linkAddress = ""
 #endif
 
     @State private var showsInfo = false
@@ -182,6 +194,39 @@ struct PageDetailView: View {
         .onChange(of: page.title) { page.modifiedAt = .now }
         .onChange(of: page.content) { page.modifiedAt = .now }
 #if canImport(UIKit)
+        // The note's text size is the page's property, and changing it isn't
+        // an edit: `modifiedAt` and the undo stack stay as they are.
+        .onChange(of: page.textSize, initial: true) { _, size in
+            editor.syncTextSize(to: size)
+        }
+        .onAppear {
+            editor.commitTextSize = { [weak page] size in page?.textSize = size }
+        }
+        .alert("Change Text Size?", isPresented: Binding(
+            get: { editor.sizeAwaitingConfirmation != nil },
+            set: { _ in }
+        )) {
+            Button("Cancel", role: .cancel) { editor.cancelTextSize() }
+            Button("Change") { editor.confirmTextSize() }
+        } message: {
+            Text("The text re-flows to the new size. Ink stays where it was drawn, so it may no longer sit on its words.")
+        }
+        .alert("Add Link", isPresented: Binding(
+            get: { editor.linkTarget != nil },
+            set: { _ in }
+        )) {
+            TextField("Address", text: $linkAddress)
+                .keyboardType(.URL)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            Button("Cancel", role: .cancel) { editor.cancelLink() }
+            Button("Add") { editor.finishLink(address: linkAddress) }
+        } message: {
+            Text("Where the link goes.")
+        }
+        .onChange(of: editor.linkTarget != nil) { _, asking in
+            if asking { linkAddress = "" }
+        }
         // Before the text view exists as well as after: the editor keeps
         // the setting and applies it when the page attaches.
         .onChange(of: page.isTextLocked, initial: true) { _, locked in
@@ -193,7 +238,8 @@ struct PageDetailView: View {
             viewMode: $viewMode,
             printNote: { [editor, title = page.title] in
                 Task { await editor.printNote(title: title) }
-            }
+            },
+            showOutline: { showsOutline = true }
         ))
         // Ink drawn just before leaving would otherwise wait out the pause
         // after the page is gone.
@@ -237,6 +283,19 @@ struct PageDetailView: View {
         }
 
 #if canImport(UIKit)
+        // Left of Share. A popover off the button, so it points at it.
+        ToolbarItem(placement: .primaryAction) {
+            Button("Outline", systemImage: "list.bullet.indent") { showsOutline = true }
+                .tint(.primary)
+                .popover(isPresented: $showsOutline) {
+                    let outline = editor.outline()
+                    NoteOutlineView(entries: outline.entries, current: outline.current) { entry in
+                        showsOutline = false
+                        editor.scroll(toHeading: entry)
+                    }
+                }
+        }
+
         ToolbarItem(placement: .primaryAction) {
             NoteShareButton(editor: editor, title: page.title)
                 .tint(.primary)
@@ -304,7 +363,7 @@ struct PageDetailView: View {
                 ),
                 editor: editor,
                 pageLayout: PageLayout(orientation: page.orientation, mode: viewMode),
-                keyboardClearance: dock == .bottom ? Hotbar.thickness + Self.hotbarMargin : 0,
+                keyboardClearance: keyboardClearance,
                 inkSaver: inkSaver,
                 revealing: revealing,
                 resumingAtPage: resumingAtPage,
@@ -317,7 +376,9 @@ struct PageDetailView: View {
                 },
                 showMarkdown: showMarkdown,
                 rendersMarkdown: page.markdownLayout == Page.renderedMarkdown,
-                codeSettings: CodeEditorSettings(indentWidth: indentWidth, codeKeys: codeKeys, lineNumbers: lineNumbers)
+                codeSettings: CodeEditorSettings(indentWidth: indentWidth, codeKeys: codeKeys, lineNumbers: lineNumbers),
+                typography: NoteTypography(bodySize: page.textSize),
+                onScrolled: noteScrolled
             )
             // The page draws its own border, on the page's edges rather than
             // the area's — see PageView.outline. Clipping keeps anything that
@@ -332,7 +393,11 @@ struct PageDetailView: View {
             // text so the caret stays clear of the keyboard.
             .ignoresSafeArea(.keyboard)
 
-            Hotbar(editor: editor, dock: $dock, onDrop: drop)
+            PageBadge(place: badge, isVisible: badgeVisible)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .padding(.top, Self.badgeInset)
+
+            Hotbar(editor: editor, dock: $dock, onDrop: drop, textRowHidden: sheetCoversPage)
                 .padding(Self.hotbarMargin)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: dock.alignment)
                 .sensoryFeedback(.alignment, trigger: snaps) { _, _ in hapticOnSnap }
@@ -366,6 +431,43 @@ struct PageDetailView: View {
         }
         // What each ink tool is set to carries over from note to note.
         .modifier(InkToolPersistence(editor: editor))
+    }
+
+    /// Under the header.
+    private static let badgeInset: CGFloat = 18
+
+    /// Whether a sheet is over the page, which takes the text options row
+    /// away: the info sheet and the folder editor.
+    private var sheetCoversPage: Bool {
+        showsInfo || editingFolder != nil
+    }
+
+    /// Room to leave above the keyboard for the hotbar riding up with it, and
+    /// for the text options row above that, so the caret's line stays clear
+    /// of both. Only for a bar docked at the bottom: at a side, nothing rides
+    /// up over the page.
+    private var keyboardClearance: CGFloat {
+        guard dock == .bottom else { return 0 }
+        var clearance = Hotbar.thickness + Self.hotbarMargin
+        if editor.mode == .text, !page.isTextLocked, !sheetCoversPage {
+            clearance += Hotbar.optionsGap + OptionsRowStyle.thickness + OptionsRowStyle.reachAmount
+        }
+        return clearance
+    }
+
+    /// The note scrolled: the badge shows the page, and goes a second after
+    /// the last movement.
+    private func noteScrolled(to place: NoteMemory.Place) {
+        if badge != place { badge = place }
+        if !badgeVisible {
+            withAnimation(.easeOut(duration: 0.15)) { badgeVisible = true }
+        }
+        badgeTimer?.cancel()
+        badgeTimer = Task {
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.3)) { badgeVisible = false }
+        }
     }
 
     /// The page this note was left at, from the device's memory. Nothing for a

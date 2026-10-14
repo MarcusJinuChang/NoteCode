@@ -185,7 +185,7 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
 
     /// Digits in the code's own face, a little smaller so they recede.
     static var lineNumberFont: UIFont {
-        UIFont.monospacedDigitSystemFont(ofSize: (DocumentStyler.codeFont.pointSize * 0.85 * 2).rounded() / 2, weight: .regular)
+        NoteTypography.standard.lineNumber
     }
 
     /// Draws this paragraph's number in the page's left margin, right-aligned
@@ -199,7 +199,12 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
     func drawLineNumber(at point: CGPoint, in context: CGContext) {
         guard !isFence, !isOutput, let number = lineNumber(), let line = textLineFragments.first else { return }
 
-        let font = Self.lineNumberFont
+        // Sized by the code it sits beside, so a note set in a larger body
+        // numbers its lines in proportion. The paragraph's first character
+        // carries the code font (a rendered note's joiners keep a block's own).
+        let codeFont = (textElement as? NSTextParagraph)?.attributedString
+            .attribute(.font, at: 0, effectiveRange: nil) as? UIFont
+        let font = codeFont.map { NoteTypography.lineNumberFont(forCodeSize: $0.pointSize) } ?? Self.lineNumberFont
         let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: UIColor.secondaryLabel]
         let digits = String(number) as NSString
         let width = digits.size(withAttributes: attributes).width
@@ -518,7 +523,8 @@ final class DocumentCache {
                 isClosed: code.isClosed,
                 lastCaret: range.location + range.length - terminator,
                 isOutput: code.isOutput,
-                language: code.language
+                language: code.language,
+                tag: code.infoString.split(separator: " ").first.map(String.init) ?? ""
             )
         }
         cachedCodeRanges = ranges

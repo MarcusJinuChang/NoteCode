@@ -71,13 +71,21 @@ nonisolated enum NoteThumbnail {
     ///
     /// A note's layout is part of the name too: hiding its Markdown markers
     /// (the title menu) isn't an edit and leaves `modifiedAt` alone, but the
-    /// first page looks different afterwards.
-    static func cacheName(for id: PersistentIdentifier, modifiedAt: Date, rendersMarkdown: Bool = false) -> String? {
+    /// first page looks different afterwards. So is its text size
+    /// (`Page.textSize`), which isn't an edit either; the default adds
+    /// nothing, so a note nobody resized keeps the name it had.
+    static func cacheName(
+        for id: PersistentIdentifier,
+        modifiedAt: Date,
+        rendersMarkdown: Bool = false,
+        typography: NoteTypography = .standard
+    ) -> String? {
         guard let key = NoteMemory.key(for: id) else { return nil }
         let digest = SHA256.hash(data: Data(key.utf8))
         let owner = digest.prefix(8).map { String(format: "%02x", $0) }.joined()
         let milliseconds = Int((modifiedAt.timeIntervalSince1970 * 1000).rounded())
-        return "\(owner)-\(milliseconds)\(rendersMarkdown ? "-r" : "").png"
+        let size = typography.isStandard ? "" : "-t\(typography.bodySize)"
+        return "\(owner)-\(milliseconds)\(rendersMarkdown ? "-r" : "")\(size).png"
     }
 
     /// The part of a cache name that is the note's alone, to find the older
@@ -99,6 +107,7 @@ extension NoteThumbnail {
         var orientation: PageOrientation
         var drawingData: Data
         var rendersMarkdown = false
+        var typography = NoteTypography.standard
     }
 
     /// The first page of a note, drawn the way the PDF draws a sheet
@@ -110,7 +119,10 @@ extension NoteThumbnail {
     @MainActor
     static func render(_ source: Source) async -> UIImage? {
         let printed = await PrintedNote(
-            text: prefix(of: source.text), orientation: source.orientation, rendersMarkdown: source.rendersMarkdown
+            text: prefix(of: source.text),
+            orientation: source.orientation,
+            rendersMarkdown: source.rendersMarkdown,
+            typography: source.typography
         )
         // The prefix's own pages: enough bands for its lines to fall where
         // they would in the whole note, which is all page 1 needs.
@@ -218,7 +230,8 @@ final class ThumbnailStore {
             text: page.content,
             orientation: page.orientation,
             drawingData: page.drawingData,
-            rendersMarkdown: page.markdownLayout == Page.renderedMarkdown
+            rendersMarkdown: page.markdownLayout == Page.renderedMarkdown,
+            typography: NoteTypography(bodySize: page.textSize)
         )
         guard let image = await NoteThumbnail.render(source) else { return nil }
         rendered += 1
@@ -233,7 +246,10 @@ final class ThumbnailStore {
               let id = page.settledID
         else { return nil }
         return NoteThumbnail.cacheName(
-            for: id, modifiedAt: page.modifiedAt, rendersMarkdown: page.markdownLayout == Page.renderedMarkdown
+            for: id,
+            modifiedAt: page.modifiedAt,
+            rendersMarkdown: page.markdownLayout == Page.renderedMarkdown,
+            typography: NoteTypography(bodySize: page.textSize)
         )
     }
 
@@ -310,6 +326,12 @@ struct NoteThumbnailView: View {
     enum Fit { case whole, top }
     var fit: Fit = .whole
 
+    /// What a picture is of, for the task that makes it to start over on.
+    private struct Picture: Hashable {
+        var modifiedAt: Date
+        var textSize: Int?
+    }
+
     /// How long the note must be left alone before its new picture is made.
     static let settleDelay: Duration = .milliseconds(600)
 
@@ -327,8 +349,9 @@ struct NoteThumbnailView: View {
             .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
             .accessibilityHidden(true)
 #if canImport(UIKit)
-            // `modifiedAt` as the id: a new date is a new picture.
-            .task(id: page.modifiedAt) { await refresh() }
+            // `modifiedAt` as the id: a new date is a new picture. So is a
+            // new text size, which leaves the date alone.
+            .task(id: Picture(modifiedAt: page.modifiedAt, textSize: page.textSize)) { await refresh() }
 #endif
     }
 

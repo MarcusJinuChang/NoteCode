@@ -13,45 +13,22 @@ enum DocumentStyler {
 
     // MARK: Attributes
 
-    /// The text sizes the note is laid out in, which are the system's at the
-    /// default Dynamic Type setting and stay there.
-    ///
-    /// **The note body does not follow Dynamic Type** (Phase 9). Its size is
-    /// part of its pagination: a larger body re-wraps every line and moves the
-    /// page breaks, and ink stays where it was drawn, so a reader who changed
-    /// the system's text size would find their handwriting on the wrong words.
-    /// The list, Settings and the menus scale; the page doesn't, the way a
-    /// printed page doesn't. Zoom is how a page is made larger.
-    private static let defaultSize = UITraitCollection(preferredContentSizeCategory: .large)
+    /// The fonts at the default size, which is every note's unless it was
+    /// resized (`NoteTypography`). The note body does not follow Dynamic Type
+    /// (Phase 9): its size is part of its pagination, and a larger body
+    /// re-wraps every line and moves the page breaks while ink stays where it
+    /// was drawn. A note's own size is chosen on the note, from the text
+    /// options row, and asks first when the note has ink.
+    static var proseFont: UIFont { NoteTypography.standard.prose }
+    static var codeFont: UIFont { NoteTypography.standard.code }
 
-    /// The system's font for a text style *as it is at the default setting*,
-    /// leading and all: not `systemFont(ofSize:)` of the same size, which has
-    /// none, so every line came out 1.7pt shorter (measured: body leading
-    /// 1.71pt, line height 20.29 either way). That moved the page breaks of
-    /// every note already written, away from its ink, and a test of where
-    /// the top line lands after a re-wrap is what caught it.
-    ///
-    /// Not rescaled afterwards: the text view has
-    /// `adjustsFontForContentSizeCategory` off, and nothing else re-resolves
-    /// a font put in the text storage.
-    private static func fixedFont(for style: UIFont.TextStyle) -> UIFont {
-        UIFont.preferredFont(forTextStyle: style, compatibleWith: defaultSize)
+    static func headingFont(level: Int, typography: NoteTypography = .standard) -> UIFont {
+        typography.heading(level: level)
     }
 
-    /// Body text: 17pt, whatever the system's text size is.
-    static var proseFont: UIFont {
-        fixedFont(for: .body)
-    }
-
-    /// Monospaced at body's size, so a line of code is as tall as a line of
-    /// prose.
-    static var codeFont: UIFont {
-        UIFont.monospacedSystemFont(ofSize: proseFont.pointSize, weight: .regular)
-    }
-
-    static var proseAttributes: [NSAttributedString.Key: Any] {
+    static func proseAttributes(_ typography: NoteTypography = .standard) -> [NSAttributedString.Key: Any] {
         [
-            .font: proseFont,
+            .font: typography.prose,
             .foregroundColor: UIColor.label,
         ]
     }
@@ -59,38 +36,24 @@ enum DocumentStyler {
     /// No `.backgroundColor` here on purpose. That attribute paints per glyph,
     /// which leaves the ragged right edge this project started with;
     /// CodeBlockLayoutFragment draws the panel at fragment level instead.
-    static var codeAttributes: [NSAttributedString.Key: Any] {
+    static func codeAttributes(_ typography: NoteTypography = .standard) -> [NSAttributedString.Key: Any] {
         [
-            .font: codeFont,
+            .font: typography.code,
             .foregroundColor: UIColor.label,
         ]
     }
 
     /// An output block's text: light on its dark panel, in both appearances.
-    static var outputAttributes: [NSAttributedString.Key: Any] {
+    static func outputAttributes(_ typography: NoteTypography = .standard) -> [NSAttributedString.Key: Any] {
         [
-            .font: codeFont,
+            .font: typography.code,
             .foregroundColor: CodeOutputPanel.textColor,
         ]
     }
 
-    /// Headings are bold, at the sizes the text styles have at the default
-    /// setting (see `defaultSize`).
-    static func headingFont(level: Int) -> UIFont {
-        let style: UIFont.TextStyle = switch level {
-        case 1:  .largeTitle
-        case 2:  .title1
-        case 3:  .title2
-        case 4:  .title3
-        case 5:  .headline
-        default: .subheadline
-        }
-        return fixedFont(for: style).withTraits(.traitBold)
-    }
-
-    static func headingAttributes(level: Int) -> [NSAttributedString.Key: Any] {
+    static func headingAttributes(level: Int, typography: NoteTypography = .standard) -> [NSAttributedString.Key: Any] {
         [
-            .font: headingFont(level: level),
+            .font: typography.heading(level: level),
             .foregroundColor: UIColor.label,
         ]
     }
@@ -117,9 +80,17 @@ enum DocumentStyler {
     /// under the content rather than under the bullet.
     /// Measuring text is not cheap and list markers repeat constantly — a
     /// document of bullets asks for the width of "- " hundreds of times.
+    ///
+    /// Keyed by the size too: a marker is wider in a larger body, and notes
+    /// of different sizes are styled in one process.
     private static var markerWidths: [String: CGFloat] = [:]
 
-    static func listParagraphStyle(for block: BlockNode, in source: String, rendered: Bool = false) -> NSParagraphStyle {
+    static func listParagraphStyle(
+        for block: BlockNode,
+        in source: String,
+        rendered: Bool = false,
+        typography: NoteTypography = .standard
+    ) -> NSParagraphStyle {
         let style = NSMutableParagraphStyle()
         let depth = block.listDepth ?? 0
         let levelIndent = CGFloat(depth) * listIndentPerLevel
@@ -127,7 +98,7 @@ enum DocumentStyler {
         // Width of the literal marker text, indentation included, so a wrapped
         // line starts exactly where the item's text does.
         let markerWidth: CGFloat = if let marker = block.markerRange {
-            width(ofMarker: laidOutMarker(String(source[marker]), of: block, rendered: rendered))
+            width(ofMarker: laidOutMarker(String(source[marker]), of: block, rendered: rendered), typography: typography)
         } else {
             0
         }
@@ -150,10 +121,11 @@ enum DocumentStyler {
         }
     }
 
-    private static func width(ofMarker marker: String) -> CGFloat {
-        if let cached = markerWidths[marker] { return cached }
-        let width = (marker as NSString).size(withAttributes: [.font: proseFont]).width
-        markerWidths[marker] = width
+    private static func width(ofMarker marker: String, typography: NoteTypography) -> CGFloat {
+        let key = "\(typography.bodySize)|\(marker)"
+        if let cached = markerWidths[key] { return cached }
+        let width = (marker as NSString).size(withAttributes: [.font: typography.prose]).width
+        markerWidths[key] = width
         return width
     }
 
@@ -170,10 +142,10 @@ enum DocumentStyler {
     /// Convenience for callers without a cache of their own (tests, previews).
     /// The editor goes through the `regions:` variant so it parses once per edit.
     @discardableResult
-    static func applyStyling(to textView: UITextView, rendered: Bool = false) -> [BlockNode] {
+    static func applyStyling(to textView: UITextView, rendered: Bool = false, typography: NoteTypography = .standard) -> [BlockNode] {
         let source = (textView.text ?? "").nativeUTF8
         let blocks = DocumentParser.parse(source)
-        applyStyling(to: textView, source: source, blocks: blocks, previousSignatures: [], rendered: rendered)
+        applyStyling(to: textView, source: source, blocks: blocks, previousSignatures: [], rendered: rendered, typography: typography)
         return blocks
     }
 
@@ -194,7 +166,8 @@ enum DocumentStyler {
         source: String,
         blocks: [BlockNode],
         previousSignatures: [BlockSignature] = [],
-        rendered: Bool = false
+        rendered: Bool = false,
+        typography: NoteTypography = .standard
     ) -> [BlockSignature] {
         // Rewriting attributes mid-composition destroys the marked-text
         // underline and can drop the in-progress character entirely, which
@@ -236,13 +209,13 @@ enum DocumentStyler {
         // second full layout of the note below the caret on every keystroke
         // (sampled on the simulator, 25 September).
         let styled = NSMutableAttributedString(attributedString: storage)
-        styled.setAttributes(proseAttributes, range: span)
+        styled.setAttributes(proseAttributes(typography), range: span)
 
         for layout in touched {
             switch layout.block.kind {
             case .code(let code):
                 let output = code.isOutput
-                styled.setAttributes(output ? outputAttributes : codeAttributes, range: layout.range)
+                styled.setAttributes(output ? outputAttributes(typography) : codeAttributes(typography), range: layout.range)
                 // The fence lines are markers like any other, so they recede
                 // too — the code inside is what should carry the eye. On an
                 // output block's dark panel the usual marker grey would sink
@@ -252,15 +225,15 @@ enum DocumentStyler {
                 }
 
             case .paragraph:
-                apply(layout.inlines, over: proseFont, to: styled)
+                apply(layout.inlines, over: typography.prose, to: styled)
 
             case .listItem(_, let marker, _):
                 styled.addAttribute(
                     .paragraphStyle,
-                    value: listParagraphStyle(for: layout.block, in: source, rendered: rendered),
+                    value: listParagraphStyle(for: layout.block, in: source, rendered: rendered, typography: typography),
                     range: layout.range
                 )
-                apply(layout.inlines, over: proseFont, to: styled)
+                apply(layout.inlines, over: typography.prose, to: styled)
                 for range in layout.blockMarkers {
                     styled.addAttribute(.foregroundColor, value: markerColor, range: range)
                 }
@@ -272,8 +245,8 @@ enum DocumentStyler {
                 }
 
             case .heading(let level, _):
-                styled.setAttributes(headingAttributes(level: level), range: layout.range)
-                apply(layout.inlines, over: headingFont(level: level), to: styled)
+                styled.setAttributes(headingAttributes(level: level, typography: typography), range: layout.range)
+                apply(layout.inlines, over: typography.heading(level: level), to: styled)
                 for marker in layout.blockMarkers {
                     styled.addAttribute(.foregroundColor, value: markerColor, range: marker)
                 }
@@ -569,7 +542,13 @@ enum DocumentStyler {
     /// monospaced on a grey background. This is the "attribute bleed" problem;
     /// setting typing attributes from the *parsed* region under the caret is the
     /// fix, rather than letting the text system guess.
-    static func applyTypingAttributes(to textView: UITextView, source: String, blocks: [BlockNode], rendered: Bool = false) {
+    static func applyTypingAttributes(
+        to textView: UITextView,
+        source: String,
+        blocks: [BlockNode],
+        rendered: Bool = false,
+        typography: NoteTypography = .standard
+    ) {
         let caret = textView.selectedRange.location
 
         let current = block(at: caret, in: source, blocks: blocks)
@@ -577,7 +556,7 @@ enum DocumentStyler {
         switch current?.kind {
         case .code(let code) where code.isOutput:
             // One colour all the way through: nothing is highlighted.
-            textView.typingAttributes = outputAttributes
+            textView.typingAttributes = outputAttributes(typography)
         case .code:
             // Carry the neighbouring syntax colour onto whatever is typed next.
             //
@@ -587,21 +566,21 @@ enum DocumentStyler {
             // letters. A briefly stale colour reads as stable; a black gap at
             // the caret reads as broken, and the next highlight pass corrects
             // either one.
-            var attributes = codeAttributes
+            var attributes = codeAttributes(typography)
             if let inherited = inheritedCodeColor(at: caret, in: textView.textStorage) {
                 attributes[.foregroundColor] = inherited
             }
             textView.typingAttributes = attributes
         case .heading(let level, _):
-            textView.typingAttributes = headingAttributes(level: level)
+            textView.typingAttributes = headingAttributes(level: level, typography: typography)
         case .listItem:
             // Carry the indent, or text typed into a wrapped list line jumps
             // back to the margin.
-            var attributes = proseAttributes
-            attributes[.paragraphStyle] = listParagraphStyle(for: current!, in: source, rendered: rendered)
+            var attributes = proseAttributes(typography)
+            attributes[.paragraphStyle] = listParagraphStyle(for: current!, in: source, rendered: rendered, typography: typography)
             textView.typingAttributes = attributes
         default:
-            textView.typingAttributes = proseAttributes
+            textView.typingAttributes = proseAttributes(typography)
         }
     }
 

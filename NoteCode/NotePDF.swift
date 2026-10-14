@@ -47,6 +47,9 @@ enum NotePDF {
         var rendersMarkdown = false
         /// Whether code is numbered in the margin, as on screen (Settings › Code).
         var lineNumbers = false
+        /// The note's own text size (`Page.textSize`): paper breaks its lines
+        /// where the screen does, or ink would print off its words.
+        var typography = NoteTypography.standard
     }
 
     /// PDF points per page point. A page 816 wide prints 612 wide: US
@@ -55,7 +58,13 @@ enum NotePDF {
 
     /// One PDF page per page of the note.
     static func render(_ note: Note) async -> Data {
-        let printed = await PrintedNote(text: note.text, orientation: note.orientation, rendersMarkdown: note.rendersMarkdown, lineNumbers: note.lineNumbers)
+        let printed = await PrintedNote(
+            text: note.text,
+            orientation: note.orientation,
+            rendersMarkdown: note.rendersMarkdown,
+            lineNumbers: note.lineNumbers,
+            typography: note.typography
+        )
         let ink = note.ink.flatMap { $0.subelements.isEmpty ? nil : $0 }
         let pageCount = printed.paginate(inkBottom: ink?.contentsRenderFrame.maxY, startingAt: note.pageCount)
         let layout = printed.layout
@@ -253,10 +262,16 @@ final class PrintedNote {
     /// for the editor, so code blocks get their panels and colours.
     private let coordinator: DocumentTextView.Coordinator
 
-    init(text: String, orientation: PageOrientation, rendersMarkdown: Bool = false, lineNumbers: Bool = false) async {
+    init(
+        text: String,
+        orientation: PageOrientation,
+        rendersMarkdown: Bool = false,
+        lineNumbers: Bool = false,
+        typography: NoteTypography = .standard
+    ) async {
         layout = PageLayout(orientation: orientation, mode: .print)
         coordinator = DocumentTextView.Coordinator(text: .constant(text))
-        textView = DocumentTextView.makeConfiguredTextView()
+        textView = DocumentTextView.makeConfiguredTextView(typography: typography)
 
         // Paper is white, so code takes the light theme's colours.
         textView.overrideUserInterfaceStyle = .light
@@ -279,6 +294,9 @@ final class PrintedNote {
         // print where it was drawn.
         coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
         coordinator.setLineNumbers(lineNumbers, in: textView)
+        // The note's own size, before the first styling: the coordinator is
+        // this printed note's alone, so it can't pick up another note's.
+        coordinator.setTypography(typography, in: textView)
         coordinator.restyle(textView)
         await coordinator.highlightingFinished()
     }

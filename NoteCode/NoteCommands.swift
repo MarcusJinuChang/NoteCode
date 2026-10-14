@@ -50,6 +50,8 @@ struct OpenNote {
     var editor: NoteEditor
     var viewMode: Binding<PageViewMode>
     var printNote: () -> Void
+    /// ⌃⌘O: the outline popover, which hangs off the header's button.
+    var showOutline: () -> Void
 }
 #endif
 
@@ -221,6 +223,14 @@ struct NoteCommands: Commands {
                     .keyboardShortcut(.bulletedList)
                 Button(NoteShortcut.codeBlock.title) { editor?.insertCodeBlockInLastLanguage() }
                     .keyboardShortcut(.codeBlock)
+                Divider()
+                // The note's own size, a step at a time. Off at either end.
+                Button(NoteShortcut.biggerText.title) { editor?.stepTextSize(by: 1) }
+                    .keyboardShortcut(.biggerText)
+                    .disabled(editor?.canStepTextSize.bigger != true)
+                Button(NoteShortcut.smallerText.title) { editor?.stepTextSize(by: -1) }
+                    .keyboardShortcut(.smallerText)
+                    .disabled(editor?.canStepTextSize.smaller != true)
             }
             .disabled(!canFormat)
 
@@ -276,6 +286,10 @@ struct NoteCommands: Commands {
                 .keyboardShortcut(mode.shortcut)
                 .disabled(note == nil)
             }
+            Divider()
+            Button(NoteShortcut.outline.title) { note?.showOutline() }
+                .keyboardShortcut(.outline)
+                .disabled(note == nil)
         }
     }
 

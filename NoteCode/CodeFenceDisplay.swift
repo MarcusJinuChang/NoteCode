@@ -54,6 +54,22 @@ extension DocumentTextView.Coordinator {
             else { return }
             copy(target)
         }
+        // The text options row's controls: the same edits as Tab, ⇧Tab and
+        // a block's language button, one tap closer.
+        editor?.codeRanges = { [weak self, weak textView] in
+            guard let self, let textView else { return [] }
+            return codeRanges(in: textView.textStorage)
+        }
+        editor?.indentAtCaret = { [weak self, weak textView] outdent in
+            guard let self, let textView, textView.isEditable, let edit = indentEdit(outdent: outdent, in: textView) else { return }
+            apply(edit, to: textView)
+        }
+        editor?.retagBlockAtCaret = { [weak self, weak textView] kind in
+            guard let self, let textView, editor?.mode == .text,
+                  let target = target(atCaret: textView.selectedRange.location, in: textView)
+            else { return }
+            setKind(kind, of: target, in: textView)
+        }
         refreshFenceVisibility(in: textView)
     }
 

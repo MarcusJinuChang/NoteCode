@@ -25,6 +25,7 @@ struct NoteShortcutTests {
         (.pen, "P"), (.highlighter, "H"), (.eraser, "E"), (.lasso, "L"),
         (.thinner, "["), (.thicker, "]"),
         (.seamless, "⌘1"), (.compressed, "⌘2"), (.printLayout, "⌘3"),
+        (.outline, "⌃⌘O"), (.biggerText, "⌘+"), (.smallerText, "⌘-"),
         (.find, "⌘F"), (.print, "⌘P"),
         (.newNote, "⌘N"), (.newFolder, "⇧⌘N"), (.searchNotes, "⇧⌘F"),
         (.noteList, "⌃⌘S"), (.home, "⇧⌘H"), (.settings, "⌘,"),

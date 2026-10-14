@@ -101,6 +101,8 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
     var mode: PageViewMode?
     /// The seeded note's page orientation.
     var orientation: PageOrientation?
+    /// The seeded note's text size, one of `NoteTypography.sizes`.
+    var textSize: Int?
     /// A page to scroll to, counted from 1 as pages are on screen.
     var page: Int?
     /// A view mode to switch to once the page has settled.
@@ -121,8 +123,8 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
     var problems: [String] = []
 
     var isActive: Bool {
-        note != nil || mode != nil || orientation != nil || page != nil || thenMode != nil || writesReport
-            || firstLaunch || home
+        note != nil || mode != nil || orientation != nil || textSize != nil || page != nil || thenMode != nil
+            || writesReport || firstLaunch || home
     }
 
     static let current = parse(ProcessInfo.processInfo.arguments)
@@ -171,6 +173,14 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
                 options.mode = choice(value(for: flag), for: flag)
             case "-debug-orientation":
                 options.orientation = choice(value(for: flag), for: flag)
+            case "-debug-text-size":
+                if let raw = value(for: flag) {
+                    if let size = Int(raw), NoteTypography.sizes.contains(size) {
+                        options.textSize = size
+                    } else {
+                        options.problems.append("\(flag): \"\(raw)\" isn't one of \(NoteTypography.sizes.map(String.init).joined(separator: ", "))")
+                    }
+                }
             case "-debug-page":
                 if let raw = value(for: flag) {
                     if let number = Int(raw), number >= 1 {
@@ -205,6 +215,9 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
 
         if options.orientation != nil && options.note == nil {
             options.problems.append("-debug-orientation applies to a seeded note; add -debug-note")
+        }
+        if options.textSize != nil && options.note == nil {
+            options.problems.append("-debug-text-size applies to a seeded note; add -debug-note")
         }
         if options.firstLaunch && options.home {
             options.problems.append("-debug-first-launch and -debug-home both given; using -debug-first-launch")
@@ -250,6 +263,9 @@ nonisolated struct DebugStateReport: Codable, Equatable, Sendable {
     var event: String
     var mode: String
     var orientation: String
+    /// The point size of the text at the top of the view, as laid out: what a
+    /// note's text size comes to on screen (a heading is larger).
+    var topLinePoints: Double?
     var pageCount: Int
     var contentOffset: Double
     var displayScale: Double
@@ -287,6 +303,9 @@ extension DebugStateReport {
             let start = min(character, text.length)
             let newline = text.range(of: "\n", range: NSRange(location: start, length: text.length - start)).location
             let end = newline == NSNotFound ? text.length : newline
+            topLinePoints = start < text.length
+                ? (textView.textStorage.attribute(.font, at: start, effectiveRange: nil) as? UIFont).map { Double($0.pointSize) }
+                : nil
             topLine = TopLine(
                 character: character,
                 page: index + 1,
@@ -295,6 +314,7 @@ extension DebugStateReport {
             )
         } else {
             topLine = nil
+            topLinePoints = nil
         }
     }
 
@@ -376,6 +396,9 @@ enum DebugLaunch {
         let page = Page(title: title, content: content)
         if let orientation = options.orientation {
             page.orientation = orientation
+        }
+        if let size = options.textSize {
+            page.textSize = NoteTypography(bodySize: size).storedSize
         }
         container.mainContext.insert(page)
         return (.persistent(container), page)

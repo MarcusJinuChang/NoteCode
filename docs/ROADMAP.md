@@ -21,8 +21,21 @@ pinch zoom, the note page and its hotbar, and a PaperKit canvas that a finger
 or the Pencil draws on, with ink undo of its own, saved with the note and
 drawn at the screen's density. 25 pull requests, all merged.
 
+- **UI design v3, phase 6: navigation, and the text options row** (14 Oct,
+  branch `claude/v3-phase-6-navigation-text-row`, off `main`, not merged): an
+  Outline button in the header (and ⌃⌘O) lists the note's headings and jumps
+  to one, its line at the top of the page; a "2 / 5" badge shows while the note
+  scrolls and fades a second after. Text mode gets a second row beside the
+  hotbar, as ink mode has: a text size stepper (`+ 17 −`, seven sizes from 14 to
+  23, kept per note, ⌘+ and ⌘−) and then controls for what the caret is in:
+  Body, H1 to H3 and Link; the list kinds and indent; a code block's
+  language, indent and + Output. Changing a size re-wraps the note, keeps the
+  reader on their line, and asks first on a note with ink; the PDF and
+  thumbnails are made at the note's own size. Builds for iPad and Mac; 1,100
+  unit tests pass; looked at in the simulator (the row, the stepper, the
+  outline), not with a hardware keyboard, the Pencil or on a note with ink.
 - **UI design v3, phase 5: insert and templates** (13 Oct, branch
-  `claude/v3-phase-5-ink-paper-templates`, off `main`, not merged): ink mode's
+  `claude/v3-phase-5-ink-paper-templates`, off `main`, merged as #52): ink mode's
   hotbar has Insert, PaperKit's own popover of shapes, arrows and a text box
   plus Photo… (downscaled to 2 pixels a point of page width), placed at the
   middle of the page on screen and kept like any ink (saved, undone, moved with
