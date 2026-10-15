@@ -546,7 +546,6 @@ Referenced by name from the code.
 
 | Where | What |
 |---|---|
-| `DocumentStyler.swift` | **Markers that recede.** Markdown markers stay visible in `tertiaryLabel`. Hiding them when the caret is elsewhere is the Obsidian behaviour. |
 | `PageLayout.swift` | **A4.** Notes print on US Letter only. A4 is one more paper size here, but a different width re-wraps the text, so it would be a property of the note, chosen when it's made, like orientation. |
 | `PageView.swift` | **Typing cost on long paged notes.** Page breaks are exclusion paths, and TextKit 2 then lays out everything below an edit: 34ms a keystroke near the top of a 250-line note on the simulator. If it lags on the iPad, push whole paragraphs with paragraph spacing instead, computed lazily. |
 | `PageView.swift` | **Diagonal panning when zoomed in.** The text view scrolls vertically and `PageView` sideways, so a pan picks one. |
