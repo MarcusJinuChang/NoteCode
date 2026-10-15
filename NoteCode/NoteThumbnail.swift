@@ -230,7 +230,7 @@ final class ThumbnailStore {
             text: page.content,
             orientation: page.orientation,
             drawingData: page.drawingData,
-            rendersMarkdown: page.markdownLayout == Page.renderedMarkdown,
+            rendersMarkdown: true,
             typography: NoteTypography(bodySize: page.textSize)
         )
         guard let image = await NoteThumbnail.render(source) else { return nil }
@@ -248,7 +248,7 @@ final class ThumbnailStore {
         return NoteThumbnail.cacheName(
             for: id,
             modifiedAt: page.modifiedAt,
-            rendersMarkdown: page.markdownLayout == Page.renderedMarkdown,
+            rendersMarkdown: true,
             typography: NoteTypography(bodySize: page.textSize)
         )
     }

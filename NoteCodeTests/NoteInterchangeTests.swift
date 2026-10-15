@@ -330,7 +330,6 @@ struct ImportFilesTests {
         #expect(result.pages.map(\.content) == ["```python\ndef f(): pass\n```\n", "# Exam\n"])
         #expect(result.pages.allSatisfy { $0.folder === folder })
         #expect(result.pages.allSatisfy { $0.orientation == .landscape })
-        #expect(result.pages.allSatisfy { $0.markdownLayout == Page.renderedMarkdown })
         #expect(result.skipped.isEmpty)
         #expect(result.summary(into: folder) == "Imported 2 notes into CS133")
         #expect(folder.livePages.count == 2)

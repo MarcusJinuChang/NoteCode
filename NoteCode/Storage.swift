@@ -39,13 +39,8 @@ enum Storage {
             ?? ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
-            // The plan carries a store written by an earlier version of the
-            // model across; see NoteSchema.swift.
-            let container = try ModelContainer(
-                for: schema,
-                migrationPlan: NoteMigrationPlan.self,
-                configurations: [disk]
-            )
+            // No migration plan until the release; see NoteSchema.swift.
+            let container = try ModelContainer(for: schema, configurations: [disk])
             return .persistent(container)
         } catch let diskError {
             do {

@@ -34,6 +34,14 @@ nonisolated enum RecentlyDeletedCaption {
         guard let deletedAt = page.deletedAt, let left = page.daysLeft(now: now) else { return "" }
         return "\(deleted(deletedAt, now: now, calendar: calendar)) · \(daysLeft(left))"
     }
+
+    /// A folder's row: how many notes went with it, then the same dates.
+    static func caption(for folder: Folder, now: Date = .now, calendar: Calendar = .current) -> String {
+        guard let deletedAt = folder.deletedAt, let left = folder.daysLeft(now: now) else { return "" }
+        let count = folder.notesDeletedWithIt.count
+        let notes = count == 1 ? "1 note" : "\(count) notes"
+        return "\(notes) · \(deleted(deletedAt, now: now, calendar: calendar)) · \(daysLeft(left))"
+    }
 }
 
 /// Recently Deleted, as a sheet over the list: the newest deletion first, each
@@ -59,26 +67,38 @@ struct RecentlyDeletedPage: View {
     var showsDone: Bool
 
     @Query(filter: Page.deletedPredicate, sort: \Page.deletedAt, order: .reverse)
-    private var deleted: [Page]
+    private var allDeletedPages: [Page]
+
+    @Query(filter: Folder.deletedPredicate, sort: \Folder.deletedAt, order: .reverse)
+    private var deletedFolders: [Folder]
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
     @State private var confirmsDeleteAll = false
 
+    /// The notes with a row of their own: not the ones that went with a folder,
+    /// which the folder's row holds.
+    private var deleted: [Page] { allDeletedPages.filter { !$0.isDeletedWithFolder } }
+
+    private var isEmpty: Bool { deleted.isEmpty && deletedFolders.isEmpty }
+
     var body: some View {
         Group {
             List {
                 Section {
+                    ForEach(deletedFolders) { folder in
+                        row(folder)
+                    }
                     ForEach(deleted) { page in
                         row(page)
                     }
                 } footer: {
-                    Text("Notes are deleted for good 30 days after you delete them.")
+                    Text("Notes and folders are deleted for good 30 days after you delete them.")
                 }
             }
             .overlay {
-                if deleted.isEmpty {
+                if isEmpty {
                     ContentUnavailableView {
                         Label { Text("Nothing Deleted") } icon: { EmptyStateMark() }
                     } description: {
@@ -98,7 +118,7 @@ struct RecentlyDeletedPage: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                if !deleted.isEmpty {
+                if !isEmpty {
                     Button("Delete All…", role: .destructive) { confirmsDeleteAll = true }
                         .frame(maxWidth: .infinity, minHeight: 56)
                         .background(.bar)
@@ -106,7 +126,7 @@ struct RecentlyDeletedPage: View {
                 }
             }
             .confirmationDialog(
-                "Delete ^[\(deleted.count) Note](inflect: true) for good?",
+                "Delete everything in Recently Deleted for good?",
                 isPresented: $confirmsDeleteAll,
                 titleVisibility: .visible
             ) {
@@ -140,6 +160,40 @@ struct RecentlyDeletedPage: View {
         }
     }
 
+    private func row(_ folder: Folder) -> some View {
+        HStack(spacing: 12) {
+            FolderBadge(folder: folder)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(folder.name)
+                    .font(.headline)
+                Text(RecentlyDeletedCaption.caption(for: folder))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .contextMenu {
+            Button("Restore", systemImage: "arrow.uturn.backward") { restore(folder) }
+            Divider()
+            Button("Delete Now", systemImage: "trash", role: .destructive) { deleteNow(folder) }
+        }
+        .swipeActions(edge: .leading) {
+            Button("Restore", systemImage: "arrow.uturn.backward") { restore(folder) }
+                .tint(.accentColor)
+        }
+        .swipeActions(edge: .trailing) {
+            Button("Delete Now", systemImage: "trash", role: .destructive) { deleteNow(folder) }
+        }
+    }
+
+    private func restore(_ folder: Folder) {
+        withAnimation { try? Folder.restore([folder], in: modelContext) }
+    }
+
+    private func deleteNow(_ folder: Folder) {
+        withAnimation { try? Folder.deleteForGood([folder], from: modelContext) }
+    }
+
     private func restore(_ page: Page) {
         withAnimation { try? Page.restore([page], in: modelContext) }
     }
@@ -150,7 +204,13 @@ struct RecentlyDeletedPage: View {
     }
 
     private func deleteAll() {
-        let all = deleted
-        withAnimation { try? Page.delete(all, from: modelContext) }
+        let folders = deletedFolders
+        let pages = allDeletedPages
+        withAnimation {
+            // Folders first, with the notes that went with them, so no note is
+            // deleted twice; then every note left.
+            try? Folder.deleteForGood(folders, from: modelContext)
+            try? Page.delete(pages.filter { $0.modelContext != nil && !$0.isDeleted }, from: modelContext)
+        }
     }
 }

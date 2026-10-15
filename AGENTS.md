@@ -322,9 +322,6 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
     (`PageViewTests.coversMatchThePage` compares the pixels, and fails if
     the covers are coloured). Text never sits in the bands. The live stroke
     goes under them too.
-  - **Ink saved before 9 Oct isn't cut.** Rewriting ink nobody touched on
-    opening would change saved notes for being looked at; an old stroke is
-    cut the first time it's moved or erased.
   - **Measured on the way, so they aren't tried again:** setting
     `renderGroupID` on a stroke from the canvas traps inside PaperKit (its
     strokes are a subclass that can't copy with one); `InkPages`' stroke
@@ -388,9 +385,6 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
       shown, so undoing the erase brings it back. **Moved by the lasso:**
       the hidden overflow is moved by the same amount, as a translation;
       a lasso's resize or rotation isn't carried exactly.
-    - Ink cut on 9 Oct, before overflow existed, has random ids, so all of
-      its pieces show in every mode, and a stroke saved whole before then
-      shows whole, until either is moved or erased.
 - **Print layout** fits its sheets inside a 24pt border of the surround
   (`CanvasGeometry.printGutter`), so they read as paper rather than one slab
   with grey bars across it. Text is a little smaller there than in the
@@ -881,13 +875,31 @@ v3 phase 1 (12 Oct, `docs/ui-design-v3-implementation.md`).
   `NoteList` keeps its one unfiltered `@Query`; `RecentlyDeletedView` runs its
   own with `Page.deletedPredicate`, so a note it deletes for good leaves its
   rows in the same update.
-- **A folder isn't soft-deleted.** `Folder.delete(_:_:from:)` removes the folder
-  and, with `.withNotes`, marks its *visible* notes deleted. The folder's
-  `nullify` rule then clears each note's `folder`, so a restored note lands at
-  the top of the list, and Undo on that toast does too. A note already in
-  Recently Deleted keeps its first date.
-- **Restoring** just clears `deletedAt`: back to its folder if the folder is
-  still there, else the top level, which the nullify rule already did.
+- **A folder goes to Recently Deleted when its notes do** (15 Oct, roadmap
+  step 7). `Folder.delete(_:_:from:)` with `.withNotes` sets `Folder.deletedAt`
+  and gives every *visible* note the same date, so `Folder.restore` knows
+  which notes went with it (`Folder.notesDeletedWithIt`: the ones stamped with
+  its date; a note deleted on its own earlier keeps its own, older date and
+  stays deleted). The folder isn't removed, so the nullify rule doesn't fire
+  and the notes keep `folder`. With `.keepingNotes` the folder is deleted for
+  good as before: it holds nothing worth bringing back, and the notes move to
+  the top of the list.
+  - **`Folder.isLive`/`.live` is the rule for folders**, as `Page.isLive` is
+    for notes, applied inside the pure types (`NoteListSections`,
+    `HomeSections`, `NoteExportJob.layout`) so Move to Folder, Home's tiles and
+    Export All can't show one. The list's empty-state check and Export's
+    disabled check use `.live` at the call site.
+  - **Restoring one note of a deleted folder** puts it at the top level
+    (`Page.restore` clears a folder that isn't live): it must not sit in a
+    folder nobody can see.
+  - **The sheet shows the folder as one row** (badge, name, "3 notes · Deleted
+    today · 30 days left"); the notes that went with it
+    (`Page.isDeletedWithFolder`) have no rows of their own. Delete Now on it
+    removes the folder and those notes (`Folder.deleteForGood`); Delete All
+    takes folders first so no note is deleted twice. Purging does the same.
+  - The toast's Undo on a folder restores it with its notes.
+- **Restoring** a note clears `deletedAt`: back to its folder if the folder is
+  live, else the top level.
 - **Purging** is `Page.purgeExpired`, once per launch from `ContentView.task`,
   *after* the Welcome note's check. A store holding only deleted notes has been
   used, so that check counts them too. It goes through `Page.delete`, which
@@ -1038,8 +1050,8 @@ v3 phase 2 (12 Oct, `docs/ui-design-v3-implementation.md`).
 
 v3 phase 3 (12 Oct, `docs/ui-design-v3-implementation.md`).
 
-- **Markers take no room in a `rendered` note** (`Page.markdownLayout`,
-  `MarkdownLayout`). `BlankLineLayout`'s content-storage delegate swaps each
+- **Markers take no room** (`MarkdownLayout`; every note is laid out this way
+  since 15 Oct, when `Page.markdownLayout` and its legacy case went). `BlankLineLayout`'s content-storage delegate swaps each
   marker for U+2060 WORD JOINER in the paragraph TextKit lays out: same
   length, so offsets map straight through, and the text storage still holds
   the Markdown. The ranges are `DocumentStyler.layouts`' own (`blockMarkers`,
@@ -1047,8 +1059,11 @@ v3 phase 3 (12 Oct, `docs/ui-design-v3-implementation.md`).
   a heading's `# `, the markers of complete inline spans (inline code only its
   backticks), a link's `[` and `](url)`, and a checkbox item's `- `. A bullet
   `-`/`*`/`+` lays out as `•`; `[ ]` or `[x]` as an em space plus two joiners,
-  and the box is drawn in the em space. Nothing in a code block. A legacy note
-  (`markdownLayout` nil) swaps blank lines only, as before.
+  and the box is drawn in the em space. Nothing in a code block. The coordinator's
+  `rendersMarkdown` is still a flag, off by default, and the app turns it on for
+  every note: the test harnesses (`CodeFenceDisplayTests.Harness` and its
+  neighbours) are written against the flag being off, and flipping the default
+  means rewriting their expectations, so that is left for its own change.
   - **State-independent**: the swap is a function of the text alone. The caret,
     the mode and Show Markdown never change it.
   - **Probe, as tests** (`MarkdownLayoutTests`). Every line frame (fragments
@@ -1189,9 +1204,8 @@ v3 phase 3 (12 Oct, `docs/ui-design-v3-implementation.md`).
   underlined (`DocumentStyler.linkColor`); inline code isn't a link. Only
   http, https and mailto open (`LinkTarget`); no scheme means https. A hold
   shows the address with Open Link and Copy Link (`UIEditMenuInteraction`).
-- **Hide Markdown Markers…** is in the title menu for a legacy note (not the
-  list's note menu), asks first with the board's wording, and sets `rendered`.
-  Not an edit. The words re-wrap once, so ink drawn before may need moving.
+- **Hide Markdown Markers…** is gone (15 Oct): it converted a note from before
+  v3, and no note is kept from before v3 (see "The model").
 - **Not checked** (see the PR's checklist): the Pencil; a real keyboard (⇧Tab,
   Tab, arrows past markers, ⌘B on a double-tapped word); Return and
   Backspace by the hardware keyboard; the margin hash in light mode on screen
@@ -1389,7 +1403,7 @@ v3 phase 5 (13 Oct, `docs/ui-design-v3-implementation.md`).
   grid (a per-note `Page.paperStyle`, drawn behind text and ink in each page's
   body) were built and came out slightly offset or broken in compressed and
   print layout, so the whole system waits and none of it is in the app.
-  `Page.paperStyle` is still in the model (version 7), unused. What the first
+  `Page.paperStyle` left the model on 15 Oct; add it back with the feature. What the first
   attempt found, for whoever picks it up: paper must lay nothing out; a
   pattern `backgroundColor` on a bare `CALayer` draws its tile upside down
   while a `UIView`'s draws upright; and print layout's covers hide anything in
@@ -1931,54 +1945,37 @@ so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
 Pinning, sorting, note info and search needed no model change: the pins
 (`Page.isPinned`, `Folder.isPinned`) came in with folders.
 
-## The model and its versions
+## The model
 
-The store's model is versioned (`NoteSchema.swift`, since 3 Oct). Everything
-else says `Page` and `Folder`, which are typealiases for the current version.
+`Page` and `Folder` (Page.swift, Folder.swift) are plain `@Model` classes, and
+`NoteSchema.current` is a `Schema` of the two. There are no versions and no
+migration plan.
 
-- **Never edit a version that has shipped.** A model change is a new
-  `VersionedSchema` with its own copies of the classes, the old one stays
-  frozen, and a stage joins `NoteMigrationPlan`. SwiftData matches a store to
-  its version by the shape of its entities, so a frozen copy that drifts —
-  a renamed attribute, a dropped `.externalStorage` — stops old stores
-  opening.
-- **A failed migration looks like lost notes.** `Storage` falls back to an
-  in-memory store with a warning; the file is untouched, but the app can't see
-  it. `SchemaMigrationTests` writes a store with the previous version and
-  opens it through `Storage`, never a container built some other way.
+- **Edited in place until the release** (15 Oct, step 4 of docs/ROADMAP.md).
+  Nothing important is stored in the app yet, so a model change carries no
+  migration, and a store that won't open is deleted with the app. TestFlight
+  testers reinstall after this change. The frozen versions 1 to 7, the
+  version-7 stage that marked notes without ink `rendered`, and
+  `SchemaMigrationTests` went with it; they are in the history of
+  NoteSchema.swift.
+- **Step 13 starts versioning again**: freeze the model as it stands as
+  version 1. After that a model change is a new `VersionedSchema` with its own
+  copies of the classes, the old one frozen (SwiftData matches a store to its
+  version by the shape of its entities, so a copy that drifts stops old
+  stores opening), and a stage in a plan; a test writes a store in the old
+  shape and opens it through `Storage`, never a container built some other
+  way. Anything that changes how notes are stored lands before that.
+- **A store that can't be opened looks like lost notes.** `Storage` falls back
+  to an in-memory store with a warning; the file is untouched, but the app
+  can't see it.
 - **Shaped for CloudKit**, so iCloud sync later needs no migration of its own:
   every relationship optional, every attribute optional or with a default,
   nothing `.unique`.
-- **Versions 1 to 4 are every shape a build wrote before versions** (15 Aug,
-  11 Sep, 13 Sep, 23 Sep), recovered from the history of Page.swift; version
-  5 adds folders, and version 6 the text lock (4 Oct). With only the 23 Sep
-  shape, stores last opened by a build from before 23 Sep failed —
-  `.externalStorage` changes the entity's shape without changing a column
-  (measured 3 Oct on copies of the simulators' stores). `SchemaMigrationTests`
-  writes a store in each shape, version 5 included.
-- **Version 5 is frozen in NoteSchema.swift** (4 Oct), like 1 to 4, and the
-  live classes in Page.swift and Folder.swift are version 6's. `Folder` didn't
-  change, but a version lists its own classes, so it moved up with `Page`.
-- **Version 7 (12 Oct, v3 phase 1)** is v3's only model change, and version 6
-  is frozen beside 5. It adds `Page.deletedAt`, `paperStyle`, `markdownLayout`
-  and `textSize`, and `Folder.colorName` and `symbolName`, all optional with
-  `nil` meaning the old behaviour. Only `deletedAt`, `markdownLayout` and the
-  folder pair are used so far; the rest wait for their phases.
-  - **The one custom stage** (`NoteMigrationPlan.migrateToVersionSeven`): a
-    lightweight stage can give a column only one value, and `markdownLayout`
-    depends on the note: `rendered` where `drawingData` is empty, `nil` (visible
-    markers, as drawn) where there is any ink at all. It runs inside the
-    migration, once, and writes nothing else, so `modifiedAt` doesn't move
-    (`SchemaMigrationTests` checks the dates). The cost is reading every note's
-    ink once, since an external-storage column can't be tested in the store.
-  - **Every new note is `rendered`**, set in `Page.init`, so the + button, the
-    Welcome note, templates and imports can't forget.
-- **Older builds don't know the newest version.** A build from before 3 Oct
-  opens the store without versions and would likely migrate it back to its
-  own shape, dropping folders and pins. A build with version 5 but not 6
-  may drop text locks the same way, or fail to open the store and show no
-  notes, with the file left as it was; neither is measured. Don't run an
-  older branch on a device whose notes use what it doesn't know.
+- **Gone with the old notes**: `Page.paperStyle` (paper is postponed),
+  `Page.markdownLayout` and the legacy layout it chose, and the title menu's
+  Hide Markdown Markers….
+- **Don't run an older branch on a device** whose store this build has opened:
+  an older build may fail to open it.
 
 ## Shipping
 

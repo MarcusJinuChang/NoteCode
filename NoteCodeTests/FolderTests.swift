@@ -81,7 +81,9 @@ struct FolderTests {
         let live = try ModelContext(container).fetch(FetchDescriptor<Page>()).live
         #expect(live.map(\.title) == ["Loose"])
         #expect(!one.isLive && !two.isLive && loose.isLive)
-        #expect(try ModelContext(container).fetch(FetchDescriptor<Folder>()).isEmpty)
+        // The folder waits there with them, and is out of every view meanwhile.
+        let folders = try ModelContext(container).fetch(FetchDescriptor<Folder>())
+        #expect(folders.count == 1 && folders.live.isEmpty)
     }
 
     @Test("Deleting a note takes it out of its folder")
