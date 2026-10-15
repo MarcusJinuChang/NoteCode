@@ -44,6 +44,7 @@ struct PageDetailView: View {
 
 #if canImport(UIKit)
     @State private var editor = NoteEditor()
+    @Environment(ToastCenter.self) private var toasts: ToastCenter?
 
     /// Saves this note's ink. One per open note, like the editor.
     @State private var inkSaver: DrawingSaveScheduler
@@ -201,6 +202,7 @@ struct PageDetailView: View {
         }
         .onAppear {
             editor.commitTextSize = { [weak page] size in page?.textSize = size }
+            editor.onBlockCopied = { [toasts] in toasts?.show("Copied") }
         }
         .alert("Change Text Size?", isPresented: Binding(
             get: { editor.sizeAwaitingConfirmation != nil },

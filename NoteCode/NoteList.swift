@@ -325,7 +325,7 @@ struct NoteList: View {
     /// looking for one: an empty list means the first launch's copy is gone.
     private var emptyList: some View {
         ContentUnavailableView {
-            Label("No Notes", systemImage: "note.text")
+            Label { Text("No Notes") } icon: { EmptyStateMark() }
         } description: {
             Text("Start a note, or open the tour of what NoteCode does.")
         } actions: {

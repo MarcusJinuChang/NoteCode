@@ -463,6 +463,7 @@ struct DocumentTextView: UIViewRepresentable {
         func copy(_ target: CodeBlockTarget) {
             UIPasteboard.general.string = target.code
             Haptics.copyBlock()
+            editor?.onBlockCopied?()
         }
 
         /// The code block the caret is in, for the edit menu and ⌘R and ⇧⌘C.

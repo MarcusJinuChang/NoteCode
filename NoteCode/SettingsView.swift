@@ -361,6 +361,15 @@ private struct NotesSettings: View {
             }
 
             Section {
+                NavigationLink("Recently Deleted") {
+                    RecentlyDeletedPage(showsDone: false)
+                }
+                .accessibilityIdentifier("settingsRecentlyDeleted")
+            } footer: {
+                Text("Deleted notes wait here for 30 days before they go for good.")
+            }
+
+            Section {
                 NavigationLink("Export All Notes…") {
                     ExportAllView(onFinished: onExportFinished)
                 }
@@ -394,7 +403,7 @@ private struct WritingSettings: View {
                     ForEach(ShowMarkdown.allCases, id: \.self) { Text($0.title) }
                 }
             } footer: {
-                Text("While Editing hides a code block's backticks when the caret is outside it. Autocorrect and smart punctuation follow the keyboard settings in the Settings app, and are off inside code.")
+                Text("Hashes and backticks show only on the heading or code block you're editing; Always shows them everywhere. Bold, italic, code and link marks stay hidden either way, and the toolbar shows which are on. Autocorrect and smart punctuation follow the keyboard settings in the Settings app, and are off inside code.")
             }
         }
         .navigationTitle("Writing")
@@ -523,6 +532,17 @@ private struct AcknowledgementsPage: View {
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
 #endif
+    }
+}
+
+/// The mark as an empty state's picture, in the place of an SF Symbol: the
+/// default icon's mark at 64pt, hidden from VoiceOver since the title says it.
+struct EmptyStateMark: View {
+    var body: some View {
+        NoteCodeMark()
+            .frame(width: 64, height: 64)
+            .clipShape(RoundedRectangle(cornerRadius: 64 * 0.2237, style: .continuous))
+            .accessibilityHidden(true)
     }
 }
 

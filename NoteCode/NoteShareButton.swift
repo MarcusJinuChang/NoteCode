@@ -58,6 +58,7 @@ struct NoteShareButton: View {
         } label: {
             if isPreparing {
                 ProgressView()
+                    .accessibilityLabel("Preparing to Share")
             } else {
                 Label("Share", systemImage: "square.and.arrow.up")
             }

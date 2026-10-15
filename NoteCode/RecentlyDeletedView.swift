@@ -44,6 +44,20 @@ nonisolated enum RecentlyDeletedCaption {
 /// list's, so a note it deletes for good is gone from its rows in the same
 /// update, and nothing reads a model whose deletion has been saved.
 struct RecentlyDeletedView: View {
+    var body: some View {
+        NavigationStack {
+            RecentlyDeletedPage(showsDone: true)
+        }
+        .presentationSizing(.form)
+    }
+}
+
+/// The page itself, without a stack of its own, so Settings can push it
+/// (`showsDone` false: the back button leaves it) and the list's sheet can wrap
+/// it in one.
+struct RecentlyDeletedPage: View {
+    var showsDone: Bool
+
     @Query(filter: Page.deletedPredicate, sort: \Page.deletedAt, order: .reverse)
     private var deleted: [Page]
 
@@ -53,7 +67,7 @@ struct RecentlyDeletedView: View {
     @State private var confirmsDeleteAll = false
 
     var body: some View {
-        NavigationStack {
+        Group {
             List {
                 Section {
                     ForEach(deleted) { page in
@@ -65,11 +79,11 @@ struct RecentlyDeletedView: View {
             }
             .overlay {
                 if deleted.isEmpty {
-                    ContentUnavailableView(
-                        "Nothing Deleted",
-                        systemImage: "trash",
-                        description: Text("Notes you delete wait here for 30 days.")
-                    )
+                    ContentUnavailableView {
+                        Label { Text("Nothing Deleted") } icon: { EmptyStateMark() }
+                    } description: {
+                        Text("Notes you delete wait here for 30 days.")
+                    }
                 }
             }
             .navigationTitle("Recently Deleted")
@@ -77,8 +91,10 @@ struct RecentlyDeletedView: View {
             .navigationBarTitleDisplayMode(.inline)
 #endif
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                if showsDone {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { dismiss() }
+                    }
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -100,7 +116,6 @@ struct RecentlyDeletedView: View {
                 Text("This can't be undone.")
             }
         }
-        .presentationSizing(.form)
     }
 
     private func row(_ page: Page) -> some View {

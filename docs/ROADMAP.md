@@ -21,6 +21,15 @@ pinch zoom, the note page and its hotbar, and a PaperKit canvas that a finger
 or the Pencil draws on, with ink undo of its own, saved with the note and
 drawn at the screen's density. 25 pull requests, all merged.
 
+- **UI design v3, phase 8: settings, toasts, polish** (14 Oct, branch
+  `claude/v3-phase-8-settings-polish-ship`, off `main`, not merged): Settings ›
+  Notes has Recently Deleted; Show Markdown's footer says what it covers; Copy
+  Block says "Copied"; empty states draw the mark; Reduce Motion skips the dock
+  snap and palette reorder; privacy and support pages are drafted in
+  `docs/site/` for Marcus to host. The ship steps in `project.pbxproj` (iPad
+  only, build number) wait for Marcus's go-ahead. Builds for iPad and Mac;
+  unit tests pass except 11 issues in one suite that also fail on `main` here.
+  Not looked at on screen.
 - **UI design v3, phase 7: getting notes in and out, and windows** (14 Oct,
   branch `claude/v3-phase-7-notes-in-and-out`, off phase 6's branch, not
   merged): Share is a menu (tap for the PDF; hold for PDF, Markdown, Copy as

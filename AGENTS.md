@@ -1622,6 +1622,44 @@ v3 phase 7 (14 Oct, `docs/ui-design-v3-implementation.md`). The pure parts are
   can). The simulator's screenshots stopped updating partway through a first
   look (14 Oct), so none of this was seen.
 
+## Settings, toasts, polish (v3 phase 8)
+
+v3 phase 8 (14 Oct, `docs/ui-design-v3-implementation.md`). Most of the phase's
+list had arrived with the phase that needed it; this one filled what was left.
+
+- **Settings** gained Notes › Recently Deleted (a pushed `RecentlyDeletedPage`;
+  the list's sheet is the same page in its own stack with a Done button) and a
+  new Show Markdown footer, which now says what the setting covers: hashes and
+  backticks on the heading or block being edited, Always for everywhere, and
+  that bold, italic, code and link marks stay hidden either way. No new keys, so
+  `SettingsTests.keysAreStable` is unchanged. **No Paper row**: paper is
+  postponed (see "Insert and templates"), and a row exists only if it works.
+  Send Feedback and Privacy Policy still wait for `AppInfo.feedbackAddress`
+  and `.privacyPolicy`.
+- **Toasts:** the only one missing was Copy Block's "Copied". The coordinator's
+  one `copy` path (button, edit menu, ⇧⌘C) now calls `NoteEditor.onBlockCopied`,
+  which `PageDetailView` points at the toast centre. `copyToasts` fails with the
+  call removed (checked). Moved to Recently Deleted · Undo, Exported N and
+  Imported N were already in.
+- **Empty states use the mark** (`EmptyStateMark`, the default icon at 64pt, in
+  the Label's icon slot): the list with no notes, Recently Deleted when empty,
+  and Open in Another Window. Home's empty state already drew it. The outline's
+  "No Headings" popover and the storage-failure view keep their symbols: one is
+  a small popover, the other should not look friendly.
+- **Reduce Motion:** the dock snap and the palette reorder now skip their
+  `.snappy` animation. The options rows, the toast, the title screen and the
+  page badge already crossfaded or only changed opacity. Not changed: list
+  insert/remove animations, which the system tones down itself.
+- **VoiceOver:** Share's spinner has a label. The text row, outline, badge and
+  Copy/Share menus already had them.
+- **Measured, not caused by this phase:** the `Code keys and indentation in
+  the editor` suite (11 issues in 8 tests) fails on unmodified `origin/main`
+  source in this Mac's simulator, run alone, with the row never appearing. That
+  suite reads the real `GCKeyboard.coalesced`, so a hardware keyboard attached
+  to the Mac, which the simulator inherits, would take the row away. Not proven
+  to be that. The other 1,124 tests pass.
+- **Not checked on screen:** any of the above. The macOS build compiles.
+
 ## Settings
 
 A form sheet with a `NavigationStack`: a list of sections, each a page
@@ -1954,6 +1992,18 @@ What an upload checks before a person sees the app (4 Oct).
     unstaged, never commit or revert it, and don't mention it in summaries or
     PRs** (he knows). Stage files by name, never `git add -A` or `-a`. If a
     change needs `project.pbxproj` itself, stop and ask first.
+- **iPad only, build 2** (14 Oct, v3 phase 8). The NoteCode target (both
+  configurations) has `TARGETED_DEVICE_FAMILY = 2` and
+  `CURRENT_PROJECT_VERSION = 2`; the test targets are untouched. The iPhone
+  layout is designed, not built, so TestFlight 1 is iPad only; macOS is a
+  separate platform in `SUPPORTED_PLATFORMS` and still builds. Bump the build
+  number for every upload. The edit sits in Marcus's working tree beside his
+  signing change and is not committed (see above).
+- **Privacy and support pages** are drafted in `docs/site/privacy.md` and
+  `support.md` for Marcus to host: nothing collected, notes stay on the device,
+  Run sends a block's code to the compiler site the reader picked. They carry
+  `DATE` and `EMAIL ADDRESS` placeholders. When they're hosted, set
+  `AppInfo.privacyPolicy` and `.feedbackAddress` and the two About rows appear.
 - **The app icon** (10 Oct, phase 7 of `docs/ui-design-v2-implementation.md`):
   the set had no images, which fails an upload; it has them now. They are
   **drawn by `scripts/make-icons.swift`** (Core Graphics, the Logo board's

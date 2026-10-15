@@ -187,6 +187,32 @@ struct KeyboardAndMenuTests {
         #expect(UIPasteboard.general.string == "x")
     }
 
+    @Test("Copying a block tells the page, from the button and from ⇧⌘C, and a failed copy doesn't")
+    func copyToasts() async throws {
+        let harness = Harness()
+        let taps = Taps()
+        defer { taps.restore() }
+        var told = 0
+        harness.editor.onBlockCopied = { told += 1 }
+
+        harness.coordinator.overlay?.onCopy?(CodeBlockTarget(
+            id: CodeBlockID(ordinal: 0, code: "x"),
+            range: NSRange(location: 0, length: 1),
+            language: .cpp,
+            code: "x"
+        ))
+        #expect(told == 1)
+
+        // Prose has no block, so the key copies nothing and says nothing.
+        try await harness.caret(at: harness.offset(of: "Prose before"))
+        harness.editor.copyBlockAtCaret?()
+        #expect(told == 1)
+
+        try await harness.caret(at: harness.offset(of: "int other"))
+        harness.editor.copyBlockAtCaret?()
+        #expect(told == 2)
+    }
+
     @Test("The caret finds its block, fence lines included, and the end of the note finds the open one")
     func blockAtCaret() {
         let source = "a\n```cpp\nint x;\n```\nb\n```cpp\nint y;"

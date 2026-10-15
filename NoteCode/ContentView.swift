@@ -440,7 +440,7 @@ struct OpenElsewhereView: View {
 
     var body: some View {
         ContentUnavailableView {
-            Label("Open in Another Window", systemImage: "rectangle.on.rectangle")
+            Label { Text("Open in Another Window") } icon: { EmptyStateMark() }
         } description: {
             Text("\u{201C}\(title)\u{201D} is open in another window. Close it there to edit it here, or open a different note.")
         } actions: {
