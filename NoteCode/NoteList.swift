@@ -172,7 +172,7 @@ struct NoteList: View {
         .overlay {
             if !search.isEmpty && results.isEmpty {
                 ContentUnavailableView.search(text: searchText)
-            } else if search.isEmpty && !hasLiveNotes && folders.isEmpty {
+            } else if search.isEmpty && !hasLiveNotes && folders.live.isEmpty {
                 emptyList
             }
         }
@@ -485,7 +485,7 @@ struct NoteList: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             if !folder.livePages.isEmpty {
-                Text("Kept notes move out of the folder, to the top of the list. Deleted notes wait in Recently Deleted for 30 days.")
+                Text("Kept notes move out of the folder, to the top of the list. The folder and the notes deleted with it wait in Recently Deleted for 30 days.")
             }
         }
     }
@@ -728,9 +728,13 @@ struct NoteList: View {
         withAnimation {
             try? Folder.delete(folder, deletion, from: modelContext)
         }
-        // The folder is gone for good, so Undo brings the notes back to the
-        // top of the list, not into a folder.
-        announceMoved(going)
+        // Kept notes leave a folder that is gone for good, so there is nothing
+        // to undo. Deleted ones went with the folder, and Undo brings both back.
+        guard deletion == .withNotes, let toasts else { return }
+        let context = modelContext
+        toasts.show("Moved “\(folder.name)” to Recently Deleted", actionTitle: "Undo") {
+            withAnimation { try? Folder.restore([folder], in: context) }
+        }
     }
 }
 

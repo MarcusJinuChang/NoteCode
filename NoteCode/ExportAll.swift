@@ -191,7 +191,7 @@ final class NoteExportJob {
     }
 
     static func layout(of pages: [Page], in folders: [Folder]) -> Layout {
-        let sortedFolders = folders.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        let sortedFolders = folders.live.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         var folderIndex: [PersistentIdentifier: Int] = [:]
         for (index, folder) in sortedFolders.enumerated() {
             folderIndex[folder.persistentModelID] = index
@@ -229,7 +229,7 @@ extension NoteExportJob {
             text: page.content,
             ink: markup,
             orientation: page.orientation,
-            rendersMarkdown: page.markdownLayout == Page.renderedMarkdown,
+            rendersMarkdown: true,
             lineNumbers: numbered,
             typography: NoteTypography(bodySize: page.textSize)
         ))
@@ -373,7 +373,7 @@ struct ExportAllView: View {
             Button("Export…") {
                 job.start(pages: livePages, folders: folders, includePDFs: includePDFs)
             }
-            .disabled(livePages.isEmpty && folders.isEmpty)
+            .disabled(livePages.isEmpty && folders.live.isEmpty)
             .accessibilityIdentifier("exportStart")
         }
     }

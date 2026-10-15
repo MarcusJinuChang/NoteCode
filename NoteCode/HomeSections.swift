@@ -66,7 +66,7 @@ struct HomeSections {
                 counts[folder.persistentModelID, default: 0] += 1
             }
         }
-        self.folders = folders
+        self.folders = folders.live
             .sorted {
                 switch $0.name.localizedStandardCompare($1.name) {
                 case .orderedAscending:  true

@@ -6,102 +6,80 @@
 import Foundation
 import SwiftData
 
-extension NoteSchemaV7 {
+@Model
+final class Page {
+    var title: String = "Untitled"
+    var content: String = ""
 
-    @Model
-    final class Page {
-        var title: String = "Untitled"
-        var content: String = ""
+    /// The note's ink as `PaperMarkup` bytes, in print layout's coordinates;
+    /// empty for a note never drawn on. Read and written through
+    /// `DrawingCodec` and `DrawingSaveScheduler`.
+    ///
+    /// Kept outside the store's own records: 1,000 strokes come to 1.1MB, and
+    /// the note list would otherwise load each note's ink along with its
+    /// title.
+    @Attribute(.externalStorage) var drawingData: Data = Data()
+    var createdAt: Date = Date.now
+    var modifiedAt: Date = Date.now
 
-        /// The note's ink as `PaperMarkup` bytes, in print layout's coordinates;
-        /// empty for a note never drawn on. Read and written through
-        /// `DrawingCodec` and `DrawingSaveScheduler`.
-        ///
-        /// Kept outside the store's own records: 1,000 strokes come to 1.1MB, and
-        /// the note list would otherwise load each note's ink along with its
-        /// title.
-        @Attribute(.externalStorage) var drawingData: Data = Data()
-        var createdAt: Date = Date.now
-        var modifiedAt: Date = Date.now
+    /// Which online compiler this page's run buttons open — a
+    /// `CodeDestination.id`, or `nil` to follow its folder, and then the
+    /// app-wide default.
+    ///
+    /// Optional so that existing pages migrate without a mapping, and because
+    /// "not set" is a real state: a page that never chooses should follow the
+    /// default as it changes rather than freeze whatever it was on the day the
+    /// page was written. See `runDestinationLevels(appDefault:)`.
+    var runDestination: String?
 
-        /// Which online compiler this page's run buttons open — a
-        /// `CodeDestination.id`, or `nil` to follow its folder, and then the
-        /// app-wide default.
-        ///
-        /// Optional so that existing pages migrate without a mapping, and because
-        /// "not set" is a real state: a page that never chooses should follow the
-        /// default as it changes rather than freeze whatever it was on the day the
-        /// page was written. See `runDestinationLevels(appDefault:)`.
-        var runDestination: String?
+    /// Which way up this note's pages are — a `PageOrientation` raw value, or
+    /// `nil` for a note that has never chosen, which is portrait.
+    ///
+    /// Stored as a string, like `runDestination`, so existing notes migrate
+    /// without a mapping. Unlike that setting, a note keeps whatever it is
+    /// given rather than following a default: orientation sets where lines
+    /// wrap, and a default that changed would re-wrap every note that had
+    /// never chosen.
+    var pageOrientation: String?
 
-        /// Which way up this note's pages are — a `PageOrientation` raw value, or
-        /// `nil` for a note that has never chosen, which is portrait.
-        ///
-        /// Stored as a string, like `runDestination`, so existing notes migrate
-        /// without a mapping. Unlike that setting, a note keeps whatever it is
-        /// given rather than following a default: orientation sets where lines
-        /// wrap, and a default that changed would re-wrap every note that had
-        /// never chosen.
-        var pageOrientation: String?
+    /// The folder this note is filed in, or `nil` for a note at the top of
+    /// the list. A note is in one folder at most: grouping by class wants
+    /// nothing more, and a note in several folders would make "move" and
+    /// deleting a folder with its notes ambiguous. The other side, and the
+    /// delete rule, are on `Folder.pages`.
+    var folder: Folder?
 
-        /// The folder this note is filed in, or `nil` for a note at the top of
-        /// the list. A note is in one folder at most: grouping by class wants
-        /// nothing more, and a note in several folders would make "move" and
-        /// deleting a folder with its notes ambiguous. The other side, and the
-        /// delete rule, are on `Folder.pages`.
-        var folder: Folder?
+    /// Whether the note is pinned to the top of the list.
+    var isPinned: Bool = false
 
-        /// Whether the note is pinned to the top of the list.
-        var isPinned: Bool = false
+    /// Whether the note's text is locked: it can be read, selected and
+    /// copied, but not typed into, and tapping it brings up no keyboard.
+    /// For reading old notes without changing them by accident. Ink is
+    /// left alone, so a locked note can still be drawn on.
+    ///
+    /// Part of the note, not the device, so it stays locked until it's
+    /// unlocked. Like pinning, locking isn't an edit and keeps the date.
+    var isTextLocked: Bool = false
 
-        /// Whether the note's text is locked: it can be read, selected and
-        /// copied, but not typed into, and tapping it brings up no keyboard.
-        /// For reading old notes without changing them by accident. Ink is
-        /// left alone, so a locked note can still be drawn on.
-        ///
-        /// Part of the note, not the device, so it stays locked until it's
-        /// unlocked. Like pinning, locking isn't an edit and keeps the date.
-        var isTextLocked: Bool = false
+    /// When the note was moved to Recently Deleted, or `nil` for a note
+    /// that is where the reader left it. A note with a date is out of every
+    /// list, search and count (`isLive`) and is purged for good 30 days
+    /// after it (`Page.retention`).
+    var deletedAt: Date?
 
-        /// When the note was moved to Recently Deleted, or `nil` for a note
-        /// that is where the reader left it. A note with a date is out of every
-        /// list, search and count (`isLive`) and is purged for good 30 days
-        /// after it (`Page.retention`).
-        var deletedAt: Date?
+    /// The body text's size in points, or `nil` for the default 17. It sets
+    /// where lines break; the text options row changes it, and asks first
+    /// when the note has ink.
+    var textSize: Int?
 
-        /// Which paper the pages are drawn on — plain, dots or grid — or `nil`,
-        /// which is plain. Phase 5 reads it; the field is here so v3 has one
-        /// model change.
-        var paperStyle: String?
-
-        /// `rendered` when Markdown's markers (`#`, `**`, backticks) take no
-        /// room on the page, or `nil` for the layout every note had before v3,
-        /// with the markers visible. See `Page.renderedMarkdown`.
-        ///
-        /// Not a preference: it decides where lines break, and a note with ink
-        /// can't re-wrap without moving every stroke off its words. So it is
-        /// set once, when the note is made, and a note with ink from before v3
-        /// stays `nil` until the reader converts it.
-        var markdownLayout: String?
-
-        /// The body text's size in points, or `nil` for the 17 every note
-        /// had before this. Like `markdownLayout` it sets where lines break;
-        /// the text options row (phase 6) changes it, and asks first when the
-        /// note has ink.
-        var textSize: Int?
-
-        init(title: String = "Untitled", content: String = "", drawingData: Data = Data(), createdAt: Date = .now) {
-            self.title = title
-            self.content = content
-            self.drawingData = drawingData
-            self.createdAt = createdAt
-            self.modifiedAt = createdAt
-            self.runDestination = nil
-            self.pageOrientation = nil
-            // Every new note, however it's made (the + button, the Welcome
-            // note, a template, an import), has the rendered layout.
-            self.markdownLayout = Self.renderedMarkdown
-        }
+    init(title: String = "Untitled", content: String = "", drawingData: Data = Data(), createdAt: Date = .now) {
+        self.title = title
+        self.content = content
+        self.drawingData = drawingData
+        self.createdAt = createdAt
+        self.modifiedAt = createdAt
+        self.runDestination = nil
+        self.pageOrientation = nil
     }
 }
 
@@ -145,9 +123,6 @@ extension Page {
 // MARK: - Recently Deleted
 
 extension Page {
-    /// `markdownLayout`'s value for a note whose Markdown markers take no room.
-    static let renderedMarkdown = "rendered"
-
     /// How long a deleted note waits in Recently Deleted: 30 days.
     static let retention: TimeInterval = 30 * 86_400
 
@@ -189,32 +164,51 @@ extension Page {
         try context.save()
     }
 
+    /// Whether the note went to Recently Deleted along with its folder, and so
+    /// is shown under the folder's row there rather than as a row of its own.
+    var isDeletedWithFolder: Bool {
+        guard let deletedAt, let folder, !folder.isLive else { return false }
+        return folder.deletedAt == deletedAt
+    }
+
     /// Brings notes back from Recently Deleted, and saves.
     ///
     /// A note goes back to its folder. If the folder has been deleted since,
     /// the relationship was cleared with it (`Folder.pages` nullifies), so the
-    /// note comes back at the top of the list.
+    /// note comes back at the top of the list. If the folder is waiting in
+    /// Recently Deleted itself, the same: restoring one note doesn't bring its
+    /// folder back, and a note must not sit in a folder the reader can't see.
     static func restore(_ pages: some Sequence<Page>, in context: ModelContext) throws {
         for page in pages {
             page.deletedAt = nil
+            if let folder = page.folder, !folder.isLive {
+                page.folder = nil
+            }
         }
         try context.save()
     }
 
-    /// Deletes for good every note that has been in Recently Deleted for more
-    /// than 30 days. Run at launch.
+    /// Deletes for good every folder and note that has been in Recently Deleted
+    /// for more than 30 days. Run at launch.
     ///
-    /// - Returns: how many were purged.
+    /// Folders go first, with the notes that went with them, so a note is never
+    /// deleted twice. A folder's notes share its date, so they are due with it.
+    ///
+    /// - Returns: how many notes were purged.
     @discardableResult
     static func purgeExpired(in context: ModelContext, now: Date = .now) throws -> Int {
         let cutoff = now.addingTimeInterval(-retention)
+        let expiredFolders = try context.fetch(FetchDescriptor<Folder>(predicate: Folder.deletedPredicate))
+            .filter { ($0.deletedAt ?? .distantFuture) < cutoff }
+        let withFolders = expiredFolders.reduce(0) { $0 + $1.notesDeletedWithIt.count }
+        try Folder.deleteForGood(expiredFolders, from: context)
+
         let expired = try context.fetch(FetchDescriptor<Page>(predicate: deletedPredicate))
             .filter { ($0.deletedAt ?? .distantFuture) < cutoff }
-        guard !expired.isEmpty else { return 0 }
         // `delete` reads nothing from the notes: a deleted note's ink can't be
         // read once the deletion is saved (see AGENTS.md).
-        try delete(expired, from: context)
-        return expired.count
+        if !expired.isEmpty { try delete(expired, from: context) }
+        return withFolders + expired.count
     }
 }
 
@@ -229,7 +223,7 @@ extension Page {
     /// A copy of the note, inserted into `context`.
     ///
     /// It copies what makes the note the note: its text, ink, page orientation,
-    /// paper, Markdown layout, text size, folder and run destination. It leaves
+    /// text size, folder and run destination. It leaves
     /// out the pin and the text lock, which belong to the original, and has
     /// dates of its own. The title gains " copy".
     ///
@@ -238,8 +232,6 @@ extension Page {
     func duplicated(in context: ModelContext) -> Page {
         let copy = Page(title: "\(title) copy", content: content, drawingData: drawingData)
         copy.pageOrientation = pageOrientation
-        copy.paperStyle = paperStyle
-        copy.markdownLayout = markdownLayout
         copy.textSize = textSize
         copy.runDestination = runDestination
         context.insert(copy)

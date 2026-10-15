@@ -156,7 +156,6 @@ struct NoteTemplatesTests {
         #expect(page.title == "Problem")
         #expect(page.folder === folder)
         #expect(page.orientation == .landscape)
-        #expect(page.markdownLayout == Page.renderedMarkdown)
     }
 
     @Test("Notes in Recently Deleted don't vote")

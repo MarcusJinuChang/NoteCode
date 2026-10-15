@@ -63,7 +63,7 @@ struct NoteListSections {
             }
         }
 
-        let sections = folders
+        let sections = folders.live
             .sorted {
                 switch $0.name.localizedStandardCompare($1.name) {
                 case .orderedAscending:  true

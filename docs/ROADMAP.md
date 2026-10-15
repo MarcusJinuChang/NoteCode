@@ -28,6 +28,15 @@ Next is the plan below.
   kept off only by a race. Not device-only after all: every link checked in
   the simulator on 13 Oct had words after it.
 
+- **Steps 4 and 7** (15 Oct, branch `claude/clear-out-old-notes`, off `main`):
+  the model is one plain schema with no versions or migrations, and
+  `markdownLayout`, `paperStyle` and Hide Markdown Markers… are gone. The
+  coordinator's `rendersMarkdown` flag stays (off by default; the app sets it
+  for every note) because the test harnesses are written against it. Deleting a
+  folder with its notes puts the folder in Recently Deleted too, and restoring
+  it brings those notes back. Builds for iPad; 1,135 unit tests pass except the
+  11 known issues in the Code keys suite. Not looked at on screen.
+
 On 3 Oct the drawing layer was done, a week inside its deadline: the TextKit 2 editor
 with code blocks, run and copy, Letter-sized pages in three view modes with
 pinch zoom, the note page and its hotbar, and a PaperKit canvas that a finger
@@ -375,7 +384,7 @@ changes how notes are stored lands before it.
 3. **Notability and Obsidian deep dive**, timeboxed. Moved up from last: it
    is the only item that can add to or reorder this list, and it feeds step
    10's format decision.
-4. **Clear out what only old notes needed:**
+4. **Clear out what only old notes needed** (done 15 Oct):
    - the visible-marker layout (`markdownLayout` nil) and the title menu's
      Hide Markdown Markers…;
    - the handling of ink saved before the 9 and 10 Oct cutting;
@@ -403,7 +412,7 @@ changes how notes are stored lands before it.
 6. **Add page** in compressed and print layout, **and a buffer in
    seamless**, as Apple's Notes has. One stored page count serves both: the
    button adds to it, and seamless adds a page when ink reaches the last one.
-7. **Folders go to Recently Deleted** too.
+7. **Folders go to Recently Deleted** too (done 15 Oct).
 8. **Hold and drag** notes and folders.
 9. **Editable accent colour**, with a reset to orange. Before step 11, so
    the colour is wired up once for both layouts.

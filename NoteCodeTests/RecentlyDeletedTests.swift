@@ -128,7 +128,134 @@ struct RecentlyDeletedTests {
         #expect(one.deletedAt == now && two.deletedAt == now)
         #expect(already.deletedAt == firstDate, "a note already deleted keeps its first date")
         #expect(loose.isLive)
+        #expect(cs133.deletedAt == now, "the folder waits in Recently Deleted too")
+        #expect(try ModelContext(container).fetch(FetchDescriptor<Folder>()).count == 1)
+    }
+
+    @Test("Deleting a folder and keeping its notes removes the folder for good")
+    func folderKeepingNotesIsHard() throws {
+        let cs133 = folder("CS133")
+        let one = note("One", in: cs133)
+        try context.save()
+
+        try Folder.delete(cs133, .keepingNotes, from: context, now: now)
+
         #expect(try ModelContext(container).fetch(FetchDescriptor<Folder>()).isEmpty)
+        #expect(one.isLive && one.folder == nil)
+    }
+
+    // MARK: Folders in Recently Deleted
+
+    @Test("A deleted folder is in no view of folders, and neither is its note")
+    func deletedFolderIsHidden() throws {
+        let cs133 = folder("CS133")
+        let other = folder("Other")
+        let one = note("One", in: cs133)
+        let kept = note("Kept", in: other)
+        try context.save()
+
+        try Folder.delete(cs133, .withNotes, from: context, now: now)
+
+        let pages = [one, kept]
+        let folders = [cs133, other]
+        let sections = NoteListSections(pages: pages, folders: folders)
+        #expect(sections.folders.map(\.folder) == [other])
+        #expect(sections.allFolders == [other], "Move to Folder doesn't offer it")
+        #expect(HomeSections(pages: pages, folders: folders, lastOpened: nil).folders.map(\.folder) == [other])
+        #expect(NoteExportJob.layout(of: pages.live, in: folders).plan.directories.count == 1)
+    }
+
+    @Test("Restoring a folder brings back the notes that went with it, and not the one deleted before")
+    func restoreFolder() throws {
+        let cs133 = folder("CS133")
+        let one = note("One", in: cs133)
+        let two = note("Two", in: cs133)
+        let earlier = note("Earlier", in: cs133, deletedDaysAgo: 5)
+        let earlierDate = earlier.deletedAt
+        try context.save()
+        try Folder.delete(cs133, .withNotes, from: context, now: now)
+        #expect(Set(cs133.notesDeletedWithIt) == [one, two])
+
+        try Folder.restore([cs133], in: context)
+
+        #expect(cs133.isLive)
+        #expect(one.isLive && two.isLive)
+        #expect(one.folder == cs133 && two.folder == cs133)
+        #expect(earlier.deletedAt == earlierDate, "a note deleted on its own stays deleted")
+        #expect(try ModelContext(container).fetch(FetchDescriptor<Folder>()).first?.deletedAt == nil, "saved at once")
+    }
+
+    @Test("A note shows under its folder's row, not as one of its own")
+    func notesDeletedWithFolder() throws {
+        let cs133 = folder("CS133")
+        let one = note("One", in: cs133)
+        let earlier = note("Earlier", in: cs133, deletedDaysAgo: 5)
+        try context.save()
+        try Folder.delete(cs133, .withNotes, from: context, now: now)
+
+        #expect(one.isDeletedWithFolder)
+        #expect(!earlier.isDeletedWithFolder)
+        #expect(!note("Loose").isDeletedWithFolder)
+        #expect(RecentlyDeletedCaption.caption(for: cs133, now: now).hasPrefix("1 note · Deleted today"))
+    }
+
+    @Test("Restoring one note of a deleted folder puts it at the top, not in a folder nobody can see")
+    func restoreNoteOfDeletedFolder() throws {
+        let cs133 = folder("CS133")
+        let one = note("One", in: cs133)
+        try context.save()
+        try Folder.delete(cs133, .withNotes, from: context, now: now)
+
+        try Page.restore([one], in: context)
+
+        #expect(one.isLive && one.folder == nil)
+        #expect(!cs133.isLive)
+        #expect(cs133.notesDeletedWithIt.isEmpty)
+    }
+
+    @Test("Delete Now on a folder deletes it and the notes that went with it, and no others")
+    func deleteFolderForGood() throws {
+        let cs133 = folder("CS133")
+        note("One", in: cs133)
+        note("Earlier", in: cs133, deletedDaysAgo: 5)
+        note("Loose")
+        try context.save()
+        try Folder.delete(cs133, .withNotes, from: context, now: now)
+
+        try Folder.deleteForGood([cs133], from: context)
+
+        #expect(try stored().map(\.title) == ["Earlier", "Loose"])
+        #expect(try ModelContext(container).fetch(FetchDescriptor<Folder>()).isEmpty)
+    }
+
+    @Test("A folder is purged with its notes after 30 days, and not before")
+    func purgeFolder() throws {
+        let old = folder("Old")
+        let recent = folder("Recent")
+        note("InOld", in: old)
+        note("InRecent", in: recent)
+        try context.save()
+        try Folder.delete(old, .withNotes, from: context, now: now.addingTimeInterval(-31 * Self.day))
+        try Folder.delete(recent, .withNotes, from: context, now: now.addingTimeInterval(-29 * Self.day))
+
+        let purged = try Page.purgeExpired(in: context, now: now)
+
+        #expect(purged == 1)
+        #expect(try stored().map(\.title) == ["InRecent"])
+        let folders = try ModelContext(container).fetch(FetchDescriptor<Folder>())
+        #expect(folders.map(\.name) == ["Recent"])
+    }
+
+    @Test("A folder deleted twice keeps its first date, and days left count down")
+    func folderDates() throws {
+        let cs133 = folder("CS133")
+        try context.save()
+        try Folder.delete(cs133, .withNotes, from: context, now: now)
+        try Folder.delete(cs133, .withNotes, from: context, now: now.addingTimeInterval(5 * Self.day))
+
+        #expect(cs133.deletedAt == now)
+        #expect(cs133.daysLeft(now: now) == 30)
+        #expect(cs133.daysLeft(now: now.addingTimeInterval(10.5 * Self.day)) == 20)
     }
 
     @Test("A folder's live notes leave out the ones in Recently Deleted")
@@ -266,26 +393,15 @@ struct RecentlyDeletedTests {
         #expect(try stored().count == 1)
     }
 
-    // MARK: New notes
-
-    @Test("Every new note is rendered, however it's made")
-    func newNotesAreRendered() {
-        #expect(Page().markdownLayout == Page.renderedMarkdown)
-        #expect(Page.create(orientation: .portrait, context: context).markdownLayout == Page.renderedMarkdown)
-        #expect(WelcomeNote.make(in: context).markdownLayout == Page.renderedMarkdown)
-    }
-
     // MARK: Duplicate
 
-    @Test("A copy has the note's text, ink, pages, paper, layout, size, folder and run destination")
+    @Test("A copy has the note's text, ink, pages, size, folder and run destination")
     func duplicateCopies() throws {
         let cs133 = folder("CS133")
         let original = note("Lecture 1", in: cs133)
         let ink = Data((0..<300_000).map { UInt8($0 % 251) })
         original.drawingData = ink
         original.pageOrientation = PageOrientation.landscape.rawValue
-        original.paperStyle = "grid"
-        original.markdownLayout = nil
         original.textSize = 19
         original.runDestination = CodeDestination.onlineGDB.id
         try context.save()
@@ -298,8 +414,6 @@ struct RecentlyDeletedTests {
         #expect(copy.content == original.content)
         #expect(copy.drawingData == ink)
         #expect(copy.pageOrientation == original.pageOrientation)
-        #expect(copy.paperStyle == "grid")
-        #expect(copy.markdownLayout == nil, "a legacy note's copy keeps the legacy layout, as its ink needs")
         #expect(copy.textSize == 19)
         #expect(copy.folder == cs133)
         #expect(copy.runDestination == CodeDestination.onlineGDB.id)
@@ -332,7 +446,6 @@ struct RecentlyDeletedTests {
 
         #expect(copy.folder == nil)
         #expect(copy.runDestination == nil)
-        #expect(copy.markdownLayout == Page.renderedMarkdown)
         #expect(copy.drawingData.isEmpty)
     }
 
