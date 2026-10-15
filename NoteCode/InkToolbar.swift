@@ -384,7 +384,7 @@ private struct SwatchDrop: DropDelegate {
 
     func dropEntered(info: DropInfo) {
         guard let dragged, dragged != target else { return }
-        withAnimation(.snappy) {
+        withAnimation(UIAccessibility.isReduceMotionEnabled ? nil : .snappy) {
             palette.move(dragged, to: target)
         }
     }

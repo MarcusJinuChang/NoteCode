@@ -128,6 +128,10 @@ final class NoteEditor {
     @ObservationIgnored var runBlockAtCaret: (() -> Void)?
     @ObservationIgnored var copyBlockAtCaret: (() -> Void)?
 
+    /// Told after a code block's code is on the pasteboard, by the button, the
+    /// edit menu or ⇧⌘C, so the page can say "Copied".
+    @ObservationIgnored var onBlockCopied: (() -> Void)?
+
     @ObservationIgnored private weak var textView: UITextView?
     @ObservationIgnored private weak var canvas: DrawingCanvas?
     @ObservationIgnored private weak var page: PageView?
