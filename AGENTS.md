@@ -1067,6 +1067,20 @@ v3 phase 3 (12 Oct, `docs/ui-design-v3-implementation.md`).
     word returned offsets on both sides of each marker and never inside one;
     a test's ground truth has to keep the em space and `•` the swap puts in,
     or the checkbox and bullet lines look 10pt off.
+  - **Markers at a line's end** (15 Oct). TextKit puts a caret in front of a
+    zero-width character at the line's *start* when nothing drawn follows it
+    on the line: a plain `UITextView` with no app code does it, for U+2060,
+    U+200B and U+FEFF alike. So in `[Apple](apple.com)` alone on its line,
+    the offset after "Apple" sat at x = 0: the link measured no width
+    (`enumerateTextSegments`) and couldn't be tapped, and a caret after a
+    bold word that ends its line was drawn at the line's start. A link with
+    words after it was fine, which is why every link checked on 13 Oct
+    worked. `MarkdownLayout.laidOut` now lays out the last joiner of a run
+    that ends its paragraph as a no-break space kerned back by its own
+    advance (`anchorTrailingJoiners`): a glyph to measure against, still no
+    width and no break. `MarkdownLayoutTests.caretsInMarkersEndingALine`
+    checks every caret in such runs, and the lines' frames, against the
+    markers-deleted note, and fails without it.
   - **`PrintedNote` takes `rendersMarkdown`** (PDF and thumbnails), or the
     paper breaks lines where the screen doesn't. `NoteEditor.rendersMarkdown`
     carries it from the coordinator. A thumbnail's cache name has `-r` for a
@@ -1148,13 +1162,28 @@ v3 phase 3 (12 Oct, `docs/ui-design-v3-implementation.md`).
   struck through in `secondaryLabel`.
 - **Taps on boxes and links** (`MarkerTaps.swift`). **Decided without the
   spike**: `textView(_:primaryActionFor:)` wasn't tried; the brief's fallback is
-  what a box needs anyway and one path serves both. The text view answers
-  `hitTest` with itself for a touch on a box or a link, so the text
-  interaction's recognisers (on an inner view; refusing them in
-  `gestureRecognizerShouldBegin` doesn't work) never see it and the caret
-  doesn't move or the keyboard rise; recognisers on the text view take the tap
-  and the hold. They live on a separate delegate object (`MarkerGestures`): a
-  scroll view is the delegate of its own pan and pinch. A box needs an
+  what a box needs anyway and one path serves both. Recognisers on the text
+  view take the tap and the hold. The text interaction's recognisers (the
+  caret's tap, the loupe, Scribble's) sit on the text view too and see the
+  same touch, so on a box or a link `DocumentUITextView` refuses all but
+  scrolling and the marker gestures in `gestureRecognizerShouldBegin`. UIKit
+  asks only the view a touch *lands on*, so `hitTest` answers with the text
+  view itself there; without that the touch lands on a view inside it and the
+  text view is never asked. **Fixed 15 Oct** (links not opening on the iPad,
+  reported 13 Oct), logged on the device: until then only the `hitTest` half
+  existed and kept nothing off, the caret's tap beginning alongside the link's
+  on every tap, cancelled only by the handler's `resignFirstResponder`; and a
+  link that ended its line measured no width (see "Markers at a line's end"),
+  so a tap on it was plain text. A lifted hold isn't also a tap
+  (`MarkerGestures.heldThisTouch`, a flag, since on the iPad the hold had
+  ended before the tap asked). Within 22pt of a selection's ends nothing is
+  refused, so a handle over a link stays draggable (not tried on screen).
+  They live on a separate delegate object
+  (`MarkerGestures`): a scroll view is the delegate of its own pan and pinch.
+  `LinkTapTests` finds the tap point in the note with its markers deleted,
+  and fails without either fix; the `hitTest` half needs a real touch, and was
+  seen working only on the iPad (finger and Pencil in the log, the trackpad by
+  eye). A box needs an
   editable view; a link opens in a locked note too. Link text: `[text](url)`
   and a bare `http(s)://` address shown exactly as typed, `#B85900` / `#FFAA33`
   underlined (`DocumentStyler.linkColor`); inline code isn't a link. Only
@@ -1164,8 +1193,7 @@ v3 phase 3 (12 Oct, `docs/ui-design-v3-implementation.md`).
   list's note menu), asks first with the board's wording, and sets `rendered`.
   Not an edit. The words re-wrap once, so ink drawn before may need moving.
 - **Not checked** (see the PR's checklist): the Pencil; a real keyboard (⇧Tab,
-  Tab, arrows past markers, ⌘B on a double-tapped word); the link tap and hold
-  (a tap opens Safari, which the simulator tools weren't driven to); Return and
+  Tab, arrows past markers, ⌘B on a double-tapped word); Return and
   Backspace by the hardware keyboard; the margin hash in light mode on screen
   (dark was looked at; light is covered by the pixel test); fast
   typing and pasting into a rendered note; the title menu's conversion on a

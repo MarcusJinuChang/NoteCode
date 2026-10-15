@@ -4,25 +4,38 @@ Source of truth. The published version at
 <https://claude.ai/code/artifact/2490317a-7eaf-44ae-9389-f0fb92d7471a>
 is a rendering of this file — edit here, ask for the artifact to be regenerated.
 
-Revised 3 October 2026.
+Revised 15 October 2026.
 
 | | |
 |---|---|
 | Drawing layer due | **10 Oct 2026** (hard stop) — done 3 Oct |
 | Using it day to day | now — ink is saved as of 23 Sep |
-| App Store submission | Nov 2026 |
+| TestFlight 1 | **Sat 17 Oct 2026**, iPad only |
+| App Store submission | Nov 2026, with the iPhone and Duo layouts |
 | Second version | AI + feedback, Mar 2027 |
 
-## Where things stand (3 Oct)
+## Where things stand (15 Oct)
 
-The drawing layer is done, a week inside its deadline: the TextKit 2 editor
+v3 is built: every pull request so far is merged, the last as #55 on 15 Oct.
+Next is the plan below.
+
+- **Step 1, links not opening on the iPad** (15 Oct, branch
+  `claude/link-taps`, off `main`): fixed and seen working on the iPad. Two
+  causes. A link that ended its line measured no width, from a TextKit
+  behaviour with zero-width characters at a line's end, so a tap on it was
+  plain text; the same thing drew the caret at the line's start after a bold
+  word ending a line. And the caret's own tap ran alongside every link tap,
+  kept off only by a race. Not device-only after all: every link checked in
+  the simulator on 13 Oct had words after it.
+
+On 3 Oct the drawing layer was done, a week inside its deadline: the TextKit 2 editor
 with code blocks, run and copy, Letter-sized pages in three view modes with
 pinch zoom, the note page and its hotbar, and a PaperKit canvas that a finger
 or the Pencil draws on, with ink undo of its own, saved with the note and
-drawn at the screen's density. 25 pull requests, all merged.
+drawn at the screen's density. 25 pull requests by then.
 
 - **UI design v3, phase 8: settings, toasts, polish** (14 Oct, branch
-  `claude/v3-phase-8-settings-polish-ship`, off `main`, not merged): Settings ›
+  `claude/v3-phase-8-settings-polish-ship`, off `main`, merged as #55): Settings ›
   Notes has Recently Deleted; Show Markdown's footer says what it covers; Copy
   Block says "Copied"; empty states draw the mark; Reduce Motion skips the dock
   snap and palette reorder; privacy and support pages are drafted in
@@ -31,8 +44,8 @@ drawn at the screen's density. 25 pull requests, all merged.
   unit tests pass except 11 issues in one suite that also fail on `main` here.
   Not looked at on screen.
 - **UI design v3, phase 7: getting notes in and out, and windows** (14 Oct,
-  branch `claude/v3-phase-7-notes-in-and-out`, off phase 6's branch, not
-  merged): Share is a menu (tap for the PDF; hold for PDF, Markdown, Copy as
+  branch `claude/v3-phase-7-notes-in-and-out`, off phase 6's branch, merged
+  as #54): Share is a menu (tap for the PDF; hold for PDF, Markdown, Copy as
   Markdown, Print…); Export All Notes… (the list's ••• and Settings › Notes)
   writes a folder with a subfolder per folder and a `.md` per note, plus a PDF
   beside each note with ink, with progress and Cancel, through Files; Import…
@@ -42,7 +55,7 @@ drawn at the screen's density. 25 pull requests, all merged.
   iPad and Mac; 1,134 unit tests pass. **Not looked at on screen**, and the
   folder export through Files is untried.
 - **UI design v3, phase 6: navigation, and the text options row** (14 Oct,
-  branch `claude/v3-phase-6-navigation-text-row`, off `main`, not merged): an
+  branch `claude/v3-phase-6-navigation-text-row`, off `main`, merged as #53): an
   Outline button in the header (and ⌃⌘O) lists the note's headings and jumps
   to one, its line at the top of the page; a "2 / 5" badge shows while the note
   scrolls and fades a second after. Text mode gets a second row beside the
@@ -65,7 +78,7 @@ drawn at the screen's density. 25 pull requests, all merged.
   usual language. **Paper (dots and grid) was dropped from this phase and
   postponed until after v3.** Builds for iPad and Mac.
 - **UI design v3, phase 4: code** (13 Oct, branch `claude/v3-phase-4-code`,
-  off phase 3's branch, not merged): C, JavaScript, Rust, Go and SQL join C++,
+  off phase 3's branch, merged as #50): C, JavaScript, Rust, Go and SQL join C++,
   Java and Python (SQL keeps Copy only; Compiler Explorer runs C, Rust and Go
   from a link, checked on the live site, but **not JavaScript**, which it can't
   execute); ```` ```output ```` blocks are a dark console with Copy and no Run;
@@ -79,7 +92,7 @@ drawn at the screen's density. 25 pull requests, all merged.
   the language menu and an Output block, line numbers, light and dark); not
   with a hardware keyboard or the Pencil.
 - **UI design v3, phase 3: writing, with Markdown markers hidden** (12 Oct,
-  branch `claude/v3-phase-3-writing`, off phase 2, not merged): in a note made
+  branch `claude/v3-phase-3-writing`, off phase 2, merged as #49): in a note made
   from now on, `#`, `**`, backticks, `~~` and link syntax take no room on the
   page (a word-joiner swap in layout, so nothing re-wraps and ink stays put);
   a heading's `#` is drawn in the margin while the caret is on it, and the
@@ -92,7 +105,7 @@ drawn at the screen's density. 25 pull requests, all merged.
   simulator (the margin hash, boxes, links, Return in a list, with real taps
   on a box and the heading); not with a real keyboard or the Pencil.
 - **UI design v3, phase 2: title screen, Home, thumbnails, reopening** (12 Oct,
-  branch `claude/v3-phase-2-home`, off phase 1, not merged): the app opens on
+  branch `claude/v3-phase-2-home`, off phase 1, merged as #48): the app opens on
   Home, in the page area, with the list behind ☰: the note to continue (with
   "page 3 of 5"), the eight most recent, folder tiles, New Note, and an empty
   state. A Home row tops the list (⇧⌘H). A first launch opens a title screen
@@ -103,7 +116,7 @@ drawn at the screen's density. 25 pull requests, all merged.
   not with the Pencil or a real keyboard.
 - **UI design v3, phase 1: model v7, Recently Deleted, folder identity,
   Duplicate** (12 Oct, branch `claude/v3-phase-1-recently-deleted`, off
-  `main`, not merged): deleting a note now moves it to Recently Deleted for 30
+  `main`, merged as #46): deleting a note now moves it to Recently Deleted for 30
   days, with a toast and Undo and nothing asking first; the list's foot shows
   a Recently Deleted row, only when it holds something, which opens a sheet to
   Restore, Delete Now or Delete All…. Notes are purged at launch once they are
@@ -116,12 +129,12 @@ drawn at the screen's density. 25 pull requests, all merged.
   the folder editor, the toast, the list foot and the sheet; not light mode,
   Restore, Undo, hold menus, Delete All or the Pencil.
 - **UI design v2, phase 1: colour** (7 Oct, branch `claude/ui-phase-1-colour`,
-  not merged): the orange accent, with its Increase Contrast variants, and the
+  merged as #31): the orange accent, with its Increase Contrast variants, and the
   design's syntax colours for code in light and dark. Run is orange. Builds
   for iPad and Mac, and 537 tests pass; not yet checked in the simulator or on
   the iPad. Phases 2 to 9 are in `docs/ui-design-v2-implementation.md`.
-- **Ink across page breaks** (9 Oct, branch `claude/ink-split-pages`, not
-  merged): a stroke drawn across a page break now stays on its words on both
+- **Ink across page breaks** (9 Oct, branch `claude/ink-split-pages`,
+  merged as #38): a stroke drawn across a page break now stays on its words on both
   pages in every view mode. It's stored as one piece per page, each moving
   with its own page. Seamless is the reference: compressed's strip and print
   layout's top and bottom margins and gaps take no ink, and anything drawn
@@ -131,14 +144,14 @@ drawn at the screen's density. 25 pull requests, all merged.
 - **UI design v2, phase 2: the page against its surround** (8 Oct, PR #34,
   merged): seamless and compressed now show a white (black) page column on a
   grey surround, as print layout already did, with the hotbar's strips on the
-  surround too. Fixed 9 Oct (branch `claude/page-gap-ink-keyboard`, not
-  merged): compressed is back to only a dashed line at each page end, its
+  surround too. Fixed 9 Oct (branch `claude/page-gap-ink-keyboard`,
+  merged as #36): compressed is back to only a dashed line at each page end, its
   grey band gone; in print layout a stroke run off one sheet no longer shows
   over the grey between sheets; and the grey no longer rides up with the
   keyboard, which had left white around and under it. Checked in the
   simulator, light and dark; not yet on the iPad with the Pencil.
 - **UI design v2, phase 3: the note header** (8 Oct, branch
-  `claude/ui-phase-3-header`, not merged): the custom header and its large
+  `claude/ui-phase-3-header`, merged as #35): the custom header and its large
   title field are the system navigation bar now. The title is a menu (Rename,
   Pin, Move to Folder, Lock Text, Get Info, Delete) and renames in place;
   Share and ••• sit on the right, and ••• holds the view mode, Run Code In and
@@ -146,7 +159,7 @@ drawn at the screen's density. 25 pull requests, all merged.
   looked at in the simulator, not tapped through, and the new-note rename isn't
   checked, and the lock icon sits before Share, not after the title.
 - **UI design v2, phase 4: the hotbar** (10 Oct, branch
-  `claude/ui-phase-4-hotbar`, not merged): the text tools are Style, Bold,
+  `claude/ui-phase-4-hotbar`, merged as #39): the text tools are Style, Bold,
   Italic, Inline Code, List and Code Block, the last three menus. In ink mode
   the bar is just the tools and Finger Draws, and what the selected tool can
   be set to (colours and three widths for the pen and highlighter, mode and
@@ -159,7 +172,7 @@ drawn at the screen's density. 25 pull requests, all merged.
   reaches; looked at in the simulator in light and dark, on all three edges,
   not tried with the Pencil or the squeeze palette.
 - **UI design v2, phase 5: code-block fences** (10 Oct, branch
-  `claude/ui-phase-5-fences`, not merged): a code block shows its backticks
+  `claude/ui-phase-5-fences`, merged as #40): a code block shows its backticks
   only while the caret or a selection is in it. Away, the opening line shows the
   language's name (a menu: C++, Java, Python, Plain Text, which rewrites the
   fence's tag and can be undone) with Copy and Run on the right; editing, it
@@ -174,7 +187,7 @@ drawn at the screen's density. 25 pull requests, all merged.
   Builds for iPad and Mac, 661 tests pass; looked at in the simulator
   (rendered, light and dark), not tapped through or tried on the iPad.
 - **UI design v2, phase 6: settings** (10 Oct, branch
-  `claude/ui-phase-6-settings`, not merged): a gear at the foot of the note
+  `claude/ui-phase-6-settings`, merged as #42): a gear at the foot of the note
   list, or ⌘, with a keyboard, opens Settings as a form sheet: General
   (Appearance, Toolbar Position, Haptic on Snap), Notes (View, Sort By), Writing
   (Show Markdown), Code (Run Code In), Drawing (Finger Draws, pen and highlighter
@@ -187,7 +200,7 @@ drawn at the screen's density. 25 pull requests, all merged.
   simulator only as far as the opened sheet's list of sections, in dark; no
   page was tapped through.
 - **UI design v2, phase 7: the app icon** (10 Oct, branch
-  `claude/ui-phase-7-icon`, not merged): the icon set has images, which an
+  `claude/ui-phase-7-icon`, merged as #43): the icon set has images, which an
   upload needs. `scripts/make-icons.swift` draws them (the Logo board's
   geometry, Core Graphics) into three icon sets: the Default, with a Dark
   variant on a transparent ground, a greyscale Tinted variant and the macOS
@@ -199,7 +212,7 @@ drawn at the screen's density. 25 pull requests, all merged.
   and the tick following it; builds for iPad and Mac, 694 tests pass; not seen on a Home Screen, in Dark or Tinted, on
   the Mac, or on the iPad. **TestFlight is no longer waiting on the icon.**
 - **UI design v2, phase 8: note list and first run** (12 Oct, branch
-  `claude/ui-phase-8-list-first-run`, off `origin/main`, not merged): tapping
+  `claude/ui-phase-8-list-first-run`, off `origin/main`, merged as #44): tapping
   + makes a note in Settings › Notes › New Notes' orientation, in the open
   note's folder; holding it offers Portrait Pages, Landscape Pages and New
   Folder. The list's note menu is the title menu, Rename included. The
@@ -212,7 +225,7 @@ drawn at the screen's density. 25 pull requests, all merged.
   row and the + tap. Not checked: the hold menu, Rename from the list, the empty
   states, dark mode, the Mac.
 - **UI design v2, phase 9: finishing** (12 Oct, branch
-  `claude/ui-phase-9-finishing`, off the phase 8 branch, not merged): every
+  `claude/ui-phase-9-finishing`, off the phase 8 branch, merged as #45): every
   shortcut in the brief is in the menu bar, so holding ⌘ lists them (Bold,
   Italic, headings, bullets, code block in the last language, Run and Copy
   Block, text/draw, the ink tools on bare keys, thinner and thicker, the view
@@ -248,8 +261,8 @@ drawn at the screen's density. 25 pull requests, all merged.
   be selected and copied, code blocks still run and copy, and ink can still
   be drawn. The note remembers it: a new model version, 6, with migration
   tests from version 5. Locked notes show a small lock in the list. Locking
-  isn't an edit, so the date stays. Not the Face ID kind, which is "Note
-  locking" in Later. Builds for iPad and Mac, and 486 tests pass; not yet
+  isn't an edit, so the date stays. Not the Face ID kind, which is under
+  "Not in the order". Builds for iPad and Mac, and 486 tests pass; not yet
   checked in the simulator or on the iPad.
 - **Autocorrect for prose** (3 Oct, PR #26, merged 8 Oct): prose gets the keyboard's
   autocorrect, capitals, smart quotes and dashes, and inline predictions
@@ -334,14 +347,131 @@ drawn at the screen's density. 25 pull requests, all merged.
 
 ## Plan
 
-Not set in stone. With the drawing layer done, the before-November list is
-being planned (3 Oct): folders came first, then pinning and sorting, then
-note info (all merged 3 Oct), since the list was the thing
-least likely to last the semester and model changes are safest before
-anyone else's notes depend on them. Marcus picked autocorrect for prose
-next, then note search, ship prep, printing and text locking, all merged
-8 Oct. Next are the UI design and polish, TestFlight and submission. Scrolling direction, infinite canvas and Sign in
-with Apple are proposed for Later. Not yet agreed.
+Revised 15 Oct, once v3 was built. The steps are in order of
+implementation, grouped by the three dates: TestFlight on 17 Oct, the App
+Store submission in November, and the AI version in March. They are
+Marcus's list of 15 Oct, plus the postponed items marked as such.
+
+**Decided 15 Oct: no old notes are kept working until the release.** Nothing
+important is stored in the app yet. So nothing is built to keep notes from
+earlier builds working: no migrations, no layout-version gates, no legacy
+paths. That holds until other people have notes. TestFlight testers reinstall
+after step 4. After the release everyone's notes count, so anything that
+changes how notes are stored lands before it.
+
+### Before the TestFlight upload (Sat 17 Oct)
+
+1. **Links not opening on the iPad** (postponed 13 Oct until v3 was done).
+   Fixed 15 Oct, branch `claude/link-taps`; see "Where things stand".
+
+### Before the App Store submission (November)
+
+2. **Ads or a tip jar: decide now, build at step 12.**
+   - Ads mean an ad SDK, a tracking prompt, and a privacy label that no
+     longer says nothing is collected.
+   - Proposed: a tip jar through StoreKit, which passes review everywhere.
+   - A plain Buy Me a Coffee link is thought to be allowed only on the US
+     storefront. Check guideline 3.1 before building.
+3. **Notability and Obsidian deep dive**, timeboxed. Moved up from last: it
+   is the only item that can add to or reorder this list, and it feeds step
+   10's format decision.
+4. **Clear out what only old notes needed:**
+   - the visible-marker layout (`markdownLayout` nil) and the title menu's
+     Hide Markdown Markers…;
+   - the handling of ink saved before the 9 and 10 Oct cutting;
+   - the frozen model versions 1–7 and the v7 custom stage;
+   - the unused `paperStyle`.
+
+   From here to step 13 the model is edited in place, and a store that won't
+   open is deleted with the app. AGENTS.md's model section changes with this
+   step.
+5. **The page fills the window**, Notability-style, rather than sitting
+   inside a frame. Three more go with it:
+   - the page moves with the hotbar, centred or pushed aside, and a bar at
+     the bottom moves nothing;
+   - Home moves to the top left;
+   - the iPad layout loses clutter.
+
+   It is one piece of work, since all four are the page area's geometry and
+   its chrome. Only the display scale changes, so ink stays on its words. It
+   reverses "moving the bar never resizes the page", which was a choice, not
+   a constraint.
+
+   Open: if the page also moves for the options row, it jumps at every tool
+   or mode change. Proposed: reserve the row's room whenever the bar is at a
+   side.
+6. **Add page** in compressed and print layout, **and a buffer in
+   seamless**, as Apple's Notes has. One stored page count serves both: the
+   button adds to it, and seamless adds a page when ink reaches the last one.
+7. **Folders go to Recently Deleted** too.
+8. **Hold and drag** notes and folders.
+9. **Editable accent colour**, with a reset to orange. Before step 11, so
+   the colour is wired up once for both layouts.
+10. **Text restructure: colour and size anywhere, and more room for code
+    blocks.**
+    - **Why before the release:** changing how text is stored costs nothing
+      now, and means migrating everyone's notes after.
+    - **Why before step 11:** it changes the text options row, which the
+      iPhone gets too.
+    - **Proposed format:** extend the Markdown rather than store rich text
+      (Obsidian uses HTML spans for colour). The styler, the formatting
+      buttons, lists, hidden markers, search and export are all built on
+      Markdown in the note.
+    - **Order:** colour first, since it moves no lines.
+    - **Until step 17,** resizing text above ink moves lines out from under
+      it, as typing a line already does.
+11. **iPhone and Duo layouts**, on the chrome from step 5. The Duo is out
+    23 Oct and needs Xcode 27.1 (see Deferred work).
+12. **The list's foot: the mark, Feature Request, the tip jar**, and the
+    postponed Send Feedback and Privacy Policy rows. Last before submitting,
+    since all of them wait on the pages in `docs/site/` being hosted.
+13. **Freeze the model as version 1**, the last change before submitting.
+    Versioning starts with what ships.
+
+If November gets tight, steps 7–9 can slip past the release. Step 10
+shouldn't.
+
+### After the submission
+
+14. **iCloud sync** (postponed). Once there's an iPhone app, a phone without
+    sync is a second, empty notebook. The model is shaped for CloudKit
+    already. Sync needs Signing & Capabilities, so `project.pbxproj` changes.
+15. **Paper styles** (postponed 14 Oct). They broke on page geometry in
+    compressed and print layout, which steps 5 and 6 settle.
+16. **LaTeX.**
+    - Maths is always shown rendered.
+    - It never switches to source under the caret, as Obsidian's does, since
+      layout can't depend on the caret.
+    - SwiftMath (native) fits better than KaTeX in a web view.
+17. **Text-anchored ink** (postponed; see Deferred work). After steps 10 and
+    16, which move text under ink the most. Before step 19, so objects are
+    anchored from the start.
+18. **AI, for March.** One or two features tied to the use case (explain this
+    code block, summarise this page), built on TestFlight usage. Apple's
+    on-device Foundation Models would keep the app collecting nothing.
+19. **Our own object system**, tap- and pen-first like tldraw, in place of
+    PaperKit's shapes.
+    - It brings rectangular selection and an options row for the lasso.
+      Rectangular selection waits for it because PencilKit's lasso is
+      freeform only.
+    - It comes after step 18 because March is a fixed date.
+    - Its storage is the one format change after the release. Shapes made
+      with Insert before then will need converting, unless Insert is hidden
+      until this lands.
+20. **More shapes**, logic gates among them.
+
+### Not in the order
+
+None of the steps above depend on these:
+
+- infinite canvas;
+- side-by-side pages (a scrolling direction);
+- A4;
+- the macOS editor;
+- sign-in and group notes;
+- note locking with Face ID;
+- note combination or sealing;
+- code sort and code syntax.
 
 ### Done — the drawing layer on PaperKit (to 10 Oct)
 See [phase-drawing-layer.md](phase-drawing-layer.md) for the build plan.
@@ -357,62 +487,19 @@ See [phase-drawing-layer.md](phase-drawing-layer.md) for the build plan.
 **Fallback if it runs long:** the phase doc's cut list — stop adding pages for
 ink, then PencilKit's canvas instead of PaperKit's. Saving is never cut.
 
-### Before November — candidates
-In the order given, which isn't yet a priority order. Notes only where the
-code already has something to say.
+### The before-November candidates (3 Oct)
 
-1. **Scrolling direction, as a setting** — pages below each other, or side by
-   side. The text view scrolls itself, and only vertically: `UITextView`
-   forces its content width back to its own (measured 12 Sep). Side-by-side
-   pages changes who owns scrolling rather than adding a setting.
-2. **Text locking.** Merged 8 Oct (PR #30): a per-note read-only lock on
-   the text, kept with the note. Ink stays drawable.
-3. **Infinite canvas.** Notes are Letter pages, and ink is stored in page
-   coordinates. An unbounded canvas is probably a second kind of note rather
-   than a mode of this one.
-4. **Note search.** Merged 8 Oct (PR #27): across notes from the list,
-   and find within a note. Text is plain in `Page.content`. PaperKit's
-   `PaperMarkup.indexableContent` may reach text boxes in ink (untested), so
-   ink isn't searched yet.
-5. **Favouriting / pinning / starring** notes and folders. Folders merged
-   3 Oct (PR #23); pinning merged 3 Oct (PR #24).
-6. **Note sorting.** Merged 3 Oct (PR #24): date modified, date created or
-   title, either way round, saved per device.
-7. **Note info / properties.** Merged 3 Oct (PR #25): dates, folder,
-   orientation, words, and code blocks by language, plus pages when the note
-   is open.
-8. **Printing.** Merged 8 Oct (PR #29): the note header's share button
-   makes a PDF of the note's pages, to print, save or send.
-9. **UI polish**, from the UI design.
-10. **Accounts and Sign in with Apple.** No backend: as the only login option
-    it also sidesteps Apple's rule requiring it alongside third-party sign-in.
-11. **TestFlight.** The app icon is in (Phase 7). The paid team is back (9 Oct, see
-    "Signing on the paid team" above), and the privacy manifest merged
-    8 Oct (PR #28).
-12. **App Store submission.** First submissions bounce on formality, so leave
-    review-cycle buffer, not zero margin.
+Folders were merged on 3 Oct. Text locking, note search, pinning, sorting,
+note info and printing were merged by 8 Oct. UI polish became the v2 and v3
+designs. TestFlight is the 17 Oct upload, and the submission follows step 13.
+Scrolling direction, infinite canvas and sign-in are under "Not in the order".
 
-Folders, 5, 6 and 7 were planned as one model change, and are: version 5 of
-the model (3 Oct) carries folders and the pins, and sorting and note info turn
-out to need nothing stored.
+The old Later list went the same way:
 
-### Later
-- Note templates
-- Note locking
-- Note combination / sealing
-- Theme and colour selection
-- Code sort
-- Code syntax
-- Group notes and group comments. Both need a server, which nothing else in
-  the app does.
-- AI — the second version, Dec 2026 to Mar 2027. One or two features tied to
-  the actual use case (explain this code block, summarise this page), built on
-  real TestFlight usage.
-- The macOS editor
-- iCloud sync
-
-Scrolling direction, sorting and note info are on both lists: November
-candidates that can slip to here.
+- templates came with v3;
+- theme and colour selection is step 9;
+- iCloud sync is step 14;
+- AI is step 18.
 
 ## Done so far
 
@@ -468,7 +555,6 @@ Referenced by name from the code.
 
 | Where | What |
 |---|---|
-| `DocumentStyler.swift` | **Markers that recede.** Markdown markers stay visible in `tertiaryLabel`. Hiding them when the caret is elsewhere is the Obsidian behaviour. |
 | `PageLayout.swift` | **A4.** Notes print on US Letter only. A4 is one more paper size here, but a different width re-wraps the text, so it would be a property of the note, chosen when it's made, like orientation. |
 | `PageView.swift` | **Typing cost on long paged notes.** Page breaks are exclusion paths, and TextKit 2 then lays out everything below an edit: 34ms a keystroke near the top of a 250-line note on the simulator. If it lags on the iPad, push whole paragraphs with paragraph spacing instead, computed lazily. |
 | `PageView.swift` | **Diagonal panning when zoomed in.** The text view scrolls vertically and `PageView` sideways, so a pan picks one. |
