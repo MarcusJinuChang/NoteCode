@@ -22,14 +22,20 @@ enum MarkerTapTarget: Equatable {
 /// **Why not the text view's own link handling.** `UITextView` opens a link
 /// on tap only when it isn't editable, and the box is no link at all. Both
 /// have the same problem: a touch on an editable text view belongs to the
-/// text view's own recognisers, which place the caret and raise the keyboard,
-/// and UIKit cancels any other recogniser they win against (AGENTS.md, "A
-/// button inside a `UITextView` is not simply a button"). Their recogniser
-/// sits on a view inside the text view, so refusing it in
-/// `gestureRecognizerShouldBegin` doesn't work either. What does: the text
-/// view answers `hitTest` with itself for a touch on a box or a link, so the
-/// touch never reaches the inner view, and these recognisers, on the text
-/// view, are the only ones that see it.
+/// text view's own recognisers too, which place the caret and raise the
+/// keyboard. They sit on the text view itself, beside these, and see every
+/// touch these do (logged on the iPad, 15 Oct).
+///
+/// **What keeps them off.** The text view answers `hitTest` with itself for
+/// a touch on a box or a link, and refuses the text interaction's
+/// recognisers in its `gestureRecognizerShouldBegin` there. Both halves are
+/// needed: UIKit asks the view a touch *lands on* whether a recogniser may
+/// begin, and without the `hitTest` answer that was a view inside the text
+/// view, so the text view was never asked. The `hitTest` answer alone, built
+/// first, kept nothing off: on every link tap logged, the caret's recogniser
+/// began alongside this tap, and only the handler's `resignFirstResponder`
+/// cancelled it before the caret landed. A Pencil tap goes the same way, with
+/// Scribble's recogniser refused beside the caret's.
 ///
 /// A separate delegate object, not the text view: a scroll view is the
 /// delegate of its own pan and pinch, and answering for them here would
@@ -76,6 +82,7 @@ final class MarkerGestures: NSObject, UIGestureRecognizerDelegate, UIEditMenuInt
 
     @objc private func held(_ recognizer: UILongPressGestureRecognizer) {
         guard recognizer.state == .began, let textView else { return }
+        heldThisTouch = true
         let point = recognizer.location(in: textView)
         guard case .link(let url, let destination)? = targetAt?(point) else { return }
         menuTarget = (url, destination)
@@ -90,11 +97,24 @@ final class MarkerGestures: NSObject, UIGestureRecognizerDelegate, UIEditMenuInt
         guard let target = targetAt?(point) else { return false }
         // A hold is for links: a box has no menu.
         if gestureRecognizer === hold, case .checkbox = target { return false }
+        // A finger lifting after a hold has shown the menu isn't also a tap.
+        // A tap has no time limit of its own, and the two recognise together.
+        // Not read from the hold's state: on the iPad the hold had already
+        // ended by the time the tap asked.
+        if gestureRecognizer === tap, heldThisTouch { return false }
         return true
     }
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
         true
+    }
+
+    /// Whether the hold began for the touch now down, so lifting it isn't a tap.
+    private var heldThisTouch = false
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        if gestureRecognizer === hold { heldThisTouch = false }
+        return true
     }
 
     // MARK: The menu a hold on a link shows

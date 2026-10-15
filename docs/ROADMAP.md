@@ -19,6 +19,15 @@ Revised 15 October 2026.
 v3 is built: every pull request so far is merged, the last as #55 on 15 Oct.
 Next is the plan below.
 
+- **Step 1, links not opening on the iPad** (15 Oct, branch
+  `claude/link-taps`, off `main`): fixed and seen working on the iPad. Two
+  causes. A link that ended its line measured no width, from a TextKit
+  behaviour with zero-width characters at a line's end, so a tap on it was
+  plain text; the same thing drew the caret at the line's start after a bold
+  word ending a line. And the caret's own tap ran alongside every link tap,
+  kept off only by a race. Not device-only after all: every link checked in
+  the simulator on 13 Oct had words after it.
+
 On 3 Oct the drawing layer was done, a week inside its deadline: the TextKit 2 editor
 with code blocks, run and copy, Letter-sized pages in three view modes with
 pinch zoom, the note page and its hotbar, and a PaperKit canvas that a finger
@@ -353,7 +362,7 @@ changes how notes are stored lands before it.
 ### Before the TestFlight upload (Sat 17 Oct)
 
 1. **Links not opening on the iPad** (postponed 13 Oct until v3 was done).
-   Testers will tap links. It happens only on the device.
+   Fixed 15 Oct, branch `claude/link-taps`; see "Where things stand".
 
 ### Before the App Store submission (November)
 

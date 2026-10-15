@@ -187,9 +187,12 @@ final class DocumentUITextView: UITextView {
         if event?.type == .touches, hit != nil {
             lastPressPoint = point
             lastPressTime = CACurrentMediaTime()
-            // A touch on a box or a link is ours, not the text interaction's:
-            // see `MarkerGestures`. Not on an action bar, which is a button.
-            if hit !== self, overlay?.containsInteractiveElement(at: point) != true, touchTarget?(point) == true {
+            // A touch on a box or a link lands on this view itself, not the
+            // view inside it that holds the text: UIKit asks the view a touch
+            // lands on whether each recogniser may begin, so this is what
+            // puts `gestureRecognizerShouldBegin` below in charge of it. Not
+            // on an action bar, which is a button.
+            if hit !== self, overlay?.containsInteractiveElement(at: point) != true, isOnMarker(point) {
                 return self
             }
         }
@@ -302,12 +305,42 @@ final class DocumentUITextView: UITextView {
     /// selection — UIKit cancels the touch the button was tracking, and the
     /// button never fires. Refusing to let those recognisers start on a bar is
     /// what makes the tap land where it looks like it should.
+    ///
+    /// On a box or a link it refuses all but scrolling and the marker
+    /// gestures, so a tap there doesn't also place the caret. Asked only for a
+    /// touch that landed on this view, which is why `hitTest` answers with
+    /// this view there.
     override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        if overlay?.containsInteractiveElement(at: gestureRecognizer.location(in: self)) == true {
+        let point = gestureRecognizer.location(in: self)
+        if overlay?.containsInteractiveElement(at: point) == true {
+            return false
+        }
+        // A box or a link is the marker gestures': see `MarkerGestures`.
+        if !runsOnMarkers(gestureRecognizer), isOnMarker(point) {
             return false
         }
 
         return super.gestureRecognizerShouldBegin(gestureRecognizer)
+    }
+
+    /// Whether a touch at `point` is on a box or a link, and not on a
+    /// selection's end, whose handle has to stay draggable over a link.
+    private func isOnMarker(_ point: CGPoint) -> Bool {
+        guard touchTarget?(point) == true else { return false }
+        guard selectedRange.length > 0, let range = selectedTextRange else { return true }
+        let reach: CGFloat = 22
+        return ![range.start, range.end].contains { caretRect(for: $0).insetBy(dx: -reach, dy: -reach).contains(point) }
+    }
+
+    /// The recognisers that still run on a box or a link: scrolling, and the
+    /// marker gestures themselves. Everything else on this view is the text
+    /// interaction's — placing the caret, the loupe, selecting — and would
+    /// treat the link as text.
+    private func runsOnMarkers(_ recognizer: UIGestureRecognizer) -> Bool {
+        recognizer === panGestureRecognizer
+            || recognizer === pinchGestureRecognizer
+            || recognizer === markerGestures?.tap
+            || recognizer === markerGestures?.hold
     }
 }
 

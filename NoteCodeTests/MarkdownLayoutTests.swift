@@ -118,6 +118,73 @@ struct MarkdownLayoutTests {
         }
     }
 
+    /// Lines that end in markers, each its own way, and a last one that doesn't.
+    static let lineEnds = [
+        "[Apple](apple.com)",
+        "Some **bold**",
+        "A call to `run()`",
+        "- [Rust](rust-lang.org)",
+        "- [ ]",
+        "## Collisions **often**",
+        "A long one" + long + " [the notes](https://example.com/notes)",
+        "End",
+        "",
+    ].joined(separator: "\n")
+
+    /// Each line's start and the end of its text, before the newline.
+    static func lines(of text: NSString) -> [(start: Int, end: Int)] {
+        var lines: [(start: Int, end: Int)] = []
+        var start = 0
+        while start < text.length {
+            var end = 0, contentsEnd = 0
+            text.getLineStart(nil, end: &end, contentsEnd: &contentsEnd, for: NSRange(location: start, length: 0))
+            lines.append((start, contentsEnd))
+            start = end
+        }
+        return lines
+    }
+
+    @Test("A caret in markers that end a line sits where the line's text ends, not at its start")
+    func caretsInMarkersEndingALine() {
+        let (rendered, deleted) = Self.pair(Self.lineEnds)
+        let source = rendered.textView.textStorage.string.nativeUTF8
+        var hidden = Set<Int>()
+        for run in MarkdownLayout.runs(for: DocumentParser.parse(source), in: source) {
+            switch run.kind {
+            case .joiners: hidden.formUnion(run.range.location..<NSMaxRange(run.range))
+            case .box:     hidden.formUnion(run.range.location + 1..<NSMaxRange(run.range))
+            case .bullet:  break
+            }
+        }
+
+        let renderedLines = Self.lines(of: rendered.textView.textStorage.string as NSString)
+        let deletedLines = Self.lines(of: deleted.textView.textStorage.string as NSString)
+        #expect(renderedLines.count == deletedLines.count)
+
+        func caretX(_ harness: CodeFenceDisplayTests.Harness, _ offset: Int) -> CGFloat {
+            let textView = harness.textView
+            return textView.caretRect(for: textView.position(from: textView.beginningOfDocument, offset: offset)!).minX
+        }
+
+        var checked = 0
+        for (line, truth) in zip(renderedLines, deletedLines) {
+            var start = line.end
+            while start > line.start, hidden.contains(start - 1) { start -= 1 }
+            guard start < line.end else { continue }
+            let expected = caretX(deleted, truth.end)
+            for offset in start...line.end {
+                #expect(abs(caretX(rendered, offset) - expected) < 0.5,
+                        "line at \(line.start): caret at \(offset) is at \(caretX(rendered, offset)), the text ends at \(expected)")
+            }
+            checked += 1
+        }
+        #expect(checked == 7)
+
+        // And the lines themselves are still where they'd be without markers.
+        Self.assertSame(CodeFenceDisplayTests.lineFrames(of: rendered.textView),
+                        CodeFenceDisplayTests.lineFrames(of: deleted.textView), "lines ending in markers")
+    }
+
     // MARK: Probe 3: where a tap lands
 
     @Test("closestPosition over a bold word lands on one of its caret stops, never in the middle of a marker")
