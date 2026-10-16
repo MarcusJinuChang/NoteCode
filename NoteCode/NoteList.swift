@@ -29,11 +29,8 @@ struct NoteList: View {
     /// title ready to type.
     var onNewPage: (Page) -> Void = { _ in }
 
-    /// Asked to show Settings, from the gear at the foot of the list.
+    /// Asked to show Settings, from the list's ••• menu.
     var onShowSettings: () -> Void = {}
-
-    /// Asked to close the open note and show Home: the Home row at the top.
-    var onShowHome: () -> Void = {}
 
     /// What the menu bar has asked the list to do (New Folder, Search Notes).
     /// Answered when the list is on screen, then cleared.
@@ -53,7 +50,6 @@ struct NoteList: View {
         searchText: Binding<String>,
         onNewPage: @escaping (Page) -> Void = { _ in },
         onShowSettings: @escaping () -> Void = {},
-        onShowHome: @escaping () -> Void = {},
         onImport: @escaping () -> Void = {},
         onExportAll: @escaping () -> Void = {},
         request: Binding<ListRequest?> = .constant(nil),
@@ -64,7 +60,6 @@ struct NoteList: View {
         _searchText = searchText
         self.onNewPage = onNewPage
         self.onShowSettings = onShowSettings
-        self.onShowHome = onShowHome
         self.onImport = onImport
         self.onExportAll = onExportAll
         _request = request
@@ -132,13 +127,10 @@ struct NoteList: View {
         let sections = NoteListSections(pages: pages, folders: folders, sort: sort)
         let results = search.results(in: pages, sort: sort)
         let hasLiveNotes = pages.contains(where: \.isLive)
+        let deletedCount = pages.filter { !$0.isLive }.count
 
         ScrollViewReader { proxy in
         List(selection: $selection) {
-            if search.isEmpty {
-                homeRow
-            }
-
             if storageIsEphemeral {
                 Label(
                     "Storage is unavailable, so changes made now won't be saved.",
@@ -177,6 +169,10 @@ struct NoteList: View {
                         .modifier(ListRowDrop(target: .topNotes, hoverID: .topNotes, drag: drag, folders: folders, perform: performDrop))
                 }
             }
+
+            if search.isEmpty, deletedCount > 0 {
+                recentlyDeletedRow(count: deletedCount)
+            }
         }
         .overlay {
             if !search.isEmpty && results.isEmpty {
@@ -196,39 +192,6 @@ struct NoteList: View {
             guard let asked else { return }
             request = nil
             answer(asked, scrolling: proxy)
-        }
-        // A bar at the foot of the list: Recently Deleted, when it holds
-        // anything, and the gear.
-        // Not a `.bottomBar` toolbar item: in the simulator that placement
-        // put the gear at the centre of the screen with the list hidden, and
-        // it wasn't there in portrait. An inset on the list stays with it.
-        .safeAreaInset(edge: .bottom) {
-            HStack {
-                let deletedCount = pages.filter { !$0.isLive }.count
-                if deletedCount > 0 {
-                    Button {
-                        showsRecentlyDeleted = true
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "trash")
-                            Text("Recently Deleted")
-                            Text(deletedCount, format: .number)
-                                .foregroundStyle(.secondary)
-                        }
-                        .font(.subheadline)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("recentlyDeletedRow")
-                }
-                Spacer()
-                Button("Settings", systemImage: "gearshape", action: onShowSettings)
-                    .labelStyle(.iconOnly)
-                    .font(.title3)
-                    .accessibilityIdentifier("settingsButton")
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 10)
-            .background(.bar)
         }
         .navigationTitle("NoteCode")
 #if os(macOS)
@@ -289,24 +252,26 @@ struct NoteList: View {
         }
     }
 
-    /// Home, at the top of the list. Not a note, so it is never selected; it
-    /// clears the selection instead, and is tinted like a selected row while
-    /// Home is what the page shows.
-    private var homeRow: some View {
-        Button(action: onShowHome) {
+    /// Recently Deleted, the list's last row, while it holds anything. Not a
+    /// note, so it is never selected; it raises the sheet.
+    private func recentlyDeletedRow(count: Int) -> some View {
+        Button {
+            showsRecentlyDeleted = true
+        } label: {
             Label {
-                Text("Home")
-                    .fontWeight(.semibold)
+                HStack {
+                    Text("Recently Deleted")
+                    Spacer()
+                    Text(count, format: .number)
+                        .foregroundStyle(.secondary)
+                }
             } icon: {
-                Image(systemName: "house")
-                    .foregroundStyle(.tint)
+                Image(systemName: "trash")
             }
         }
         .buttonStyle(.plain)
         .selectionDisabled()
-        .listRowBackground(selection == nil ? RowSelectionTint.color(isDark: colorScheme == .dark, accent: accent) : nil)
-        .accessibilityIdentifier("homeRow")
-        .accessibilityAddTraits(selection == nil ? .isSelected : [])
+        .accessibilityIdentifier("recentlyDeletedRow")
     }
 
     /// Does what the menu bar asked. The list may have only just slid in, and
@@ -567,6 +532,11 @@ struct NoteList: View {
             Divider()
             Button("Import…", systemImage: "square.and.arrow.down", action: onImport)
             Button("Export All Notes…", systemImage: "square.and.arrow.up.on.square", action: onExportAll)
+            Divider()
+            // The app's, not the list's: ⌘, opens it from anywhere, and Home
+            // has a gear of its own.
+            Button("Settings", systemImage: "gearshape", action: onShowSettings)
+                .accessibilityIdentifier("settingsButton")
         } label: {
             Label("More", systemImage: "ellipsis")
         }

@@ -189,8 +189,9 @@ past it rather than shrinking indefinitely.
 for portrait pages, 912pt for landscape — and is drawn at the area's width over
 the page's, up to 1.25x, times the reader's pinch zoom (0.5x to 4x). There is no
 floor on fitting after all: a landscape page in a portrait iPad fits at about
-0.65x, and zoom is how it gets larger. The hotbar reserves room on both sides
-whichever edge it is on, so moving the bar never resizes the text.
+0.65x, and zoom is how it gets larger. Until 16 Oct the hotbar reserved room on
+both sides whichever edge it was on, so moving the bar never resized the text;
+see "The page fills the window" for what replaced that.
 
 The page's orientation is the note's, not the device's: rotating the iPad still
 changes only the scale. It's chosen when the note is made, from the "+" menu,
@@ -263,7 +264,7 @@ note against 11ms scrolling, and 5.5 seconds at 2000 lines. So instead:
 
 - **The keyboard covers the page; it doesn't resize it** (7 Oct). SwiftUI
   used to shrink the detail for the keyboard's safe area, which gave the page
-  a shorter area and cut its outline off at the keyboard, and shrank the note
+  a shorter area and cut its border off at the keyboard, and shrank the note
   list when its search field was focused. Now the page layer
   (`PageDetailView.content`, the text view and canvas) and the list column
   both `.ignoresSafeArea(.keyboard)`. The hotbar is the page layer's sibling
@@ -282,6 +283,47 @@ note against 11ms scrolling, and 5.5 seconds at 2000 lines. So instead:
   with a zero rect. Checked in the simulator on a ten-page note: the page
   stays full size and the caret line sits above the hotbar. The list change
   is checked by build only.
+
+## The page fills the window
+
+Roadmap step 5 (16 Oct, branch `claude/page-fills-window`, off `claude/drag-folders`).
+
+- **The page fills its area.** `PageDetailView.pageInsets` is zero on every
+  edge but the one a bar is docked to. No 12pt gap above, no border, no
+  rounded corners (`PageView.outline` and `outlineCornerRadius` are gone). The
+  surround still shows where the page is narrower than its area (the 1.25x cap
+  on a wide screen) and in print layout between sheets.
+- **A bar at the bottom floats over the page and moves nothing.** To let the
+  note's last lines scroll clear of it, `PageView.restingClearance` insets the
+  text view's bottom by `Hotbar.footprint` (the bar and the options row, in
+  screen points over the display scale). It is the larger of that and the
+  keyboard's inset, not the sum: `keyboardClearance` already includes the bar.
+- **A bar at a side takes one strip from that side**
+  (`CanvasGeometry.hotbarReserve(dock:side:)`), and the page is fitted to what
+  is left and centred in it. The strip is `Hotbar.footprint`: bar, margin,
+  gap and the options row's reach, reserved whether the row is out or not, so
+  a change of tool or mode never moves the page (the roadmap's proposal for
+  its open question). **This reverses "moving the bar never resizes the
+  page"**, which was a choice; the docks now differ in width, so the scale
+  can differ between edges on a narrow screen (on a wide one the 1.25x cap
+  absorbs it and the page only shifts half the strip).
+- **`Hotbar` owns the numbers** (`margin`, `barFootprint`, `footprint`) that
+  `PageDetailView`, `keyboardClearance` and `ContentView.pageToastInset` each
+  spelled as a 12 before.
+- **Home** is a house button at the top left of a note's header, beside ☰
+  (`PageDetailView.onGoHome`, `homeButton`). The list's Home row is gone.
+- **Settings and Recently Deleted left the list's bottom bar**, which is gone.
+  Settings is in the list's ••• and on Home's toolbar; ⌘, still works anywhere.
+  It is not in the note's •••, which is about the note (View, Run Code In,
+  Outline, Find, Add Page). Recently Deleted is the list's last row, shown
+  only when it holds something. Reaching Settings from a note: ☰ › ••• ›
+  Settings, or Home › gear, or ⌘,.
+- **The note's header is Home, ☰, title on the left; lock (while locked),
+  Share and ••• on the right.** Outline moved into •••.
+- **Not checked on screen:** any of it. The tests cover the pure geometry, the
+  text view's inset and the square corners; the strip, the floating bar, the
+  header and the list were not looked at, nor were Reduce Motion, the Pencil
+  or an 11-inch iPad.
 
 ## Pages
 
@@ -436,11 +478,11 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   and the margins show it too) are the surround. In the continuous modes the
   **text view paints the page column**, not a view of its own: the column is
   exactly the text view's bounds, its background sits under the text, the
-  break decorations and the canvas (all its subviews), and it follows the
-  corner radius `placeOutline()` already sets. Print layout leaves the text
-  view clear, since its sheets carry the page colour and the surround has to
-  show between them. `placeOutline()` sets all of it, so a mode switch can't
-  leave one behind.
+  break decorations and the canvas (all its subviews). Print layout leaves
+  the text view clear, since its sheets carry the page colour and the surround
+  has to show between them. `paintPage()` sets all of it, so a mode switch
+  can't leave one behind. There is no border or rounded corner (16 Oct; see
+  "The page fills the window").
   - **Compressed adds only a dashed line at each page end** (decided 9 Oct).
     Phase 2 also painted its 24pt band in the surround's colour, as the
     design brief asked, which made it read as a gap between pages; Marcus
@@ -650,8 +692,8 @@ Laid out from the 12 September mockup.
   text/draw toggle never move; after the divider come the current mode's tools.
   Only the tools scroll when the bar is too short for them; the arrows and the
   toggle sit outside the scroll view.
-  The page keeps both side edges clear, whichever one the bar is on, so moving
-  it never resizes or shifts the page.
+  A bar at the bottom floats over the page and moves nothing; one at a side
+  takes a strip from that side only. See "The page fills the window".
   It replaces `PKToolPicker` — see docs/phase-drawing-layer.md.
   The bar is one accessibility container (identifier `hotbar`), so VoiceOver
   hears a toolbar and tests can find its frame.
@@ -988,8 +1030,9 @@ v3 phase 2 (12 Oct, `docs/ui-design-v3-implementation.md`).
 - **The app opens on Home** (`HomeView`): `ContentView`'s detail is Home
   whenever `selection` is nil, with the list away (`.detailOnly`); ☰ brings
   it over, as over a note. With storage failed the list starts open, since
-  its warning is the list's. The Home row at the top of the list and ⇧⌘H
-  (`goHome`) clear the selection and send the list away.
+  its warning is the list's. The house button beside ☰ in a note's header and
+  ⇧⌘H (`goHome`) clear the selection and send the list away. (The list's Home
+  row went on 16 Oct: Home isn't a place in the list.)
   - **Sections are `HomeSections`**, pure, handed every note. Continue is the
     note opened last; with none recorded, or it gone (deleted), the note edited
     last, so Home always has a way back in. Recent is the next 8 by
@@ -1472,8 +1515,9 @@ v3 phase 6 (14 Oct, `docs/ui-design-v3-implementation.md`).
 
 - **The outline** (`NoteOutline`, `NoteOutlineView`) lists the headings the
   parser finds (`DocumentParser`, so a `#` line in code isn't one and
-  `#hashtag` isn't), computed when the popover opens and never stored. A header
-  button left of Share and ⌃⌘O (View menu, through `OpenNote.showOutline`)
+  `#hashtag` isn't), computed when the popover opens and never stored. Outline
+  in the note's ••• menu (it was a header button until 16 Oct; the popover now
+  hangs off the ••• button) and ⌃⌘O (View menu, through `OpenNote.showOutline`)
   open it; rows are indented by level from the note's highest, the heading
   the reader is under is ticked (the last at or above the line at the top),
   and an empty heading reads "Untitled". Offsets are UTF-16, accumulated in
@@ -1765,10 +1809,11 @@ the version string, the licence text, the palette reset) are `AppSettings.swift`
   names, since renaming one orphans what a device saved. Finger Draws needed
   no new key: `fingerDraws` was already per device (10 Oct, before this phase),
   so the row and the hotbar's hand button are one setting.
-- **Opening it.** The gear is an inset at the foot of the list
-  (`NoteList.safeAreaInset`), not a `.bottomBar` toolbar item: in the
-  simulator that placement put the gear at the centre of the screen with the
-  list hidden, and it wasn't there in portrait. ⌘, is a `CommandGroup(replacing:
+- **Opening it.** The gear was an inset bar at the foot of the list until
+  16 Oct (a `.bottomBar` toolbar item had put it at the centre of the screen
+  with the list hidden, and it wasn't there in portrait). Now Settings is in
+  the list's ••• menu, after Import and Export, and a gear on Home's toolbar.
+  See "The page fills the window" for why those two. ⌘, is a `CommandGroup(replacing:
   .appSettings)` in the app's menu (`SettingsCommands`), which can't see a
   window's state, so the window in front hands it its sheet's binding through
   `focusedSceneValue`. The sheet is owned by `ContentView`, above the list,

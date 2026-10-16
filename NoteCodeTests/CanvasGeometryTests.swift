@@ -21,29 +21,37 @@ struct CanvasGeometryTests {
 
     // MARK: Hotbar reserve
 
-    @Test("Both sides are reserved wherever the bar is docked", arguments: HotbarDock.allCases)
-    func bothSidesAlways(dock: HotbarDock) {
-        let insets = CanvasGeometry.hotbarReserve(dock: dock, thickness: reserve)
+    @Test("Only the side the bar is docked to is reserved")
+    func onlyTheDockedSide() {
+        let left = CanvasGeometry.hotbarReserve(dock: .left, side: reserve)
+        #expect(left.left == reserve && left.right == 0)
 
-        #expect(insets.left == reserve)
-        #expect(insets.right == reserve)
+        let right = CanvasGeometry.hotbarReserve(dock: .right, side: reserve)
+        #expect(right.right == reserve && right.left == 0)
     }
 
-    @Test("Moving the bar never changes the scale")
-    func dockDoesNotChangeScale() {
-        let scales = HotbarDock.allCases.map { dock in
-            let insets = CanvasGeometry.hotbarReserve(dock: dock, thickness: reserve)
-            return CanvasGeometry.fitScale(areaWidth: 834 - insets.left - insets.right, pageWidth: portraitWidth)
+    @Test("A bar at the bottom takes no room from the page", arguments: HotbarDock.allCases)
+    func bottomTakesNone(dock: HotbarDock) {
+        let insets = CanvasGeometry.hotbarReserve(dock: dock, side: reserve)
+
+        #expect(insets.bottom == 0)
+        if dock == .bottom {
+            #expect(insets.left == 0 && insets.right == 0)
         }
-
-        #expect(Set(scales).count == 1)
     }
 
-    @Test("The bottom is reserved only while the bar is there")
-    func bottomOnlyWhenDockedThere() {
-        #expect(CanvasGeometry.hotbarReserve(dock: .bottom, thickness: reserve).bottom == reserve)
-        #expect(CanvasGeometry.hotbarReserve(dock: .left, thickness: reserve).bottom == 0)
-        #expect(CanvasGeometry.hotbarReserve(dock: .right, thickness: reserve).bottom == 0)
+    @Test("The text keeps clear of a bar floating at the bottom, and of nothing else")
+    func restingClearanceOnlyAtTheBottom() {
+        #expect(CanvasGeometry.restingClearance(dock: .bottom, footprint: 116) == 116)
+        #expect(CanvasGeometry.restingClearance(dock: .left, footprint: 116) == 0)
+        #expect(CanvasGeometry.restingClearance(dock: .right, footprint: 116) == 0)
+    }
+
+    @Test("The footprint covers the bar, its margin and the options row beside it")
+    func footprint() {
+        #expect(Hotbar.footprint == Hotbar.margin + Hotbar.thickness + Hotbar.optionsGap
+            + OptionsRowStyle.thickness + OptionsRowStyle.reachAmount)
+        #expect(Hotbar.footprint > Hotbar.barFootprint)
     }
 
     // MARK: Fitting

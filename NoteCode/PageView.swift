@@ -40,13 +40,6 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// Over the ink, where seamless has no room — see `PageCoverView`.
     let covers = PageCoverView()
 
-    /// The line around the page in the continuous modes, on its edges at
-    /// whatever scale it's drawn. Print layout's sheets carry their own.
-    let outline = UIView()
-
-    /// The outline's corners, on screen.
-    static let outlineCornerRadius: CGFloat = 16
-
     /// What the page is painted, and what shows beside it. Dynamic colours:
     /// white on #F2F2F7 in light, black on #1C1C1E in dark.
     static let pageColor = UIColor.systemBackground
@@ -229,19 +222,6 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         decorations.isUserInteractionEnabled = false
         textView.insertSubview(decorations, at: 0)
 
-        // Over the text view rather than on it: the text view is scaled, and
-        // a border of its own would thicken and thin with the zoom.
-        outline.isUserInteractionEnabled = false
-        outline.backgroundColor = .clear
-        outline.layer.borderWidth = 1
-        outline.layer.cornerRadius = Self.outlineCornerRadius
-        outline.layer.cornerCurve = .continuous
-        addSubview(outline)
-        registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (page: PageView, _) in
-            page.resolveOutlineColor()
-        }
-        resolveOutlineColor()
-
         // Scrolling, transparency and who may draw are the canvas's own
         // business — see DrawingCanvas.
         canvas.onMarkupChanged = { [weak self] in self?.captureInk() }
@@ -307,6 +287,26 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         }
     }
 
+    /// Room the bottom of the text keeps from the area's edge, in screen
+    /// points, for a hotbar floating over the bottom of the page: the end of
+    /// the note can then be scrolled out from under it. The keyboard's inset
+    /// already includes the bar's height, so the larger of the two applies,
+    /// not their sum.
+    var restingClearance: CGFloat = 0 {
+        didSet {
+            guard restingClearance != oldValue else { return }
+            applyKeyboardInset(duration: 0.25)
+        }
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        // A clearance set before the page had a window, as it is when made.
+        if window != nil, restingClearance > 0 {
+            applyKeyboardInset(duration: 0)
+        }
+    }
+
     /// Keeps the caret clear of the keyboard without resizing the page.
     ///
     /// Fires for showing, hiding, and the keyboard changing height (the
@@ -324,15 +324,18 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
 
     /// Insets the text view for whatever of the page the keyboard covers.
     private func applyKeyboardInset(duration: TimeInterval, options: UIView.AnimationOptions = []) {
-        guard let window, let keyboardFrame else { return }
+        guard let window else { return }
 
-        let inset = CanvasGeometry.keyboardInset(
-            keyboard: windowFrameForScreenFrame(keyboardFrame, window),
-            area: convert(bounds, to: window),
-            screenWidth: window.bounds.width,
-            displayScale: displayScale,
-            clearance: keyboardClearance
-        )
+        var inset = displayScale > 0 ? restingClearance / displayScale : 0
+        if let keyboardFrame {
+            inset = max(inset, CanvasGeometry.keyboardInset(
+                keyboard: windowFrameForScreenFrame(keyboardFrame, window),
+                area: convert(bounds, to: window),
+                screenWidth: window.bounds.width,
+                displayScale: displayScale,
+                clearance: keyboardClearance
+            ))
+        }
         guard textView.contentInset.bottom != inset else { return }
         let growing = inset > textView.contentInset.bottom
 
@@ -376,7 +379,11 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         let frame = CanvasGeometry.pageFrame(in: area, pageWidth: pageWidth, scale: scale)
         let pageSize = CanvasGeometry.pageBounds(in: area, pageWidth: pageWidth, scale: scale)
 
+        let scaleChanged = displayScale != scale
         displayScale = scale
+        if scaleChanged, restingClearance > 0 {
+            applyKeyboardInset(duration: 0)
+        }
         if textView.transform.a != scale {
             textView.transform = CGAffineTransform(scaleX: scale, y: scale)
         }
@@ -393,7 +400,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         if textView.center != center {
             textView.center = center
         }
-        placeOutline()
+        paintPage()
 
         let content = CGSize(width: max(area.width, frame.width), height: area.height)
         if contentSize != content {
@@ -407,23 +414,19 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         }
     }
 
-    /// Puts the outline on the page's edges, and rounds the page's corners to
-    /// match — in page points, since the text view is scaled.
+    /// Paints the page against its surround.
     ///
-    /// Print layout has none: each sheet has an edge of its own, and a line
-    /// around the column would run down the sheets' sides and across the
-    /// surround between them.
-    private func placeOutline() {
+    /// The page has no border and square corners (16 Oct, roadmap step 5): it
+    /// fills its window, and the colours alone say where it ends.
+    private func paintPage() {
         let continuous = pageLayout.mode != .print
-        outline.isHidden = !continuous
 
         // The page against its surround, in every mode. The view itself is
         // the surround: it shows beside the page, and in print layout between
         // the sheets. The continuous modes' page is a column the text view's
         // width, so the text view paints it — under the text, the break
-        // decorations and the canvas, which are all its subviews, and
-        // following the corners below, which a separate view would have to
-        // copy. Print layout's text view stays clear, since its sheets carry
+        // decorations and the canvas, which are all its subviews. Print
+        // layout's text view stays clear, since its sheets carry
         // the page colour and the surround must show between them. Set by
         // mode, not once, so a switch can't leave the column behind.
         backgroundColor = Self.surroundColor
@@ -431,18 +434,6 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         if textView.backgroundColor != fill {
             textView.backgroundColor = fill
         }
-        if outline.frame != textView.frame {
-            outline.frame = textView.frame
-        }
-        let radius = continuous && displayScale > 0 ? Self.outlineCornerRadius / displayScale : 0
-        if textView.layer.cornerRadius != radius {
-            textView.layer.cornerRadius = radius
-            textView.layer.cornerCurve = .continuous
-        }
-    }
-
-    private func resolveOutlineColor() {
-        outline.layer.borderColor = UIColor.separator.resolvedColor(with: traitCollection).cgColor
     }
 
     /// Sets the text container to the pages' text width.
@@ -697,7 +688,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             return bottom + textView.textContainerInset.bottom
         })
         applyBands()
-        placeOutline()
+        paintPage()
 
         guard old != nil else { return }
 

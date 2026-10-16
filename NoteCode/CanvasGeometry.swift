@@ -37,19 +37,29 @@ nonisolated enum CanvasGeometry {
 
     // MARK: Room for the hotbar
 
-    /// Room kept clear around the page for the hotbar.
+    /// Room kept clear beside the page for the hotbar (16 Oct, roadmap step 5).
     ///
-    /// Both sides are always reserved, whichever edge the bar is on. The page's
-    /// width is what sets its scale, so reserving only the docked side would
-    /// resize the text every time the bar moved, and shift the page sideways
-    /// besides. The bottom is reserved only while the bar is there: height
-    /// never touches the scale, so it costs nothing to give it back.
-    static func hotbarReserve(dock: HotbarDock, thickness: CGFloat) -> PageInsets {
+    /// The page fills its window, so only a bar docked to a side takes room,
+    /// and only on that side: the page is fitted to what is left and centred
+    /// in it, which resizes the text when the bar moves between edges. A bar
+    /// at the bottom takes none and floats over the page; the text view keeps
+    /// its last lines scrollable clear of it instead (`restingClearance`).
+    ///
+    /// `side` is the whole footprint of the bar and its options row, so the
+    /// row coming and going with the tool never moves the page.
+    static func hotbarReserve(dock: HotbarDock, side: CGFloat) -> PageInsets {
         PageInsets(
-            left: thickness,
-            right: thickness,
-            bottom: dock == .bottom ? thickness : 0
+            left: dock == .left ? side : 0,
+            right: dock == .right ? side : 0,
+            bottom: 0
         )
+    }
+
+    /// How far the bottom of the text is kept above the area's edge, in screen
+    /// points, so the last lines can be scrolled out from under a bar that
+    /// floats over the bottom of the page.
+    static func restingClearance(dock: HotbarDock, footprint: CGFloat) -> CGFloat {
+        dock == .bottom ? footprint : 0
     }
 
     // MARK: Scale
