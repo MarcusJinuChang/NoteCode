@@ -66,6 +66,8 @@ struct RecentlyDeletedView: View {
 struct RecentlyDeletedPage: View {
     var showsDone: Bool
 
+    @AppStorage(AccentPalette.defaultsKey) private var accent = ""
+
     @Query(filter: Page.deletedPredicate, sort: \Page.deletedAt, order: .reverse)
     private var allDeletedPages: [Page]
 
@@ -153,7 +155,7 @@ struct RecentlyDeletedPage: View {
         }
         .swipeActions(edge: .leading) {
             Button("Restore", systemImage: "arrow.uturn.backward") { restore(page) }
-                .tint(.accentColor)
+                .tint(Color.accent(stored: accent))
         }
         .swipeActions(edge: .trailing) {
             Button("Delete Now", systemImage: "trash", role: .destructive) { deleteNow(page) }
@@ -179,7 +181,7 @@ struct RecentlyDeletedPage: View {
         }
         .swipeActions(edge: .leading) {
             Button("Restore", systemImage: "arrow.uturn.backward") { restore(folder) }
-                .tint(.accentColor)
+                .tint(Color.accent(stored: accent))
         }
         .swipeActions(edge: .trailing) {
             Button("Delete Now", systemImage: "trash", role: .destructive) { deleteNow(folder) }

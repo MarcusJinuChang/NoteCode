@@ -132,10 +132,9 @@ struct HomeView: View {
                     Button(action: onNewNote) {
                         Label("New Note", systemImage: "plus")
                             .font(.headline)
-                            .foregroundStyle(.white)
                             .padding(.horizontal, 22)
                             .frame(minHeight: 48)
-                            .background(Color.accentColor, in: Capsule())
+                            .accentFill(in: Capsule())
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("homeNewNote")
@@ -232,10 +231,9 @@ struct HomeView: View {
 
                 Text("Open")
                     .font(.headline)
-                    .foregroundStyle(.white)
                     .padding(.horizontal, 22)
                     .frame(minHeight: 44)
-                    .background(Color.accentColor, in: Capsule())
+                    .accentFill(in: Capsule())
             }
             .padding(.leading, 22)
             .padding(.trailing, 28)
@@ -376,10 +374,10 @@ struct HomeView: View {
         } label: {
             Label("From Template", systemImage: "doc.badge.plus")
                 .font(.headline)
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(.tint)
                 .padding(.horizontal, 22)
                 .frame(minHeight: 48)
-                .overlay { Capsule().strokeBorder(Color.accentColor, lineWidth: 1.5) }
+                .overlay { Capsule().strokeBorder(.tint, lineWidth: 1.5) }
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -391,10 +389,10 @@ struct HomeView: View {
         Button(action: onImport) {
             Label("Import", systemImage: "square.and.arrow.down")
                 .font(.headline)
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(.tint)
                 .padding(.horizontal, 22)
                 .frame(minHeight: 48)
-                .overlay { Capsule().strokeBorder(Color.accentColor, lineWidth: 1.5) }
+                .overlay { Capsule().strokeBorder(.tint, lineWidth: 1.5) }
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -424,9 +422,8 @@ struct HomeView: View {
                 Button(action: onNewNote) {
                     Label("New Note", systemImage: "plus")
                         .font(.headline)
-                        .foregroundStyle(.white)
                         .frame(maxWidth: .infinity, minHeight: 50)
-                        .background(Color.accentColor, in: Capsule())
+                        .accentFill(in: Capsule())
                         .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)

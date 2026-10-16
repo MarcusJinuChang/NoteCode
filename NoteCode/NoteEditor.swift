@@ -144,6 +144,12 @@ final class NoteEditor {
         page?.pageCount
     }
 
+    /// One more page at the end of the note. Not an edit: nothing goes on
+    /// the text's undo stack and the note's date stays.
+    func addPage() {
+        page?.addPage()
+    }
+
     // MARK: Insert
 
     /// The page's width in points, which a photo's size and resolution are
@@ -191,6 +197,7 @@ final class NoteEditor {
             ink: page.ink,
             orientation: page.pageLayout.orientation,
             pageCount: page.pageCount,
+            minimumPages: page.minimumPageCount,
             rendersMarkdown: rendersMarkdown,
             lineNumbers: showsLineNumbers,
             typography: typography

@@ -214,8 +214,8 @@ final class ChecklistLayoutFragment: NSTextLayoutFragment {
     static func drawBox(in rect: CGRect, checked: Bool, context: CGContext) {
         if checked {
             let path = UIBezierPath(roundedRect: rect, cornerRadius: cornerRadius)
-            // The asset by name: `tintColor` is the view's, and paper has none.
-            context.setFillColor((UIColor(named: "AccentColor") ?? .tintColor).cgColor)
+            // The stored accent, not `tintColor`: that is the view's, and paper has none.
+            context.setFillColor(AccentPalette.drawingColor().cgColor)
             context.addPath(path.cgPath)
             context.fillPath()
 

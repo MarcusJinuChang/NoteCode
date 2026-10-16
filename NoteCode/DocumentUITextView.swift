@@ -298,6 +298,18 @@ final class DocumentUITextView: UITextView {
         }
     }
 
+    /// A new accent redraws what is drawn from it without being asked for a
+    /// tint: links (a dynamic colour read from the stored accent as it is
+    /// drawn) and checked boxes. Drawing only; nothing is laid out or edited.
+    override func tintColorDidChange() {
+        super.tintColorDidChange()
+        func redraw(_ view: UIView) {
+            view.setNeedsDisplay()
+            view.subviews.forEach(redraw)
+        }
+        subviews.forEach(redraw)
+    }
+
     /// Keeps a tap on an action bar from reaching the text view's own gestures.
     ///
     /// A button inside a text view is not simply a button: when one of the text

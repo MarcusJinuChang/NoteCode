@@ -93,6 +93,15 @@ struct PageLayoutTests {
         #expect(layout.pageCount(textBottom: layout.firstBodyTop + 10, inkBottom: intoThird) == 3)
     }
 
+    @Test("A minimum adds pages the content doesn't need, and never removes any", arguments: everyLayout)
+    func minimumPages(layout: PageLayout) {
+        let intoThird = layout.bodyTop(ofPage: 2) + 40
+
+        #expect(layout.pageCount(textBottom: layout.firstBodyTop, inkBottom: nil, minimum: 4) == 4)
+        #expect(layout.pageCount(textBottom: intoThird, inkBottom: nil, minimum: 2) == 3)
+        #expect(layout.pageCount(textBottom: layout.firstBodyTop, inkBottom: nil, minimum: 0) == 1)
+    }
+
     @Test("A note is tall enough for every page it has", arguments: everyLayout)
     func noteHeightCoversPages(layout: PageLayout) {
         let height = layout.noteHeight(pageCount: 3)

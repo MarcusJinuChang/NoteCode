@@ -65,6 +65,11 @@ struct DocumentTextView: UIViewRepresentable {
     /// note is laid out in.
     var typography = NoteTypography.standard
 
+    /// The fewest pages the note has (`Page.minimumPageCount`), and where a
+    /// raise made by the page (Add Page, seamless's buffer) is kept.
+    var minimumPageCount = 1
+    var onMinimumPageCountChanged: ((Int) -> Void)? = nil
+
     /// Told whenever the page scrolls, with the place it is scrolled to, for
     /// the page badge. Optional, like `editor`.
     var onScrolled: ((NoteMemory.Place) -> Void)? = nil
@@ -94,6 +99,8 @@ struct DocumentTextView: UIViewRepresentable {
         // canvas knob too, and the canvas is the page's.
         editor?.attach(textView, canvas: page.canvas, page: page)
         page.pageLayout = pageLayout
+        page.minimumPageCount = minimumPageCount
+        page.onMinimumPageCountChanged = onMinimumPageCountChanged
         page.keyboardClearance = keyboardClearance
         // After the layout: stored ink is in print coordinates for the note's
         // own orientation, and the page starts out portrait.
@@ -117,6 +124,8 @@ struct DocumentTextView: UIViewRepresentable {
     func updateUIView(_ page: PageView, context: Context) {
         let textView = page.textView
         page.pageLayout = pageLayout
+        page.minimumPageCount = max(minimumPageCount, page.minimumPageCount)
+        page.onMinimumPageCountChanged = onMinimumPageCountChanged
         page.keyboardClearance = keyboardClearance
         page.onReadingPlaceChanged = onReadingPlaceChanged
         page.onScrolled = onScrolled

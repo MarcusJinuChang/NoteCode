@@ -75,6 +75,7 @@ struct NoteList: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @AppStorage(AccentPalette.defaultsKey) private var accent = ""
     @Environment(ToastCenter.self) private var toasts: ToastCenter?
     // Every note, deleted ones included: the sections and search leave out
     // what is in Recently Deleted (`Page.live`), and the foot counts it.
@@ -290,12 +291,12 @@ struct NoteList: View {
                     .fontWeight(.semibold)
             } icon: {
                 Image(systemName: "house")
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(.tint)
             }
         }
         .buttonStyle(.plain)
         .selectionDisabled()
-        .listRowBackground(selection == nil ? RowSelectionTint.color(isDark: colorScheme == .dark) : nil)
+        .listRowBackground(selection == nil ? RowSelectionTint.color(isDark: colorScheme == .dark, accent: accent) : nil)
         .accessibilityIdentifier("homeRow")
         .accessibilityAddTraits(selection == nil ? .isSelected : [])
     }
@@ -431,7 +432,7 @@ struct NoteList: View {
     /// The selected note's row is the accent at a low strength, with the
     /// label colour kept for its text: never white on solid orange.
     private func rowBackground(for page: Page) -> Color? {
-        selection == page ? RowSelectionTint.color(isDark: colorScheme == .dark) : nil
+        selection == page ? RowSelectionTint.color(isDark: colorScheme == .dark, accent: accent) : nil
     }
 
     private func folderRows(_ sections: [NoteListSections.FolderSection]) -> some View {
@@ -747,7 +748,8 @@ enum RowSelectionTint {
         isDark ? 0.22 : 0.18
     }
 
-    static func color(isDark: Bool) -> Color {
-        Color.accentColor.opacity(opacity(isDark: isDark))
+    /// - Parameter accent: the stored accent (`AccentPalette.defaultsKey`).
+    static func color(isDark: Bool, accent: String) -> Color {
+        Color.accent(stored: accent).opacity(opacity(isDark: isDark))
     }
 }

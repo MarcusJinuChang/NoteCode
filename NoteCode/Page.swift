@@ -72,6 +72,14 @@ final class Page {
     /// when the note has ink.
     var textSize: Int?
 
+    /// The fewest pages the note has, whatever it holds: what Add Page raises,
+    /// and what seamless raises when ink reaches the last page, so there is
+    /// always a blank page to draw on below. Only ever grows. The note has
+    /// the more of this and the pages its text and ink need
+    /// (`PageLayout.pageCount`). Like the text size it isn't an edit and
+    /// leaves `modifiedAt` alone.
+    var minimumPageCount: Int = 1
+
     init(title: String = "Untitled", content: String = "", drawingData: Data = Data(), createdAt: Date = .now) {
         self.title = title
         self.content = content
@@ -233,6 +241,7 @@ extension Page {
         let copy = Page(title: "\(title) copy", content: content, drawingData: drawingData)
         copy.pageOrientation = pageOrientation
         copy.textSize = textSize
+        copy.minimumPageCount = minimumPageCount
         copy.runDestination = runDestination
         context.insert(copy)
         // After the insert, like `Page.create`: relationships are set on a
