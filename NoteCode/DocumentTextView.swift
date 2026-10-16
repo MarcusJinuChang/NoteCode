@@ -31,6 +31,10 @@ struct DocumentTextView: UIViewRepresentable {
     /// `PageView.keyboardClearance`.
     var keyboardClearance: CGFloat = 0
 
+    /// Room the bottom of the text keeps from the area's edge for a hotbar
+    /// floating over it. See `PageView.restingClearance`.
+    var restingClearance: CGFloat = 0
+
     /// Loads the note's ink as the page is made, and saves it as it changes.
     /// Optional, like `editor`, so the editor still stands alone.
     var inkSaver: DrawingSaveScheduler? = nil
@@ -102,6 +106,7 @@ struct DocumentTextView: UIViewRepresentable {
         page.minimumPageCount = minimumPageCount
         page.onMinimumPageCountChanged = onMinimumPageCountChanged
         page.keyboardClearance = keyboardClearance
+        page.restingClearance = restingClearance
         // After the layout: stored ink is in print coordinates for the note's
         // own orientation, and the page starts out portrait.
         if let inkSaver {
@@ -127,6 +132,7 @@ struct DocumentTextView: UIViewRepresentable {
         page.minimumPageCount = max(minimumPageCount, page.minimumPageCount)
         page.onMinimumPageCountChanged = onMinimumPageCountChanged
         page.keyboardClearance = keyboardClearance
+        page.restingClearance = restingClearance
         page.onReadingPlaceChanged = onReadingPlaceChanged
         page.onScrolled = onScrolled
 

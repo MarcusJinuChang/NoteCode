@@ -28,6 +28,16 @@ Next is the plan below.
   kept off only by a race. Not device-only after all: every link checked in
   the simulator on 13 Oct had words after it.
 
+- **Step 5, the page fills the window** (16 Oct, branch `claude/page-fills-window`,
+  off `claude/drag-folders`): the page runs edge to edge with no border,
+  corner radius or top gap. A bottom bar floats over it and moves nothing; a
+  side bar takes one strip from its side, sized for the bar and its options
+  row so tools never move the page. Home is a house button beside ☰ in a
+  note's header. The list's bottom bar is gone: Settings is in the list's
+  ••• and on Home's toolbar, Recently Deleted is the list's last row, and
+  Outline moved from the header into the note's •••. See AGENTS.md › The page
+  fills the window. Builds for iPad; **not looked at on screen**.
+
 - **Steps 4 and 7** (15 Oct, branch `claude/clear-out-old-notes`, off `main`):
   the model is one plain schema with no versions or migrations, and
   `markdownLayout`, `paperStyle` and Hide Markdown Markers… are gone. The
@@ -395,7 +405,9 @@ changes how notes are stored lands before it.
    open is deleted with the app. AGENTS.md's model section changes with this
    step.
 5. **The page fills the window**, Notability-style, rather than sitting
-   inside a frame. Three more go with it:
+   inside a frame. (Built 16 Oct, branch `claude/page-fills-window`; see
+   AGENTS.md. The options row's room is reserved whenever the bar is at a
+   side, as proposed.) Three more go with it:
    - the page moves with the hotbar, centred or pushed aside, and a bar at
      the bottom moves nothing;
    - Home moves to the top left;

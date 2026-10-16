@@ -37,6 +37,9 @@ struct HomeView: View {
     /// Brings the list in with its search field focused.
     var onSearch: () -> Void
 
+    /// Settings, from the gear: the list's ••• has it too, a list away.
+    var onShowSettings: () -> Void = {}
+
     /// Makes a Welcome note and opens it, for an empty Home.
     var onOpenWelcomeNote: () -> Void
 
@@ -72,6 +75,8 @@ struct HomeView: View {
 #endif
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
+                Button("Settings", systemImage: "gearshape", action: onShowSettings)
+                    .accessibilityIdentifier("homeSettingsButton")
                 Button("Search Notes", systemImage: "magnifyingglass", action: onSearch)
                     .accessibilityIdentifier("homeSearchButton")
                 Button("New Note", systemImage: "plus", action: onNewNote)

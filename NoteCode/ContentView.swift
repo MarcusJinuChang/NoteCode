@@ -97,7 +97,6 @@ struct ContentView: View {
                 searchText: $searchText,
                 onNewPage: { newPage = $0 },
                 onShowSettings: { showsSettings = true },
-                onShowHome: goHome,
                 onImport: { showsImporter = true },
                 onExportAll: { showsExportAll = true },
                 request: $listRequest,
@@ -115,6 +114,7 @@ struct ContentView: View {
                         page: page,
                         revealing: openedSearch,
                         onDelete: { delete(page) },
+                        onGoHome: goHome,
                         startsRenaming: page == newPage
                     )
                         // A fresh editor per note. Reusing one would carry the last
@@ -129,6 +129,7 @@ struct ContentView: View {
                         onShowList: showList,
                         onShowFolder: { ask(.showFolder($0.persistentModelID)) },
                         onSearch: { ask(.searchNotes) },
+                        onShowSettings: { showsSettings = true },
                         onOpenWelcomeNote: openWelcomeNote
                     )
                 }
@@ -392,9 +393,9 @@ struct ContentView: View {
     /// when it is docked there.
     private var pageToastInset: CGFloat {
 #if canImport(UIKit)
-        // The bar's thickness and the 12pt around it that `keyboardClearance`
-        // also reserves, then a gap.
-        dock == .bottom ? Hotbar.thickness + 12 + 12 : 16
+        // The bar and its margin, which `keyboardClearance` also reserves,
+        // then a gap of the same size.
+        dock == .bottom ? Hotbar.barFootprint + Hotbar.margin : 16
 #else
         16
 #endif

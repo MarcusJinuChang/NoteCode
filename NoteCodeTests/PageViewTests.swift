@@ -1312,20 +1312,34 @@ struct PageViewTests {
         #expect(onSheet.isDescendant(of: page.canvas))
     }
 
-    @Test("The outline sits on the page's edges, not the area's, and print layout's sheets carry their own")
-    func outlineOnThePage() {
-        // Wider than a page fits at 1.25x, so the page is narrower than its area.
+    @Test("The page has square corners and no border in every mode: it fills its window")
+    func pageIsSquare() {
         let harness = Harness(text: Self.severalPages, area: CGSize(width: 1300, height: 900), layout: PageLayout(mode: .seamless))
         let page = harness.page
 
-        #expect(!page.outline.isHidden)
-        #expect(page.outline.frame == page.textView.frame)
-        #expect(page.outline.frame.width < 1300 - 1)
-        #expect(abs(page.outline.frame.width - page.pageLayout.pageSize.width * page.displayScale) < 0.5)
+        #expect(page.textView.layer.cornerRadius == 0)
+        #expect(!page.subviews.contains { $0.layer.borderWidth > 0 })
+        // Painted as the page against its surround.
+        #expect(page.textView.backgroundColor == PageView.pageColor)
 
         harness.switchTo(PageLayout(mode: .print))
-        #expect(page.outline.isHidden)
+        #expect(page.textView.layer.cornerRadius == 0)
         #expect(page.decorations.sheetBorderWidths.allSatisfy { $0 > 0 })
+    }
+
+    @Test("A resting clearance lets the end of the note scroll clear of a bar floating over the page, and is given back")
+    func restingClearanceInsetsTheText() throws {
+        let harness = Harness()
+        let page = harness.page
+        harness.window.frame = harness.window.screen.bounds
+        page.layoutIfNeeded()
+        #expect(page.textView.contentInset.bottom == 0)
+
+        page.restingClearance = 116
+        #expect(abs(page.textView.contentInset.bottom - 116 / page.displayScale) < 0.5)
+
+        page.restingClearance = 0
+        #expect(page.textView.contentInset.bottom == 0)
     }
 
     @Test("Compressed layout draws a line at each break, and seamless draws nothing")

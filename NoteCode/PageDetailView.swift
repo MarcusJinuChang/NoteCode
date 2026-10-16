@@ -29,6 +29,9 @@ struct PageDetailView: View {
     /// which leaves Delete out of the menu.
     var onDelete: (() -> Void)? = nil
 
+    /// Closes the note and shows Home: the house beside the sidebar button.
+    var onGoHome: (() -> Void)? = nil
+
     /// Whether to open with the title being renamed: a note just made, so
     /// its name can be typed straight away.
     var startsRenaming = false
@@ -117,18 +120,17 @@ struct PageDetailView: View {
     /// which moves this note into the folder it makes.
     @State private var editingFolder: FolderEditing?
 
-    /// Gap between the hotbar and the edges around it.
-    private static let hotbarMargin: CGFloat = 12
-
     init(
         page: Page,
         revealing: NoteSearch = NoteSearch(""),
         onDelete: (() -> Void)? = nil,
+        onGoHome: (() -> Void)? = nil,
         startsRenaming: Bool = false
     ) {
         self.page = page
         self.revealing = revealing
         self.onDelete = onDelete
+        self.onGoHome = onGoHome
         self.startsRenaming = startsRenaming
 #if canImport(UIKit)
         // Cheap: the ink is read when the page is made, not here. SwiftUI
@@ -254,7 +256,7 @@ struct PageDetailView: View {
 
     // MARK: Header
 
-    /// Share and ••• on the right, in the label colour, not the accent,
+    /// Home beside the sidebar button; Share and ••• on the right, in the label colour, not the accent,
     /// which belongs to the tools and the page. The sidebar button on the
     /// left is the system's: it opens the list over the page, and in a
     /// compact width the back button takes its place.
@@ -271,20 +273,17 @@ struct PageDetailView: View {
             }
         }
 
-#if canImport(UIKit)
-        // Left of Share. A popover off the button, so it points at it.
-        ToolbarItem(placement: .primaryAction) {
-            Button("Outline", systemImage: "list.bullet.indent") { showsOutline = true }
-                .tint(.primary)
-                .popover(isPresented: $showsOutline) {
-                    let outline = editor.outline()
-                    NoteOutlineView(entries: outline.entries, current: outline.current) { entry in
-                        showsOutline = false
-                        editor.scroll(toHeading: entry)
-                    }
-                }
+        // Beside the sidebar button, at the top left. The house goes where
+        // the list's Home row was: the list is no longer where Home lives.
+        if let onGoHome {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Home", systemImage: "house", action: onGoHome)
+                    .tint(.primary)
+                    .accessibilityIdentifier("homeButton")
+            }
         }
 
+#if canImport(UIKit)
         ToolbarItem(placement: .primaryAction) {
             NoteShareButton(editor: editor, title: page.title, fallbackText: page.content)
                 .tint(.primary)
@@ -297,7 +296,8 @@ struct PageDetailView: View {
         }
     }
 
-    /// •••: how pages are shown, where code runs, and find.
+    /// •••: how pages are shown, where code runs, the outline and find.
+    /// About this note only; the app's settings are the list's and Home's.
     private var moreMenu: some View {
         Menu {
 #if canImport(UIKit)
@@ -326,6 +326,8 @@ struct PageDetailView: View {
                 }
             }
 
+            Button("Outline", systemImage: "list.bullet.indent") { showsOutline = true }
+
             Button("Find in Note", systemImage: "magnifyingglass") {
                 editor.showFind()
             }
@@ -336,6 +338,17 @@ struct PageDetailView: View {
         } label: {
             Label("More", systemImage: "ellipsis")
         }
+#if canImport(UIKit)
+        // A popover off the ••• button, since one hung off a menu's items goes
+        // when an item is chosen. ⌃⌘O raises the same binding.
+        .popover(isPresented: $showsOutline) {
+            let outline = editor.outline()
+            NoteOutlineView(entries: outline.entries, current: outline.current) { entry in
+                showsOutline = false
+                editor.scroll(toHeading: entry)
+            }
+        }
+#endif
     }
 
     /// The open note's pages, which only the laid-out page knows.
@@ -360,6 +373,7 @@ struct PageDetailView: View {
                 editor: editor,
                 pageLayout: PageLayout(orientation: page.orientation, mode: viewMode),
                 keyboardClearance: keyboardClearance,
+                restingClearance: CanvasGeometry.restingClearance(dock: dock, footprint: Hotbar.footprint),
                 inkSaver: inkSaver,
                 revealing: revealing,
                 resumingAtPage: resumingAtPage,
@@ -380,11 +394,10 @@ struct PageDetailView: View {
                 },
                 onScrolled: noteScrolled
             )
-            // The page draws its own border, on the page's edges rather than
-            // the area's — see PageView.outline. Clipping keeps anything that
-            // runs past the area, like a page zoomed wider than it, off the
-            // hotbar's space, and rounds print layout's surround.
-            .clipShape(.rect(cornerRadius: PageView.outlineCornerRadius))
+            // Square and unbordered: the page fills its area. Clipping keeps
+            // anything that runs past the area, like a page zoomed wider than
+            // it, off the hotbar's space.
+            .clipped()
             .padding(pageInsets)
             // The keyboard covers the page; it doesn't resize it. Shrinking
             // the page's area re-fit the page to a shorter space and moved
@@ -398,7 +411,7 @@ struct PageDetailView: View {
                 .padding(.top, Self.badgeInset)
 
             Hotbar(editor: editor, dock: $dock, onDrop: drop, textRowHidden: sheetCoversPage)
-                .padding(Self.hotbarMargin)
+                .padding(Hotbar.margin)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: dock.alignment)
                 .sensoryFeedback(.alignment, trigger: snaps) { _, _ in hapticOnSnap }
         }
@@ -448,7 +461,7 @@ struct PageDetailView: View {
     /// up over the page.
     private var keyboardClearance: CGFloat {
         guard dock == .bottom else { return 0 }
-        var clearance = Hotbar.thickness + Self.hotbarMargin
+        var clearance = Hotbar.barFootprint
         if editor.mode == .text, !page.isTextLocked, !sheetCoversPage {
             clearance += Hotbar.optionsGap + OptionsRowStyle.thickness + OptionsRowStyle.reachAmount
         }
@@ -516,23 +529,11 @@ struct PageDetailView: View {
         snaps += 1
     }
 
-    /// The area the page is drawn in.
-    ///
-    /// Clear of the hotbar's room on both sides, wherever the bar is — see
-    /// `CanvasGeometry.hotbarReserve` — so moving the bar leaves the page
-    /// exactly where and how large it was. Top and bottom keep the same gap
-    /// the bar keeps from its edges, so the page sits evenly in its space.
+    /// The area the page is drawn in: all of the window, less the strip a bar
+    /// docked to a side takes — see `CanvasGeometry.hotbarReserve`.
     private var pageInsets: EdgeInsets {
-        let reserve = CanvasGeometry.hotbarReserve(
-            dock: dock,
-            thickness: Hotbar.thickness + Self.hotbarMargin * 2
-        )
-        return EdgeInsets(
-            top: Self.hotbarMargin,
-            leading: reserve.left,
-            bottom: max(reserve.bottom, Self.hotbarMargin),
-            trailing: reserve.right
-        )
+        let reserve = CanvasGeometry.hotbarReserve(dock: dock, side: Hotbar.footprint)
+        return EdgeInsets(top: 0, leading: reserve.left, bottom: 0, trailing: reserve.right)
     }
 
 #else

@@ -50,6 +50,20 @@ struct Hotbar: View {
     /// How far the bar reaches in from the edge it's docked to.
     static var thickness: CGFloat { buttonSide + padding * 2 }
 
+    /// Gap between the bar and the edges around it.
+    static let margin: CGFloat = 12
+
+    /// How far the bar and its margin take in from the edge it's docked to.
+    static var barFootprint: CGFloat { margin + thickness }
+
+    /// The bar, its margin and the options row beside it, with the row's
+    /// touch reach. The page keeps this much clear on a side the bar is docked
+    /// to whether the row is out or not, so a change of tool or mode never
+    /// moves the page.
+    static var footprint: CGFloat {
+        barFootprint + optionsGap + OptionsRowStyle.thickness + OptionsRowStyle.reachAmount
+    }
+
     /// The coordinate space drags are measured in. Named on the page, which
     /// stays still, rather than on the bar, which moves under the finger.
     static let coordinateSpace = "notePage"
