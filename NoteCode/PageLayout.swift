@@ -133,14 +133,16 @@ nonisolated struct PageLayout: Equatable, Sendable {
         max(Int(((y - firstBodyTop + gap / 2) / pitch).rounded(.down)), 0)
     }
 
-    /// How many pages a note needs to hold its text and its ink. At least one.
+    /// How many pages a note has: the pages its text and its ink need, or
+    /// `minimum` if that is more. At least one.
     ///
     /// - Parameters:
     ///   - textBottom: the bottom of the last line, in note coordinates.
     ///   - inkBottom: the lowest point of any ink, or `nil` for none.
-    func pageCount(textBottom: CGFloat, inkBottom: CGFloat?) -> Int {
+    ///   - minimum: the pages the note was given (`Page.minimumPageCount`).
+    func pageCount(textBottom: CGFloat, inkBottom: CGFloat?, minimum: Int = 1) -> Int {
         let lowest = max(textBottom, inkBottom ?? 0)
-        return pageIndex(atY: lowest) + 1
+        return max(pageIndex(atY: lowest) + 1, minimum, 1)
     }
 
     /// How tall a note of `pageCount` pages is.

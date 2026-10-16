@@ -96,6 +96,28 @@ The UI redesign's palette (7 Oct, phase 1 of `docs/ui-design-v2-implementation.m
   the selection); no root `.tint` was needed. The colorset was empty before,
   which is why everything was system blue. Checked in the built `Assets.car`
   with `xcrun assetutil --info`, all four variants.
+- **The accent is editable** (15 Oct, roadmap step 9; Settings › General ›
+  Accent Colour, `AccentPalette`). One hex per device under `accentColor`;
+  nothing stored, or the orange itself, is the asset above and keeps its
+  Increase Contrast slots. `AppearanceModifier` applies it at the root: `.tint`
+  for SwiftUI and the window's `tintColor` for UIKit (the caret, selection, Run
+  button), and the default sets neither.
+  - **`Color.accentColor` ignores `.tint`** (measured; `accentColorIgnoresTint`),
+    so nothing uses it. Use the `.tint` shape style, or `Color.accent(stored:)`
+    where a `Color` is needed (the selected row, swipe tints; the view holds an
+    `@AppStorage` for it).
+  - **Text and fills.** Links are the accent as text: the design's pair for the
+    orange, otherwise the chosen colour darkened (light) or lightened (dark)
+    just far enough for 4.5:1 (`AccentPalette.textHex`, tested for eleven
+    colours). `linkColor` is a dynamic colour that reads the stored value as it
+    resolves, so no restyle is needed; `DocumentUITextView.tintColorDidChange`
+    redraws the fragments. A checked box uses `AccentPalette.drawingColor`, so
+    the PDF prints in the reader's accent. Labels on accent fills are white
+    unless the accent is too pale to carry it (`accentFill`).
+  - The app icon is not recoloured: iOS keeps its own.
+  - Checked in the simulator with `-accentColor 066EE5` (the Run button and
+    hotbar turned blue). Not looked at: the picker itself, Increase Contrast
+    with a custom colour (it uses the one chosen), light mode.
 - **Syntax colours are `SyntaxTheme`**, highlight.js CSS handed to
   HighlightSwift through `HighlightColors.custom(css:)`, replacing the stock
   Xcode theme. Pure strings, so tests read them without the JavaScript
@@ -385,6 +407,23 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
       shown, so undoing the erase brings it back. **Moved by the lasso:**
       the hidden overflow is moved by the same amount, as a translation;
       a lasso's resize or rotation isn't carried exactly.
+- **Add Page, and seamless's buffer** (15 Oct, roadmap step 6).
+  `Page.minimumPageCount` is the one stored page count: a note has the more of
+  it and the pages its text and ink need (`PageLayout.pageCount(…, minimum:)`),
+  so it only ever grows. ••• › Add Page raises it by one past the pages the
+  note has now, in compressed and print layout (seamless has no page ends to
+  add at). In seamless, `PageView.keepPageBelowInk` raises it when ink
+  reaches the last page, after the stroke is taken in, so a blank page is
+  always below the ink; ink on the new last page makes the next. Compressed
+  and print layout add none for ink, since their last page is visible and
+  Add Page is there. Like the text size it is no edit (`modifiedAt` stays, no
+  undo). Blank added pages print (`NotePDF.Note.minimumPages`, also Export
+  All's) and are copied by Duplicate. Erasing never takes pages back.
+  - No button on the page itself: print layout and compressed leave no room
+    below the last page that the canvas doesn't own, so the menu has it. A
+    page-foot button would be its own piece of work.
+  - Not checked on screen or with the Pencil: Add Page from the menu, the
+    buffer while drawing.
 - **Print layout** fits its sheets inside a 24pt border of the surround
   (`CanvasGeometry.printGutter`), so they read as paper rather than one slab
   with grey bars across it. Text is a little smaller there than in the

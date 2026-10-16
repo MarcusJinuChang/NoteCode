@@ -319,6 +319,13 @@ struct PageDetailView: View {
             )
 
 #if canImport(UIKit)
+            // Seamless adds its own pages as ink reaches the end.
+            if viewMode != .seamless {
+                Button("Add Page", systemImage: "plus.rectangle.on.rectangle") {
+                    editor.addPage()
+                }
+            }
+
             Button("Find in Note", systemImage: "magnifyingglass") {
                 editor.showFind()
             }
@@ -367,6 +374,10 @@ struct PageDetailView: View {
                 rendersMarkdown: true,
                 codeSettings: CodeEditorSettings(indentWidth: indentWidth, codeKeys: codeKeys, lineNumbers: lineNumbers),
                 typography: NoteTypography(bodySize: page.textSize),
+                minimumPageCount: page.minimumPageCount,
+                onMinimumPageCountChanged: { [weak page] count in
+                    if let page, count > page.minimumPageCount { page.minimumPageCount = count }
+                },
                 onScrolled: noteScrolled
             )
             // The page draws its own border, on the page's edges rather than

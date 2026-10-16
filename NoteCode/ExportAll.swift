@@ -229,6 +229,7 @@ extension NoteExportJob {
             text: page.content,
             ink: markup,
             orientation: page.orientation,
+            minimumPages: page.minimumPageCount,
             rendersMarkdown: true,
             lineNumbers: numbered,
             typography: NoteTypography(bodySize: page.textSize)

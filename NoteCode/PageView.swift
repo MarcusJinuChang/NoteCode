@@ -97,6 +97,21 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// the text's height — see `noteHeight(forTextHeight:)`.
     private(set) var pageCount = 1
 
+    /// The fewest pages the note has (`Page.minimumPageCount`): Add Page
+    /// raises it, and so does ink reaching the last page in seamless.
+    /// Setting it from outside only follows the note; it is told onward
+    /// (`onMinimumPageCountChanged`) only when this view raises it.
+    var minimumPageCount = 1 {
+        didSet {
+            guard minimumPageCount != oldValue else { return }
+            textView.reapplyContentHeightAdjustment()
+            textView.setNeedsLayout()
+        }
+    }
+
+    /// Told the new minimum when this view raises it, so the note keeps it.
+    var onMinimumPageCountChanged: ((Int) -> Void)?
+
     /// How many pages the text currently has bands for.
     private var bandedPageCount = 0
 
@@ -809,8 +824,29 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// of the last page's body, which gives the same page count again.
     private func noteHeight(forTextHeight height: CGFloat) -> CGFloat {
         let textBottom = height - textView.textContainerInset.bottom
-        pageCount = pageLayout.pageCount(textBottom: textBottom, inkBottom: inkBottom)
+        pageCount = pageLayout.pageCount(textBottom: textBottom, inkBottom: inkBottom, minimum: minimumPageCount)
         return pageLayout.noteHeight(pageCount: pageCount)
+    }
+
+    /// One more page at the end of the note, for ink or text to go on.
+    func addPage() {
+        raiseMinimum(to: pageCount + 1)
+    }
+
+    /// Seamless has no page ends to see, so a note keeps a blank page below
+    /// its ink: when ink reaches the last page, there is one more. Compressed
+    /// and print layout show their pages, and have Add Page.
+    private func keepPageBelowInk() {
+        guard pageLayout.mode == .seamless, let inkBottom,
+              pageLayout.pageIndex(atY: inkBottom) >= pageCount - 1
+        else { return }
+        raiseMinimum(to: pageCount + 1)
+    }
+
+    private func raiseMinimum(to count: Int) {
+        guard count > minimumPageCount else { return }
+        minimumPageCount = count
+        onMinimumPageCountChanged?(count)
     }
 
     /// Brings the bands, canvas and decorations up to the page count.
@@ -1058,6 +1094,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             textView.reapplyContentHeightAdjustment()
             textView.setNeedsLayout()
         }
+        keepPageBelowInk()
     }
 
     /// Swaps strokes the canvas holds whole for the piece on the page each

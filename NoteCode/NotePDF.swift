@@ -43,7 +43,10 @@ enum NotePDF {
         /// laying out with the right number of page breaks the first time
         /// saves laying the whole note out again.
         var pageCount = 1
-        /// Whether the note's Markdown markers take no room (`Page.markdownLayout`).
+        /// The pages the note was given (`Page.minimumPageCount`): blank
+        /// ones print, as they show.
+        var minimumPages = 1
+        /// Whether the note's Markdown markers take no room.
         var rendersMarkdown = false
         /// Whether code is numbered in the margin, as on screen (Settings › Code).
         var lineNumbers = false
@@ -66,7 +69,7 @@ enum NotePDF {
             typography: note.typography
         )
         let ink = note.ink.flatMap { $0.subelements.isEmpty ? nil : $0 }
-        let pageCount = printed.paginate(inkBottom: ink?.contentsRenderFrame.maxY, startingAt: note.pageCount)
+        let pageCount = printed.paginate(inkBottom: ink?.contentsRenderFrame.maxY, startingAt: note.pageCount, minimum: note.minimumPages)
         let layout = printed.layout
 
         let scale = pointsPerPagePoint
@@ -307,7 +310,7 @@ final class PrintedNote {
     ///
     /// - Parameter inkBottom: the lowest ink, in print coordinates. Ink can
     ///   reach past the text and make more pages.
-    func paginate(inkBottom: CGFloat?, startingAt hint: Int) -> Int {
+    func paginate(inkBottom: CGFloat?, startingAt hint: Int, minimum: Int = 1) -> Int {
         guard let manager = textView.textLayoutManager else { return 1 }
 
         var banded = max(hint, 1)
@@ -321,7 +324,7 @@ final class PrintedNote {
                 .map { UIBezierPath(rect: $0) }
             manager.ensureLayout(for: manager.documentRange)
 
-            count = layout.pageCount(textBottom: textBottom(), inkBottom: inkBottom)
+            count = layout.pageCount(textBottom: textBottom(), inkBottom: inkBottom, minimum: minimum)
             if count <= banded { break }
             banded = count
         }

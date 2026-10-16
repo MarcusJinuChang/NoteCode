@@ -412,10 +412,13 @@ changes how notes are stored lands before it.
 6. **Add page** in compressed and print layout, **and a buffer in
    seamless**, as Apple's Notes has. One stored page count serves both: the
    button adds to it, and seamless adds a page when ink reaches the last one.
+   (Built 15 Oct, branch `claude/accent-colour`; see AGENTS.md › Pages. Add Page is
+   in the ••• menu, not on the page.)
 7. **Folders go to Recently Deleted** too (done 15 Oct).
 8. **Hold and drag** notes and folders.
 9. **Editable accent colour**, with a reset to orange. Before step 11, so
-   the colour is wired up once for both layouts.
+   the colour is wired up once for both layouts. (Done 15 Oct, branch
+   `claude/accent-colour`; see AGENTS.md › Colour.)
 10. **Text restructure: colour and size anywhere, and more room for code
     blocks.**
     - **Why before the release:** changing how text is stored costs nothing

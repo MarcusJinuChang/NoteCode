@@ -1696,6 +1696,109 @@ struct PageViewTests {
         #expect(opened < 0.6, "opening took \(opened)s")
         #expect(switched < 0.9, "switching to print layout took \(switched)s")
     }
+
+    // MARK: Add page, and seamless's buffer (roadmap step 6)
+
+    @Test("A note given more pages than its text needs has them", arguments: PageViewMode.allCases)
+    func minimumPagesAreKept(mode: PageViewMode) {
+        let harness = Harness(text: "One line.", layout: PageLayout(mode: mode))
+        #expect(harness.page.pageCount == 1)
+
+        harness.page.minimumPageCount = 4
+        harness.layOut()
+
+        let layout = PageLayout(mode: mode)
+        #expect(harness.page.pageCount == 4)
+        #expect(abs(harness.page.textView.contentSize.height - layout.noteHeight(pageCount: 4)) < 0.5)
+    }
+
+    @Test("Add Page adds one at the end and tells the note", arguments: PageViewMode.allCases)
+    func addPageAddsOne(mode: PageViewMode) {
+        let harness = Harness(text: "One line.", layout: PageLayout(mode: mode))
+        var told: [Int] = []
+        harness.page.onMinimumPageCountChanged = { told.append($0) }
+
+        harness.page.addPage()
+        harness.layOut()
+        #expect(harness.page.pageCount == 2)
+        harness.page.addPage()
+        harness.layOut()
+
+        #expect(harness.page.pageCount == 3)
+        #expect(told == [2, 3])
+    }
+
+    @Test("A page added to a note longer than its minimum is one more than it has now")
+    func addPageCountsPagesTheTextMade() {
+        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .print))
+        let before = harness.page.pageCount
+        #expect(before > 2)
+
+        harness.page.addPage()
+        harness.layOut()
+
+        #expect(harness.page.pageCount == before + 1)
+    }
+
+    @Test("Setting the minimum from the note doesn't tell the note again")
+    func followingTheNoteIsSilent() {
+        let harness = Harness(text: "One line.", layout: PageLayout(mode: .print))
+        var told = 0
+        harness.page.onMinimumPageCountChanged = { _ in told += 1 }
+
+        harness.page.minimumPageCount = 3
+        harness.layOut()
+
+        #expect(told == 0)
+    }
+
+    @Test("Seamless keeps a blank page below ink that reaches the last page")
+    func seamlessBufferFollowsInk() async {
+        let seamless = PageLayout(mode: .seamless)
+        let harness = Harness(text: "One line.", layout: seamless)
+        var told: [Int] = []
+        harness.page.onMinimumPageCountChanged = { told.append($0) }
+        #expect(harness.page.pageCount == 1)
+
+        Self.draw([Self.stroke(at: seamless.bodyTop(ofPage: 0) + 200)], on: harness)
+        #expect(await Self.waitFor { told == [2] })
+        harness.layOut()
+        #expect(harness.page.pageCount == 2)
+
+        // Ink on the new last page makes another, so there is always one below.
+        Self.draw([Self.stroke(at: seamless.bodyTop(ofPage: 1) + 200)], on: harness)
+        #expect(await Self.waitFor { told == [2, 3] })
+    }
+
+    @Test("Ink above the last page adds nothing in seamless")
+    func seamlessBufferWaitsForTheLastPage() async {
+        let seamless = PageLayout(mode: .seamless)
+        let harness = Harness(text: "One line.", layout: seamless)
+        harness.page.minimumPageCount = 3
+        harness.layOut()
+        var told = 0
+        harness.page.onMinimumPageCountChanged = { _ in told += 1 }
+
+        Self.draw([Self.stroke(at: seamless.bodyTop(ofPage: 0) + 200)], on: harness)
+        _ = await Self.waitFor({ false }, seconds: 0.5)
+
+        #expect(told == 0)
+        #expect(harness.page.pageCount == 3)
+    }
+
+    @Test("Compressed and print layout add no page of their own for ink", arguments: [PageViewMode.compressed, .print])
+    func otherModesHaveNoBuffer(mode: PageViewMode) async {
+        let layout = PageLayout(mode: mode)
+        let harness = Harness(text: "One line.", layout: layout)
+        var told = 0
+        harness.page.onMinimumPageCountChanged = { _ in told += 1 }
+
+        Self.draw([Self.stroke(at: layout.bodyTop(ofPage: 0) + 200)], on: harness)
+        _ = await Self.waitFor({ false }, seconds: 0.5)
+
+        #expect(told == 0)
+        #expect(harness.page.pageCount == 1)
+    }
 }
 
 #endif
