@@ -72,7 +72,11 @@ struct RecentlyDeletedPage: View {
     private var allDeletedPages: [Page]
 
     @Query(filter: Folder.deletedPredicate, sort: \Folder.deletedAt, order: .reverse)
-    private var deletedFolders: [Folder]
+    private var allDeletedFolders: [Folder]
+
+    /// The folders with a row of their own: not the ones that went with a
+    /// folder they were in, which that folder's row holds.
+    private var deletedFolders: [Folder] { allDeletedFolders.filter { !$0.isDeletedWithParent } }
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -206,7 +210,7 @@ struct RecentlyDeletedPage: View {
     }
 
     private func deleteAll() {
-        let folders = deletedFolders
+        let folders = allDeletedFolders
         let pages = allDeletedPages
         withAnimation {
             // Folders first, with the notes that went with them, so no note is

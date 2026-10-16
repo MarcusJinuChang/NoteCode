@@ -106,9 +106,10 @@ extension Page {
 
     /// Where this note's code blocks could run, most specific first, for
     /// `RunDestinationPreference.resolve`: the note's own choice, its
-    /// folder's, then the app-wide default.
+    /// folder's, the folders above that in turn, then the app-wide default.
     func runDestinationLevels(appDefault: String) -> [String?] {
-        [runDestination, folder?.runDestination, appDefault]
+        let folders = folder.map { [$0] + $0.ancestors } ?? []
+        return [runDestination] + folders.map(\.runDestination) + [appDefault]
     }
 }
 
@@ -208,7 +209,9 @@ extension Page {
         let cutoff = now.addingTimeInterval(-retention)
         let expiredFolders = try context.fetch(FetchDescriptor<Folder>(predicate: Folder.deletedPredicate))
             .filter { ($0.deletedAt ?? .distantFuture) < cutoff }
-        let withFolders = expiredFolders.reduce(0) { $0 + $1.notesDeletedWithIt.count }
+        // Counted once: a folder's notes include those of the folders in it,
+        // which are due with it and may be in this list too.
+        let withFolders = Set(expiredFolders.flatMap(\.notesDeletedWithIt).map(\.persistentModelID)).count
         try Folder.deleteForGood(expiredFolders, from: context)
 
         let expired = try context.fetch(FetchDescriptor<Page>(predicate: deletedPredicate))

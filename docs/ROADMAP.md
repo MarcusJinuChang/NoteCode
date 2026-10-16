@@ -415,7 +415,11 @@ changes how notes are stored lands before it.
    (Built 15 Oct, branch `claude/accent-colour`; see AGENTS.md › Pages. Add Page is
    in the ••• menu, not on the page.)
 7. **Folders go to Recently Deleted** too (done 15 Oct).
-8. **Hold and drag** notes and folders.
+8. **Hold and drag** notes and folders. (Built 16 Oct, branch
+   `claude/drag-folders`, on top of step 9's branch; see AGENTS.md ›
+   Organising notes. Folders now nest and are arranged by hand, with an arrow on
+   the left of each to show its contents. **The drops themselves are untried**:
+   the simulator never delivered one. Moves also work from the folder menu.)
 9. **Editable accent colour**, with a reset to orange. Before step 11, so
    the colour is wired up once for both layouts. (Done 15 Oct, branch
    `claude/accent-colour`; see AGENTS.md › Colour.)

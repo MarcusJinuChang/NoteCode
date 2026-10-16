@@ -456,9 +456,14 @@ enum DebugLaunch {
         let discrete = Folder(name: "Discrete math")
         discrete.colorName = FolderColor.purple.rawValue
         discrete.symbolName = "point.3.connected.trianglepath.dotted"
-        for folder in [cs133, practice, discrete] {
+        // A folder inside a folder, so the list's nesting can be looked at.
+        let labs = Folder(name: "Labs")
+        labs.symbolName = "testtube.2"
+        labs.colorName = FolderColor.green.rawValue
+        for folder in [cs133, practice, discrete, labs] {
             context.insert(folder)
         }
+        labs.parent = cs133
 
         let now = Date.now
         func note(_ title: String, _ content: String, in folder: Folder?, ago: TimeInterval) -> Page {
@@ -475,7 +480,7 @@ enum DebugLaunch {
             "A hash table keeps each key in one of m buckets, picked by a hash function.\n\n## Chaining\n\n```cpp\nstruct Node { int key; Node* next; };\nint bucket(int key, int m) { return key % m; }\n```" + prose,
             in: cs133, ago: 600
         )
-        _ = note("Lab 3 · Linked lists", "A singly linked list, then a doubly linked one.\n\n```cpp\nstruct Node {\n    int value;\n    Node* next;\n};\n```", in: cs133, ago: 100_000)
+        _ = note("Lab 3 · Linked lists", "A singly linked list, then a doubly linked one.\n\n```cpp\nstruct Node {\n    int value;\n    Node* next;\n};\n```", in: labs, ago: 100_000)
         _ = note("Two pointers", "Sorted input and a pair that sums to a target.\n\n```python\ndef pair(nums, target):\n    lo, hi = 0, len(nums) - 1\n```", in: practice, ago: 110_000)
         _ = note("Exam 1 review", "Everything from weeks 1 to 5 on one page.\n\n## Topics\n\nArrays, pointers, classes, linked lists.", in: cs133, ago: 4 * 86_400)
         _ = note("Big-O cheat sheet", "O(1), O(log n), O(n), O(n log n), O(n²).", in: nil, ago: 21 * 86_400)

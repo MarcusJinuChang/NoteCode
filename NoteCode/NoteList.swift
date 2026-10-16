@@ -118,6 +118,9 @@ struct NoteList: View {
     /// The note whose info is showing.
     @State private var infoPage: Page?
 
+    /// What is being dragged and where it would land.
+    @State private var drag = ListDragState()
+
 #if os(iOS)
     /// Held here rather than left to an `EditButton`, since editing starts
     /// from the list's menu and ends at the Done that replaces it.
@@ -152,21 +155,26 @@ struct NoteList: View {
             } else {
                 if sections.hasPinned {
                     Section("Pinned") {
-                        folderRows(sections.pinnedFolders)
+                        folderTree(sections.pinnedFolders)
                         noteRows(sections.pinnedNotes, showsFolder: true)
                     }
                 }
 
-                if !sections.folders.isEmpty {
-                    Section("Folders") {
-                        folderRows(sections.folders)
-                    }
+                // The headers are drop targets: a folder dropped on "Folders"
+                // goes to the top level, a note dropped on "Notes" out of its
+                // folder. So both show whenever there are folders.
+                Section {
+                    folderTree(sections.folders)
+                } header: {
+                    Text("Folders")
+                        .modifier(ListRowDrop(target: .topFolders, hoverID: .topFolders, drag: drag, folders: folders, perform: performDrop))
                 }
 
-                if !sections.unfiled.isEmpty {
-                    Section("Notes") {
-                        noteRows(sections.unfiled)
-                    }
+                Section {
+                    noteRows(sections.unfiled)
+                } header: {
+                    Text("Notes")
+                        .modifier(ListRowDrop(target: .topNotes, hoverID: .topNotes, drag: drag, folders: folders, perform: performDrop))
                 }
             }
         }
@@ -358,39 +366,56 @@ struct NoteList: View {
     ///   Pinned section, where notes from every folder sit together.
     private func noteRows(_ notes: [Page], showsFolder: Bool = false) -> some View {
         ForEach(notes) { page in
-            HStack(spacing: 12) {
-                NoteThumbnailView(page: page)
-                    .frame(width: Self.thumbnailSize.width, height: Self.thumbnailSize.height)
-                VStack(alignment: .leading) {
-                    Text(page.title)
-                        .font(.headline)
-                    HStack(spacing: 4) {
-                        if page.isTextLocked {
-                            Image(systemName: "lock.fill")
-                                .accessibilityLabel("Text Locked")
-                        }
-                        if showsFolder, let folder = page.folder {
-                            Text(folder.name)
-                            Text("·")
-                        }
-                        // The date the list is sorted by, so the order can be read
-                        // off the rows.
-                        Text(
-                            sort.displayedDate(modified: page.modifiedAt, created: page.createdAt),
-                            format: Date.FormatStyle(date: .abbreviated, time: .shortened)
-                        )
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                }
-            }
-            .tag(page)
-            .listRowBackground(rowBackground(for: page))
-            .contextMenu { noteMenu(page) }
+            noteRow(page, depth: 0, showsFolder: showsFolder)
         }
         .onDelete { offsets in
             deletePages(offsets.map { notes[$0] })
         }
+    }
+
+    /// How far a row is pushed in for each folder above it.
+    private func indent(_ depth: Int) -> CGFloat {
+        CGFloat(min(depth, 6)) * 18
+    }
+
+    /// One note's row, at `depth` folders down. Dragged to file it, and a
+    /// drop target itself: dropped on, it files the other note beside it.
+    private func noteRow(_ page: Page, depth: Int, showsFolder: Bool) -> some View {
+        HStack(spacing: 12) {
+            NoteThumbnailView(page: page)
+                .frame(width: Self.thumbnailSize.width, height: Self.thumbnailSize.height)
+            VStack(alignment: .leading) {
+                Text(page.title)
+                    .font(.headline)
+                HStack(spacing: 4) {
+                    if page.isTextLocked {
+                        Image(systemName: "lock.fill")
+                            .accessibilityLabel("Text Locked")
+                    }
+                    if showsFolder, let folder = page.folder {
+                        Text(folder.name)
+                        Text("·")
+                    }
+                    // The date the list is sorted by, so the order can be read
+                    // off the rows.
+                    Text(
+                        sort.displayedDate(modified: page.modifiedAt, created: page.createdAt),
+                        format: Date.FormatStyle(date: .abbreviated, time: .shortened)
+                    )
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.leading, indent(depth))
+        .tag(page)
+        .listRowBackground(rowBackground(for: page))
+        .contextMenu { noteMenu(page) }
+        .onDrag { drag.lift(.note(page)) }
+        .modifier(ListRowDrop(
+            target: .note(page), hoverID: .row(.note(page.persistentModelID)),
+            drag: drag, folders: folders, perform: performDrop
+        ))
     }
 
     /// A search's results: each note's title, the line it matched on, and
@@ -435,23 +460,51 @@ struct NoteList: View {
         selection == page ? RowSelectionTint.color(isDark: colorScheme == .dark, accent: accent) : nil
     }
 
-    private func folderRows(_ sections: [NoteListSections.FolderSection]) -> some View {
-        ForEach(sections) { section in
-            DisclosureGroup(isExpanded: isOpen(section.folder)) {
-                if section.notes.isEmpty {
-                    emptyFolderRow
-                } else {
-                    noteRows(section.notes)
-                }
-            } label: {
-                folderRow(section)
+    /// Folders and what is open in them, flattened into rows
+    /// (`NoteListRow`) so each can be dragged and dropped on.
+    private func folderTree(_ sections: [NoteListSections.FolderSection]) -> some View {
+        let rows = NoteListRow.rows(for: sections, closed: closedFolders)
+        return ForEach(rows) { row in
+            switch row {
+            case .folder(let section, let depth, let isOpen):
+                folderRow(section, depth: depth, isOpen: isOpen)
+            case .note(let page, let depth, let showsFolder):
+                noteRow(page, depth: depth, showsFolder: showsFolder)
+            case .empty(_, let depth):
+                emptyFolderRow
+                    .padding(.leading, indent(depth))
+                    .deleteDisabled(true)
             }
+        }
+        .onDelete { offsets in
+            deletePages(offsets.compactMap { offset in
+                if case .note(let page, _, _) = rows[offset] { page } else { nil }
+            })
         }
     }
 
-    private func folderRow(_ section: NoteListSections.FolderSection) -> some View {
+    /// A folder's row: an arrow on the left that opens and closes it, the
+    /// folder's face and name, and how many notes are under it. A tap
+    /// anywhere on the row does what the arrow does. Dragged to move or
+    /// arrange it; dropped on, its top and bottom edges arrange and its middle
+    /// takes what is dropped (`ListDrop`).
+    private func folderRow(_ section: NoteListSections.FolderSection, depth: Int, isOpen: Bool) -> some View {
         let folder = section.folder
-        return HStack {
+        return HStack(spacing: 4) {
+            Button {
+                toggle(folder)
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .rotationEffect(.degrees(isOpen ? 90 : 0))
+                    .frame(width: 28, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isOpen ? "Close \(folder.name)" : "Open \(folder.name)")
+            .accessibilityIdentifier("folderArrow")
+
             HStack(spacing: 10) {
                 FolderBadge(folder: folder)
                 Text(folder.name)
@@ -459,9 +512,18 @@ struct NoteList: View {
             }
             .accessibilityElement(children: .combine)
             Spacer()
-            Text(section.notes.count, format: .number)
+            Text(section.noteCount, format: .number)
                 .foregroundStyle(.secondary)
         }
+        .padding(.leading, indent(depth))
+        .contentShape(Rectangle())
+        .onTapGesture { toggle(folder) }
+        .deleteDisabled(true)
+        .onDrag { drag.lift(.folder(folder)) }
+        .modifier(ListRowDrop(
+            target: .folder(folder), hoverID: .row(.folder(folder.persistentModelID)),
+            drag: drag, folders: folders, perform: performDrop
+        ))
         .contextMenu { folderMenu(folder) }
         // On the row, not the list: on an iPad the dialog is a popover, and
         // attached to the list it pointed at the middle of the list's edge.
@@ -470,7 +532,7 @@ struct NoteList: View {
             isPresented: isDeleting(folder),
             titleVisibility: .visible
         ) {
-            let count = folder.livePages.count
+            let count = folder.subtreeLivePageCount
             if count == 0 {
                 Button("Delete Folder", role: .destructive) {
                     delete(folder, .keepingNotes)
@@ -485,8 +547,8 @@ struct NoteList: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            if !folder.livePages.isEmpty {
-                Text("Kept notes move out of the folder, to the top of the list. The folder and the notes deleted with it wait in Recently Deleted for 30 days.")
+            if folder.subtreeLivePageCount > 0 || !(folder.subfolders ?? []).isEmpty {
+                Text("Kept notes and folders move up one level, to where this folder is. The folder and what is deleted with it wait in Recently Deleted for 30 days.")
             }
         }
     }
@@ -589,8 +651,22 @@ struct NoteList: View {
         Menu("New Note", systemImage: "square.and.pencil") {
             newNoteButtons(in: folder)
         }
+        Button("New Folder Inside…", systemImage: "folder.badge.plus") {
+            closedFolders.remove(folder.persistentModelID)
+            editingFolder = .new(moving: nil, in: folder)
+        }
         Button("Rename…", systemImage: "pencil") {
             editingFolder = .rename(folder)
+        }
+        Menu("Move To", systemImage: "folder") {
+            Button("Top Level", systemImage: "tray") {
+                move(folder, into: nil)
+            }
+            .disabled(folder.parent == nil)
+            ForEach(folders.live.filter { folder.canMove(into: $0) && $0 !== folder.parent }
+                .sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }) { target in
+                Button(target.path) { move(folder, into: target) }
+            }
         }
         Picker(selection: runDestination(of: folder)) {
             Text("Default (\(RunDestinationPreference.resolve([appDefaultDestination]).name))")
@@ -625,16 +701,34 @@ struct NoteList: View {
 
     // MARK: Bindings
 
-    private func isOpen(_ folder: Folder) -> Binding<Bool> {
-        Binding {
-            !closedFolders.contains(folder.persistentModelID)
-        } set: { open in
-            if open {
+    private func toggle(_ folder: Folder) {
+        withAnimation(.snappy) {
+            if closedFolders.contains(folder.persistentModelID) {
                 closedFolders.remove(folder.persistentModelID)
             } else {
                 closedFolders.insert(folder.persistentModelID)
             }
         }
+    }
+
+    /// Moves a folder from its menu: to the end of another folder, or the top.
+    private func move(_ folder: Folder, into target: Folder?) {
+        performDrop(.moveFolder(folder, into: target, at: nil))
+    }
+
+    /// Does what a drop or a menu decided. Not an edit: nothing's date
+    /// moves. Saved at once, so a move isn't lost to a kill before autosave.
+    private func performDrop(_ action: ListDropAction) {
+        withAnimation {
+            ListDrop.perform(action, among: folders)
+            switch action {
+            case .fileNote(_, into: let folder?), .moveFolder(_, into: let folder?, _):
+                closedFolders.remove(folder.persistentModelID)
+            default:
+                break
+            }
+        }
+        try? modelContext.save()
     }
 
     /// Picking a key also picks the way round that reads naturally for it.

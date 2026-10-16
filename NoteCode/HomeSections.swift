@@ -66,15 +66,13 @@ struct HomeSections {
                 counts[folder.persistentModelID, default: 0] += 1
             }
         }
-        self.folders = folders.live
-            .sorted {
-                switch $0.name.localizedStandardCompare($1.name) {
-                case .orderedAscending:  true
-                case .orderedDescending: false
-                case .orderedSame:       $0.createdAt < $1.createdAt
-                }
-            }
-            .map { FolderTile(folder: $0, noteCount: counts[$0.persistentModelID] ?? 0) }
+        // Top-level folders only, in the order the reader arranged them; a
+        // tile's count includes the folders in it.
+        func count(_ folder: Folder) -> Int {
+            (counts[folder.persistentModelID] ?? 0) + (folder.subfolders ?? []).live.reduce(0) { $0 + count($1) }
+        }
+        self.folders = Folder.arranged(folders.live.filter { $0.parent.map { !$0.isLive } ?? true })
+            .map { FolderTile(folder: $0, noteCount: count($0)) }
     }
 }
 
