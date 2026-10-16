@@ -167,7 +167,8 @@ struct DebugHomeStoreTests {
 
         let storage = try #require(DebugLaunch.firstLaunchOrHomeStorage(options, session: DebugSession(options: options), defaults: defaults))
         let (pages, folders) = try counts(storage)
-        #expect(pages >= 6 && folders == 3)
+        // Three top-level folders, and Labs inside CS133.
+        #expect(pages >= 6 && folders == 4)
         #expect(defaults.bool(forKey: WelcomeScreen.shownKey))
         #expect(!WelcomeScreen.claimFirstLaunch(defaults: defaults))
 

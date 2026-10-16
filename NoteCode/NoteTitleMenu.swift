@@ -55,7 +55,7 @@ struct NoteTitleMenu: View {
 
         Menu("Move to Folder", systemImage: "folder") {
             ForEach(NoteListSections(pages: [], folders: folders).allFolders) { folder in
-                Button(folder.name) {
+                Button(folder.path) {
                     withAnimation { page.folder = folder }
                 }
                 .disabled(page.folder == folder)

@@ -109,11 +109,29 @@ nonisolated enum NoteExport {
     /// are given in; the caller passes them oldest first, so a re-export
     /// names them the same.
     static func plan(folderNames: [String], items: [Item]) -> Plan {
-        var directories: [String] = []
-        var directoryNames = UniqueNames()
-        for name in folderNames {
-            directories.append(directoryNames.claim(NoteFileName.stem(for: name)))
+        plan(folderNames: folderNames, parents: Array(repeating: nil, count: folderNames.count), items: items)
+    }
+
+    /// The same, for folders that nest: `parents[i]` is the index of folder
+    /// `i`'s parent, or `nil` at the top. A folder's directory is its parent's
+    /// with its own name after it (`CS133/Labs`), and names are made unique
+    /// among the folders of one parent.
+    static func plan(folderNames: [String], parents: [Int?], items: [Item]) -> Plan {
+        var resolved = Array(repeating: String?.none, count: folderNames.count)
+        var directoryNames: [Int?: UniqueNames] = [:]
+        func resolve(_ index: Int, depth: Int = 0) -> String {
+            if let known = resolved[index] { return known }
+            let parent = parents.indices.contains(index) ? parents[index] : nil
+            // A parent that is missing or loops back is treated as the top.
+            let usable = parent.flatMap { folderNames.indices.contains($0) && $0 != index && depth < folderNames.count ? $0 : nil }
+            let prefix = usable.map { resolve($0, depth: depth + 1) + "/" } ?? ""
+            var names = directoryNames[usable] ?? UniqueNames()
+            let name = prefix + names.claim(NoteFileName.stem(for: folderNames[index]))
+            directoryNames[usable] = names
+            resolved[index] = name
+            return name
         }
+        let directories = folderNames.indices.map { resolve($0) }
 
         var stems: [String?: UniqueNames] = [:]
         var entries: [Entry] = []

@@ -11,8 +11,9 @@ import SwiftUI
 /// What the folder editor is for.
 enum FolderEditing: Identifiable {
     /// A new folder, with the note to move into it when the sheet came from a
-    /// note's "Move to Folder" menu.
-    case new(moving: Page?)
+    /// note's "Move to Folder" menu, or the folder to make it in when it came
+    /// from a folder's "New Folder Inside".
+    case new(moving: Page?, in: Folder? = nil)
     case rename(Folder)
 
     var id: String {
@@ -41,7 +42,12 @@ enum FolderEditing: Identifiable {
     }
 
     var movingPage: Page? {
-        if case .new(let page) = self { page } else { nil }
+        if case .new(let page, _) = self { page } else { nil }
+    }
+
+    /// The folder a new folder is made in, or `nil` at the top.
+    var parent: Folder? {
+        if case .new(_, let parent) = self { parent } else { nil }
     }
 }
 
@@ -67,7 +73,7 @@ struct FolderDraft: Equatable {
     /// in `context`, which takes `page` if given. The name is trimmed and never
     /// blank, as `Folder.name(fromTyped:)` has it.
     @discardableResult
-    func apply(to folder: Folder?, moving page: Page? = nil, in context: ModelContext) -> Folder {
+    func apply(to folder: Folder?, moving page: Page? = nil, inside parent: Folder? = nil, in context: ModelContext) -> Folder {
         let target = folder ?? Folder(name: "")
         target.name = Folder.name(fromTyped: name)
         target.colorName = color.rawValue
@@ -76,6 +82,7 @@ struct FolderDraft: Equatable {
             context.insert(target)
             // After the insert, as everywhere a relationship is set on a note
             // or folder the context has only just been given.
+            target.parent = parent
             page?.folder = target
         }
         return target
@@ -209,7 +216,7 @@ struct FolderEditor: View {
 
     private func save() {
         withAnimation {
-            draft.apply(to: editing.folder, moving: editing.movingPage, in: modelContext)
+            draft.apply(to: editing.folder, moving: editing.movingPage, inside: editing.parent, in: modelContext)
         }
         dismiss()
     }

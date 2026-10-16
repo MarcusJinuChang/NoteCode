@@ -1888,17 +1888,73 @@ so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
   to-many with a nullable inverse, `Page.folder`, so a note can sit at the top
   of the list. Several folders per note would make "move" and deleting a
   folder with its notes ambiguous, and grouping by class doesn't need it.
-  Folders don't nest.
+  Folders nest since 16 Oct (below).
 - **Folders open and close in place** in the list (`NoteList`), rather than
   leading to a column of their own: the list slides over the page, and a
   second column would cover more of it. Open state is per launch.
+- **Folders nest, are arranged by hand and can be dragged** (16 Oct, roadmap
+  step 8, decided by Marcus: a folder can go inside another, a note dropped on
+  a folder is filed in it, and folders can be rearranged). This reverses
+  "folders don't nest".
+  - **Model.** `Folder.parent` and `.subfolders` (a self-relationship, both
+    optional for CloudKit) and `Folder.sortIndex`, the reader's order among
+    the folders of one parent. `Int.max` is "never arranged": it sorts after
+    every arranged folder, by name, so a new folder lands last and an
+    untouched level stays in name order. `Folder.move(_:into:at:among:)`
+    places a folder and renumbers the level it joined (and the one it left, if
+    that one was arranged). `canMove(into:)` keeps a folder out of its own
+    subtree and is checked by every route in.
+  - **Depth is unlimited**; the list indents up to six levels. A pinned
+    folder is listed in Pinned and not again in its parent. Notes keep the
+    reader's sort; only folders are arranged.
+  - **Deleting.** With its notes, a folder, every live folder below it and
+    every live note in any of them go to Recently Deleted under one date
+    (`Folder.deletedTogether`); only the top one has a row there
+    (`isDeletedWithParent`), and its count and Restore cover the group.
+    Restoring a folder alone whose parent is deleted puts it at the top level.
+    Keeping its notes, what was in the folder (notes *and* folders) moves up
+    one level, to the folder's own parent. Delete Now takes the group once,
+    however many of its members are handed in.
+  - **Elsewhere.** Run destinations are inherited down the folders
+    (`Page.runDestinationLevels`); Home shows top-level folders, counting what
+    is inside; Export All writes `CS133/Labs` as nested directories
+    (`NoteExport.plan(folderNames:parents:items:)`); Move to Folder lists every
+    folder by its path ("CS133 › Labs"); a folder's menu has New Folder
+    Inside and Move To, which reach everything dragging does.
+  - **The list** (`NoteListRow`, `folderTree`) draws folders and what is open
+    in them as one flat run of rows, so each can be lifted and dropped on. The
+    arrow is on the left, its own 44pt target; a tap on the row does what the
+    arrow does. Open state is per launch.
+  - **Dropping** is `ListDrop.resolve`, pure and tested: a note on a folder, or
+    beside another note, is filed in that folder; on the Notes header, taken
+    out of its folder. A folder on the middle of a folder goes inside it; on the
+    top or bottom 28% of the row it is arranged before or after it, among that
+    folder's siblings; on the Folders header it goes to the top level. Nothing
+    into its own subtree, a pinned folder only takes things into it. A moved
+    note keeps its date. The drag carries only a marker
+    (`ListDrop.payload`, own-process, the type declared in Info.plist); which
+    row was lifted is `ListDragState.item`, so a drop from elsewhere is refused.
+  - **NOT TRIED: the drops themselves.** In the simulator a drag lifts and its
+    preview follows the touch, but neither `.onDrop(of:delegate:)` (on rows and
+    on the whole list) nor `.dropDestination` was ever called, for a custom type,
+    `.item` or plain text (synthesised touches: the drag started at the lift,
+    which logged twice, and never reached a target). So whether a drop lands,
+    and the line or outline `ListRowDrop` draws for where, is unverified on
+    screen and on the iPad. The rules behind it are tested, and the menus
+    do the same moves. If the drops don't work on the iPad, the first thing to
+    try is `dropDestination(for:)` with a `Transferable` token, which reports
+    only the whole row (no before or after) and would want separate edge views.
+  - **A press on a row** shows its context menu; a drag lifts it after about
+    half a second if the finger moves at once. A hold that stays still gets the
+    menu.
 - **Deleting a folder asks** whether its notes go too, or move to the top.
   `Folder.delete` saves at once, like `Page.delete`. "Go too" means Recently
   Deleted now, not gone for good (see "Recently Deleted").
 - **Moving a note isn't an edit.** It keeps its date modified, or filing a
   week of notes would make them all look written today.
 - The list's grouping and order are pure (`NoteListSections`): folders sort
-  by name with numbers compared as numbers, and notes by the reader's sort.
+  in the reader's order (name, numbers compared as numbers, until arranged by
+  hand) and notes by the reader's sort.
 
 - **Pinned goes to the top** (3 Oct). Pinned folders and pinned notes, from
   any folder, sit in a Pinned section above the folders. A pinned note is
@@ -1909,7 +1965,7 @@ so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
 - **Sorting is per device** (`NoteSort`, `@AppStorage`, 3 Oct): date
   modified, date created or title, either way round, and picking a key picks
   the way round that reads naturally — newest first, A to Z. It orders notes
-  in every section; folders stay in name order. Rows show the date the list
+  in every section; folders stay in the reader's order. Rows show the date the list
   is sorted by. Ties fall back to title, then creation, so the order never
   shuffles between launches.
 - **The list's toolbar holds two items**, ••• and +. Edit and Sort By share

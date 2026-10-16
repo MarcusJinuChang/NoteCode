@@ -191,11 +191,12 @@ final class NoteExportJob {
     }
 
     static func layout(of pages: [Page], in folders: [Folder]) -> Layout {
-        let sortedFolders = folders.live.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        let sortedFolders = folders.live.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
         var folderIndex: [PersistentIdentifier: Int] = [:]
         for (index, folder) in sortedFolders.enumerated() {
             folderIndex[folder.persistentModelID] = index
         }
+        let parents = sortedFolders.map { $0.parent.flatMap { folderIndex[$0.persistentModelID] } }
         let sortedPages = pages.sorted {
             ($0.createdAt, $0.title) < ($1.createdAt, $1.title)
         }
@@ -204,7 +205,7 @@ final class NoteExportJob {
         }
         return Layout(
             pages: sortedPages,
-            plan: NoteExport.plan(folderNames: sortedFolders.map(\.name), items: items)
+            plan: NoteExport.plan(folderNames: sortedFolders.map(\.name), parents: parents, items: items)
         )
     }
 }
