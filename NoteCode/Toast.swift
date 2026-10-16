@@ -99,10 +99,10 @@ struct ToastView: View {
                 Button(action: onAction) {
                     Text(action.title)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(.tint)
                         .padding(.horizontal, 12)
                         .frame(height: 28)
-                        .background(Color.accentColor.opacity(0.14), in: .capsule)
+                        .background(.tint.opacity(0.14), in: .capsule)
                         // The pill looks 28pt; the button is the toast's full
                         // height, so a finger doesn't have to find it.
                         .frame(height: Self.height)

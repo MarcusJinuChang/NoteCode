@@ -136,9 +136,8 @@ struct WelcomeScreen: View {
             Button(action: onGetStarted) {
                 Text("Get Started")
                     .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, minHeight: 52)
-                    .background(Color.accentColor, in: Capsule())
+                    .accentFill(in: Capsule())
                     .contentShape(Capsule())
             }
             .buttonStyle(.plain)

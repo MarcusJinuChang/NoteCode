@@ -63,13 +63,13 @@ enum DocumentStyler {
     /// is elsewhere is a later refinement.
     static let markerColor = UIColor.tertiaryLabel
 
-    /// Link text: the accent's dark-on-light and light-on-dark pair, the
-    /// Increase Contrast slots of `AccentColor`, which read as text rather
-    /// than as a control.
+    /// Link text: the accent as text, darker on light and lighter on dark
+    /// (`AccentPalette.textHex`). Read from the stored accent each time the
+    /// colour is resolved, so a new accent shows on the next redraw
+    /// (`DocumentUITextView.tintColorDidChange`) with no restyle: the
+    /// attribute is this one object either way.
     static let linkColor = UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0xFF / 255, green: 0xAA / 255, blue: 0x33 / 255, alpha: 1)
-            : UIColor(red: 0xB8 / 255, green: 0x59 / 255, blue: 0x00 / 255, alpha: 1)
+        AccentPalette.uiColor(AccentPalette.linkHex(isDark: traits.userInterfaceStyle == .dark))
     }
 
     /// How far each nesting level indents, on top of the whitespace the user

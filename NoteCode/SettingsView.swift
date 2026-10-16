@@ -79,14 +79,28 @@ struct SettingsCommands: Commands {
 /// Settings sheet light under a dark page (13 Oct). A window's override can be
 /// set back to `.unspecified`, and everything presented from the window,
 /// sheets and pickers included, takes its traits from it.
+///
+/// It carries Settings › General › Accent Colour too, since that is the same
+/// kind of thing: `.tint` for SwiftUI, and the window's `tintColor` for UIKit
+/// (the caret, the selection, the Run button). The default sets neither, so
+/// the `AccentColor` asset and its Increase Contrast variants apply as before.
 struct AppearanceModifier: ViewModifier {
     @AppStorage(AppAppearance.defaultsKey) private var appearance = AppAppearance.default
+    @AppStorage(AccentPalette.defaultsKey) private var accent = ""
 
     func body(content: Content) -> some View {
+        let custom = AccentPalette.parse(accent)
         #if canImport(UIKit)
-        content.background(WindowAppearance(style: appearance.userInterfaceStyle))
+        content
+            .tint(custom.map { Color(hex: $0) })
+            .background(WindowAppearance(
+                style: appearance.userInterfaceStyle,
+                tint: custom.map { AccentPalette.uiColor($0) }
+            ))
         #else
-        content.preferredColorScheme(appearance.colorScheme)
+        content
+            .tint(custom.map { Color(hex: $0) })
+            .preferredColorScheme(appearance.colorScheme)
         #endif
     }
 }
@@ -108,30 +122,49 @@ extension AppAppearance {
 /// windows.
 private struct WindowAppearance: UIViewRepresentable {
     var style: UIUserInterfaceStyle
+    /// `nil` leaves the window's tint as the asset catalog's accent set it.
+    var tint: UIColor?
 
     final class Anchor: UIView {
         var style: UIUserInterfaceStyle = .unspecified {
             didSet { apply() }
         }
+        var windowTint: UIColor? {
+            didSet { apply() }
+        }
         override func didMoveToWindow() {
             super.didMoveToWindow()
+            appliedTint = false
             apply()
         }
         func apply() {
-            guard let window, window.overrideUserInterfaceStyle != style else { return }
-            window.overrideUserInterfaceStyle = style
+            guard let window else { return }
+            if window.overrideUserInterfaceStyle != style {
+                window.overrideUserInterfaceStyle = style
+            }
+            // Only on a change: a dynamic tint never compares equal to what
+            // the window reports back, and `nil` hands the window back to the
+            // app's accent.
+            guard !appliedTint || lastTint != windowTint else { return }
+            window.tintColor = windowTint
+            lastTint = windowTint
+            appliedTint = true
         }
+        private var lastTint: UIColor?
+        private var appliedTint = false
     }
 
     func makeUIView(context: Context) -> Anchor {
         let anchor = Anchor()
         anchor.isUserInteractionEnabled = false
         anchor.style = style
+        anchor.windowTint = tint
         return anchor
     }
 
     func updateUIView(_ anchor: Anchor, context: Context) {
         anchor.style = style
+        anchor.windowTint = tint
     }
 }
 
@@ -227,6 +260,7 @@ struct SettingsView: View {
 
 private struct GeneralSettings: View {
     @AppStorage(AppAppearance.defaultsKey) private var appearance = AppAppearance.default
+    @AppStorage(AccentPalette.defaultsKey) private var accent = ""
 #if canImport(UIKit)
     @AppStorage(HotbarDock.defaultsKey) private var dock = HotbarDock.default
     @AppStorage(SnapHaptic.defaultsKey) private var hapticOnSnap = SnapHaptic.isOnByDefault
@@ -238,6 +272,15 @@ private struct GeneralSettings: View {
                 Picker("Appearance", selection: $appearance) {
                     ForEach(AppAppearance.allCases, id: \.self) { Text($0.title) }
                 }
+            }
+
+            Section {
+                ColorPicker("Accent Colour", selection: accentColor, supportsOpacity: false)
+                if AccentPalette.parse(accent) != nil {
+                    Button("Reset to Orange") { accent = "" }
+                }
+            } footer: {
+                Text("Controls, the caret and selection, checked boxes, the selected note and links. Links are darkened or lightened as needed to stay readable.")
             }
 #if canImport(UIKit)
             AppIconSection()
@@ -254,6 +297,16 @@ private struct GeneralSettings: View {
 #endif
         }
         .navigationTitle("General")
+    }
+
+    /// The picker's colour, written back as the stored hex. Choosing the
+    /// orange itself stores nothing (`AccentPalette.parse`).
+    private var accentColor: Binding<Color> {
+        Binding {
+            Color(hex: AccentPalette.parse(accent) ?? AccentPalette.defaultHex)
+        } set: { color in
+            accent = AccentPalette.string(for: AccentPalette.hex(of: color))
+        }
     }
 }
 
