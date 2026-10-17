@@ -59,7 +59,23 @@ struct PageDetailView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     @AppStorage(HotbarDock.defaultsKey)
-    private var dock: HotbarDock = .default
+    private var storedDock: HotbarDock = .default
+
+    /// In a compact width the bar is at the bottom whatever this device
+    /// stored, and can't be moved; the stored edge is the iPad's, and comes
+    /// back when the width does (a Duo unfolded).
+#if os(iOS)
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    private var isCompact: Bool { sizeClass == .compact }
+#else
+    private var isCompact: Bool { false }
+#endif
+
+    /// Where the bar is: the stored edge, or the bottom in a compact width.
+    private var dock: HotbarDock {
+        get { isCompact ? .bottom : storedDock }
+        nonmutating set { if !isCompact { storedDock = newValue } }
+    }
 
     /// How pages are shown. Per device, like the dock: it's how this reader
     /// likes to look at notes, and changes nothing in the note itself.
@@ -422,7 +438,13 @@ struct PageDetailView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .padding(.top, Self.badgeInset)
 
-            Hotbar(editor: editor, dock: $dock, onDrop: drop, textRowHidden: sheetCoversPage)
+            Hotbar(
+                editor: editor,
+                dock: Binding(get: { dock }, set: { dock = $0 }),
+                onDrop: drop,
+                textRowHidden: sheetCoversPage,
+                isMovable: !isCompact
+            )
                 .padding(Hotbar.margin)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: dock.alignment)
                 .sensoryFeedback(.alignment, trigger: snaps) { _, _ in hapticOnSnap }

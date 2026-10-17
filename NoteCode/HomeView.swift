@@ -57,6 +57,15 @@ struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
 
+    /// An iPhone or a folded Duo: one hand's width, so cards are smaller and
+    /// the grids have two columns.
+#if os(iOS)
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    private var isCompact: Bool { sizeClass == .compact }
+#else
+    private var isCompact: Bool { false }
+#endif
+
     private let memory = NoteMemory()
 
     var body: some View {
@@ -115,7 +124,7 @@ struct HomeView: View {
                     }
                     .padding(.top, 18)
 
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 24)], spacing: 24) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: isCompact ? 150 : 190), spacing: gridSpacing)], spacing: gridSpacing) {
                         ForEach(sections.recent) { page in
                             recentCard(page)
                         }
@@ -126,14 +135,15 @@ struct HomeView: View {
                     .font(.title2.bold())
                     .padding(.top, 18)
                     .accessibilityAddTraits(.isHeader)
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: 4), spacing: 16) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: isCompact ? 2 : 4), spacing: 16) {
                     ForEach(sections.folders) { tile in
                         folderTile(tile)
                     }
                     newFolderTile
                 }
 
-                HStack(spacing: 12) {
+                // Side by side on an iPad; on a phone they don't fit across.
+                (isCompact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))) {
                     Button(action: onNewNote) {
                         Label("New Note", systemImage: "plus")
                             .font(.headline)
@@ -150,7 +160,7 @@ struct HomeView: View {
                 .padding(.top, 26)
             }
             .frame(maxWidth: 1232, alignment: .leading)
-            .padding(.horizontal, 40)
+            .padding(.horizontal, isCompact ? 16 : 40)
             .padding(.top, 12)
             .padding(.bottom, 40)
             .frame(maxWidth: .infinity)
@@ -169,11 +179,15 @@ struct HomeView: View {
                 .tracking(-0.02 * 34)
                 .accessibilityAddTraits(.isHeader)
             Spacer()
-            Text(Date.now, format: .dateTime.weekday(.wide).day().month(.wide))
-                .font(.body)
-                .foregroundStyle(.secondary)
+            if !isCompact {
+                Text(Date.now, format: .dateTime.weekday(.wide).day().month(.wide))
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
+
+    private var gridSpacing: CGFloat { isCompact ? 12 : 24 }
 
     // MARK: Cards
 
@@ -182,14 +196,14 @@ struct HomeView: View {
         return Button {
             onOpen(page)
         } label: {
-            HStack(spacing: 28) {
+            HStack(spacing: isCompact ? 14 : 28) {
                 NoteThumbnailView(page: page)
-                    .frame(width: 136, height: 176)
+                    .frame(width: isCompact ? 68 : 136, height: isCompact ? 88 : 176)
                     .shadow(color: .black.opacity(0.08), radius: 3, y: 1)
 
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: isCompact ? 4 : 10) {
                     Text(page.title)
-                        .font(.system(size: 26, weight: .bold))
+                        .font(isCompact ? .headline : .system(size: 26, weight: .bold))
                         .lineLimit(2)
                     HStack(spacing: 8) {
                         if let folder = page.folder {
@@ -198,26 +212,31 @@ struct HomeView: View {
                                 .frame(width: 10, height: 10)
                                 .accessibilityHidden(true)
                             Text(folder.name)
-                            Text("·")
+                            if !isCompact || place != nil { Text("·") }
                         }
                         if let place {
                             Text("Page \(min(place.number, place.of)) of \(place.of)")
-                            Text("·")
+                            if !isCompact { Text("·") }
                         }
-                        Text("Edited \(Text(page.modifiedAt, format: .relative(presentation: .named)))")
+                        // A phone's card has room for where, not when.
+                        if !isCompact {
+                            Text("Edited \(Text(page.modifiedAt, format: .relative(presentation: .named)))")
+                        }
                     }
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
-                    if let excerpt = HomeExcerpt.of(page.content) {
+                    // A phone's card is the note and where it was left: the
+                    // card is the button, so no Open, and no room for more.
+                    if !isCompact, let excerpt = HomeExcerpt.of(page.content) {
                         Text(excerpt)
                             .font(.body)
                             .foregroundStyle(.primary.opacity(0.8))
                             .lineLimit(2)
                     }
 
-                    if !continueFacts.isEmpty {
+                    if !isCompact, !continueFacts.isEmpty {
                         HStack(spacing: 8) {
                             ForEach(continueFacts, id: \.self) { fact in
                                 Text(fact)
@@ -234,16 +253,18 @@ struct HomeView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                Text("Open")
-                    .font(.headline)
-                    .padding(.horizontal, 22)
-                    .frame(minHeight: 44)
-                    .accentFill(in: Capsule())
+                if !isCompact {
+                    Text("Open")
+                        .font(.headline)
+                        .padding(.horizontal, 22)
+                        .frame(minHeight: 44)
+                        .accentFill(in: Capsule())
+                }
             }
-            .padding(.leading, 22)
-            .padding(.trailing, 28)
-            .padding(.vertical, 22)
-            .frame(maxWidth: .infinity, minHeight: 220)
+            .padding(.leading, isCompact ? 14 : 22)
+            .padding(.trailing, isCompact ? 14 : 28)
+            .padding(.vertical, isCompact ? 14 : 22)
+            .frame(maxWidth: .infinity, minHeight: isCompact ? 0 : 220)
             .background {
                 // The shadow is the card shape's own, not the text's.
                 RoundedRectangle(cornerRadius: 22, style: .continuous)

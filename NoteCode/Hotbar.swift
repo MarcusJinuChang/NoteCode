@@ -29,6 +29,11 @@ struct Hotbar: View {
     /// (the page decides: only it knows which sheets it has).
     var textRowHidden = false
 
+    /// Whether the bar can be dragged to another edge. Not in a compact width
+    /// (an iPhone, a folded Duo), where it stays at the bottom: a side would
+    /// take a third of the screen from the page.
+    var isMovable = true
+
     /// How far the bar has been dragged from its dock.
     ///
     /// Gesture state rather than the page's own, so a drag that is cancelled
@@ -83,7 +88,9 @@ struct Hotbar: View {
 
     var body: some View {
         stack {
-            grip
+            if isMovable {
+                grip
+            }
 
             // Outside the scroll view, so they never scroll away with the
             // tools: undo and the mode toggle are what's reached for most,

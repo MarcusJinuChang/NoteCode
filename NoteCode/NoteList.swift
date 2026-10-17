@@ -374,6 +374,7 @@ struct NoteList: View {
         }
         .padding(.leading, indent(depth))
         .tag(page)
+        .opensOnTapInCompactWidth { selection = page }
         .listRowBackground(rowBackground(for: page))
         .contextMenu { noteMenu(page) }
         .onDrag { drag.lift(.note(page)) }
@@ -414,6 +415,7 @@ struct NoteList: View {
                 }
             }
             .tag(page)
+            .opensOnTapInCompactWidth { selection = page }
             .listRowBackground(rowBackground(for: page))
             .contextMenu { noteMenu(page) }
         }

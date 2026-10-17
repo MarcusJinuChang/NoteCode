@@ -71,16 +71,40 @@ nonisolated enum CanvasGeometry {
     /// modes fit edge to edge: there's no sheet edge for a border to show.
     static let printGutter: CGFloat = 24
 
+    /// How wide the text column is for fitting: the text and the room code
+    /// panels reach into the margins, so a block's panel isn't cut off.
+    static func columnWidth(textWidth: CGFloat) -> CGFloat {
+        textWidth + CodeBlockRoom.outset * 2
+    }
+
     /// The scale that fits a page's width to the area, less a gutter each
     /// side, up to the ceiling.
     ///
     /// No floor. A landscape page in a portrait iPad fits at about 0.65x, and
     /// zoom is how it gets larger, rather than a floor that makes the page
     /// scroll sideways before the reader has asked for anything.
-    static func fitScale(areaWidth: CGFloat, pageWidth: CGFloat, gutter: CGFloat = 0) -> CGFloat {
+    ///
+    /// **The text column instead, on a phone** (17 Oct, roadmap step 11).
+    /// Given a `columnWidth`, which the page offers only in a compact width
+    /// (an iPhone, a folded Duo, a narrow Split View), a page that would be
+    /// drawn below full size is fitted by its column, and the margins run off
+    /// the sides: an iPhone in portrait shows the column at about 0.57x
+    /// rather than the page at 0.49x, body text near 8pt. A phone held
+    /// sideways is wide enough for the page at full size or more, and fits
+    /// the page, as an iPad does. Only the drawn size changes, never where
+    /// lines wrap, and an iPad in full screen is never compact, so its page
+    /// is fitted exactly as before.
+    static func fitScale(
+        areaWidth: CGFloat,
+        pageWidth: CGFloat,
+        columnWidth: CGFloat? = nil,
+        gutter: CGFloat = 0
+    ) -> CGFloat {
         let available = areaWidth - gutter * 2
         guard available > 0, pageWidth > 0 else { return 1 }
-        return min(available / pageWidth, maximumFitScale)
+        let page = min(available / pageWidth, maximumFitScale)
+        guard let columnWidth, columnWidth > 0, page < 1 else { return page }
+        return min(available / columnWidth, maximumFitScale)
     }
 
     /// The gutter a view mode fits its pages inside.
@@ -93,8 +117,21 @@ nonisolated enum CanvasGeometry {
     }
 
     /// How large the page is drawn: fitted, then zoomed.
-    static func displayScale(areaWidth: CGFloat, pageWidth: CGFloat, zoom: CGFloat, gutter: CGFloat = 0) -> CGFloat {
-        fitScale(areaWidth: areaWidth, pageWidth: pageWidth, gutter: gutter) * clampedZoom(zoom)
+    static func displayScale(
+        areaWidth: CGFloat,
+        pageWidth: CGFloat,
+        columnWidth: CGFloat? = nil,
+        zoom: CGFloat,
+        gutter: CGFloat = 0
+    ) -> CGFloat {
+        fitScale(areaWidth: areaWidth, pageWidth: pageWidth, columnWidth: columnWidth, gutter: gutter) * clampedZoom(zoom)
+    }
+
+    /// The sideways scroll that centres a page drawn wider than its area:
+    /// the text column in the middle, the margins cut evenly. Zero for a page
+    /// that fits, which is centred by its frame instead.
+    static func centredOffset(areaWidth: CGFloat, pageWidth: CGFloat, scale: CGFloat) -> CGFloat {
+        max(pageWidth * scale - areaWidth, 0) / 2
     }
 
     /// The density text is rendered at, for a scale on a screen.
