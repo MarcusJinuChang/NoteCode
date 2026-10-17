@@ -493,6 +493,11 @@ changes how notes are stored lands before it.
     since all of them wait on the pages in `docs/site/` being hosted.
 13. **Freeze the model as version 1**, the last change before submitting.
     Versioning starts with what ships.
+    (Built 17 Oct, branch `claude/freeze-model-v1`: `NoteSchemaV1` and a plan
+    with no stages, frozen by a test of its entity hashes, and a store from
+    the TestFlight builds opens as version 1. Safe to merge before steps 11
+    and 12, which store nothing new; a model change before the release
+    edits version 1 and its hashes. See AGENTS.md › The model.)
 
 If November gets tight, steps 7–9 can slip past the release. Step 10
 shouldn't.
