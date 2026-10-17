@@ -110,6 +110,94 @@ private struct ParagraphControls: View {
         // Lit while the caret is in a link: nothing to add to one that is there.
         HotbarButton("Link", "link", isSelected: editor.caretFormatting.link) { editor.beginLink() }
             .disabled(editor.caretFormatting.link)
+        SizeMenu(editor: editor)
+        ColourMenu(editor: editor)
+    }
+}
+
+/// Size (`SpanSize`) for the selection or the word at the caret, against
+/// the text around it: Larger, Large, Normal, Small. Lit while the caret is
+/// in a sized run.
+private struct SizeMenu: View {
+    @Bindable var editor: NoteEditor
+
+    var body: some View {
+        let current = editor.caretFormatting.size
+        Menu {
+            ForEach([SpanSize.larger, .large], id: \.self) { size in item(size, current: current) }
+            item(nil, current: current)
+            item(.small, current: current)
+        } label: {
+            Image(systemName: "textformat.size")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(current == nil ? AnyShapeStyle(.primary) : AnyShapeStyle(.tint))
+                .hotbarTarget(isHighlighted: current != nil)
+        }
+        .modifier(HotbarMenuStyle())
+        .menuOrder(.fixed)
+        .accessibilityLabel("Size")
+        .accessibilityValue(current?.name ?? "Normal")
+    }
+
+    private func item(_ size: SpanSize?, current: SpanSize?) -> some View {
+        Toggle(isOn: Binding(get: { current == size }, set: { _ in editor.setSpanSize(size) })) {
+            Text(size?.name ?? "Normal")
+        }
+    }
+}
+
+/// Colour (`TextColour`): the palette, then Default, which takes colour off.
+/// The face is the colour the caret is in, or an empty ring for none.
+private struct ColourMenu: View {
+    @Bindable var editor: NoteEditor
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let current = editor.caretFormatting.colour
+        Menu {
+            ForEach(TextColour.allCases, id: \.self) { colour in
+                Toggle(isOn: Binding(get: { current == colour.hex }, set: { _ in editor.setColour(colour.hex) })) {
+                    Label {
+                        Text(colour.name)
+                    } icon: {
+                        Image(uiImage: Self.swatch(hex: colour.hex, isDark: colorScheme == .dark)).renderingMode(.original)
+                    }
+                }
+            }
+            Divider()
+            Toggle(isOn: Binding(get: { current == nil }, set: { _ in editor.setColour(nil) })) {
+                Text("Default")
+            }
+        } label: {
+            Image(uiImage: Self.face(hex: current, isDark: colorScheme == .dark))
+                .renderingMode(current == nil ? .template : .original)
+                .foregroundStyle(.primary)
+                .hotbarTarget()
+        }
+        .modifier(HotbarMenuStyle())
+        .menuOrder(.fixed)
+        .accessibilityLabel("Text Colour")
+        .accessibilityValue(current.flatMap { hex in TextColour.allCases.first { $0.hex == hex }?.name } ?? (current == nil ? "Default" : "Custom"))
+    }
+
+    /// A filled circle in the colour as it is drawn on this page.
+    static func swatch(hex: Int, isDark: Bool, side: CGFloat = 16) -> UIImage {
+        let colour = AccentPalette.uiColor(AccentPalette.textHex(for: hex, isDark: isDark))
+        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { _ in
+            colour.setFill()
+            UIBezierPath(ovalIn: CGRect(x: 0, y: 0, width: side, height: side)).fill()
+        }
+    }
+
+    /// The menu's face: the colour's swatch, or a ring for none.
+    static func face(hex: Int?, isDark: Bool) -> UIImage {
+        if let hex { return swatch(hex: hex, isDark: isDark, side: 20) }
+        return UIGraphicsImageRenderer(size: CGSize(width: 20, height: 20)).image { _ in
+            UIColor.black.setStroke()
+            let ring = UIBezierPath(ovalIn: CGRect(x: 1, y: 1, width: 18, height: 18))
+            ring.lineWidth = 2
+            ring.stroke()
+        }.withRenderingMode(.alwaysTemplate)
     }
 }
 
@@ -124,6 +212,8 @@ private struct ListControls: View {
             }
         }
         IndentControls(editor: editor)
+        SizeMenu(editor: editor)
+        ColourMenu(editor: editor)
     }
 }
 

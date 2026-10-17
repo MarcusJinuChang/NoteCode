@@ -89,6 +89,18 @@ nonisolated enum TextRewritingPolicy: Equatable, Sendable {
         source[..<caret].reversed().prefix { !$0.isWhitespace }.contains("`")
     }
 
+    /// Whether replacing `old` with `new` is smart punctuation: a straight
+    /// quote made curly, or a hyphen or two made a dash.
+    static func isSmartPunctuation(replacing old: String, with new: String) -> Bool {
+        switch (old, new) {
+        case ("\"", "\u{201C}"), ("\"", "\u{201D}"), ("'", "\u{2018}"), ("'", "\u{2019}"),
+             ("-", "\u{2013}"), ("-", "\u{2014}"), ("--", "\u{2013}"), ("--", "\u{2014}"):
+            true
+        default:
+            false
+        }
+    }
+
     /// Whether the keyboard replacing `range` of `source` with `replacement`
     /// would change code.
     ///

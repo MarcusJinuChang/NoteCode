@@ -433,6 +433,63 @@ final class NoteEditor {
         }
     }
 
+    /// Colour (`TextColour`): sets `hex` on the selection, the coloured run
+    /// at the caret or the word there; `nil` takes colour off.
+    func setColour(_ hex: Int?) {
+        guard mode == .text, !isTextLocked else { return }
+        perform { [codeRanges] text, selection in
+            MarkdownFormatting.colour(hex, selection: selection, in: text as NSString, codeRanges: codeRanges?() ?? [])
+        }
+    }
+
+    /// A size for a run (`SpanSize`) waiting for the reader's yes, with the
+    /// selection it was asked for: the alert takes the keyboard, and the
+    /// text view's selection isn't something to read back afterwards.
+    struct SpanSizeRequest: Equatable {
+        var size: SpanSize?
+        var selection: NSRange
+    }
+
+    /// `nil` unless the alert is up.
+    private(set) var spanSizeAwaitingConfirmation: SpanSizeRequest?
+
+    /// Size: sets `size` on the selection, the run at the caret or the word
+    /// there; `nil` makes them normal size. The text re-wraps around it, so
+    /// on a note with ink it asks first, as the note's text size does, and
+    /// one yes covers both until the note is next opened.
+    func setSpanSize(_ size: SpanSize?) {
+        guard mode == .text, !isTextLocked, let textView,
+              MarkdownFormatting.size(
+                  size, selection: textView.selectedRange, in: textView.textStorage.mutableString, codeRanges: codeRanges?() ?? []
+              ) != nil
+        else { return }
+        let request = SpanSizeRequest(size: size, selection: textView.selectedRange)
+        if hasInk, !inkQuestionAnswered {
+            spanSizeAwaitingConfirmation = request
+        } else {
+            applySpanSize(request)
+        }
+    }
+
+    /// The alert's Change.
+    func confirmSpanSize() {
+        guard let request = spanSizeAwaitingConfirmation else { return }
+        inkQuestionAnswered = true
+        spanSizeAwaitingConfirmation = nil
+        applySpanSize(request)
+    }
+
+    /// The alert's Cancel.
+    func cancelSpanSize() {
+        spanSizeAwaitingConfirmation = nil
+    }
+
+    private func applySpanSize(_ request: SpanSizeRequest) {
+        perform { [codeRanges] text, _ in
+            MarkdownFormatting.size(request.size, selection: request.selection, in: text as NSString, codeRanges: codeRanges?() ?? [])
+        }
+    }
+
     /// What Link will wrap, kept while the address is asked for: the alert
     /// takes the keyboard, and with it the text view's selection is not
     /// something to read back afterwards. `nil` when no address is being

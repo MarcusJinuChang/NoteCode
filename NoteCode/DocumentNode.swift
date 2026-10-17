@@ -216,6 +216,13 @@ nonisolated struct InlineNode: Equatable, Sendable {
         /// content is the text and the markers are `[` and `](url)`; for the
         /// second the whole span is the content and there are no markers.
         case link
+        /// `<span style="…">`, the opening of a styled run (`SpanStyle`): a
+        /// colour, a size or both. Markers only, its content empty. The text
+        /// it styles is the spans between it and the next `spanClose`, which
+        /// are parsed as any other, so bold or a link can be coloured.
+        case spanOpen(SpanStyle)
+        /// `</span>`, closing a styled run: markers only.
+        case spanClose
         // .math arrives with a later step.
 
         var discriminant: Int {
@@ -226,6 +233,20 @@ nonisolated struct InlineNode: Equatable, Sendable {
             case .inlineCode:    3
             case .strikethrough: 4
             case .link:          5
+            // The style is in it: a recolour keeps every length the same,
+            // and the styler must still notice.
+            case .spanOpen(let style):
+                6 &+ (style.colour ?? 0x1000000) &* 8 &+ (style.size.map { $0.rawValue + 1 } ?? 0) &* 0x8000_0000
+            case .spanClose:     7
+            }
+        }
+
+        /// A run's tag, which marks where a style starts or stops and holds
+        /// no text of its own.
+        var isSpanTag: Bool {
+            switch self {
+            case .spanOpen, .spanClose: true
+            default: false
             }
         }
     }

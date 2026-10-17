@@ -345,6 +345,50 @@ enum DocumentStyler {
         }
     }
 
+    // MARK: Colour and size
+
+    /// The stretches between each run's opening tag and its closing one, with
+    /// its style. The parser only makes the tags in pairs.
+    static func styleRuns(in inlines: [InlineLayout]) -> [(range: NSRange, style: SpanStyle)] {
+        var runs: [(NSRange, SpanStyle)] = []
+        var open: (end: Int, style: SpanStyle)?
+        for inline in inlines {
+            switch inline.kind {
+            case .spanOpen(let style):
+                open = (NSMaxRange(inline.markers.first ?? inline.contentRange), style)
+            case .spanClose:
+                if let start = open, let tag = inline.markers.first {
+                    runs.append((NSRange(location: start.end, length: tag.location - start.end), start.style))
+                }
+                open = nil
+            default:
+                break
+            }
+        }
+        return runs
+    }
+
+    /// The font a sized run's text is set in: the font around it, at the
+    /// run's size against it, so a heading's run is a larger heading.
+    static func font(_ base: UIFont, sizedTo size: SpanSize?) -> UIFont {
+        guard let size else { return base }
+        return base.withSize((base.pointSize * size.em * 2).rounded() / 2)
+    }
+
+    /// The colour a coloured run is drawn in: its hex, taken toward black on
+    /// a light page and white on a dark one far enough for 4.5:1, as links
+    /// are (`AccentPalette.textHex`).
+    ///
+    /// One object per hex, kept: the styler writes only attributes that
+    /// differ from the storage's, and two dynamic colours made from the same
+    /// hex aren't equal, so a new one each restyle would rewrite every
+    /// coloured run, and lay out the note below it, on every keystroke.
+    static func textColour(hex: Int) -> UIColor {
+        colourCache.colour(hex: hex)
+    }
+
+    private static let colourCache = TextColourCache()
+
     // MARK: Incremental restyling
 
     /// A cheap summary of a block — enough to tell whether its existing styling
@@ -538,7 +582,22 @@ enum DocumentStyler {
     ///
     /// Traits are derived from the block's own font rather than a fixed one, so
     /// bold inside a heading is a bold heading, not bold body text.
-    private static func apply(_ inlines: [InlineLayout], over baseFont: UIFont, to storage: NSMutableAttributedString) {
+    private static func apply(_ inlines: [InlineLayout], over blockFont: UIFont, to storage: NSMutableAttributedString) {
+        // Runs first, so what is inside one keeps its own: a link stays the
+        // link colour, a marker the marker colour, and bold is bold at the
+        // run's size.
+        for run in styleRuns(in: inlines) {
+            if let colour = run.style.colour {
+                storage.addAttribute(.foregroundColor, value: textColour(hex: colour), range: run.range)
+            }
+            if run.style.size != nil {
+                storage.addAttribute(.font, value: font(blockFont, sizedTo: run.style.size), range: run.range)
+            }
+        }
+
+        // The font the spans build on: the block's, or a sized run's while
+        // the spans are inside one.
+        var baseFont = blockFont
         for inline in inlines where inline.kind != .text {
             switch inline.kind {
             case .strong:
@@ -559,6 +618,10 @@ enum DocumentStyler {
             case .link:
                 storage.addAttribute(.foregroundColor, value: linkColor, range: inline.contentRange)
                 storage.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: inline.contentRange)
+            case .spanOpen(let style):
+                baseFont = font(blockFont, sizedTo: style.size)
+            case .spanClose:
+                baseFont = blockFont
             case .text:
                 break
             }
@@ -696,6 +759,23 @@ private extension UIFont {
             return self
         }
         return UIFont(descriptor: descriptor, size: 0)
+    }
+}
+
+/// The dynamic colours coloured runs are drawn in, one per hex.
+private final class TextColourCache: @unchecked Sendable {
+    private var colours: [Int: UIColor] = [:]
+    private let lock = NSLock()
+
+    func colour(hex: Int) -> UIColor {
+        lock.lock()
+        defer { lock.unlock() }
+        if let colour = colours[hex] { return colour }
+        let colour = UIColor { traits in
+            AccentPalette.uiColor(AccentPalette.textHex(for: hex, isDark: traits.userInterfaceStyle == .dark))
+        }
+        colours[hex] = colour
+        return colour
     }
 }
 

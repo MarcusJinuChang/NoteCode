@@ -52,12 +52,15 @@ nonisolated struct NoteInfo: Equatable, Sendable {
             } else {
                 // The content range leaves out a heading's #s and a list
                 // item's marker, and word enumeration skips punctuation, so
-                // inline markers drop out on their own.
+                // inline markers drop out on their own. A colour's tags
+                // hold words (`span`, `style`, `color`, the hex), so those
+                // are left out by hand.
+                let tags = block.inlines.filter(\.kind.isSpanTag).map(\.range)
                 content.enumerateSubstrings(
                     in: block.contentRange,
                     options: [.byWords, .substringNotRequired]
-                ) { _, _, _, _ in
-                    words += 1
+                ) { _, word, _, _ in
+                    if !tags.contains(where: { $0.overlaps(word) }) { words += 1 }
                 }
             }
         }
