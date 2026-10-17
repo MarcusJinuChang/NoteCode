@@ -97,6 +97,91 @@ final class DocumentUITextView: UITextView {
         return super.canPerformAction(action, withSender: sender)
     }
 
+    // MARK: The caret's height
+
+    /// The caret, as tall as the font it stands in, on that font's baseline.
+    ///
+    /// UIKit draws a caret the height of its whole line, from a point above
+    /// it to half a point below. For prose that is the font's own height.
+    /// Step 10 made some lines taller than their font, all of it as line
+    /// height: a code line is a prose line of smaller code, an opening
+    /// fence's line holds the gap above the block and its header (a 53.5pt
+    /// caret beside 15pt backticks, measured), a closing fence's the footer
+    /// and the gap below, and a line holding larger sized text is that
+    /// text's height all along it. So the caret is measured from the font
+    /// where it stands (`CaretHeight`). Only its height and place change:
+    /// prose and headings come out as UIKit draws them.
+    override func caretRect(for position: UITextPosition) -> CGRect {
+        let line = super.caretRect(for: position)
+        guard !line.isNull, !line.isInfinite else { return line }
+        let offset = self.offset(from: beginningOfDocument, to: position)
+        let attributes = caretAttributes(at: offset)
+        guard let font = attributes[.font] as? UIFont,
+              let laidOut = laidOutLine(at: offset, containingY: line.midY)
+        else { return line }
+        // A fence's glyphs are lifted inside their line (`CodeBlockRoom`).
+        let raise = attributes[.baselineOffset] as? CGFloat ?? 0
+        let caret = CaretHeight.rect(onLine: line, baseline: laidOut.baseline - raise, font: font)
+        // And a fence's caret stays on the panel, out of the gap beside it.
+        guard let room = CodeBlockRoom.caretRoom(
+            onFenceLine: laidOut.bounds,
+            paragraph: attributes[.paragraphStyle] as? NSParagraphStyle,
+            font: font
+        ) else { return caret }
+        let kept = caret.intersection(room)
+        return kept.isNull || kept.height <= 0 ? caret : kept
+    }
+
+    /// UIKit's caret, the height of its whole line. This view measures lines
+    /// with it when placing a tapped caret, which the caret's own height
+    /// mustn't change.
+    func lineCaretRect(for position: UITextPosition) -> CGRect {
+        super.caretRect(for: position)
+    }
+
+    /// The attributes of the text a caret at `offset` stands in: the
+    /// character before it on its line, or at a line's start the one after,
+    /// as typing there would take them.
+    private func caretAttributes(at offset: Int) -> [NSAttributedString.Key: Any] {
+        let text = textStorage.string as NSString
+        if offset > 0, offset <= text.length, text.character(at: offset - 1) != 0x0A {
+            return textStorage.attributes(at: offset - 1, effectiveRange: nil)
+        }
+        if offset < text.length {
+            return textStorage.attributes(at: offset, effectiveRange: nil)
+        }
+        return typingAttributes
+    }
+
+    /// The laid-out line at `y`, its bounds and its baseline in this view's
+    /// coordinates, looked for in the paragraph around `offset` and the one
+    /// after it. Never lays out further than the caret already has: UIKit's
+    /// own caret rect came first.
+    private func laidOutLine(at offset: Int, containingY y: CGFloat) -> (bounds: CGRect, baseline: CGFloat)? {
+        guard let manager = textLayoutManager,
+              let content = manager.textContentManager,
+              let location = content.location(content.documentRange.location, offsetBy: max(0, offset - 1))
+        else { return nil }
+        var found: (bounds: CGRect, baseline: CGFloat)?
+        var fragments = 0
+        manager.enumerateTextLayoutFragments(from: location, options: [.ensuresLayout]) { fragment in
+            let origin = fragment.layoutFragmentFrame.origin
+            for line in fragment.textLineFragments {
+                let bounds = line.typographicBounds.offsetBy(
+                    dx: origin.x + textContainerInset.left,
+                    dy: origin.y + textContainerInset.top
+                )
+                if y >= bounds.minY, y < bounds.maxY {
+                    found = (bounds, bounds.minY + line.glyphOrigin.y)
+                    return false
+                }
+            }
+            fragments += 1
+            return fragments < 2
+        }
+        return found
+    }
+
     // MARK: Hidden markers
 
     /// Where a caret that lands on an offset should stand, for a rendered
@@ -124,7 +209,7 @@ final class DocumentUITextView: UITextView {
               let position = position(from: beginningOfDocument, offset: offset)
         else { return false }
         // Past the glyph by more than a finger's sloppiness.
-        return point.x > caretRect(for: position).midX + 8
+        return point.x > lineCaretRect(for: position).midX + 8
     }
 
     /// `isBeyondLineEnd` for the touch that has just landed the caret, if one did.
@@ -171,13 +256,13 @@ final class DocumentUITextView: UITextView {
               let caret = position(from: beginningOfDocument, offset: offset),
               // A little slack, so a tap on the top edge of the line itself
               // isn't taken for the blank line above it.
-              lastPressPoint.y < caretRect(for: caret).minY - 2
+              lastPressPoint.y < lineCaretRect(for: caret).minY - 2
         else { return }
 
         while BlankLineLayout.isBlankLine(at: offset - 1, in: text) {
             offset -= 1
             guard let line = position(from: beginningOfDocument, offset: offset) else { break }
-            if lastPressPoint.y >= caretRect(for: line).minY { break }
+            if lastPressPoint.y >= lineCaretRect(for: line).minY { break }
         }
         selectedRange = NSRange(location: offset, length: 0)
     }
@@ -224,7 +309,7 @@ final class DocumentUITextView: UITextView {
     private func blankLine(before position: UITextPosition, tappedAt point: CGPoint) -> UITextPosition? {
         let offset = self.offset(from: beginningOfDocument, to: position)
         guard BlankLineLayout.isBlankLine(at: offset - 1, in: textStorage.string as NSString),
-              point.y < caretRect(for: position).minY
+              point.y < lineCaretRect(for: position).minY
         else { return nil }
         return self.position(from: position, offset: -1)
     }
@@ -341,7 +426,7 @@ final class DocumentUITextView: UITextView {
         guard touchTarget?(point) == true else { return false }
         guard selectedRange.length > 0, let range = selectedTextRange else { return true }
         let reach: CGFloat = 22
-        return ![range.start, range.end].contains { caretRect(for: $0).insetBy(dx: -reach, dy: -reach).contains(point) }
+        return ![range.start, range.end].contains { lineCaretRect(for: $0).insetBy(dx: -reach, dy: -reach).contains(point) }
     }
 
     /// The recognisers that still run on a box or a link: scrolling, and the
@@ -353,6 +438,25 @@ final class DocumentUITextView: UITextView {
             || recognizer === pinchGestureRecognizer
             || recognizer === markerGestures?.tap
             || recognizer === markerGestures?.hold
+    }
+}
+
+/// Where a caret stands for a font on a baseline: as UIKit draws one on a
+/// line that is the font's own height, from a point above the ascender to
+/// half a point below the leading. Measured on 17pt prose and a 34pt heading,
+/// whose UIKit carets this reproduces exactly.
+nonisolated enum CaretHeight {
+
+    static let above: CGFloat = 1
+    static let below: CGFloat = 0.5
+
+    /// The caret on `line`, UIKit's caret there, kept inside it and at its
+    /// horizontal place.
+    static func rect(onLine line: CGRect, baseline: CGFloat, font: UIFont) -> CGRect {
+        let top = baseline - font.ascender - above
+        let bottom = baseline - font.descender + font.leading + below
+        let caret = CGRect(x: line.minX, y: top, width: line.width, height: bottom - top).intersection(line)
+        return caret.isNull || caret.height <= 0 ? line : caret
     }
 }
 

@@ -146,6 +146,24 @@ extension CodeBlockRoom {
         return LineStyle(paragraph: fixedHeight(height + descent(of: font)), baselineOffset: lift)
     }
 
+    /// Where a caret on a fence's line may stand: in the header on an
+    /// opening fence, in the footer on a closing one, a point clear of each
+    /// edge. Nil for any other line. The footer is shallower than a caret for
+    /// the code's font, so there the caret is the footer's height, not the
+    /// font's, rather than reaching into the gap below the panel.
+    static func caretRoom(onFenceLine line: CGRect, paragraph: NSParagraphStyle?, font: UIFont) -> CGRect? {
+        guard let paragraph else { return nil }
+        let room: CGRect
+        if paragraph == openingFence(font: font).paragraph {
+            room = header(ofFenceLine: line)
+        } else if paragraph == closingFence(font: font).paragraph {
+            room = CGRect(x: line.minX, y: line.minY, width: line.width, height: footerHeight(font: font))
+        } else {
+            return nil
+        }
+        return room.insetBy(dx: 0, dy: 1)
+    }
+
     /// The panel's padding below the last line of code, in proportion to the
     /// code's size: 12pt beside 15pt code.
     static func footerHeight(font: UIFont) -> CGFloat {
