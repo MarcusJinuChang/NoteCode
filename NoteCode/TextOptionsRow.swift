@@ -110,6 +110,61 @@ private struct ParagraphControls: View {
         // Lit while the caret is in a link: nothing to add to one that is there.
         HotbarButton("Link", "link", isSelected: editor.caretFormatting.link) { editor.beginLink() }
             .disabled(editor.caretFormatting.link)
+        ColourMenu(editor: editor)
+    }
+}
+
+/// Colour (`TextColour`): the palette, then Default, which takes colour off.
+/// The face is the colour the caret is in, or an empty ring for none.
+private struct ColourMenu: View {
+    @Bindable var editor: NoteEditor
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let current = editor.caretFormatting.colour
+        Menu {
+            ForEach(TextColour.allCases, id: \.self) { colour in
+                Toggle(isOn: Binding(get: { current == colour.hex }, set: { _ in editor.setColour(colour.hex) })) {
+                    Label {
+                        Text(colour.name)
+                    } icon: {
+                        Image(uiImage: Self.swatch(hex: colour.hex, isDark: colorScheme == .dark)).renderingMode(.original)
+                    }
+                }
+            }
+            Divider()
+            Toggle(isOn: Binding(get: { current == nil }, set: { _ in editor.setColour(nil) })) {
+                Text("Default")
+            }
+        } label: {
+            Image(uiImage: Self.face(hex: current, isDark: colorScheme == .dark))
+                .renderingMode(current == nil ? .template : .original)
+                .foregroundStyle(.primary)
+                .hotbarTarget()
+        }
+        .modifier(HotbarMenuStyle())
+        .accessibilityLabel("Text Colour")
+        .accessibilityValue(current.flatMap { hex in TextColour.allCases.first { $0.hex == hex }?.name } ?? (current == nil ? "Default" : "Custom"))
+    }
+
+    /// A filled circle in the colour as it is drawn on this page.
+    static func swatch(hex: Int, isDark: Bool, side: CGFloat = 16) -> UIImage {
+        let colour = AccentPalette.uiColor(AccentPalette.textHex(for: hex, isDark: isDark))
+        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { _ in
+            colour.setFill()
+            UIBezierPath(ovalIn: CGRect(x: 0, y: 0, width: side, height: side)).fill()
+        }
+    }
+
+    /// The menu's face: the colour's swatch, or a ring for none.
+    static func face(hex: Int?, isDark: Bool) -> UIImage {
+        if let hex { return swatch(hex: hex, isDark: isDark, side: 20) }
+        return UIGraphicsImageRenderer(size: CGSize(width: 20, height: 20)).image { _ in
+            UIColor.black.setStroke()
+            let ring = UIBezierPath(ovalIn: CGRect(x: 1, y: 1, width: 18, height: 18))
+            ring.lineWidth = 2
+            ring.stroke()
+        }.withRenderingMode(.alwaysTemplate)
     }
 }
 
@@ -124,6 +179,7 @@ private struct ListControls: View {
             }
         }
         IndentControls(editor: editor)
+        ColourMenu(editor: editor)
     }
 }
 

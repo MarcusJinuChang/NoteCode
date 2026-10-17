@@ -216,6 +216,13 @@ nonisolated struct InlineNode: Equatable, Sendable {
         /// content is the text and the markers are `[` and `](url)`; for the
         /// second the whole span is the content and there are no markers.
         case link
+        /// `<span style="color:#RRGGBB">`, the opening of a coloured run
+        /// (`TextColour`): markers only, its content empty. The text it
+        /// colours is the spans between it and the next `colourClose`, which
+        /// are parsed as any other, so bold or a link can be coloured.
+        case colourOpen(hex: Int)
+        /// `</span>`, closing a coloured run: markers only.
+        case colourClose
         // .math arrives with a later step.
 
         var discriminant: Int {
@@ -226,6 +233,19 @@ nonisolated struct InlineNode: Equatable, Sendable {
             case .inlineCode:    3
             case .strikethrough: 4
             case .link:          5
+            // The colour is in it: a recolour keeps every length the same,
+            // and the styler must still notice.
+            case .colourOpen(let hex): 6 &+ hex &* 8
+            case .colourClose:   7
+            }
+        }
+
+        /// A colour tag, which marks where colour starts or stops and holds
+        /// no text of its own.
+        var isColourTag: Bool {
+            switch self {
+            case .colourOpen, .colourClose: true
+            default: false
             }
         }
     }

@@ -19,6 +19,14 @@ Revised 16 October 2026.
 v3 is built, and steps 1 and 4 to 9 of the plan below are merged, the last as
 #60 on 16 Oct. Next is step 10.
 
+- **Step 10, coloured text** (17 Oct, branch `claude/text-colour`, on
+  `claude/code-block-room`): a colour menu in the text options row colours
+  the selection or the word at the caret in one of six colours, written as
+  Obsidian writes it, `<span style="color:#RRGGBB">`. The tags take no room
+  and are never drawn, and each colour is made legible for light and dark.
+  Search and Get Info leave the tags out. Looked at in the simulator; not
+  on the iPad.
+
 - **Step 10, room for code blocks** (16 Oct, branch `claude/code-block-room`,
   off `main`): the panel reaches 14pt into each margin while the code keeps
   the prose column, so nothing re-wraps sideways; a 12pt gap above and below
@@ -449,8 +457,11 @@ changes how notes are stored lands before it.
 10. **Text restructure: colour and size anywhere, and more room for code
     blocks.** Room for code blocks first (16 Oct, branch
     `claude/code-block-room`): Marcus found the run and copy buttons had no
-    room and the block looked cramped. Colour waits on step 3's research
-    for its format; see AGENTS.md › Code blocks: room around and inside.
+    room and the block looked cramped; see AGENTS.md › Code blocks: room
+    around and inside. Colour second (17 Oct, branch `claude/text-colour`):
+    `<span style="color:#RRGGBB">`, as step 3's research recommended, from a
+    menu in the text options row; see AGENTS.md › Coloured text. Size
+    anywhere is what is left of the step.
     - **Why before the release:** changing how text is stored costs nothing
       now, and means migrating everyone's notes after.
     - **Why before step 11:** it changes the text options row, which the

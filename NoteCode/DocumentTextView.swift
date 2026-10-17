@@ -964,6 +964,16 @@ struct DocumentTextView: UIViewRepresentable {
         /// marked text, and a formatting button knows what it's changing, so
         /// all of those go through untouched.
         func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+            // A formatting edit's text is what its button meant. UIKit runs
+            // smart punctuation over it as if it had been typed, as edits of
+            // their own inside the replace, and turned a colour tag's quotes
+            // curly, so it was a tag no longer and showed as text (seen 17
+            // Oct, two one-character edits while the colour was applied).
+            if editor?.isFormatting == true, range.length > 0, NSMaxRange(range) <= (textView.text as NSString).length,
+               TextRewritingPolicy.isSmartPunctuation(replacing: (textView.text as NSString).substring(with: range), with: text) {
+                return false
+            }
+
             // Undo and redo put text back by replacing it, which looks exactly
             // like a keyboard correction: undoing a language pick, whose tag
             // was replaced inside a fence, was turned away, and used up the

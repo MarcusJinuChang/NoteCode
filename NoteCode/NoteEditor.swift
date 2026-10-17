@@ -433,6 +433,15 @@ final class NoteEditor {
         }
     }
 
+    /// Colour (`TextColour`): sets `hex` on the selection, the coloured run
+    /// at the caret or the word there; `nil` takes colour off.
+    func setColour(_ hex: Int?) {
+        guard mode == .text, !isTextLocked else { return }
+        perform { [codeRanges] text, selection in
+            MarkdownFormatting.colour(hex, selection: selection, in: text as NSString, codeRanges: codeRanges?() ?? [])
+        }
+    }
+
     /// What Link will wrap, kept while the address is asked for: the alert
     /// takes the keyboard, and with it the text view's selection is not
     /// something to read back afterwards. `nil` when no address is being

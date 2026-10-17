@@ -2011,6 +2011,78 @@ are `CodeBlockRoom`'s.
   typing a fence open and closed, a caret on a fence line, light print
   layout, landscape, other text sizes on screen.
 
+## Coloured text
+
+Roadmap step 10, second part (17 Oct, branch `claude/text-colour`, on
+`claude/code-block-room`). The format is step 3's recommendation
+(docs/research-notability-obsidian.md); `TextColour` holds the palette and
+the tags.
+
+- **Written as Obsidian writes it:** `<span style="color:#RRGGBB">text</span>`,
+  exactly that shape (hex in either case), on one line. The one convention
+  Obsidian draws with no plugin that GitHub reads as plain text. Any other
+  `<span …>`, an unclosed one or an empty one is visible text, so pasted
+  HTML is never half hidden.
+- **Parsed as a wrapper** (`InlineParser.parse`): the first tag pair on the
+  line is found, each tag becomes a node of markers alone
+  (`InlineNode.Kind.colourOpen(hex:)`, `.colourClose`), and the text between
+  is parsed as any other. So bold, code or a link can be coloured, but a
+  span can't cross a run's edge and colours don't nest:
+  `**<span …>x</span>**` shows its asterisks. The colour menu always writes
+  `<span …>**x**</span>`.
+- **Because the tags are markers, everything marker-based follows for
+  free:** `MarkdownLayout` collapses them to word joiners (no room, nothing
+  re-wraps, ink stays put), the caret stops at their left edges, Show
+  Markdown never draws them, and the outline's titles leave them out.
+- **Drawn in the colour made legible:** the stored hex taken toward black on
+  a light page and white on a dark one just far enough for 4.5:1
+  (`AccentPalette.textHex`, as links are), so a colour from elsewhere reads
+  as well as the palette's. Colour goes on before the spans inside it, so a
+  link keeps the link colour.
+  - **One `UIColor` per hex** (`DocumentStyler.textColour`, cached): two
+    dynamic colours from the same hex aren't equal, and the styler writes
+    whatever differs, so a fresh one each restyle rewrote every run and laid
+    out the note below it on every keystroke.
+    `TextColourLayoutTests.restyleIsNotAnEdit` fails without the cache.
+  - The block signature's inline hash carries the hex, since a recolour
+    changes no length.
+- **The palette** (`TextColour`): Red `#E5484D`, Orange `#E5750A`, Yellow
+  `#B88700`, Green `#2F9E44`, Blue `#3B82F6`, Purple `#9061F9`. Each is at
+  least 4.5:1 once adjusted, in both appearances (tested).
+- **The menu** is the last control of the text options row for a paragraph,
+  heading or list item (`ColourMenu`): the six colours and Default; its face
+  is the caret's colour (`CaretFormatting.colour`), or an empty ring.
+  `MarkdownFormatting.colour` makes the edit:
+  - the selection, or the run the caret is in, or the word at the caret;
+  - a run per line, after a heading's or list item's marker, spaces at the
+    ends left out;
+  - runs it overlaps are taken off and their text joins it, so recolouring
+    part of a run recolours it all, and Default unwraps;
+  - a span it runs into is taken in whole, never cut.
+- **Smart punctuation is turned away during a formatting edit.** UIKit runs
+  smart quotes over a formatting edit's text as if typed, as separate
+  one-character edits inside the replace, and turned a run's quotes curly,
+  so it stopped being a tag and showed as text (seen 17 Oct on screen, two
+  `"` → `“`/`”` edits logged while `isFormatting`). The coordinator refuses
+  them (`TextRewritingPolicy.isSmartPunctuation`). A unit test can't see
+  it: with no keyboard up, UIKit converts nothing. Checked in the simulator.
+- **Backspace** on a run's last visible letter takes both tags with it (or
+  `<span …></span>` would show as text), and from inside or after `</span>`
+  acts as from in front of it, never deleting a hidden tag character.
+- **Search and Get Info leave tags out.** Search reads the note with each
+  tag replaced by word joiners unit for unit (`TextColour.maskingTags`), so
+  "span" or "color" finds nothing, an excerpt shows no tag, and match
+  offsets still point at the note's own characters. Get Info skips words
+  inside tags.
+- **Not built:** a typing colour (colour for text not yet typed), a
+  keyboard shortcut, highlight (`==🟡text==` in the research), colour in
+  the hotbar's Style menu.
+- **Checked in the simulator** (11-inch, light and dark): the runs drawn,
+  the menu and its face, recolouring a run beside another on the same line,
+  colouring a plain word in a list item. **Not checked:** the iPad, the
+  Pencil, a hardware keyboard, the PDF of a coloured note, a selection over
+  several lines on screen.
+
 ## Organising notes
 
 A flat, date-sorted list of pages does not survive a semester of coursework,
