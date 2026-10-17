@@ -313,6 +313,16 @@ struct DocumentTextView: UIViewRepresentable {
         /// for light just because its code hasn't changed.
         private var highlightedAppearance: HighlightAppearance?
 
+        /// The appearance code is always coloured for, whatever the text
+        /// view's traits say. Nil follows the traits, as the editor does.
+        ///
+        /// Paper is light (`PrintedNote`), and its text view can't say so
+        /// itself: a view in no window takes its appearance from the scene,
+        /// and an override on the view doesn't change it (measured 16 Oct).
+        /// With the device dark, the PDF and thumbnails had the dark theme's
+        /// colours on a light panel.
+        var pinnedAppearance: HighlightAppearance?
+
         /// Just enough to coalesce a fast burst of keystrokes.
         ///
         /// This was 200ms, chosen before measuring, which was long enough that
@@ -552,7 +562,7 @@ struct DocumentTextView: UIViewRepresentable {
 
             highlightGeneration &+= 1
             let generation = highlightGeneration
-            let appearance = HighlightAppearance(textView.traitCollection)
+            let appearance = pinnedAppearance ?? HighlightAppearance(textView.traitCollection)
 
             // Every block on screen was coloured for the other theme, so none of
             // them can be skipped. A pass still running under that theme is

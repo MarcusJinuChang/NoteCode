@@ -130,6 +130,32 @@ struct NotePDFTests {
         #expect(panel > 0.85 && panel < 0.99, "panel luminance \(panel)")
     }
 
+    @Test("Code prints in the light theme's colours even when the device is dark")
+    func lightSyntaxOnDarkDevice() async throws {
+        // A text view in no window takes its appearance from the scene, and
+        // an override on the view itself doesn't change it, so the scene is
+        // what makes this device dark: whatever the simulator's appearance,
+        // and taken off again after.
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        for scene in scenes { scene.traitOverrides.userInterfaceStyle = .dark }
+        defer { for scene in scenes { scene.traitOverrides.remove(UITraitUserInterfaceStyle.self) } }
+        try #require(UITextView().traitCollection.userInterfaceStyle == .dark)
+
+        let pdf = try await Self.pdf("```cpp\nint main() {\n    return 0;\n}\n```")
+        let page = try #require(Bitmap(pdfPage: pdf.page(at: 0), scale: 4))
+
+        // `return` is a keyword and `int` a type: each is on the page in the
+        // light theme's colour, and nowhere in the dark theme's.
+        for role in [\SyntaxTheme.keyword, \.type] {
+            let light = SyntaxTheme.light[keyPath: role].hex
+            let dark = SyntaxTheme.dark[keyPath: role].hex
+            let inLight = page.pixelCount(near: light)
+            let inDark = page.pixelCount(near: dark)
+            #expect(inLight > 20, "\(inLight) pixels in light \(light)")
+            #expect(inDark == 0, "\(inDark) pixels in dark \(dark)")
+        }
+    }
+
     @Test("A page drawn a line at a time looks the same as TextKit drawing its paragraphs whole")
     func linesMatchFragments() async throws {
         let text = "# Heading\nA paragraph long enough to wrap onto a second line on a portrait page, so one paragraph has two lines.\n```cpp\nint main() {\n    return 0; // gjpqy\n}\n```\nAfter the block."
@@ -365,10 +391,10 @@ struct Bitmap {
         self.pixels = pixels
     }
 
-    /// A PDF page at twice its size, white behind it.
-    init?(pdfPage page: PDFPage?) {
+    /// A PDF page at `scale` times its size, white behind it.
+    init?(pdfPage page: PDFPage?, scale: CGFloat = 2) {
         guard let ref = page?.pageRef else { return nil }
-        self.init(size: ref.getBoxRect(.mediaBox).size, scale: 2, flipped: false) { context in
+        self.init(size: ref.getBoxRect(.mediaBox).size, scale: scale, flipped: false) { context in
             context.drawPDFPage(ref)
         }
     }
@@ -392,6 +418,19 @@ struct Bitmap {
                 count += 1
                 break
             }
+        }
+        return count
+    }
+
+    /// How many pixels are a colour, within `tolerance` on each channel: a
+    /// glyph's inside, where nothing is blended with what's behind it.
+    func pixelCount(near hex: String, tolerance: Int = 8) -> Int {
+        guard let value = UInt32(hex, radix: 16) else { return 0 }
+        let target = [Int(value >> 16 & 0xFF), Int(value >> 8 & 0xFF), Int(value & 0xFF)]
+        var count = 0
+        for index in stride(from: 0, to: pixels.count, by: 4)
+        where (0..<3).allSatisfy({ abs(Int(pixels[index + $0]) - target[$0]) <= tolerance }) {
+            count += 1
         }
         return count
     }

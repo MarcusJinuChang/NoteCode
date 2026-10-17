@@ -624,6 +624,15 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   panels are their light colours on a dark device. It starts from the open
   note's page count and adds page breaks until no text runs past the last.
   Ink is `PageView.ink`, so strokes not yet saved print too.
+  - **The light theme is the coordinator's `pinnedAppearance`**, not the
+    text view's traits (16 Oct). A view in no window takes its appearance
+    from the scene: `overrideUserInterfaceStyle` and `traitOverrides` on it,
+    an override on the app's window and `UITraitCollection.current` all
+    left it the device's (probed in both appearances). So until then a PDF
+    or thumbnail made on a dark device had the dark theme's keywords on the
+    light panel. Overriding the *scene's* `traitOverrides` does reach such a
+    view, which is how `NotePDFTests.lightSyntaxOnDarkDevice` makes the
+    device dark on a light simulator; it fails with the pin removed.
 - **A sheet is drawn a line at a time** (`NSTextLineFragment.draw`), with
   code panels through `CodeBlockLayoutFragment.drawPanel`, bottom up so a
   panel's overhang stays behind the line above, as it does on screen. A
@@ -1112,7 +1121,8 @@ v3 phase 2 (12 Oct, `docs/ui-design-v3-implementation.md`).
     manifest needs a reason for file timestamps), and the note's older files are
     removed as a new one is written. Bump `NoteThumbnail.version` when a note
     starts looking different for another reason: phase 3's hidden markers
-    will, since a thumbnail made now shows `##` and `**`.
+    did (2), step 10's code blocks did (3), and so did code in the light
+    theme on a dark device (4, 16 Oct).
   - **One per turn of the main actor** (`ThumbnailStore.Gate`, a class: a
     struct held across the gate's suspension was an exclusive-access trap),
     each yielding before it starts; a request cancelled while it waits draws
@@ -1182,7 +1192,8 @@ v3 phase 3 (12 Oct, `docs/ui-design-v3-implementation.md`).
     paper breaks lines where the screen doesn't. `NoteEditor.rendersMarkdown`
     carries it from the coordinator. A thumbnail's cache name has `-r` for a
     rendered note, since hiding markers isn't an edit and leaves `modifiedAt`
-    alone, and `NoteThumbnail.version` was 2 (3 since step 10's code blocks).
+    alone, and `NoteThumbnail.version` was 2 (3 since step 10's code blocks,
+    4 since code is coloured light on a dark device).
   - **The parser got stricter on the way** (`InlineParser`): an emphasis span
     can't start with a space or end after one, and `_` can't open or close
     inside a word. `2 * 3 * 4`, `int *p and *q` and `snake_case_name` were
@@ -1998,7 +2009,8 @@ are `CodeBlockRoom`'s.
     in the PDF. Paint only. **A stroked path, not an SF Symbol:** a tinted
     symbol image drew a grey box round itself in the PDF.
 - Every line below a code block moved, which is fine while no old notes are
-  kept (see "The model"). `NoteThumbnail.version` is 3.
+  kept (see "The model"). `NoteThumbnail.version` went to 3 here (4 since
+  code is coloured light on a dark device).
 - **Checked in the simulator:** the 13-inch in light, seamless (margins,
   header, gaps, a block being edited with its fences showing); the 11-inch at
   0.96x in dark, print layout; a block split by compressed's page break and

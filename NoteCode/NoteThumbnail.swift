@@ -22,9 +22,11 @@ import UIKit
 nonisolated enum NoteThumbnail {
 
     /// Bumped when the picture changes for a reason other than the note, so
-    /// thumbnails made the old way aren't shown (phase 3's hidden markers will
-    /// change how every note's first page looks).
-    static let version = 3
+    /// thumbnails made the old way aren't shown. 2: phase 3's hidden
+    /// markers. 3: step 10's room around code blocks. 4: code in the light
+    /// theme's colours, which a thumbnail made on a dark device didn't have
+    /// (16 Oct).
+    static let version = 4
 
     /// Pixels per page point: a Letter page is 449 by 581.
     ///

@@ -21,9 +21,9 @@ import UIKit
 /// in print layout: every mode puts the same lines on the same pages, so the
 /// PDF's pages are the note's pages whatever mode the reader is in.
 ///
-/// **Always light.** Paper is white. The text view is forced light, so syntax
-/// colours come from the light theme, and drawing runs under a light trait
-/// collection, so `.label` and the code panels resolve to their light
+/// **Always light.** Paper is white. Code is coloured from the light theme
+/// (the coordinator's `pinnedAppearance`), and drawing runs under a light
+/// trait collection, so `.label` and the code panels resolve to their light
 /// colours even when the device is dark.
 ///
 /// **Text stays text.** TextKit draws it straight into the PDF's context,
@@ -272,8 +272,10 @@ final class PrintedNote {
         coordinator = DocumentTextView.Coordinator(text: .constant(text))
         textView = DocumentTextView.makeConfiguredTextView(typography: typography)
 
-        // Paper is white, so code takes the light theme's colours.
-        textView.overrideUserInterfaceStyle = .light
+        // Paper is white, so code takes the light theme's colours. Told to
+        // the coordinator, not set on the view: a view in no window keeps
+        // the scene's appearance whatever its own override says.
+        coordinator.pinnedAppearance = .light
         textView.isEditable = false
         textView.frame = CGRect(origin: .zero, size: layout.pageSize)
         textView.textContainer.widthTracksTextView = false
