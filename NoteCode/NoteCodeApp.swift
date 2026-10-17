@@ -18,6 +18,9 @@ struct NoteCodeApp: App {
         // So the menu bar's bare-letter shortcuts know when a field is typing.
         TextInputActivity.shared.start()
 #endif
+        // Finishes tips that arrive outside a purchase, and asks the store
+        // for the tips, so the list's foot knows whether to offer them.
+        TipJar.shared.start()
 #if DEBUG && canImport(UIKit)
         // See DebugLaunch.swift. A no-op unless a -debug- argument was passed.
         let session = DebugSession.shared
@@ -42,6 +45,7 @@ struct NoteCodeApp: App {
             if let container = storage.container {
                 ContentView(storageIsEphemeral: storage.isEphemeral, openedPage: openedPage)
                     .modelContainer(container)
+                    .environment(TipJar.shared)
                     .modifier(AppearanceModifier())
             } else {
                 StorageUnavailableView(reason: storage.reason)

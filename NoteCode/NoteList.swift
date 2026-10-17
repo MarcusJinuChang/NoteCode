@@ -107,6 +107,12 @@ struct NoteList: View {
     /// Whether the Recently Deleted sheet is showing.
     @State private var showsRecentlyDeleted = false
 
+    /// Whether the tip jar's sheet is showing.
+    @State private var showsTipJar = false
+
+    /// The app's tip jar, for the list's foot; absent in previews and tests.
+    @Environment(TipJar.self) private var tipJar: TipJar?
+
     /// The folder whose deletion is waiting on the reader's choice.
     @State private var deleting: Folder?
 
@@ -172,6 +178,11 @@ struct NoteList: View {
 
             if search.isEmpty, deletedCount > 0 {
                 recentlyDeletedRow(count: deletedCount)
+            }
+
+            // Not under the empty list's overlay, which would sit on it.
+            if search.isEmpty, hasLiveNotes || !folders.live.isEmpty {
+                ListFoot(tipJar: tipJar) { showsTipJar = true }
             }
         }
         .overlay {
@@ -243,6 +254,9 @@ struct NoteList: View {
         }
         .sheet(isPresented: $showsRecentlyDeleted) {
             RecentlyDeletedView()
+        }
+        .sheet(isPresented: $showsTipJar) {
+            if let tipJar { TipJarView(jar: tipJar) }
         }
         .alert("Rename Note", isPresented: $showsNameAlert) {
             TextField("Name", text: $typedName)

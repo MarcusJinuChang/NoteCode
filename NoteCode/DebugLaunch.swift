@@ -117,6 +117,9 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
     /// Home, over a store of sample notes and folders in memory, with the
     /// title screen already seen.
     var home = false
+    /// The tip jar with stand-in tips, so its row and sheet can be looked at
+    /// without the products in App Store Connect (`DebugTipStore`).
+    var tipJar = false
 
     /// Arguments that couldn't be used. Reported rather than ignored, so a
     /// typo can't pass for a check that ran.
@@ -124,7 +127,7 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
 
     var isActive: Bool {
         note != nil || mode != nil || orientation != nil || textSize != nil || page != nil || thenMode != nil
-            || writesReport || firstLaunch || home
+            || writesReport || firstLaunch || home || tipJar
     }
 
     static let current = parse(ProcessInfo.processInfo.arguments)
@@ -205,6 +208,8 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
                 options.firstLaunch = true
             case "-debug-home":
                 options.home = true
+            case "-debug-tip-jar":
+                options.tipJar = true
             default:
                 if flag.hasPrefix("-debug-") {
                     options.problems.append("unknown argument \(flag)")
