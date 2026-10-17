@@ -4,7 +4,7 @@ Source of truth. The published version at
 <https://claude.ai/code/artifact/2490317a-7eaf-44ae-9389-f0fb92d7471a>
 is a rendering of this file — edit here, ask for the artifact to be regenerated.
 
-Revised 15 October 2026.
+Revised 16 October 2026.
 
 | | |
 |---|---|
@@ -14,10 +14,22 @@ Revised 15 October 2026.
 | App Store submission | Nov 2026, with the iPhone and Duo layouts |
 | Second version | AI + feedback, Mar 2027 |
 
-## Where things stand (15 Oct)
+## Where things stand (16 Oct)
 
-v3 is built: every pull request so far is merged, the last as #55 on 15 Oct.
-Next is the plan below.
+v3 is built, and steps 1 and 4 to 9 of the plan below are merged, the last as
+#60 on 16 Oct. Next is step 10.
+
+- **Step 10, room for code blocks** (16 Oct, branch `claude/code-block-room`,
+  off `main`): the panel reaches 14pt into each margin while the code keeps
+  the prose column, so nothing re-wraps sideways; a 12pt gap above and below
+  every block; a 40pt header holding the language and Run and Copy; code at
+  15pt beside a 17pt body on the prose's line height, about 73 columns before
+  a wrap instead of 65; a line that still wraps continues two columns past
+  its own indentation, after a faint ↳, so it no longer reads as a new
+  line. All the vertical room is line height: paragraph spacing let a page
+  break fall inside it, and the modes paginated differently. The PDF prints
+  the language in the header, and the marks. Looked at in the simulator;
+  not on the iPad.
 
 - **Step 1, links not opening on the iPad** (15 Oct, branch
   `claude/link-taps`, off `main`): fixed and seen working on the iPad. Two
@@ -28,8 +40,7 @@ Next is the plan below.
   kept off only by a race. Not device-only after all: every link checked in
   the simulator on 13 Oct had words after it.
 
-- **Step 5, the page fills the window** (16 Oct, branch `claude/page-fills-window`,
-  off `claude/drag-folders`): the page runs edge to edge with no border,
+- **Step 5, the page fills the window** (16 Oct, merged as #60): the page runs edge to edge with no border,
   corner radius or top gap. A bottom bar floats over it and moves nothing; a
   side bar takes one strip from its side, sized for the bar and its options
   row so tools never move the page. Home is a house button beside ☰ in a
@@ -436,7 +447,10 @@ changes how notes are stored lands before it.
    the colour is wired up once for both layouts. (Done 15 Oct, branch
    `claude/accent-colour`; see AGENTS.md › Colour.)
 10. **Text restructure: colour and size anywhere, and more room for code
-    blocks.**
+    blocks.** Room for code blocks first (16 Oct, branch
+    `claude/code-block-room`): Marcus found the run and copy buttons had no
+    room and the block looked cramped. Colour waits on step 3's research
+    for its format; see AGENTS.md › Code blocks: room around and inside.
     - **Why before the release:** changing how text is stored costs nothing
       now, and means migrating everyone's notes after.
     - **Why before step 11:** it changes the text options row, which the
@@ -445,7 +459,12 @@ changes how notes are stored lands before it.
       (Obsidian uses HTML spans for colour). The styler, the formatting
       buttons, lists, hidden markers, search and export are all built on
       Markdown in the note.
-    - **Order:** colour first, since it moves no lines.
+    - **Order:** room for code blocks, then colour, since it moves no
+      lines, then size. (Colour was first until 16 Oct; code blocks went
+      ahead because they need no format decision.)
+    - **Room is line height, never paragraph spacing:** spacing let a page
+      break fall inside it and the modes paginated differently (probe,
+      16 Oct). Size anywhere has to follow the same rule.
     - **Until step 17,** resizing text above ink moves lines out from under
       it, as typing a line already does.
 11. **iPhone and Duo layouts**, on the chrome from step 5. The Duo is out

@@ -92,10 +92,20 @@ extension NoteTypography {
     /// Body text.
     var prose: UIFont { font(for: .body) }
 
-    /// Monospaced at body's size, so a line of code is as tall as a line of
-    /// prose.
+    /// A code block's text: monospaced, 15pt beside a 17pt body and in
+    /// proportion at the other sizes, to the half point. A monospaced face
+    /// at body size is wide, and a block wrapped after about 65 characters;
+    /// at this size it is about 73 (step 10, 16 Oct). Inline code stays at
+    /// the size of the text around it.
     var code: UIFont {
-        UIFont.monospacedSystemFont(ofSize: prose.pointSize, weight: .regular)
+        UIFont.monospacedSystemFont(ofSize: (prose.pointSize * 15 / 17 * 2).rounded() / 2, weight: .regular)
+    }
+
+    /// How tall a line of code is: a line of prose, leading and all (22pt at
+    /// 17), so code keeps the page's rhythm though its type is smaller, and
+    /// the room left over is air between its lines.
+    var codeLineHeight: CGFloat {
+        prose.lineHeight + prose.leading
     }
 
     /// Headings are bold, at the sizes the text styles have at this step.

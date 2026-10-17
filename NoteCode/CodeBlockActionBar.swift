@@ -9,28 +9,25 @@
 
 import UIKit
 
-/// Two buttons floating over the first line of a code block.
+/// Two buttons in a code block's header, at its right end.
 ///
-/// They live on the fence line because that line is nearly always short — a
-/// fence and a language tag — so the right-hand end of it is empty space that
-/// would otherwise be wasted, and putting them there costs the code itself no
-/// room at all.
+/// The header is the opening fence's line, which is nearly always short — a
+/// fence and a language tag — so its right-hand end is free, and the buttons
+/// cost the code itself no room at all. Since step 10 the header is taller
+/// than a line of code (`CodeBlockRoom.headerHeight`), so they sit inside it
+/// rather than overhanging the lines above and below.
 final class CodeBlockActionBar: UIView {
 
     var onRun: (() -> Void)?
     var onCopy: (() -> Void)?
 
     /// Side of one square button.
-    ///
-    /// Larger than the 20pt line it sits on, which is deliberate: a 20pt target
-    /// is too small to hit reliably, and overhanging a few points at each end
-    /// is invisible because the panel behind it is one flat colour.
-    static let buttonSide: CGFloat = 28
+    static let buttonSide: CGFloat = 32
 
-    static let spacing: CGFloat = 2
+    static let spacing: CGFloat = 4
 
     /// Gap between the copy button and the right edge of the panel.
-    static let margin: CGFloat = 6
+    static let margin: CGFloat = 8
 
     static var size: CGSize {
         CGSize(width: buttonSide * 2 + spacing, height: buttonSide)
@@ -151,15 +148,14 @@ final class CodeBlockActionBar: UIView {
     /// Right-aligned against the panel rather than against the text, because
     /// the panel is what the student sees as the block's edge — the text on the
     /// fence line stops after the language tag. Vertically it centres on the
-    /// line, which lets it overhang a little at each end rather than pushing
-    /// the code down.
+    /// header.
     ///
     /// - Parameters:
     ///   - panelRight: the panel's right edge. The panel spans the text
-    ///     container, not the glyphs, so this comes from the text view's width
-    ///     and inset — see `CodeBlockLayoutFragment`.
-    ///   - lineFrame: the first line's layout fragment frame, already moved
-    ///     into content coordinates.
+    ///     column and the room beside it, not the glyphs, so this comes from
+    ///     the text container — see `CodeBlockRoom`.
+    ///   - lineFrame: the block's header (`CodeBlockRoom.header`), already
+    ///     moved into content coordinates.
     static func frame(size: CGSize, panelRight: CGFloat, lineFrame: CGRect) -> CGRect {
         CGRect(
             x: panelRight - margin - size.width,

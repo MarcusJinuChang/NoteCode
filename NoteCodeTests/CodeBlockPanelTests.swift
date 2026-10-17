@@ -287,24 +287,26 @@ struct CodeBlockPanelTests {
 
     // MARK: Unchanged behaviour
 
-    @Test("The block's outer edges keep their inset exactly", arguments: [2.0, 3.0] as [CGFloat])
+    /// The gaps above and below a block are inside its fence lines, never
+    /// paragraph spacing (see `CodeBlockRoom`), so the panel leaves them out.
+    @Test("The block's outer edges leave out the gaps around it exactly", arguments: [2.0, 3.0] as [CGFloat])
     func outerEdgesStayInset(scale: CGFloat) {
         let frames = Self.frames(lines: 4, origin: 7.3)
         let rects = Self.panels(lines: 4, origin: 7.3, scale: scale)
-        let inset = CodeBlockLayoutFragment.endInset
 
-        #expect(rects.first!.minY == frames.first!.minY + inset)
-        #expect(rects.last!.maxY == frames.last!.maxY - inset)
+        #expect(rects.first!.minY == frames.first!.minY + CodeBlockRoom.gapAbove)
+        #expect(rects.last!.maxY == frames.last!.maxY - CodeBlockRoom.gapBelow)
     }
 
     @Test("A one-paragraph block insets both ends")
     func singleParagraphBlock() {
-        let frame = Self.frames(lines: 1, origin: 0)[0]
-        let rect = Self.panels(lines: 1, origin: 0, scale: 2)[0]
-        let inset = CodeBlockLayoutFragment.endInset
+        let frame = CGRect(x: 8, y: 0, width: 500, height: 60)
+        let rect = CodeBlockLayoutFragment.panelRect(
+            frame: frame, position: .only, scale: 2, bottomInset: CodeBlockRoom.unclosedInset
+        )
 
-        #expect(rect.minY == frame.minY + inset)
-        #expect(rect.maxY == frame.maxY - inset)
+        #expect(rect.minY == frame.minY + CodeBlockRoom.gapAbove)
+        #expect(rect.maxY == frame.maxY - CodeBlockRoom.unclosedInset)
     }
 
     @Test("A nonsense scale still produces a usable rect", arguments: [0.0, -2.0] as [CGFloat])

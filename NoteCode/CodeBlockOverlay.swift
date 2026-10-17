@@ -119,9 +119,14 @@ final class CodeBlockOverlay {
         }
 
         let inset = textView.textContainerInset
-        // The panel spans the text container rather than the glyphs, so its
-        // right edge comes from the view, not from the fragment.
-        let panelRight = textView.bounds.width - inset.right
+        // The panel spans the text column and the room beside it rather than
+        // the glyphs, so its right edge comes from the container, not from
+        // the fragment.
+        let container = textView.textContainer
+        let panelRight = inset.left + CodeBlockRoom.panelSpan(
+            textLeft: container.lineFragmentPadding,
+            textRight: container.size.width - container.lineFragmentPadding
+        ).right
         let documentStart = contentManager.documentRange.location
 
         layoutManager.enumerateTextLayoutFragments(
@@ -137,13 +142,15 @@ final class CodeBlockOverlay {
                 // a new page keeps a fragment frame beginning above the page
                 // break, with its line pushed down inside it, and centring on
                 // the frame put the buttons in the gap between two sheets.
+                // And of that line, the header: the rest is the gap above the
+                // panel.
                 let frame = fragment.layoutFragmentFrame
                 let firstLine = fragment.textLineFragments.first.map {
                     $0.typographicBounds.offsetBy(dx: frame.minX, dy: frame.minY)
                 } ?? frame
                 place(
                     index,
-                    lineFrame: firstLine.offsetBy(dx: inset.left, dy: inset.top),
+                    lineFrame: CodeBlockRoom.header(ofFenceLine: firstLine.offsetBy(dx: inset.left, dy: inset.top)),
                     panelRight: panelRight
                 )
             }

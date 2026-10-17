@@ -130,6 +130,15 @@ nonisolated enum FenceTag {
         return tag.isEmpty ? "Plain Text" : tag
     }
 
+    /// The same, from an opening fence's line: for paper, where there is no
+    /// button and the header would otherwise be empty. The tag is the info
+    /// string's first word, as `CodeRange.tag` has it.
+    static func label(ofFenceLine line: String) -> String {
+        let info = line.trimmingCharacters(in: .whitespacesAndNewlines).drop { $0 == "`" }
+        let tag = info.split(whereSeparator: { $0 == " " || $0 == "\t" }).first.map(String.init) ?? ""
+        return label(language: CodeLanguage(tag: tag), tag: tag)
+    }
+
     /// The edit that points an opening fence at `language`, `nil` for plain
     /// text. Returns `nil` when the fence is already as wanted, or isn't one.
     ///

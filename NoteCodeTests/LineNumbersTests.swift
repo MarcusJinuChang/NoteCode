@@ -183,12 +183,14 @@ struct LineNumbersTests {
 
     // MARK: What's drawn
 
-    /// The ink in a column of the text view, left of the page's text, beside
-    /// one line: the digits are secondaryLabel on the page, and nothing else
-    /// is out there.
+    /// The ink in a column of the text view, left of the page's text and of
+    /// the code panel, which reaches into the margin (`CodeBlockRoom`),
+    /// beside one line: the digits are secondaryLabel on the page, and
+    /// nothing else is out there.
     private func marginInk(_ harness: Harness, besides text: String) -> Int {
         let line = harness.rect(of: text)
-        let margin = CGRect(x: 4, y: line.minY, width: PageLayout.margin - 4, height: line.height)
+        let panelLeft = PageLayout.margin + harness.textView.textContainer.lineFragmentPadding - CodeBlockRoom.outset
+        let margin = CGRect(x: 4, y: line.minY, width: panelLeft - 8, height: line.height)
         return CodeFenceDisplayTests.inkPixels(of: harness.textView, in: margin)
     }
 
@@ -231,7 +233,7 @@ struct LineNumbersTests {
         try await harness.settle()
 
         // The rightmost ink column beside "x2;" (one digit) and "x12;" (two). Both end in a 2: a 1 has more space to its right, in its own cell.
-        let panelLeft = harness.rect(of: "x2;").minX
+        let panelLeft = harness.rect(of: "x2;").minX - CodeBlockRoom.outset
         func rightEdge(_ text: String) throws -> CGFloat {
             let line = harness.rect(of: text, backwards: false)
             // Up to just short of the panel, so the code isn't in it.
@@ -270,7 +272,7 @@ struct LineNumbersTests {
                 // TextKit clips a fragment to this; a layer render doesn't
                 // apply the clip, so the pixel tests can't see it.
                 let widest = ("99999" as NSString).size(withAttributes: [.font: CodeBlockLayoutFragment.lineNumberFont]).width
-                #expect(code.renderingSurfaceBounds.minX <= -(CodeBlockLayoutFragment.lineNumberGap + widest))
+                #expect(code.renderingSurfaceBounds.minX <= -(CodeBlockRoom.outset + CodeBlockLayoutFragment.lineNumberGap + widest))
                 #expect(code.renderingSurfaceBounds.minX >= -(PageLayout.margin + 5), "no further than the page's margin")
                 checked += 1
             }

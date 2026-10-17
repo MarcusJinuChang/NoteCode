@@ -111,6 +111,21 @@ struct CodeFenceDisplayTests {
             rect.insetBy(dx: 6, dy: 5)
         }
 
+        /// The same for the opening fence's line, whose top is the gap above
+        /// the panel (`CodeBlockRoom`): its header.
+        func headerInterior(of rect: CGRect) -> CGRect {
+            interior(of: CodeBlockRoom.header(ofFenceLine: rect))
+        }
+
+        /// The same for the closing fence's line, whose bottom is the gap
+        /// below the panel: its footer, which is shallow, so inset less.
+        /// `firstRect` reaches half a point past the line, so the footer's
+        /// bottom is the panel's edge less that, and 2pt clears it.
+        func footerInterior(of rect: CGRect) -> CGRect {
+            CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height - CodeBlockRoom.gapBelow)
+                .insetBy(dx: 6, dy: 2)
+        }
+
         var languageButton: CodeBlockLanguageButton? {
             textView.subviews.compactMap { $0 as? CodeBlockLanguageButton }.first
         }
@@ -230,7 +245,7 @@ struct CodeFenceDisplayTests {
           arguments: [UIUserInterfaceStyle.light, .dark])
     func closingFence(style: UIUserInterfaceStyle) async throws {
         let harness = Harness(style: style)
-        let fence = harness.interior(of: harness.rect(of: "```", backwards: true))
+        let fence = harness.footerInterior(of: harness.rect(of: "```", backwards: true))
 
         try await harness.caret(at: 2)
         let away = Self.inkPixels(of: harness.textView, in: fence)
@@ -258,7 +273,7 @@ struct CodeFenceDisplayTests {
     @Test("Always keeps the fences drawn with the caret elsewhere")
     func always() async throws {
         let harness = Harness(showMarkdown: .always)
-        let fence = harness.interior(of: harness.rect(of: "```", backwards: true))
+        let fence = harness.footerInterior(of: harness.rect(of: "```", backwards: true))
         try await harness.caret(at: 2)
         #expect(Self.inkPixels(of: harness.textView, in: fence) > 20)
         #expect(harness.languageButton?.isHidden != false, "no language button while the markdown shows")
@@ -289,7 +304,7 @@ struct CodeFenceDisplayTests {
             return try #require(NSTextRange(location: start, end: end))
         }
 
-        let line = harness.interior(of: harness.rect(of: "```cpp"))
+        let line = harness.headerInterior(of: harness.rect(of: "```cpp"))
         #expect(Self.inkPixels(of: harness.textView, in: line) > 20, "drawn before")
 
         var viewportLayouts = 0
@@ -307,7 +322,7 @@ struct CodeFenceDisplayTests {
         try await harness.caret(at: harness.offset(of: "int other") + 3)
         Self.redrawAll(in: harness.textView)
         try await harness.settle()
-        let replaced = harness.interior(of: harness.rect(of: "```python"))
+        let replaced = harness.headerInterior(of: harness.rect(of: "```python"))
         #expect(Self.inkPixels(of: harness.textView, in: replaced) > 20, "the replaced tag is drawn again")
     }
 
@@ -386,10 +401,11 @@ struct CodeFenceDisplayTests {
         #expect(button.isEnabled)
         #expect(button.configuration?.title == "C++")
 
-        let fence = harness.rect(of: "```cpp")
+        // The header: the fence's line, less the gap above the block.
+        let fence = CodeBlockRoom.header(ofFenceLine: harness.rect(of: "```cpp"))
         #expect(abs(button.frame.minX + CodeBlockLanguageButton.horizontalInset - fence.minX) < 1.5,
                 "the name should start where the fence's glyphs did: button \(button.frame), fence \(fence)")
-        #expect(abs(button.frame.midY - fence.midY) < 2, "centred on the fence line: button \(button.frame), fence \(fence)")
+        #expect(abs(button.frame.midY - fence.midY) < 2, "centred in the header: button \(button.frame), header \(fence)")
         #expect(button.frame.maxX <= (harness.textView.subviews.compactMap { $0 as? CodeBlockActionBar }.first?.frame.minX ?? 0),
                 "it stops short of the run and copy buttons")
     }
@@ -503,7 +519,7 @@ struct CodeFenceDisplayTests {
         try await harness.settle()
         #expect(harness.languageButton?.isHidden == false)
         #expect(harness.languageButton?.isEnabled == true, "ink mode isn't a lock: the names aren't dimmed")
-        let fence = harness.interior(of: harness.rect(of: "```", backwards: true))
+        let fence = harness.footerInterior(of: harness.rect(of: "```", backwards: true))
         #expect(Self.inkPixels(of: harness.textView, in: fence) == 0)
 
         harness.editor.setMode(.text)
