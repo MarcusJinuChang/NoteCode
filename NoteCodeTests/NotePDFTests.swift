@@ -150,7 +150,11 @@ struct NotePDFTests {
             UIGraphicsPushContext(context)
             UITraitCollection(userInterfaceStyle: .light).performAsCurrent {
                 for paragraph in paragraphs.reversed() {
-                    paragraph.fragment.draw(at: paragraph.fragment.layoutFragmentFrame.origin, in: context)
+                    let origin = paragraph.fragment.layoutFragmentFrame.origin
+                    paragraph.fragment.draw(at: origin, in: context)
+                    // The language's name, which the screen shows in a button
+                    // over the header and paper draws itself.
+                    (paragraph.fragment as? CodeBlockLayoutFragment)?.drawHeaderLabel(at: origin, in: context)
                 }
             }
             UIGraphicsPopContext()

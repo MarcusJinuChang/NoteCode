@@ -36,6 +36,9 @@ final class CodeBlockLanguageButton: UIButton {
     /// The least a button is wide: "C++" alone is under 30pt.
     static let minimumWidth: CGFloat = 44
 
+    /// The name's face, which paper draws too (`drawHeaderLabel`).
+    static let titleFont = UIFont.systemFont(ofSize: 13, weight: .semibold)
+
     override init(frame: CGRect) {
         super.init(frame: frame)
 
@@ -47,7 +50,7 @@ final class CodeBlockLanguageButton: UIButton {
         configuration.titleLineBreakMode = .byTruncatingTail
         configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer {
             var attributes = $0
-            attributes.font = .systemFont(ofSize: 13, weight: .semibold)
+            attributes.font = CodeBlockLanguageButton.titleFont
             return attributes
         }
         self.configuration = configuration
@@ -118,8 +121,8 @@ final class CodeBlockLanguageButton: UIButton {
 
     /// Where the button sits: its name starts where the code does.
     ///
-    /// - Parameter lineFrame: the first line's frame, in the text view's
-    ///   content coordinates.
+    /// - Parameter lineFrame: the block's header (`CodeBlockRoom.header`), in
+    ///   the text view's content coordinates.
     static func frame(size: CGSize, lineFrame: CGRect, maximumWidth: CGFloat) -> CGRect {
         CGRect(
             x: lineFrame.minX - horizontalInset,

@@ -36,10 +36,17 @@ enum DocumentStyler {
     /// No `.backgroundColor` here on purpose. That attribute paints per glyph,
     /// which leaves the ragged right edge this project started with;
     /// CodeBlockLayoutFragment draws the panel at fragment level instead.
+    ///
+    /// The paragraph style is a code line's height (`CodeBlockRoom`), here
+    /// rather than added after, so a line made by typing Return in a block
+    /// is as tall as its neighbours before the restyle reaches it. Its
+    /// continuation indent is an unindented line's; `applyCodeLineIndents`
+    /// gives each line its own.
     static func codeAttributes(_ typography: NoteTypography = .standard) -> [NSAttributedString.Key: Any] {
         [
             .font: typography.code,
             .foregroundColor: UIColor.label,
+            .paragraphStyle: unindentedCodeLine(typography),
         ]
     }
 
@@ -48,7 +55,15 @@ enum DocumentStyler {
         [
             .font: typography.code,
             .foregroundColor: CodeOutputPanel.textColor,
+            .paragraphStyle: unindentedCodeLine(typography),
         ]
+    }
+
+    private static func unindentedCodeLine(_ typography: NoteTypography) -> NSParagraphStyle {
+        CodeBlockRoom.codeLine(
+            height: typography.codeLineHeight,
+            continuation: CodeBlockRoom.continuationIndent(leading: 0, advance: CodeBlockRoom.advance(of: typography.code))
+        )
     }
 
     static func headingAttributes(level: Int, typography: NoteTypography = .standard) -> [NSAttributedString.Key: Any] {
@@ -223,6 +238,9 @@ enum DocumentStyler {
                 for marker in layout.blockMarkers {
                     styled.addAttribute(.foregroundColor, value: output ? CodeOutputPanel.labelColor : markerColor, range: marker)
                 }
+                // The fences last, so nothing else's style can land on them.
+                applyCodeLineIndents(to: styled, code: layout.contentRange, typography: typography)
+                applyFenceRoom(to: styled, block: layout.range, isClosed: code.isClosed, font: typography.code)
 
             case .paragraph:
                 apply(layout.inlines, over: typography.prose, to: styled)
@@ -273,6 +291,58 @@ enum DocumentStyler {
         storage.endEditing()
 
         return signatures
+    }
+
+    /// Gives a code block's fence lines their room: the opening fence the gap
+    /// above the panel and its header, the closing fence the footer and the
+    /// gap below (`CodeBlockRoom`).
+    ///
+    /// The fences are found as paragraphs, the block's first and, when it is
+    /// closed, its last: a paragraph style belongs to a whole paragraph, and
+    /// the block's markers end where its code begins rather than at a newline.
+    private static func applyFenceRoom(to styled: NSMutableAttributedString, block: NSRange, isClosed: Bool, font: UIFont) {
+        guard block.length > 0 else { return }
+        let string = styled.string as NSString
+
+        func apply(_ style: CodeBlockRoom.LineStyle, to paragraph: NSRange) {
+            styled.addAttribute(.paragraphStyle, value: style.paragraph, range: paragraph)
+            styled.addAttribute(.baselineOffset, value: style.baselineOffset, range: paragraph)
+        }
+
+        let opening = string.paragraphRange(for: NSRange(location: block.location, length: 0))
+        apply(CodeBlockRoom.openingFence(font: font), to: opening)
+
+        guard isClosed else { return }
+        let closing = string.paragraphRange(for: NSRange(location: block.location + block.length - 1, length: 0))
+        guard closing.location > opening.location else { return }
+        apply(CodeBlockRoom.closingFence(font: font), to: closing)
+    }
+
+    /// Gives each line of code its own continuation indent: a line that
+    /// wraps continues past its own indentation (`CodeBlockRoom`), so the
+    /// rest of it never reads as the next line.
+    ///
+    /// Whole paragraphs, newline included: a paragraph style belongs to a
+    /// paragraph, the storage makes every character of one take its first
+    /// character's, and a newline left with another would differ from the
+    /// storage on every restyle and be written, and laid out, every time.
+    private static func applyCodeLineIndents(to styled: NSMutableAttributedString, code: NSRange, typography: NoteTypography) {
+        guard code.length > 0 else { return }
+        let string = styled.string as NSString
+        let advance = CodeBlockRoom.advance(of: typography.code)
+        let height = typography.codeLineHeight
+        var styles: [CGFloat: NSParagraphStyle] = [:]
+
+        string.enumerateSubstrings(in: string.paragraphRange(for: code), options: .byParagraphs) { line, _, paragraph, _ in
+            guard let line else { return }
+            let continuation = CodeBlockRoom.continuationIndent(
+                leading: CodeBlockRoom.leadingWidth(of: line, advance: advance),
+                advance: advance
+            )
+            let style = styles[continuation] ?? CodeBlockRoom.codeLine(height: height, continuation: continuation)
+            styles[continuation] = style
+            styled.addAttribute(.paragraphStyle, value: style, range: paragraph)
+        }
     }
 
     // MARK: Incremental restyling

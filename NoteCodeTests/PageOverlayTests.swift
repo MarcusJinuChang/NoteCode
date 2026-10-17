@@ -122,7 +122,10 @@ struct PageOverlayTests {
     func barsAtPanelEdge() throws {
         let harness = Harness(Self.note, area: CGSize(width: 872, height: 1200))
         let textView = harness.page.textView
-        let panelRight = textView.bounds.width - textView.textContainerInset.right
+        // The text column's right edge, and the panel's reach past it into
+        // the margin (`CodeBlockRoom`).
+        let textRight = textView.bounds.width - textView.textContainerInset.right - textView.textContainer.lineFragmentPadding
+        let panelRight = textRight + CodeBlockRoom.outset
 
         let bar = try #require(harness.visibleBars.first)
         #expect(abs(bar.frame.maxX - (panelRight - CodeBlockActionBar.margin)) < 0.5)

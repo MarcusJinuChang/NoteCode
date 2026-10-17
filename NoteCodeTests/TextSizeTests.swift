@@ -67,7 +67,7 @@ struct TextSizeFontTests {
             #expect(typography.prose.pointSize == CGFloat(size), "\(size): the step's body size")
             #expect(typography.prose.lineHeight == body.lineHeight, "\(size): line height")
             #expect(typography.prose.leading == body.leading, "\(size): the system's leading, which systemFont(ofSize:) lacks")
-            #expect(typography.code.pointSize == CGFloat(size), "\(size): code is monospaced at the body's size")
+            #expect(typography.code.pointSize == (CGFloat(size) * 15 / 17 * 2).rounded() / 2, "\(size): code is 15/17 of the body (step 10)")
 
             let styles: [UIFont.TextStyle] = [.largeTitle, .title1, .title2, .title3, .headline, .subheadline]
             for (index, style) in styles.enumerated() {
@@ -95,7 +95,7 @@ struct TextSizeFontTests {
     func lineNumbers() {
         for size in NoteTypography.sizes {
             let typography = NoteTypography(bodySize: size)
-            #expect(typography.lineNumber.pointSize == (CGFloat(size) * 0.85 * 2).rounded() / 2)
+            #expect(typography.lineNumber.pointSize == (typography.code.pointSize * 0.85 * 2).rounded() / 2)
         }
         #expect(CodeBlockLayoutFragment.lineNumberFont == NoteTypography.standard.lineNumber)
     }

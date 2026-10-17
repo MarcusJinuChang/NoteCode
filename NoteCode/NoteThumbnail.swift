@@ -24,7 +24,7 @@ nonisolated enum NoteThumbnail {
     /// Bumped when the picture changes for a reason other than the note, so
     /// thumbnails made the old way aren't shown (phase 3's hidden markers will
     /// change how every note's first page looks).
-    static let version = 2
+    static let version = 3
 
     /// Pixels per page point: a Letter page is 449 by 581.
     ///

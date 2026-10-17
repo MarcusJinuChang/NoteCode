@@ -402,7 +402,13 @@ final class PrintedNote {
                 // Paper has no caret, so no block is being edited: a code
                 // block's fence lines are never printed. They keep their
                 // lines, as on screen, and so does everything below them.
-                if code?.isFence == true { continue }
+                // The header gets the language's name, as on screen.
+                if let code, code.isFence {
+                    if let first = code.textLineFragments.first, paragraph.lines.contains(where: { $0 === first }) {
+                        code.drawHeaderLabel(at: origin, in: context)
+                    }
+                    continue
+                }
                 // A paragraph split by a page break is numbered on the page
                 // its first line is on, once.
                 if let code, let first = code.textLineFragments.first,
@@ -412,6 +418,7 @@ final class PrintedNote {
                 for line in paragraph.lines {
                     let bounds = line.typographicBounds
                     line.draw(at: CGPoint(x: origin.x + bounds.minX, y: origin.y + bounds.minY), in: context)
+                    code?.drawWrapMark(for: line, at: origin, in: context)
                 }
                 // A checklist's box, with its item's first line. Hashes in
                 // the margin are never printed: nothing here draws them.

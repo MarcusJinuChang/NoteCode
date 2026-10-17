@@ -1182,7 +1182,7 @@ v3 phase 3 (12 Oct, `docs/ui-design-v3-implementation.md`).
     paper breaks lines where the screen doesn't. `NoteEditor.rendersMarkdown`
     carries it from the coordinator. A thumbnail's cache name has `-r` for a
     rendered note, since hiding markers isn't an edit and leaves `modifiedAt`
-    alone, and `NoteThumbnail.version` is 2.
+    alone, and `NoteThumbnail.version` was 2 (3 since step 10's code blocks).
   - **The parser got stricter on the way** (`InlineParser`): an emphasis span
     can't start with a space or end after one, and `_` can't open or close
     inside a word. `2 * 3 * 4`, `int *p and *q` and `snake_case_name` were
@@ -1912,17 +1912,104 @@ phase 5 of `docs/ui-design-v2-implementation.md`). Pure rules are in
   the fence in the marker colour instead, and no button. There was an accent
   ring round the block being edited until 13 Oct; Marcus found it ugly and it
   went (`CodeFenceDisplayTests.noRing` pixel-checks the edge). The PDF never
-  prints fence lines (`NotePDF` skips `isFence`).
+  prints fence glyphs (`NotePDF` skips `isFence`); since step 10 it prints
+  the language's name in the header instead.
 - **Undo and redo pass the keyboard-rewrite guard.** Undoing a retag puts text
   back by replacing it inside a code line, which is what a keyboard
   correction looks like, so `shouldChangeTextIn` turned it away and spent
   the undo step. Found by the retag's undo test.
-- The panel starts at the fragment's x, 5pt in from the container, and
-  code text starts at that edge too: the first glyph touches the panel's edge.
+- The panel reaches 14pt past the text column into each margin, and the
+  code starts on the column (see "Code blocks: room around and inside").
 - **Not checked:** a real tap on the name, the menu on the iPad, fast typing
   into a new block, a paste, a block scrolled out of view while its state
   changes (it draws its state when it returns, since it asks at draw time),
   find highlights on a hidden fence, or the Pencil.
+
+## Code blocks: room around and inside
+
+Roadmap step 10, first part (16 Oct, branch `claude/code-block-room`): the
+run and copy buttons had no room and the block looked cramped. The numbers
+are `CodeBlockRoom`'s.
+
+- **Code blocks stay paragraphs of the one text.** An embedded view per
+  block would free its chrome, but a block would be one line that can't
+  split, so a block longer than a page couldn't cross a page break, and
+  selection, Find, undo, the PDF and the hidden markers all assume one text.
+- **The panel reaches 14pt into each margin** (`outset`); the code keeps the
+  prose column, so it wraps where it would with no panel and nothing moves
+  sideways. The fragment's rendering surface reaches as far, the overlay's
+  `panelRight` matches, and line numbers sit 16pt left of the panel's edge.
+- **Room above and below is line height, never paragraph spacing.**
+  Measured 16 Oct, sweeping a block a line at a time across the first page
+  break (25 placements): 18pt of `paragraphSpacingBefore` on an opening fence
+  put the block 13.3pt down its page in seamless and at the top of it in
+  compressed and print, and every line after it moved with it. TextKit keeps
+  paragraph spacing outside the line, so seamless's 1pt band and print's
+  168pt one disagree about whether the line fits; a line is pushed across a
+  break whole. `CodeBlockRoomTests.paginatesAlike` is that sweep with the
+  real styler, and taller fence lines passed it in the probe where spacing
+  failed.
+  - The opening fence's line is the 12pt gap above the panel and a 40pt
+    header; the closing fence's is a footer (0.8 of the code size, 12pt at
+    the default) and the 12pt gap below. Both are fixed heights (minimum =
+    maximum), set by `DocumentStyler.applyFenceRoom` on the fences as
+    paragraphs.
+  - **Their glyphs are lifted with `baselineOffset`**, since a taller line
+    puts its extra height above the glyphs. TextKit's rule, measured: a
+    fixed-height line whose baseline is raised past the font's descent loses
+    that descent and ends at the baseline, the glyphs drawn `baselineOffset`
+    above it. So each style asks for its height plus the descent, and
+    `CodeBlockRoomTests.lineHeights` checks the laid-out heights. The opening
+    fence's glyphs are centred (by cap height) in the header, where the
+    language button stands; the closing fence's backticks, which sit high,
+    are centred in the footer.
+- **Code is 15pt beside a 17pt body** (`NoteTypography.code`: 15/17 of the
+  body at every size, to the half point) on the prose's 22pt line
+  (`codeLineHeight`): about 73 columns before a wrap instead of 65, and air
+  between lines. Inline code keeps the size of the text around it. The code
+  line's paragraph style is in `codeAttributes`, so a line made by Return is
+  the right height before the restyle reaches it.
+- **The header** holds the language's name and Run and Copy, centred
+  (`CodeBlockRoom.header`); the buttons are 32pt, 8pt from the panel's edge,
+  and no longer overhang the lines around them. Corners are 10pt.
+- **The PDF prints the language's name in the header**
+  (`CodeBlockLayoutFragment.drawHeaderLabel`, `FenceTag.label(ofFenceLine:)`),
+  so a block on paper doesn't open with an empty row.
+- **A wrapped line of code continues past its own indentation, with a mark**
+  (suggested by the step 3 research, 16 Oct). Before, a continuation started
+  at column 0 and read as a statement of its own: `{ System.out.println…`
+  under `public static void main(…)`.
+  - **The indent** is a paragraph style per line
+    (`DocumentStyler.applyCodeLineIndents`): `headIndent` is the line's
+    leading spaces and tabs (tabs to TextKit's 28pt stops,
+    `CodeBlockRoom.leadingWidth`) plus 2 columns, never past 32. A
+    constant, not Settings › Code › Indent Width, which is per device and
+    would wrap one note differently on two iPads. Whole paragraphs, newline
+    included, or the storage's own fixing would differ from the styler's
+    copy and every restyle would write.
+  - **It restyles on any edit to the block**, since a code block's signature
+    carries a hash of its code. `indentFollowsEdits` edits the indentation
+    mid-line on purpose: at a line's start, the typed characters' typing
+    attributes carry an unindented line's style and become the paragraph's,
+    which passed the test with the hash taken out (mutation, 16 Oct).
+  - **The mark** is ↳ drawn in those 2 columns, just before each
+    continuation (`drawWrapMark`), in `tertiaryLabel` (the output panel's
+    label colour on a console), by the fragment on screen and line by line
+    in the PDF. Paint only. **A stroked path, not an SF Symbol:** a tinted
+    symbol image drew a grey box round itself in the PDF.
+- Every line below a code block moved, which is fine while no old notes are
+  kept (see "The model"). `NoteThumbnail.version` is 3.
+- **Checked in the simulator:** the 13-inch in light, seamless (margins,
+  header, gaps, a block being edited with its fences showing); the 11-inch at
+  0.96x in dark, print layout; a block split by compressed's page break and
+  an output block, dark; and a PDF of that note, both pages, the header's
+  name printed. **Mutation-checked** (16 Oct, each fails with its rule
+  broken): the gap as paragraph spacing (`paginatesAlike`, 5 of 55
+  placements), the lost descent left out (`lineHeights`), no outset
+  (`reachesIntoMargins`), glyphs not lifted (`fenceGlyphsInPlace`). **Not
+  checked:** the iPad, the Pencil, taps on Run, Copy and the language name,
+  typing a fence open and closed, a caret on a fence line, light print
+  layout, landscape, other text sizes on screen.
 
 ## Organising notes
 

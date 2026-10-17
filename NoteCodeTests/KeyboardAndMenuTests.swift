@@ -382,7 +382,8 @@ struct KeyboardAndMenuTests {
     @Test("Headings and code are fixed too, at the sizes the default setting gives")
     func headingsAndCodeAreFixed() {
         #expect(DocumentStyler.proseFont.pointSize == 17)
-        #expect(DocumentStyler.codeFont.pointSize == 17)
+        // Code is smaller than the body since step 10 (`NoteTypography.code`).
+        #expect(DocumentStyler.codeFont.pointSize == 15)
         // The system's own body font has leading (1.71pt); a plain system font
         // of the same size has none, and every line came out shorter, which
         // moved the page breaks of existing notes off their ink.
