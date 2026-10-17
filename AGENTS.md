@@ -2008,6 +2008,23 @@ are `CodeBlockRoom`'s.
     label colour on a console), by the fragment on screen and line by line
     in the PDF. Paint only. **A stroked path, not an SF Symbol:** a tinted
     symbol image drew a grey box round itself in the PDF.
+- **The caret is the font's height, not the line's** (17 Oct, reported on
+  the iPad). UIKit draws a caret the height of its line, a point above and
+  half a point below, which for prose is the font's own height. Every line
+  this section makes taller than its font got a tall caret: 23.5pt beside
+  15pt code, 53.5pt on an opening fence, and on a line holding larger sized
+  text, the large height beside the small letters too. `DocumentUITextView`
+  overrides `caretRect(for:)`: the font of the character before the caret
+  (or after it at a line's start), on the laid-out line's baseline less
+  the fence's lift, from a point above the ascender to half a point below
+  the leading (`CaretHeight`). Prose and headings come out exactly as UIKit
+  draws them. A fence's caret is kept on the panel
+  (`CodeBlockRoom.caretRoom`): the header has room for it, the 12pt footer
+  doesn't, so there it is the footer's height. The view's own tap handling
+  (blank lines, line ends, selection handles over links) measures lines,
+  so it uses UIKit's rect (`lineCaretRect`). `CaretHeightTests` fails
+  without the override. Seen in the simulator on a code line and both
+  fences; selection highlights are still the line's height.
 - Every line below a code block moved, which is fine while no old notes are
   kept (see "The model"). `NoteThumbnail.version` went to 3 here (4 since
   code is coloured light on a dark device).
