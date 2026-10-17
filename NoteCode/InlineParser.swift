@@ -20,19 +20,19 @@ nonisolated enum InlineParser {
     /// between markup become `.text`, so callers can walk the list without
     /// checking for holes. An unmatched marker is just text.
     ///
-    /// Colour is the one wrapper (step 10): a `<span style="color:#RRGGBB">`
-    /// and the `</span>` after it are found first, each becomes a node of
-    /// markers alone, and the text between them is parsed as any other. So
-    /// a coloured run can hold bold or a link, but a span can't cross its
-    /// edge, and colours don't nest.
+    /// A styled run is the one wrapper (step 10): a `<span style="…">` and
+    /// the `</span>` after it are found first (`SpanStyle`), each becomes a
+    /// node of markers alone, and the text between them is parsed as any
+    /// other. So a run can hold bold or a link, but a span can't cross its
+    /// edge, and runs don't nest.
     static func parse(_ text: String, in range: Range<String.Index>) -> [InlineNode] {
-        guard let pair = TextColour.firstPair(in: text, range: range) else {
+        guard let pair = SpanStyle.firstPair(in: text, range: range) else {
             return parseSpans(text, in: range)
         }
         return parseSpans(text, in: range.lowerBound..<pair.open.lowerBound)
-            + [InlineNode(kind: .colourOpen(hex: pair.hex), range: pair.open, contentRange: pair.open.upperBound..<pair.open.upperBound)]
+            + [InlineNode(kind: .spanOpen(pair.style), range: pair.open, contentRange: pair.open.upperBound..<pair.open.upperBound)]
             + parseSpans(text, in: pair.open.upperBound..<pair.close.lowerBound)
-            + [InlineNode(kind: .colourClose, range: pair.close, contentRange: pair.close.lowerBound..<pair.close.lowerBound)]
+            + [InlineNode(kind: .spanClose, range: pair.close, contentRange: pair.close.lowerBound..<pair.close.lowerBound)]
             + parse(text, in: pair.close.upperBound..<range.upperBound)
     }
 

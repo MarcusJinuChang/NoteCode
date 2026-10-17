@@ -345,20 +345,20 @@ enum DocumentStyler {
         }
     }
 
-    // MARK: Colour
+    // MARK: Colour and size
 
-    /// The stretches between each colour's opening tag and its closing one,
-    /// with the colour. The parser only makes the tags in pairs.
-    static func colourRuns(in inlines: [InlineLayout]) -> [(range: NSRange, hex: Int)] {
-        var runs: [(NSRange, Int)] = []
-        var open: (end: Int, hex: Int)?
+    /// The stretches between each run's opening tag and its closing one, with
+    /// its style. The parser only makes the tags in pairs.
+    static func styleRuns(in inlines: [InlineLayout]) -> [(range: NSRange, style: SpanStyle)] {
+        var runs: [(NSRange, SpanStyle)] = []
+        var open: (end: Int, style: SpanStyle)?
         for inline in inlines {
             switch inline.kind {
-            case .colourOpen(let hex):
-                open = (NSMaxRange(inline.markers.first ?? inline.contentRange), hex)
-            case .colourClose:
+            case .spanOpen(let style):
+                open = (NSMaxRange(inline.markers.first ?? inline.contentRange), style)
+            case .spanClose:
                 if let start = open, let tag = inline.markers.first {
-                    runs.append((NSRange(location: start.end, length: tag.location - start.end), start.hex))
+                    runs.append((NSRange(location: start.end, length: tag.location - start.end), start.style))
                 }
                 open = nil
             default:
@@ -366,6 +366,13 @@ enum DocumentStyler {
             }
         }
         return runs
+    }
+
+    /// The font a sized run's text is set in: the font around it, at the
+    /// run's size against it, so a heading's run is a larger heading.
+    static func font(_ base: UIFont, sizedTo size: SpanSize?) -> UIFont {
+        guard let size else { return base }
+        return base.withSize((base.pointSize * size.em * 2).rounded() / 2)
     }
 
     /// The colour a coloured run is drawn in: its hex, taken toward black on
@@ -575,13 +582,22 @@ enum DocumentStyler {
     ///
     /// Traits are derived from the block's own font rather than a fixed one, so
     /// bold inside a heading is a bold heading, not bold body text.
-    private static func apply(_ inlines: [InlineLayout], over baseFont: UIFont, to storage: NSMutableAttributedString) {
-        // Colour first, so what is inside a coloured run keeps its own: a
-        // link stays the link colour, a marker the marker colour.
-        for run in colourRuns(in: inlines) {
-            storage.addAttribute(.foregroundColor, value: textColour(hex: run.hex), range: run.range)
+    private static func apply(_ inlines: [InlineLayout], over blockFont: UIFont, to storage: NSMutableAttributedString) {
+        // Runs first, so what is inside one keeps its own: a link stays the
+        // link colour, a marker the marker colour, and bold is bold at the
+        // run's size.
+        for run in styleRuns(in: inlines) {
+            if let colour = run.style.colour {
+                storage.addAttribute(.foregroundColor, value: textColour(hex: colour), range: run.range)
+            }
+            if run.style.size != nil {
+                storage.addAttribute(.font, value: font(blockFont, sizedTo: run.style.size), range: run.range)
+            }
         }
 
+        // The font the spans build on: the block's, or a sized run's while
+        // the spans are inside one.
+        var baseFont = blockFont
         for inline in inlines where inline.kind != .text {
             switch inline.kind {
             case .strong:
@@ -602,7 +618,11 @@ enum DocumentStyler {
             case .link:
                 storage.addAttribute(.foregroundColor, value: linkColor, range: inline.contentRange)
                 storage.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: inline.contentRange)
-            case .text, .colourOpen, .colourClose:
+            case .spanOpen(let style):
+                baseFont = font(blockFont, sizedTo: style.size)
+            case .spanClose:
+                baseFont = blockFont
+            case .text:
                 break
             }
 

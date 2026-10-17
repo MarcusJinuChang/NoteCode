@@ -14,8 +14,8 @@ struct TextColourTests {
 
     static let red = TextColour.red.hex
     static let blue = TextColour.blue.hex
-    static func tag(_ hex: Int) -> String { TextColour.openTag(hex: hex) }
-    static let close = TextColour.close
+    static func tag(_ hex: Int) -> String { SpanStyle(colour: hex).openTag }
+    static let close = SpanStyle.close
 
     static func kinds(_ line: String) -> [InlineNode.Kind] {
         DocumentParser.parse(line).first?.inlines.map(\.kind) ?? []
@@ -30,7 +30,7 @@ struct TextColourTests {
     @Test("A run is two tags of markers with ordinary spans between them")
     func parsesARun() {
         let line = "a \(Self.tag(Self.red))red **bold**\(Self.close) b"
-        #expect(Self.kinds(line) == [.text, .colourOpen(hex: Self.red), .text, .strong, .colourClose, .text])
+        #expect(Self.kinds(line) == [.text, .spanOpen(SpanStyle(colour: Self.red)), .text, .strong, .spanClose, .text])
         #expect(Self.texts(line) == ["a ", Self.tag(Self.red), "red ", "**bold**", Self.close, " b"])
 
         // The tags are markers, wholly: nothing of them is content.
@@ -42,7 +42,7 @@ struct TextColourTests {
     @Test("The tag is written in one shape, its hex read in either case")
     func tagShape() {
         #expect(Self.tag(0x0A0B0C) == "<span style=\"color:#0A0B0C\">")
-        #expect(Self.kinds("<span style=\"color:#e5484d\">x</span>").contains(.colourOpen(hex: Self.red)))
+        #expect(Self.kinds("<span style=\"color:#e5484d\">x</span>").contains(.spanOpen(SpanStyle(colour: Self.red))))
     }
 
     @Test("Anything else is text", arguments: [
@@ -55,15 +55,15 @@ struct TextColourTests {
         "<span style=\"color:#E5484\">a</span>",
     ])
     func notColour(line: String) {
-        #expect(!Self.kinds(line).contains { $0.isColourTag }, "\(line)")
+        #expect(!Self.kinds(line).contains { $0.isSpanTag }, "\(line)")
     }
 
     @Test("Two runs on a line, and a run in a heading and a list item")
     func severalRuns() {
         let two = "\(Self.tag(Self.red))a\(Self.close) and \(Self.tag(Self.blue))b\(Self.close)"
-        #expect(Self.kinds(two) == [.colourOpen(hex: Self.red), .text, .colourClose, .text, .colourOpen(hex: Self.blue), .text, .colourClose])
-        #expect(Self.kinds("# \(Self.tag(Self.red))Title\(Self.close)").contains(.colourOpen(hex: Self.red)))
-        #expect(Self.kinds("- \(Self.tag(Self.red))item\(Self.close)").contains(.colourOpen(hex: Self.red)))
+        #expect(Self.kinds(two) == [.spanOpen(SpanStyle(colour: Self.red)), .text, .spanClose, .text, .spanOpen(SpanStyle(colour: Self.blue)), .text, .spanClose])
+        #expect(Self.kinds("# \(Self.tag(Self.red))Title\(Self.close)").contains(.spanOpen(SpanStyle(colour: Self.red))))
+        #expect(Self.kinds("- \(Self.tag(Self.red))item\(Self.close)").contains(.spanOpen(SpanStyle(colour: Self.red))))
     }
 
     @Test("A span can't cross a run's edge")
@@ -74,7 +74,7 @@ struct TextColourTests {
 
     @Test("A recolour changes the block's signature, though no length changes")
     func recolourChangesTheSignature() {
-        #expect(InlineNode.Kind.colourOpen(hex: Self.red).discriminant != InlineNode.Kind.colourOpen(hex: Self.blue).discriminant)
+        #expect(InlineNode.Kind.spanOpen(SpanStyle(colour: Self.red)).discriminant != InlineNode.Kind.spanOpen(SpanStyle(colour: Self.blue)).discriminant)
     }
 
     @Test("Every colour reads at 4.5:1 or better on the page in both appearances")
@@ -255,9 +255,9 @@ struct TextColourLayoutTests {
 
     static let red = TextColour.red.hex
     static let note = [
-        "A paragraph with \(TextColour.openTag(hex: red))red words and **bold**\(TextColour.close) in it, long enough that it wraps onto a second line on the page.",
-        "# A \(TextColour.openTag(hex: TextColour.blue.hex))blue\(TextColour.close) heading",
-        "- an item ending in \(TextColour.openTag(hex: TextColour.green.hex))green\(TextColour.close)",
+        "A paragraph with \(SpanStyle(colour: red).openTag)red words and **bold**\(SpanStyle.close) in it, long enough that it wraps onto a second line on the page.",
+        "# A \(SpanStyle(colour: TextColour.blue.hex).openTag)blue\(SpanStyle.close) heading",
+        "- an item ending in \(SpanStyle(colour: TextColour.green.hex, size: .large).openTag)green\(SpanStyle.close)",
         "plain",
         "",
     ].joined(separator: "\n")
@@ -271,10 +271,10 @@ struct TextColourLayoutTests {
         let hidden = MarkdownLayout.runs(for: DocumentParser.parse(source), in: source).filter { $0.kind == .joiners }.map(\.range)
         let ns = source as NSString
         var tags: [NSRange] = []
-        for pattern in [TextColour.openPrefix, TextColour.close] {
+        for pattern in [SpanStyle.tagPrefix, SpanStyle.close] {
             var from = 0
             while case let found = ns.range(of: pattern, range: NSRange(location: from, length: ns.length - from)), found.location != NSNotFound {
-                let end = pattern == TextColour.close ? NSMaxRange(found) : NSMaxRange(ns.range(of: TextColour.openSuffix, range: NSRange(location: found.location, length: ns.length - found.location)))
+                let end = pattern == SpanStyle.close ? NSMaxRange(found) : NSMaxRange(ns.range(of: SpanStyle.tagSuffix, range: NSRange(location: found.location, length: ns.length - found.location)))
                 tags.append(NSRange(location: found.location, length: end - found.location))
                 from = end
             }

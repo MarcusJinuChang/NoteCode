@@ -192,10 +192,10 @@ extension MarkdownFormatting {
         var innerMarkers: [NSRange] = []
         for inline in block.inlines {
             switch inline.kind {
-            case .colourOpen:
+            case .spanOpen:
                 openTag = absolute(inline.range)
                 innerMarkers = []
-            case .colourClose:
+            case .spanClose:
                 guard let open = openTag else { continue }
                 openTag = nil
                 let close = absolute(inline.range)
@@ -226,7 +226,7 @@ extension MarkdownFormatting {
             }
         }
 
-        for inline in block.inlines where inline.kind != .text && !inline.kind.isColourTag {
+        for inline in block.inlines where inline.kind != .text && !inline.kind.isSpanTag {
             let whole = absolute(inline.range)
             let content = absolute(inline.contentRange)
             // In front of the closing markers, inside them, or just past them.
@@ -347,9 +347,12 @@ extension MarkdownFormatting {
         var code = false
         var strikethrough = false
         var link = false
-        /// The colour of the coloured run the caret is in (`TextColour`),
-        /// or `nil` for none.
+        /// The colour of the run the caret is in (`TextColour`), or `nil`
+        /// for none.
         var colour: Int?
+        /// The size of the run the caret is in (`SpanSize`), or `nil` for
+        /// normal size.
+        var size: SpanSize?
         /// 1 to 6, or 0 for body text.
         var headingLevel = 0
         var list: ListStyle?
@@ -420,25 +423,28 @@ extension MarkdownFormatting {
             case .inlineCode:    state.code = true
             case .strikethrough: state.strikethrough = true
             case .link:          state.link = true
-            case .text, .colourOpen, .colourClose: break
+            case .text, .spanOpen, .spanClose: break
             }
         }
 
-        // A coloured run is a pair of tags with spans between, so it is
-        // read as the pair, by the same rule as a span: from just after the
+        // A styled run is a pair of tags with spans between, so it is read
+        // as the pair, by the same rule as a span: from just after the
         // opening tag's first character to the end of its text.
-        var open: (start: Int, end: Int, hex: Int)?
+        var open: (start: Int, end: Int, style: SpanStyle)?
         for inline in block.inlines {
             let whole = shifted(NSRange(inline.range, in: lineText), by: line.location)
             switch inline.kind {
-            case .colourOpen(let hex):
-                open = (whole.location, NSMaxRange(whole), hex)
-            case .colourClose:
+            case .spanOpen(let style):
+                open = (whole.location, NSMaxRange(whole), style)
+            case .spanClose:
                 guard let run = open else { continue }
                 let inside = selection.length == 0
                     ? selection.location > run.start && selection.location <= whole.location
                     : selection.location >= run.end && NSMaxRange(selection) <= whole.location
-                if inside { state.colour = run.hex }
+                if inside {
+                    state.colour = run.style.colour
+                    state.size = run.style.size
+                }
                 open = nil
             default:
                 break

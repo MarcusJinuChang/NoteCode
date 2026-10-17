@@ -19,6 +19,12 @@ Revised 16 October 2026.
 v3 is built, and steps 1 and 4 to 9 of the plan below are merged, the last as
 #60 on 16 Oct. Next is step 10.
 
+- **Step 10, sized text** (17 Oct, branch `claude/text-size`, on
+  `claude/text-colour`): a size menu beside the colour one sets the
+  selection or the word at the caret Small, Large or Larger against the text
+  around it, in the same span tag as its colour. Step 10 is built. Looked
+  at in the simulator; not on the iPad.
+
 - **Step 10, coloured text** (17 Oct, branch `claude/text-colour`, on
   `claude/code-block-room`): a colour menu in the text options row colours
   the selection or the word at the caret in one of six colours, written as
@@ -460,8 +466,10 @@ changes how notes are stored lands before it.
     room and the block looked cramped; see AGENTS.md › Code blocks: room
     around and inside. Colour second (17 Oct, branch `claude/text-colour`):
     `<span style="color:#RRGGBB">`, as step 3's research recommended, from a
-    menu in the text options row; see AGENTS.md › Coloured text. Size
-    anywhere is what is left of the step.
+    menu in the text options row. Size third (17 Oct, branch
+    `claude/text-size`): the same span with `font-size`, Small, Large and
+    Larger against the text around it, asking first on a note with ink. See
+    AGENTS.md › Coloured and sized text.
     - **Why before the release:** changing how text is stored costs nothing
       now, and means migrating everyone's notes after.
     - **Why before step 11:** it changes the text options row, which the

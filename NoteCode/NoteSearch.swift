@@ -41,8 +41,8 @@ nonisolated struct NoteSearch: Equatable, Sendable {
     /// How a note with this title and text matches, or `nil` if it doesn't.
     func match(title: String, content: String) -> Match? {
         guard !isEmpty else { return nil }
-        // A colour's tags aren't words in the note (`TextColour`).
-        let content = TextColour.maskingTags(in: content)
+        // A run's tags aren't words in the note (`TextColour`).
+        let content = SpanStyle.maskingTags(in: content)
 
         var inTitle = true
         var first: Range<String.Index>?
@@ -66,7 +66,7 @@ nonisolated struct NoteSearch: Equatable, Sendable {
     /// - Parameter limit: how many to find at most. A one-letter search of a
     ///   long note matches thousands of times, and nobody reads that many.
     func matches(in content: String, limit: Int = 500) -> [NSRange] {
-        let content = TextColour.maskingTags(in: content)
+        let content = SpanStyle.maskingTags(in: content)
         return ranges(in: content, limit: limit).map { NSRange($0, in: content) }
     }
 

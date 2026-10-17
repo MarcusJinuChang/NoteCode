@@ -202,6 +202,15 @@ struct PageDetailView: View {
         } message: {
             Text("The text re-flows to the new size. Ink stays where it was drawn, so it may no longer sit on its words.")
         }
+        .alert("Change Text Size?", isPresented: Binding(
+            get: { editor.spanSizeAwaitingConfirmation != nil },
+            set: { _ in }
+        )) {
+            Button("Cancel", role: .cancel) { editor.cancelSpanSize() }
+            Button("Change") { editor.confirmSpanSize() }
+        } message: {
+            Text("The text re-flows to the new size. Ink stays where it was drawn, so it may no longer sit on its words.")
+        }
         .alert("Add Link", isPresented: Binding(
             get: { editor.linkTarget != nil },
             set: { _ in }

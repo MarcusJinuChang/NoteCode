@@ -55,7 +55,7 @@ nonisolated struct NoteInfo: Equatable, Sendable {
                 // inline markers drop out on their own. A colour's tags
                 // hold words (`span`, `style`, `color`, the hex), so those
                 // are left out by hand.
-                let tags = block.inlines.filter(\.kind.isColourTag).map(\.range)
+                let tags = block.inlines.filter(\.kind.isSpanTag).map(\.range)
                 content.enumerateSubstrings(
                     in: block.contentRange,
                     options: [.byWords, .substringNotRequired]

@@ -1,32 +1,68 @@
 //
-//  MarkdownFormatting+Colour.swift
+//  MarkdownFormatting+Style.swift
 //  NoteCode
 //
-//  The text options row's colour: wraps text in `<span style="color:…">`,
-//  recolours a run, or takes colour off (`TextColour`). Pure, like the rest
-//  of `MarkdownFormatting`: it computes a `TextEdit`, and the editor applies
-//  it through the text view, so it undoes like typing.
+//  The text options row's colour and size: wraps text in a styled run,
+//  restyles a run, or takes a style off it (`SpanStyle`). Pure, like the
+//  rest of `MarkdownFormatting`: it computes a `TextEdit`, and the editor
+//  applies it through the text view, so it undoes like typing.
 //
 
 import Foundation
 
 extension MarkdownFormatting {
 
-    /// Sets `hex` on the selection, or on the coloured run the caret is in,
-    /// or on the word at the caret; `nil` takes colour off them instead.
+    /// What a colour or size control changes: one of a run's two settings,
+    /// to a value or to none. The other is kept.
+    enum StyleChange: Equatable, Sendable {
+        case colour(Int?)
+        case size(SpanSize?)
+
+        func applied(to style: SpanStyle) -> SpanStyle {
+            var style = style
+            switch self {
+            case .colour(let colour): style.colour = colour
+            case .size(let size):     style.size = size
+            }
+            return style
+        }
+
+        /// Whether it takes its setting off rather than putting one on.
+        var clears: Bool {
+            switch self {
+            case .colour(let colour): colour == nil
+            case .size(let size):     size == nil
+            }
+        }
+    }
+
+    /// Sets `hex` on the selection, the run the caret is in or the word at
+    /// the caret; `nil` takes colour off them instead. See `style`.
+    static func colour(_ hex: Int?, selection: NSRange, in text: NSString, codeRanges: [CodeRange]) -> TextEdit? {
+        style(.colour(hex), selection: selection, in: text, codeRanges: codeRanges)
+    }
+
+    /// Sets `size` on the selection, the run the caret is in or the word at
+    /// the caret; `nil` makes them normal size again. See `style`.
+    static func size(_ size: SpanSize?, selection: NSRange, in text: NSString, codeRanges: [CodeRange]) -> TextEdit? {
+        style(.size(size), selection: selection, in: text, codeRanges: codeRanges)
+    }
+
+    /// Changes the selection's colour or size, or the run the caret is in,
+    /// or the word at the caret.
     ///
-    /// - A run per line: a selection over several lines colours each line's
+    /// - A run per line: a selection over several lines styles each line's
     ///   part of it, never the heading's `#` or a list item's marker.
-    /// - Colours don't nest. A run the text overlaps is taken off and its
-    ///   text coloured with the rest, so recolouring part of a run recolours
-    ///   it all.
-    /// - A colour never cuts a span in two: one the text runs into (half of a
+    /// - Runs don't nest. A run the text overlaps is taken off and its text
+    ///   joins the rest, keeping its other setting: a large red run made blue
+    ///   stays large. So restyling part of a run restyles it all.
+    /// - A run never cuts a span in two: one the text runs into (half of a
     ///   bold word, say) is taken in whole, since a span can't cross a run's
     ///   edge and would show its markers.
     ///
     /// `nil` where there is nothing to do: in code, a caret on no word and in
-    /// no run, or Default where nothing is coloured.
-    static func colour(_ hex: Int?, selection: NSRange, in text: NSString, codeRanges: [CodeRange]) -> TextEdit? {
+    /// no run, or taking off what nothing has.
+    static func style(_ change: StyleChange, selection: NSRange, in text: NSString, codeRanges: [CodeRange]) -> TextEdit? {
         let selection = clamped(selection, to: text.length)
         guard !codeRanges.contains(where: { NSIntersectionRange($0.range, selection).length > 0 || $0.contains(selection) })
         else { return nil }
@@ -35,7 +71,7 @@ extension MarkdownFormatting {
         guard let first = lines.first, let last = lines.last else { return nil }
 
         var rewritten: [String] = []
-        var coloured: [NSRange?] = []      // per line, the coloured text in the new line
+        var coloured: [NSRange?] = []      // per line, the styled text in the new line
         var caretAt: Int?                  // for a caret, its place in the new line
         for line in lines {
             let lineText = text.substring(with: line)
@@ -54,7 +90,7 @@ extension MarkdownFormatting {
                 }
                 local = NSRange(location: start - line.location, length: end - start)
             }
-            guard let result = colourLine(lineText, selection: local, hex: hex) else {
+            guard let result = styleLine(lineText, selection: local, change: change) else {
                 rewritten.append(lineText)
                 coloured.append(nil)
                 continue
@@ -89,33 +125,33 @@ extension MarkdownFormatting {
         return TextEdit(range: whole, replacement: replacement, selection: newSelection)
     }
 
-    /// One line, coloured or uncoloured. `selection` is in the line's own
-    /// offsets, and may run past either end of it.
+    /// One line, restyled. `selection` is in the line's own offsets, and may
+    /// run past either end of it.
     ///
-    /// - Returns: the new line, where its coloured text now is (the text
+    /// - Returns: the new line, where its styled text now is (the text
     ///   between its new tags, or where the text taken out of a run now is),
     ///   and for a caret its new place. `nil` for a line with nothing to do.
-    static func colourLine(_ line: String, selection: NSRange, hex: Int?) -> (text: String, coloured: NSRange, caret: Int?)? {
+    static func styleLine(_ line: String, selection: NSRange, change: StyleChange) -> (text: String, coloured: NSRange, caret: Int?)? {
         guard let block = DocumentParser.parse(line).first, !block.isCode else { return nil }
         let ns = line as NSString
         let content = NSRange(block.contentRange, in: line)
 
         // The spans and runs on the line, in its offsets.
         var spans: [NSRange] = []
-        var runs: [(open: NSRange, close: NSRange)] = []
-        var open: NSRange?
+        var runs: [(open: NSRange, close: NSRange, style: SpanStyle)] = []
+        var open: (tag: NSRange, style: SpanStyle)?
         for inline in block.inlines {
             let whole = NSRange(inline.range, in: line)
             switch inline.kind {
             case .text: break
-            case .colourOpen: open = whole
-            case .colourClose:
-                if let tag = open { runs.append((tag, whole)) }
+            case .spanOpen(let style): open = (whole, style)
+            case .spanClose:
+                if let start = open { runs.append((start.tag, whole, start.style)) }
                 open = nil
             default: spans.append(whole)
             }
         }
-        func text(of run: (open: NSRange, close: NSRange)) -> NSRange {
+        func text(of run: (open: NSRange, close: NSRange, style: SpanStyle)) -> NSRange {
             NSRange(location: NSMaxRange(run.open), length: run.close.location - NSMaxRange(run.open))
         }
 
@@ -148,6 +184,7 @@ extension MarkdownFormatting {
         // into come in whole. Again, since taking a run in can reach another
         // span.
         var removed: [NSRange] = []
+        var kept: SpanStyle?               // the first run's style, whose other setting stays
         var changed = true
         while changed {
             changed = false
@@ -156,6 +193,7 @@ extension MarkdownFormatting {
                 guard NSIntersectionRange(whole, target).length > 0 || NSLocationInRange(target.location, whole) else { continue }
                 removed += [run.open, run.close]
                 target = NSUnionRange(target, text(of: run))
+                if kept == nil { kept = run.style }
                 changed = true
             }
             for span in spans where NSIntersectionRange(span, target).length > 0 && NSUnionRange(span, target) != target {
@@ -163,11 +201,13 @@ extension MarkdownFormatting {
                 changed = true
             }
         }
-        if hex == nil, removed.isEmpty { return nil }
+        if change.clears, removed.isEmpty { return nil }
 
-        // Rebuild the line: the old tags out, the new ones round the target.
-        let opening = hex.map(TextColour.openTag(hex:)) ?? ""
-        let closing = hex == nil ? "" : TextColour.close
+        // Rebuild the line: the old tags out, the new ones round the target,
+        // none if nothing is left to set.
+        let style = change.applied(to: kept ?? SpanStyle())
+        let opening = style.isEmpty ? "" : style.openTag
+        let closing = style.isEmpty ? "" : SpanStyle.close
         var edits: [(range: NSRange, insert: String)] = removed.map { ($0, "") }
         edits.append((NSRange(location: target.location, length: 0), opening))
         edits.append((NSRange(location: NSMaxRange(target), length: 0), closing))

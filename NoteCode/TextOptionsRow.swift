@@ -110,7 +110,39 @@ private struct ParagraphControls: View {
         // Lit while the caret is in a link: nothing to add to one that is there.
         HotbarButton("Link", "link", isSelected: editor.caretFormatting.link) { editor.beginLink() }
             .disabled(editor.caretFormatting.link)
+        SizeMenu(editor: editor)
         ColourMenu(editor: editor)
+    }
+}
+
+/// Size (`SpanSize`) for the selection or the word at the caret, against
+/// the text around it: Larger, Large, Normal, Small. Lit while the caret is
+/// in a sized run.
+private struct SizeMenu: View {
+    @Bindable var editor: NoteEditor
+
+    var body: some View {
+        let current = editor.caretFormatting.size
+        Menu {
+            ForEach([SpanSize.larger, .large], id: \.self) { size in item(size, current: current) }
+            item(nil, current: current)
+            item(.small, current: current)
+        } label: {
+            Image(systemName: "textformat.size")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(current == nil ? AnyShapeStyle(.primary) : AnyShapeStyle(.tint))
+                .hotbarTarget(isHighlighted: current != nil)
+        }
+        .modifier(HotbarMenuStyle())
+        .menuOrder(.fixed)
+        .accessibilityLabel("Size")
+        .accessibilityValue(current?.name ?? "Normal")
+    }
+
+    private func item(_ size: SpanSize?, current: SpanSize?) -> some View {
+        Toggle(isOn: Binding(get: { current == size }, set: { _ in editor.setSpanSize(size) })) {
+            Text(size?.name ?? "Normal")
+        }
     }
 }
 
@@ -143,6 +175,7 @@ private struct ColourMenu: View {
                 .hotbarTarget()
         }
         .modifier(HotbarMenuStyle())
+        .menuOrder(.fixed)
         .accessibilityLabel("Text Colour")
         .accessibilityValue(current.flatMap { hex in TextColour.allCases.first { $0.hex == hex }?.name } ?? (current == nil ? "Default" : "Custom"))
     }
@@ -179,6 +212,7 @@ private struct ListControls: View {
             }
         }
         IndentControls(editor: editor)
+        SizeMenu(editor: editor)
         ColourMenu(editor: editor)
     }
 }

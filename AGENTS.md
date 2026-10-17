@@ -2011,30 +2011,34 @@ are `CodeBlockRoom`'s.
   typing a fence open and closed, a caret on a fence line, light print
   layout, landscape, other text sizes on screen.
 
-## Coloured text
+## Coloured and sized text
 
-Roadmap step 10, second part (17 Oct, branch `claude/text-colour`, on
-`claude/code-block-room`). The format is step 3's recommendation
-(docs/research-notability-obsidian.md); `TextColour` holds the palette and
-the tags.
+Roadmap step 10, second and third parts: colour (17 Oct, branch
+`claude/text-colour`, on `claude/code-block-room`) and size (17 Oct, branch
+`claude/text-size`, on `claude/text-colour`). The format is step 3's
+recommendation (docs/research-notability-obsidian.md). `SpanStyle` holds the
+tag, `TextColour` the palette, `SpanSize` the sizes.
 
-- **Written as Obsidian writes it:** `<span style="color:#RRGGBB">text</span>`,
-  exactly that shape (hex in either case), on one line. The one convention
-  Obsidian draws with no plugin that GitHub reads as plain text. Any other
-  `<span …>`, an unclosed one or an empty one is visible text, so pasted
-  HTML is never half hidden.
+- **Written as Obsidian writes it:** an HTML span with an inline style, on
+  one line, colour first when it has both, so the two never nest:
+  `<span style="color:#E5484D">`, `<span style="font-size:1.25em">`,
+  `<span style="color:#E5484D;font-size:1.25em">`. The one convention
+  Obsidian draws with no plugin that GitHub reads as plain text. Exactly
+  these shapes (hex and keywords in either case); any other `<span …>`
+  (another property, another order, `px`), an unclosed one or an empty one
+  is visible text, so pasted HTML is never half hidden.
 - **Parsed as a wrapper** (`InlineParser.parse`): the first tag pair on the
-  line is found, each tag becomes a node of markers alone
-  (`InlineNode.Kind.colourOpen(hex:)`, `.colourClose`), and the text between
-  is parsed as any other. So bold, code or a link can be coloured, but a
-  span can't cross a run's edge and colours don't nest:
-  `**<span …>x</span>**` shows its asterisks. The colour menu always writes
+  line is found (`SpanStyle.firstPair`), each tag becomes a node of markers
+  alone (`InlineNode.Kind.spanOpen(SpanStyle)`, `.spanClose`), and the text
+  between is parsed as any other. So bold, code or a link can be in a run,
+  but a span can't cross a run's edge and runs don't nest:
+  `**<span …>x</span>**` shows its asterisks. The menus always write
   `<span …>**x**</span>`.
 - **Because the tags are markers, everything marker-based follows for
-  free:** `MarkdownLayout` collapses them to word joiners (no room, nothing
-  re-wraps, ink stays put), the caret stops at their left edges, Show
-  Markdown never draws them, and the outline's titles leave them out.
-- **Drawn in the colour made legible:** the stored hex taken toward black on
+  free:** `MarkdownLayout` collapses them to word joiners (no room), the
+  caret stops at their left edges, Show Markdown never draws them, and the
+  outline's titles leave them out.
+- **Colour is drawn made legible:** the stored hex taken toward black on
   a light page and white on a dark one just far enough for 4.5:1
   (`AccentPalette.textHex`, as links are), so a colour from elsewhere reads
   as well as the palette's. Colour goes on before the spans inside it, so a
@@ -2044,20 +2048,38 @@ the tags.
     whatever differs, so a fresh one each restyle rewrote every run and laid
     out the note below it on every keystroke.
     `TextColourLayoutTests.restyleIsNotAnEdit` fails without the cache.
-  - The block signature's inline hash carries the hex, since a recolour
-    changes no length.
-- **The palette** (`TextColour`): Red `#E5484D`, Orange `#E5750A`, Yellow
-  `#B88700`, Green `#2F9E44`, Blue `#3B82F6`, Purple `#9061F9`. Each is at
-  least 4.5:1 once adjusted, in both appearances (tested).
-- **The menu** is the last control of the text options row for a paragraph,
-  heading or list item (`ColourMenu`): the six colours and Default; its face
-  is the caret's colour (`CaretFormatting.colour`), or an empty ring.
-  `MarkdownFormatting.colour` makes the edit:
+  - The palette: Red `#E5484D`, Orange `#E5750A`, Yellow `#B88700`, Green
+    `#2F9E44`, Blue `#3B82F6`, Purple `#9061F9`, each at least 4.5:1 once
+    adjusted, in both appearances (tested).
+- **Size is against the text around it:** Small 0.85em, Large 1.25em,
+  Larger 1.5em (`SpanSize`), of the block's font, so a heading's run is a
+  larger heading (still bold), to the half point
+  (`DocumentStyler.font(_:sizedTo:)`). Spans inside a sized run build on the
+  sized font, so bold in a large run is large bold. A size read from
+  elsewhere snaps to the nearest step, and one nearer 1em is no size, so a
+  line holds text in a few known sizes.
+  - **A sized line is taller, and that is all:** a line is pushed across a
+    page break whole, so every mode still paginates alike (see "Code blocks:
+    room around and inside" for why room is never paragraph spacing).
+  - **It re-wraps, so on a note with ink it asks first**
+    (`NoteEditor.setSpanSize`), in the text size's own words, and one yes
+    covers both until the note is next opened (`inkQuestionAnswered`). The
+    request keeps the selection it was asked for, since the alert takes the
+    keyboard. Asked only for an edit that would change something.
+- The block signature's inline hash carries the style, since a recolour or
+  resize changes no length.
+- **The menus** end the text options row for a paragraph, heading or list
+  item: Size (`SizeMenu`: Larger, Large, Normal, Small; lit in a sized run)
+  and Colour (`ColourMenu`: the six colours and Default; its face is the
+  caret's colour or an empty ring). Both `.menuOrder(.fixed)`, so they read
+  top to bottom whichever way they open. `MarkdownFormatting.style` makes
+  the edit (`colour` and `size` call it):
   - the selection, or the run the caret is in, or the word at the caret;
   - a run per line, after a heading's or list item's marker, spaces at the
     ends left out;
-  - runs it overlaps are taken off and their text joins it, so recolouring
-    part of a run recolours it all, and Default unwraps;
+  - runs it overlaps are taken off and their text joins it, keeping the
+    first one's other setting: a large red run made blue stays large;
+    taking the last setting off unwraps;
   - a span it runs into is taken in whole, never cut.
 - **Smart punctuation is turned away during a formatting edit.** UIKit runs
   smart quotes over a formatting edit's text as if typed, as separate
@@ -2070,18 +2092,18 @@ the tags.
   `<span …></span>` would show as text), and from inside or after `</span>`
   acts as from in front of it, never deleting a hidden tag character.
 - **Search and Get Info leave tags out.** Search reads the note with each
-  tag replaced by word joiners unit for unit (`TextColour.maskingTags`), so
+  tag replaced by word joiners unit for unit (`SpanStyle.maskingTags`), so
   "span" or "color" finds nothing, an excerpt shows no tag, and match
   offsets still point at the note's own characters. Get Info skips words
   inside tags.
-- **Not built:** a typing colour (colour for text not yet typed), a
-  keyboard shortcut, highlight (`==🟡text==` in the research), colour in
-  the hotbar's Style menu.
-- **Checked in the simulator** (11-inch, light and dark): the runs drawn,
-  the menu and its face, recolouring a run beside another on the same line,
-  colouring a plain word in a list item. **Not checked:** the iPad, the
-  Pencil, a hardware keyboard, the PDF of a coloured note, a selection over
-  several lines on screen.
+- **Not built:** a typing colour or size (for text not yet typed), keyboard
+  shortcuts, highlight (`==🟡text==` in the research).
+- **Checked in the simulator** (11-inch, light and dark): colour runs, the
+  colour menu and its face, recolouring a run beside another on one line,
+  colouring a word in a list item; sized runs in a heading, a paragraph and
+  a small aside, the size menu lit and resizing a run. **Not checked:** the
+  iPad, the Pencil, a hardware keyboard, the ink question on screen, the PDF
+  of a coloured or sized note, a selection over several lines on screen.
 
 ## Organising notes
 
