@@ -383,6 +383,9 @@ struct PageDetailView: View {
                 pageLayout: PageLayout(orientation: page.orientation, mode: viewMode),
                 keyboardClearance: keyboardClearance,
                 restingClearance: CanvasGeometry.restingClearance(dock: dock, footprint: Hotbar.footprint),
+                areaInsets: UIEdgeInsets(top: 0, left: pageInsets.leading, bottom: 0, right: pageInsets.trailing),
+                // The hotbar's own snap, so the two move as one.
+                areaAnimation: .snappy,
                 inkSaver: inkSaver,
                 revealing: revealing,
                 resumingAtPage: resumingAtPage,
@@ -403,10 +406,10 @@ struct PageDetailView: View {
                 },
                 onScrolled: noteScrolled
             )
-            // Square and unbordered: the page fills its area. Clipping keeps
-            // anything that runs past the area, like a page zoomed wider than
-            // it, off the hotbar's space.
-            .clipped()
+            // Square and unbordered: the page fills its area. Nothing clips
+            // it here: the page view is a scroll view, which keeps a page
+            // zoomed wider than its area off the hotbar's space by itself,
+            // and lets go while the page slides after the hotbar.
             .padding(pageInsets)
             // The keyboard covers the page; it doesn't resize it. Shrinking
             // the page's area re-fit the page to a shorter space and moved

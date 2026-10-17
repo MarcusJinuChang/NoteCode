@@ -9,6 +9,7 @@
 
 import PaperKit
 import PencilKit
+import SwiftUI
 import UIKit
 
 /// Hosts the editor at its pages' width, breaks its text into pages, and
@@ -299,6 +300,66 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         }
     }
 
+    // MARK: Moving with the hotbar
+
+    /// The space SwiftUI gives the page, as the edges it leaves: the strip a
+    /// hotbar docked at a side takes. Only compared, to know the area is
+    /// about to change: SwiftUI lays the area out.
+    private(set) var areaInsets = UIEdgeInsets.zero
+
+    /// The animation the next change of area moves the page with.
+    private var areaMotion: Animation?
+
+    /// Where the page was on screen after the last layout pass: the text
+    /// view's centre in window coordinates, its scale and its size.
+    private var lastPlaceOnScreen: (center: CGPoint, scale: CGFloat, size: CGSize)?
+
+    /// The page's area is about to become `insets` less than the window, and
+    /// the page should get there with `animation`.
+    ///
+    /// SwiftUI lays a UIKit view out where it ends up, at once: it resized
+    /// this view, or moved a container above it, while the hotbar slid to its
+    /// new edge with `.snappy`, so the page jumped. This is called before
+    /// SwiftUI lays out the new area (logged, 17 Oct), and this view hears of
+    /// a move only through here (a move without a resize lays nothing out),
+    /// so it lays out again and animates the page from where it was on
+    /// screen (`layoutSubviews`). Nothing under Reduce Motion.
+    func areaWillChange(to insets: UIEdgeInsets, animation: Animation?) {
+        guard insets != areaInsets else { return }
+        areaInsets = insets
+        guard let animation, !UIAccessibility.isReduceMotionEnabled, lastPlaceOnScreen != nil else { return }
+        areaMotion = animation
+        setNeedsLayout()
+    }
+
+    /// Puts the page back where it was on screen, at its old scale, and
+    /// animates it to where this layout pass put it.
+    ///
+    /// The view stops clipping while it moves: the page starts partly outside
+    /// its new area and slides in, which clipped would have lost a strip of
+    /// it at once.
+    private func movePage(from old: (center: CGPoint, scale: CGFloat, size: CGSize), with animation: Animation) {
+        guard window != nil else { return }
+        let start = convert(old.center, from: nil)
+        let end = (transform: textView.transform, size: textView.bounds.size, center: textView.center)
+        guard abs(start.x - end.center.x) > 0.5 || abs(start.y - end.center.y) > 0.5 || old.scale != displayScale
+        else { return }
+
+        UIView.performWithoutAnimation {
+            textView.transform = CGAffineTransform(scaleX: old.scale, y: old.scale)
+            textView.bounds.size = old.size
+            textView.center = start
+        }
+        clipsToBounds = false
+        UIView.animate(animation) {
+            self.textView.transform = end.transform
+            self.textView.bounds.size = end.size
+            self.textView.center = end.center
+        } completion: {
+            self.clipsToBounds = true
+        }
+    }
+
     override func didMoveToWindow() {
         super.didMoveToWindow()
         // A clearance set before the page had a window, as it is when made.
@@ -364,12 +425,23 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         let area = bounds.size
         guard area.width > 0, area.height > 0 else { return }
 
+        let motion = areaMotion
+        areaMotion = nil
+        let before = lastPlaceOnScreen
+
         apply(scale: CanvasGeometry.displayScale(
             areaWidth: area.width,
             pageWidth: pageLayout.pageSize.width,
             zoom: zoom,
             gutter: CanvasGeometry.gutter(for: pageLayout.mode)
         ))
+
+        if let motion, let before {
+            movePage(from: before, with: motion)
+        }
+        if window != nil {
+            lastPlaceOnScreen = (convert(textView.center, to: nil), displayScale, textView.bounds.size)
+        }
     }
 
     /// Draws the page at `scale` in the current area.

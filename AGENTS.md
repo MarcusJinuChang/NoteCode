@@ -307,6 +307,28 @@ Roadmap step 5 (16 Oct, branch `claude/page-fills-window`, off `claude/drag-fold
   page"**, which was a choice; the docks now differ in width, so the scale
   can differ between edges on a narrow screen (on a wide one the 1.25x cap
   absorbs it and the page only shifts half the strip).
+- **The page moves with the bar** (17 Oct, reported on the iPad). SwiftUI
+  lays a UIKit view out where it ends up, at once, so while the bar slid to
+  its new edge with `.snappy` the page jumped to its new size and place.
+  Logged: a dock change resizes `PageView` with no animation in effect, and
+  a change between left and right only moves a container above it, which
+  `PageView` never hears of. So the note page hands `DocumentTextView` the
+  edges it leaves (`areaInsets`) and the bar's animation (`areaAnimation`);
+  `PageView.areaWillChange` is called before SwiftUI lays the new area out,
+  remembers that the page should move, and lays out again; `layoutSubviews`
+  then puts the text view back where it was on screen (its window
+  position, scale and size from the last pass) and animates it to its new
+  place with the same `.snappy`. The view stops clipping while it slides,
+  so the page doesn't lose a strip at its old edge; the SwiftUI
+  `.clipped()` went for the same reason (a scroll view clips itself at
+  rest). **The animation is passed, not read from the transaction**: the
+  dock is `@AppStorage`, and its change reached `updateUIView` with no
+  animation though the drop sets it in `withAnimation` (logged). Nothing
+  under Reduce Motion. `PageMotionTests` checks the page moves, ends where
+  a still layout puts it, and doesn't move for an animated update that
+  keeps the area; the first fails without the move. Seen in the simulator
+  in a screen recording, left to bottom and bottom to left, on the 13-inch
+  in portrait. Not seen: the 11-inch, landscape, zoomed in, the iPad.
 - **`Hotbar` owns the numbers** (`margin`, `barFootprint`, `footprint`) that
   `PageDetailView`, `keyboardClearance` and `ContentView.pageToastInset` each
   spelled as a 12 before.
