@@ -2172,16 +2172,32 @@ so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
     note keeps its date. The drag carries only a marker
     (`ListDrop.payload`, own-process, the type declared in Info.plist); which
     row was lifted is `ListDragState.item`, so a drop from elsewhere is refused.
-  - **NOT TRIED: the drops themselves.** In the simulator a drag lifts and its
-    preview follows the touch, but neither `.onDrop(of:delegate:)` (on rows and
-    on the whole list) nor `.dropDestination` was ever called, for a custom type,
-    `.item` or plain text (synthesised touches: the drag started at the lift,
-    which logged twice, and never reached a target). So whether a drop lands,
-    and the line or outline `ListRowDrop` draws for where, is unverified on
-    screen and on the iPad. The rules behind it are tested, and the menus
-    do the same moves. If the drops don't work on the iPad, the first thing to
-    try is `dropDestination(for:)` with a `Transferable` token, which reports
-    only the whole row (no before or after) and would want separate edge views.
+  - **Why the drops never land** (17 Oct; reported on the iPad: none of the
+    dragging works). Measured with a real drag: XCUITest's
+    `press(forDuration:thenDragTo:)` starts a drag session the way a finger
+    does (the simulator tools' synthesised touches don't), and
+    `ListDragUITests.testNoteDroppedOnFolderIsFiled` drags a note onto a
+    folder. The drag lifts (`.onDrag` runs) and its preview follows the
+    finger across the list and out over Home (screenshots), but **no drop
+    target ever hears it**. Tried, each with a log in every callback: the
+    rows' `.onDrop(of:delegate:)`; the rows' `.dropDestination(for:)` with a
+    `Transferable` token; `.onInsert(of:)` on the `ForEach`es; `.onMove` on
+    them (with `.onDrag` off); `.onDrop` on the whole `List`; the rows'
+    context menu taken off; plain text added to the drag. None fired. The
+    harness itself is sound: a plain `.onDrag` view dropped on a plain
+    `.onDrop` view on Home landed (`targeted`, then the drop). Over Home, a
+    drag from the list hit nothing either: the list slides over the page
+    with the page dimmed, and the dimming is above Home's targets. The ink
+    palette's swatch reorder (`.contextMenu` plus `.onDrag` and `.onDrop`)
+    failed the same test, so it is probably broken on the iPad too.
+  - **Next:** system drag and drop is the wrong tool inside this `List`.
+    The hotbar's own drag (`DragGesture`) works, so the list wants the same:
+    a hold, then the app's own drag, rows read by their frames, the existing
+    `ListDrop.resolve` (pure, tested) deciding what a drop does, and
+    `ListRowDrop`'s indicators kept. It has to share the touch with the
+    list's scrolling, its selection, swipe to delete and the context menu.
+    Until then the menus (Move To, Move to Folder, New Folder Inside) do
+    every move a drop would.
   - **A press on a row** shows its context menu; a drag lifts it after about
     half a second if the finger moves at once. A hold that stays still gets the
     menu.
