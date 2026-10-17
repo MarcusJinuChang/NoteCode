@@ -35,6 +35,12 @@ struct DocumentTextView: UIViewRepresentable {
     /// floating over it. See `PageView.restingClearance`.
     var restingClearance: CGFloat = 0
 
+    /// The edges SwiftUI leaves around the page's area, for a hotbar docked
+    /// at a side, and the animation the page moves with when they change, so
+    /// it follows the hotbar. See `PageView.areaWillChange`.
+    var areaInsets = UIEdgeInsets.zero
+    var areaAnimation: Animation? = nil
+
     /// Loads the note's ink as the page is made, and saves it as it changes.
     /// Optional, like `editor`, so the editor still stands alone.
     var inkSaver: DrawingSaveScheduler? = nil
@@ -107,6 +113,7 @@ struct DocumentTextView: UIViewRepresentable {
         page.onMinimumPageCountChanged = onMinimumPageCountChanged
         page.keyboardClearance = keyboardClearance
         page.restingClearance = restingClearance
+        page.areaWillChange(to: areaInsets, animation: nil)
         // After the layout: stored ink is in print coordinates for the note's
         // own orientation, and the page starts out portrait.
         if let inkSaver {
@@ -135,6 +142,11 @@ struct DocumentTextView: UIViewRepresentable {
         page.restingClearance = restingClearance
         page.onReadingPlaceChanged = onReadingPlaceChanged
         page.onScrolled = onScrolled
+        // Before SwiftUI lays the new area out, so the page can follow the
+        // hotbar from where it is now. Not the transaction's animation: the
+        // dock is stored in `@AppStorage`, and its change arrives here
+        // without the drop's `withAnimation` (logged, 17 Oct).
+        page.areaWillChange(to: areaInsets, animation: areaAnimation)
 
         // A new text size re-wraps the whole note, so the page keeps the
         // reader on the line they were reading, as a new orientation does.
