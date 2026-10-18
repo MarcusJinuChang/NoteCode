@@ -21,6 +21,20 @@ struct ContentView: View {
     /// as it does over a note.
     @State private var columnVisibility: NavigationSplitViewVisibility = .detailOnly
 
+    /// In a compact width (an iPhone, a folded Duo) there is no room for the
+    /// list over the page, so the window is a stack instead: Home at its root,
+    /// the list pushed on it, a note pushed on either (roadmap step 11). What
+    /// is pushed, kept in step with `selection` and with the split view's
+    /// `columnVisibility`, so a Duo folding or unfolding keeps its place.
+    @State private var compactPath: [CompactScreen] = []
+
+#if os(iOS)
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    private var isCompact: Bool { sizeClass == .compact }
+#else
+    private var isCompact: Bool { false }
+#endif
+
     /// Whether the title screen is over the window. Raised on a first launch
     /// and by Settings › Help and About › Welcome Screen.
     @State private var showsWelcomeScreen = false
@@ -87,62 +101,11 @@ struct ContentView: View {
         _selection = State(initialValue: openedPage)
         // With storage failed the warning is the list's, so the list shows.
         _columnVisibility = State(initialValue: storageIsEphemeral ? .all : .detailOnly)
+        _compactPath = State(initialValue: openedPage != nil ? [.note] : storageIsEphemeral ? [.list] : [])
     }
 
     var body: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
-            NoteList(
-                storageIsEphemeral: storageIsEphemeral,
-                selection: opening,
-                searchText: $searchText,
-                onNewPage: { newPage = $0 },
-                onShowSettings: { showsSettings = true },
-                onImport: { showsImporter = true },
-                onExportAll: { showsExportAll = true },
-                request: $listRequest,
-                showsToasts: columnVisibility != .detailOnly
-            )
-                // Searching the list brings the keyboard up; the list stays its
-                // size and the keyboard covers its lower rows.
-                .ignoresSafeArea(.keyboard)
-        } detail: {
-            Group {
-                if let page = selection, isOpenElsewhere {
-                    OpenElsewhereView(title: page.title, onGoHome: goHome)
-                } else if let page = selection {
-                    PageDetailView(
-                        page: page,
-                        revealing: openedSearch,
-                        onDelete: { delete(page) },
-                        onGoHome: goHome,
-                        startsRenaming: page == newPage
-                    )
-                        // A fresh editor per note. Reusing one would carry the last
-                        // note's undo stack across, and undo would type it back in.
-                        .id(ObjectIdentifier(page))
-                } else {
-                    HomeView(
-                        onOpen: open,
-                        onNewNote: newNote,
-                        onNewNoteFromTemplate: { newNote(from: $0) },
-                        onImport: { showsImporter = true },
-                        onShowList: showList,
-                        onShowFolder: { ask(.showFolder($0.persistentModelID)) },
-                        onSearch: { ask(.searchNotes) },
-                        onShowSettings: { showsSettings = true },
-                        onOpenWelcomeNote: openWelcomeNote
-                    )
-                }
-            }
-            .overlay(alignment: .bottom) {
-                if columnVisibility == .detailOnly {
-                    ToastOverlay(center: toasts, bottomInset: selection == nil ? 16 : pageToastInset)
-                }
-            }
-        }
-        // The list slides over the page instead of pushing it narrower, so
-        // opening it never re-wraps the note underneath.
-        .navigationSplitViewStyle(.prominentDetail)
+        navigation
         .environment(toasts)
         .overlay {
             if showsWelcomeScreen {
@@ -200,12 +163,145 @@ struct ContentView: View {
                 NoteMemory().rememberOpened(selection)
                 withAnimation { columnVisibility = .detailOnly }
             }
+            if isCompact { syncCompactPath(toSelection: selection) }
         }
+        // Back from a note, in the stack: the note closes.
+        .onChange(of: compactPath) {
+            if isCompact, !compactPath.contains(.note), selection != nil {
+                selection = nil
+            }
+        }
+        .onChange(of: isCompact) { _, compact in carryPlace(toCompact: compact) }
         // The other window let the note go: it's free to be opened here.
         .onChange(of: isOpenElsewhere) { syncOpenNoteClaim() }
         .onDisappear {
             if let claimedKey { openNotes.release(claimedKey, by: window) }
             claimedKey = nil
+        }
+    }
+
+    // MARK: Navigation
+
+    /// A split view with the list sliding over the page, or, in a compact
+    /// width, a stack.
+    @ViewBuilder
+    private var navigation: some View {
+        if isCompact {
+            compactStack
+        } else {
+            NavigationSplitView(columnVisibility: $columnVisibility) {
+                noteList(showsToasts: columnVisibility != .detailOnly)
+            } detail: {
+                Group {
+                    if selection != nil {
+                        noteDetail
+                    } else {
+                        home
+                    }
+                }
+                .overlay(alignment: .bottom) {
+                    if columnVisibility == .detailOnly {
+                        ToastOverlay(center: toasts, bottomInset: selection == nil ? 16 : pageToastInset)
+                    }
+                }
+            }
+            // The list slides over the page instead of pushing it narrower, so
+            // opening it never re-wraps the note underneath.
+            .navigationSplitViewStyle(.prominentDetail)
+        }
+    }
+
+    /// Home, the list and a note, one pushed on another. The back button
+    /// takes the place of ☰ and the house, so the note's header has neither.
+    private var compactStack: some View {
+        NavigationStack(path: $compactPath) {
+            home
+                .navigationDestination(for: CompactScreen.self) { screen in
+                    switch screen {
+                    case .list: noteList(showsToasts: true)
+                    case .note: noteDetail
+                    }
+                }
+        }
+        .overlay(alignment: .bottom) {
+            // The list draws its own.
+            if compactPath.last != .list {
+                ToastOverlay(center: toasts, bottomInset: selection == nil ? 16 : pageToastInset)
+            }
+        }
+    }
+
+    private func noteList(showsToasts: Bool) -> some View {
+        NoteList(
+            storageIsEphemeral: storageIsEphemeral,
+            selection: opening,
+            searchText: $searchText,
+            onNewPage: { newPage = $0 },
+            onShowSettings: { showsSettings = true },
+            onImport: { showsImporter = true },
+            onExportAll: { showsExportAll = true },
+            request: $listRequest,
+            showsToasts: showsToasts
+        )
+            // Searching the list brings the keyboard up; the list stays its
+            // size and the keyboard covers its lower rows.
+            .ignoresSafeArea(.keyboard)
+    }
+
+    @ViewBuilder
+    private var noteDetail: some View {
+        if let page = selection, isOpenElsewhere {
+            OpenElsewhereView(title: page.title, onGoHome: goHome)
+        } else if let page = selection {
+            PageDetailView(
+                page: page,
+                revealing: openedSearch,
+                onDelete: { delete(page) },
+                onGoHome: houseButtonAction,
+                startsRenaming: page == newPage
+            )
+                // A fresh editor per note. Reusing one would carry the last
+                // note's undo stack across, and undo would type it back in.
+                .id(ObjectIdentifier(page))
+        }
+    }
+
+    /// The house in a note's header. Not in the stack, whose back button
+    /// goes to the list or Home.
+    private var houseButtonAction: (() -> Void)? {
+        if isCompact { return nil }
+        return { goHome() }
+    }
+
+    private var home: some View {
+        HomeView(
+            onOpen: open,
+            onNewNote: newNote,
+            onNewNoteFromTemplate: { newNote(from: $0) },
+            onImport: { showsImporter = true },
+            onShowList: showList,
+            onShowFolder: { ask(.showFolder($0.persistentModelID)) },
+            onSearch: { ask(.searchNotes) },
+            onShowSettings: { showsSettings = true },
+            onOpenWelcomeNote: openWelcomeNote
+        )
+    }
+
+    /// Keeps the stack's top in step with the open note: a note opened
+    /// anywhere is pushed, a note closed (Home, Delete) is popped, and the
+    /// back button closing it clears the selection.
+    private func syncCompactPath(toSelection selection: Page?) {
+        let path = CompactScreen.path(compactPath, noteOpen: selection != nil)
+        if path != compactPath { compactPath = path }
+    }
+
+    /// The Duo folding or unfolding: the stack or the split view picks up
+    /// what the other was showing.
+    private func carryPlace(toCompact compact: Bool) {
+        if compact {
+            compactPath = CompactScreen.path(listShowing: columnVisibility != .detailOnly, noteOpen: selection != nil)
+        } else {
+            columnVisibility = CompactScreen.listShowing(in: compactPath) ? .all : .detailOnly
         }
     }
 
@@ -318,22 +414,31 @@ struct ContentView: View {
     private func goHome() {
         selection = nil
         withAnimation { columnVisibility = .detailOnly }
+        compactPath = []
     }
 
     /// Home's Show All: the list over Home.
     private func showList() {
-        withAnimation { columnVisibility = .all }
+        if isCompact {
+            compactPath = [.list]
+        } else {
+            withAnimation { columnVisibility = .all }
+        }
     }
 
     /// ⇧⌘N and ⇧⌘F belong to the list, so it comes first.
     private func ask(_ request: ListRequest) {
-        withAnimation { columnVisibility = .all }
+        showList()
         listRequest = request
     }
 
     /// ⌃⌘S: the list over the page, or away. Over Home too, which is what is
     /// there with no note open.
     private func toggleNoteList() {
+        if isCompact {
+            compactPath = compactPath.last == .list ? Array(compactPath.dropLast()) : [.list]
+            return
+        }
         withAnimation {
             columnVisibility = columnVisibility == .detailOnly ? .all : .detailOnly
         }
@@ -395,7 +500,7 @@ struct ContentView: View {
 #if canImport(UIKit)
         // The bar and its margin, which `keyboardClearance` also reserves,
         // then a gap of the same size.
-        dock == .bottom ? Hotbar.barFootprint + Hotbar.margin : 16
+        dock == .bottom || isCompact ? Hotbar.barFootprint + Hotbar.margin : 16
 #else
         16
 #endif
@@ -417,6 +522,8 @@ struct ContentView: View {
     /// hasn't opened another since, reopens it.
     private func delete(_ page: Page) {
         selection = nil
+        // In the stack, back to the list, as the split view brings it over.
+        compactPath = [.list]
         withAnimation {
             columnVisibility = .all
             // If saving fails, the change is still pending in the context,

@@ -62,6 +62,10 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// The reader's zoom, relative to fitting the page's width to the area.
     private(set) var zoom: CGFloat = 1
 
+    /// The area's width when the page was last fitted to it, so a change of
+    /// width re-centres a page fitted to its text column.
+    private var fittedWidth: CGFloat = 0
+
     /// A search result's matches, waiting for the note's first layout: the
     /// first to scroll to, and all of them to highlight.
     private var pendingReveal: (first: NSRange, all: [NSRange])?
@@ -207,6 +211,12 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         alwaysBounceVertical = false
         showsVerticalScrollIndicator = false
         addSubview(textView)
+
+        // A Duo folding or unfolding changes the size class, and with it
+        // whether the page is fitted by its text column.
+        registerForTraitChanges([UITraitHorizontalSizeClass.self]) { (view: PageView, _) in
+            view.setNeedsLayout()
+        }
 
         // The line width is set here, never inferred. Left tracking the view,
         // a text view whose width is first set while it is scaled below 1x
@@ -429,12 +439,27 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         areaMotion = nil
         let before = lastPlaceOnScreen
 
-        apply(scale: CanvasGeometry.displayScale(
+        let scale = CanvasGeometry.displayScale(
             areaWidth: area.width,
             pageWidth: pageLayout.pageSize.width,
+            columnWidth: columnWidth,
             zoom: zoom,
             gutter: CanvasGeometry.gutter(for: pageLayout.mode)
-        ))
+        )
+        let refitted = scale != displayScale || area.width != fittedWidth
+        apply(scale: scale)
+
+        // Fitted to its text column, the page is wider than the area: show
+        // the column, with the margins cut evenly either side, rather than
+        // the left margin and the column's start. Only when the fit itself
+        // changes (opening, rotating, a narrower window), never under a
+        // reader who has panned or zoomed.
+        if refitted, zoom == 1 {
+            fittedWidth = area.width
+            contentOffset.x = CanvasGeometry.centredOffset(
+                areaWidth: area.width, pageWidth: pageLayout.pageSize.width, scale: scale
+            )
+        }
 
         if let motion, let before {
             movePage(from: before, with: motion)
@@ -442,6 +467,13 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         if window != nil {
             lastPlaceOnScreen = (convert(textView.center, to: nil), displayScale, textView.bounds.size)
         }
+    }
+
+    /// The text column, offered for fitting in a compact width only: an
+    /// iPhone, a folded Duo, a narrow Split View (`CanvasGeometry.fitScale`).
+    private var columnWidth: CGFloat? {
+        guard traitCollection.horizontalSizeClass == .compact else { return nil }
+        return CanvasGeometry.columnWidth(textWidth: pageLayout.textWidth)
     }
 
     /// Draws the page at `scale` in the current area.
@@ -1277,6 +1309,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             to: CanvasGeometry.displayScale(
                 areaWidth: area.width,
                 pageWidth: pageWidth,
+                columnWidth: columnWidth,
                 zoom: clamped,
                 gutter: CanvasGeometry.gutter(for: pageLayout.mode)
             ),

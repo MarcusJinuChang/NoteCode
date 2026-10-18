@@ -284,6 +284,68 @@ note against 11ms scrolling, and 5.5 seconds at 2000 lines. So instead:
   stays full size and the caret line sits above the hotbar. The list change
   is checked by build only.
 
+## iPhone and the Duo
+
+Roadmap step 11, first part (17 Oct, branch `claude/iphone-layout`), from the
+`iPhone` board of the v3 canvas. **Everything turns on the horizontal size
+class**, not the device: an iPhone, a folded Duo and a narrow iPad Split View
+are compact, and get this; an unfolded Duo is regular and gets the iPad's.
+
+- **A stack, not a split view** (`ContentView.compactStack`): Home at the
+  root, the list pushed on it (Show All, a folder tile, Search), a note pushed
+  on either. `compactPath` is kept in step with `selection`
+  (`CompactScreen.path(_:noteOpen:)`, pure): opening a note pushes it, Home
+  and Delete pop it, and the back button closing it clears the selection.
+  Folding or unfolding hands what was showing across
+  (`CompactScreen.path(listShowing:noteOpen:)` and `listShowing(in:)`), so a
+  note stays open; the page is a new view, and opens at its remembered page.
+  The note's header has no house in the stack: the back button goes home.
+  The stack's types are in CompactNavigation.swift.
+- **A list row opens its note by a tap in the stack**
+  (`opensOnTapInCompactWidth`). The rows open by selection, which the iPad's
+  sidebar makes of a tap; in a stack on an iPhone a tap selects nothing
+  outside edit mode, and the binding was never set (logged in the
+  simulator, 17 Oct). Nothing changes in a regular width.
+- **The page is fitted by its text column** (`CanvasGeometry.fitScale`'s
+  `columnWidth`, which `PageView` offers only in a compact width). Where a
+  whole page would be drawn below full size, the column and the panels'
+  14pt reach (700pt for portrait pages) fill the width and the margins run
+  off the sides, centred (`centredOffset`, set when the fit changes at zoom
+  1, never under a reader who has panned or zoomed). An iPhone 17 shows the
+  column at 0.57x, the board's "about 0.58x"; on its side the page fits at
+  1.07x, as on a small iPad. **An iPad in full screen is never compact, so
+  nothing changes there**; a first version that switched on a scale
+  threshold (0.6x) instead moved a landscape note on an iPad mini by a few
+  points, and was dropped. A narrow Split View on an iPad gets the column
+  too. Only the drawn size changes, never where lines wrap.
+- **The hotbar stays at the bottom, with no grip** (`Hotbar.isMovable`,
+  `PageDetailView.dock`): a side would take a third of a phone's width. The
+  stored edge is left alone and comes back with a regular width.
+- **Home** has two-column grids, 16pt margins, no date, a Continue card with
+  a small thumbnail and no Open pill, and its buttons stacked.
+- **The Duo, measured in the 27.1 simulator** (`-debug-report` now writes
+  `sizeClass`, `windowSize`, `horizontalOffset` and `folds`): the posture
+  the simulator boots in is compact, 466 by 678pt, with no fold regions,
+  and the system runs the status bar and the navigation bar's buttons down
+  the right side. The page sat at 0.55x, centred 31.7pt in. The unfolded
+  posture can't be reached from `simctl`, only from the Simulator's menu.
+  The fold is `UIView.reservedRegions(kind: .division)` (iOS 27.1); keeping
+  the hotbar off it when unfolded is the next part.
+- **Not built yet:** the hotbar avoiding the fold; the options rows
+  scrolling when wider than the window (the pen's row is about 391pt, which
+  fits an iPhone 17's 402 but not a 390pt phone); Settings and the other
+  sheets looked at on a phone.
+- **Open (the board's):** whether portrait should fit the column or the
+  whole page, and whether a phone note opens zoomed to 1x. Built as the
+  column, opening at the fit.
+- **Checked in the simulator:** iPhone 17 (Home, a note opened from
+  Continue, the list pushed from Show All, a note opened from the list and
+  back, the hotbar and both options rows at the bottom, ink mode) and the
+  Duo's starting posture (Home and a note). **Not checked:** the unfolded
+  Duo, an iPhone in landscape on screen, the list's search, a folder tile,
+  Delete and Undo in the stack, a search result row's tap, a real fold, the
+  Pencil, `HotbarUITests` (XCUITest, not run).
+
 ## The page fills the window
 
 Roadmap step 5 (16 Oct, branch `claude/page-fills-window`, off `claude/drag-folders`).

@@ -498,6 +498,11 @@ changes how notes are stored lands before it.
       it, as typing a line already does.
 11. **iPhone and Duo layouts**, on the chrome from step 5. The Duo is out
     23 Oct and needs Xcode 27.1 (see Deferred work).
+    (First part built 17 Oct, branch `claude/iphone-layout`: in a compact
+    width, a stack of Home, the list and a note; the page fitted by its text
+    column; the hotbar fixed at the bottom; Home in two columns. Next: the
+    hotbar off the Duo's fold when unfolded, options rows that scroll on a
+    narrow phone, the sheets on a phone. See AGENTS.md › iPhone and the Duo.)
 12. **The list's foot: the mark, Feature Request, the tip jar**, and the
     postponed Send Feedback and Privacy Policy rows. Last before submitting,
     since all of them wait on the pages in `docs/site/` being hosted.

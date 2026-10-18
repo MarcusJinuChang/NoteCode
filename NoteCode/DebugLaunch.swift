@@ -281,6 +281,22 @@ nonisolated struct DebugStateReport: Codable, Equatable, Sendable {
     /// has lines where the pages say they can't be.
     var visibleLinesAcrossBreaks: Int
     var problems: [String]
+
+    /// Where the window is laid out, for the iPhone and the Duo (roadmap step
+    /// 11): `compact` or `regular`, the window's size in points, and how far
+    /// the page is scrolled sideways (a page fitted by its text column is
+    /// centred).
+    var sizeClass: String?
+    var windowSize: [Double]?
+    var horizontalOffset: Double?
+
+    /// A fold the window reports (iOS 27.1, `reservedRegions(kind:
+    /// .division)`), in window points, inactive ones included.
+    struct Fold: Codable, Equatable, Sendable {
+        var frame: [Double]
+        var isActive: Bool
+    }
+    var folds: [Fold]?
 }
 
 #if canImport(UIKit)
@@ -301,6 +317,19 @@ extension DebugStateReport {
         self.zoom = Double(page.zoom)
         self.problems = problems
         self.visibleLinesAcrossBreaks = Self.visibleLinesAcrossBreaks(in: page)
+        self.sizeClass = page.traitCollection.horizontalSizeClass == .compact ? "compact" : "regular"
+        self.horizontalOffset = Double(page.contentOffset.x)
+        if let window = page.window {
+            self.windowSize = [Double(window.bounds.width), Double(window.bounds.height)]
+            if #available(iOS 27.1, *) {
+                self.folds = window.reservedRegions(kind: .division, options: .includeInactive).map {
+                    Fold(
+                        frame: [$0.frame.minX, $0.frame.minY, $0.frame.width, $0.frame.height].map(Double.init),
+                        isActive: $0.isActive
+                    )
+                }
+            }
+        }
 
         if let character = page.topLineCharacter(), let top = page.lineTop(atCharacter: character) {
             let index = layout.pageIndex(atY: top)
