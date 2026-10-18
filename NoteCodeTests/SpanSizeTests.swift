@@ -25,7 +25,7 @@ struct SpanSizeTests {
 
     static func styles(_ line: String) -> [SpanStyle] {
         (DocumentParser.parse(line).first?.inlines ?? []).compactMap {
-            if case .spanOpen(let style) = $0.kind { style } else { nil }
+            if case .opening(.styled(let style)) = $0.kind { style } else { nil }
         }
     }
 

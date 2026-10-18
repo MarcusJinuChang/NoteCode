@@ -89,10 +89,8 @@ extension MarkdownFormatting {
             break
         }
 
-        for inline in block.inlines {
-            for marker in inline.markerRanges {
-                stretches.append(HiddenStretch(range: absolute(marker), pinsAfter: false))
-            }
+        for inline in block.inlines where inline.kind.isMarker {
+            stretches.append(HiddenStretch(range: absolute(inline.range), pinsAfter: false))
         }
 
         // Markers that touch are one stretch: `**a**[b](c)` has no place for
@@ -157,9 +155,10 @@ extension MarkdownFormatting {
     /// - At the start of a heading's text, or of a list item's, it removes
     ///   the marker: the line becomes body text. (The default would delete
     ///   the space after the `#`, leaving `#Title` as text.)
-    /// - At the end of a span, in front of or inside its closing markers, it
-    ///   deletes the last visible character of the span. A span emptied that
-    ///   way loses its markers too, or `****` would be left on the page.
+    /// - At the end of a span, in front of, inside or just past its closing
+    ///   markers, it deletes the last visible character of the span. A span
+    ///   emptied that way loses its markers too, or `****` would be left on
+    ///   the page, and so do the spans around it that it empties.
     static func backspace(at caret: Int, in text: NSString, codeRanges: [CodeRange]) -> TextEdit? {
         guard caret > 0, caret <= text.length, !isCode(caret, in: codeRanges) else { return nil }
 
@@ -182,66 +181,40 @@ extension MarkdownFormatting {
             }
         }
 
-        // A coloured run, from the end of its text. Its tags are a pair of
-        // marker-only spans, so the rule below can't see that the run is
-        // emptied: a run's last visible character takes both tags with it,
-        // or `<span style="color:#…"></span>` would be left on the page as
-        // text. And Backspace from inside or after `</span>` acts as it
-        // does from in front of it, never on a hidden character of the tag.
-        var openTag: NSRange?
-        var innerMarkers: [NSRange] = []
-        for inline in block.inlines {
-            switch inline.kind {
-            case .spanOpen:
-                openTag = absolute(inline.range)
-                innerMarkers = []
-            case .spanClose:
-                guard let open = openTag else { continue }
-                openTag = nil
-                let close = absolute(inline.range)
-                guard caret >= close.location, caret <= NSMaxRange(close) else { continue }
-
-                let content = NSRange(location: NSMaxRange(open), length: close.location - NSMaxRange(open))
-                // The run's text less the markers of the spans inside it.
-                let visible = NSMutableString()
-                var cursor = content.location
-                for marker in innerMarkers.sorted(by: { $0.location < $1.location }) where marker.location >= cursor {
-                    visible.append(text.substring(with: NSRange(location: cursor, length: marker.location - cursor)))
-                    cursor = NSMaxRange(marker)
-                }
-                if cursor < NSMaxRange(content) {
-                    visible.append(text.substring(with: NSRange(location: cursor, length: NSMaxRange(content) - cursor)))
-                }
-                if visible.length > 0, visible.rangeOfComposedCharacterSequence(at: 0).length == visible.length {
-                    let whole = NSRange(location: open.location, length: NSMaxRange(close) - open.location)
-                    return TextEdit(range: whole, replacement: "", selection: NSRange(location: open.location, length: 0))
-                }
-                if caret > close.location {
-                    if let edit = backspace(at: close.location, in: text, codeRanges: codeRanges) { return edit }
-                    let last = text.rangeOfComposedCharacterSequence(at: close.location - 1)
-                    return TextEdit(range: last, replacement: "", selection: NSRange(location: last.location, length: 0))
-                }
-            default:
-                if openTag != nil { innerMarkers += inline.markerRanges.map(absolute) }
-            }
+        // A span, from the end of its text: in front of its closing markers,
+        // inside them or just past them. Backspace deletes the last letter on
+        // the page before the caret, never a hidden marker, and a span it
+        // empties goes with its markers, or `****` or `<span …></span>` would
+        // be left on the page as text. Spans nest, so that can be several,
+        // all holding that one letter: the outermost goes, taking the rest.
+        let spans = InlineSpan.spans(in: block.inlines).map { span in
+            (whole: absolute(span.range), content: absolute(span.contentRange), isRun: span.markup.isStyled)
         }
+        let drawn = block.inlines.filter { !$0.kind.isMarker }.map { absolute($0.range) }
 
-        for inline in block.inlines where inline.kind != .text && !inline.kind.isSpanTag {
-            let whole = absolute(inline.range)
-            let content = absolute(inline.contentRange)
-            // In front of the closing markers, inside them, or just past them.
-            guard caret >= NSMaxRange(content), caret <= NSMaxRange(whole), content.length > 0 else { continue }
+        // The last letter on the page before the caret.
+        guard let holder = drawn.last(where: { $0.location < caret }) else { return nil }
+        let letter = NSIntersectionRange(text.rangeOfComposedCharacterSequence(at: min(NSMaxRange(holder), caret) - 1), holder)
 
-            let contentText = text.substring(with: content) as NSString
-            let lastCharacter = contentText.rangeOfComposedCharacterSequence(at: contentText.length - 1)
-            if lastCharacter.location == 0 {
-                // The only character: the span goes with it.
-                return TextEdit(range: whole, replacement: "", selection: NSRange(location: whole.location, length: 0))
-            }
-            let removed = NSRange(location: content.location + lastCharacter.location, length: lastCharacter.length)
-            return TextEdit(range: removed, replacement: "", selection: NSRange(location: removed.location, length: 0))
+        // The spans holding that letter and nothing else on the page.
+        func drawnLength(in range: NSRange) -> Int {
+            drawn.reduce(0) { $0 + NSIntersectionRange($1, range).length }
         }
-        return nil
+        let emptied = spans.filter { NSLocationInRange(letter.location, $0.content) && drawnLength(in: $0.content) == letter.length }
+
+        // Only from the end of a span's text. In front of a run's `</span>`
+        // the ordinary delete does the same, unless it empties the run.
+        let atAnEnd = spans.contains { span in
+            let end = NSMaxRange(span.content)
+            let from = span.isRun && !emptied.contains { $0.whole == span.whole } ? end + 1 : end
+            return caret >= from && caret <= NSMaxRange(span.whole)
+        }
+        guard atAnEnd else { return nil }
+
+        if let outermost = emptied.max(by: { $0.whole.length < $1.whole.length }) {
+            return TextEdit(range: outermost.whole, replacement: "", selection: NSRange(location: outermost.whole.location, length: 0))
+        }
+        return TextEdit(range: letter, replacement: "", selection: NSRange(location: letter.location, length: 0))
     }
 }
 
@@ -331,9 +304,9 @@ extension MarkdownFormatting {
         let lineText = text.substring(with: line)
         guard let block = DocumentParser.parse(lineText).first, !block.isCode else { return [] }
 
-        return block.inlines.compactMap { inline in
-            guard inline.kind == .link, let destination = inline.destination else { return nil }
-            return (shifted(NSRange(inline.contentRange, in: lineText), by: line.location), String(lineText[destination]))
+        return InlineSpan.spans(in: block.inlines).compactMap { span in
+            guard span.markup == .link, let destination = span.destination else { return nil }
+            return (shifted(NSRange(span.contentRange, in: lineText), by: line.location), String(lineText[destination]))
         }
     }
 
@@ -417,47 +390,30 @@ extension MarkdownFormatting {
         }
         if state.list != nil { state.block = .listItem }
 
-        for inline in block.inlines where inline.kind != .text {
-            let whole = shifted(NSRange(inline.range, in: lineText), by: line.location)
-            let content = shifted(NSRange(inline.contentRange, in: lineText), by: line.location)
+        // Spans nest, so the caret can be in several: bold and italic both
+        // light up in `***x***`. A styled run is read by the same rule, and
+        // runs inside runs as the styler draws them: the inner colour, the
+        // sizes multiplied.
+        var runs = InlineAttributes.plain
+        for span in InlineSpan.spans(in: block.inlines) {
+            let whole = shifted(NSRange(span.range, in: lineText), by: line.location)
+            let content = shifted(NSRange(span.contentRange, in: lineText), by: line.location)
             let inside = selection.length == 0
                 ? selection.location > whole.location && selection.location <= NSMaxRange(content)
                 : selection.location >= content.location && NSMaxRange(selection) <= NSMaxRange(content)
             guard inside else { continue }
 
-            switch inline.kind {
+            switch span.markup {
             case .strong:        state.bold = true
             case .emphasis:      state.italic = true
             case .inlineCode:    state.code = true
             case .strikethrough: state.strikethrough = true
             case .link:          state.link = true
-            case .text, .spanOpen, .spanClose: break
+            case .styled:        runs = runs.inside(span.markup)
             }
         }
-
-        // A styled run is a pair of tags with spans between, so it is read
-        // as the pair, by the same rule as a span: from just after the
-        // opening tag's first character to the end of its text.
-        var open: (start: Int, end: Int, style: SpanStyle)?
-        for inline in block.inlines {
-            let whole = shifted(NSRange(inline.range, in: lineText), by: line.location)
-            switch inline.kind {
-            case .spanOpen(let style):
-                open = (whole.location, NSMaxRange(whole), style)
-            case .spanClose:
-                guard let run = open else { continue }
-                let inside = selection.length == 0
-                    ? selection.location > run.start && selection.location <= whole.location
-                    : selection.location >= run.end && NSMaxRange(selection) <= whole.location
-                if inside {
-                    state.colour = run.style.colour
-                    state.size = run.style.size
-                }
-                open = nil
-            default:
-                break
-            }
-        }
+        state.colour = runs.colour
+        state.size = runs.size
         return state
     }
 }

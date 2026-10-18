@@ -45,7 +45,7 @@ struct ListParsingTests {
         let block = firstBlock("*italic* then text")
 
         #expect(block.listMarker == nil)
-        #expect(block.inlines.first?.kind == .emphasis)
+        #expect(block.topLevel.first?.kind == .emphasis)
     }
 
     @Test("The marker is not part of the content")
@@ -59,7 +59,7 @@ struct ListParsingTests {
 
     @Test("List content is scanned for inline markup")
     func listCarriesInlines() {
-        #expect(firstBlock("- a **bold** point").inlines.map(\.kind) == [.text, .strong, .text])
+        #expect(firstBlock("- a **bold** point").topLevel.map(\.kind) == [.text, .strong, .text])
     }
 
     @Test("A list marker inside a code block stays code")

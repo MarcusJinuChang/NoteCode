@@ -63,9 +63,9 @@ nonisolated enum NoteOutline {
     }
 
     private static func title(of block: BlockNode, in source: String) -> String {
-        // The spans' own content, markers left out. Link text is the words
+        // The text that is drawn, markers left out. Link text is the words
         // between the brackets.
-        let words = block.inlines.map { String(source[$0.contentRange]) }.joined()
+        let words = block.inlines.filter { !$0.kind.isMarker }.map { String(source[$0.range]) }.joined()
         return words.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

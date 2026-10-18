@@ -24,7 +24,8 @@ import Foundation
 /// Exactly these shapes, hex and keywords in either case, are a run; any
 /// other `<span …>` (a class, a named colour, another property, another
 /// order) stays visible text, so pasted HTML is never half hidden. A run is on
-/// one line and runs don't nest.
+/// one line. The menus never write one run inside another, but one written
+/// elsewhere is read as nested (`InlineAttributes.inside`).
 nonisolated struct SpanStyle: Hashable, Sendable {
     var colour: Int?
     var size: SpanSize?
@@ -56,50 +57,45 @@ nonisolated struct SpanStyle: Hashable, Sendable {
 
     // MARK: Reading
 
-    /// A styled run: its opening tag, its closing tag, and its style.
-    struct Pair: Equatable {
-        var open: Range<String.Index>
-        var close: Range<String.Index>
-        var style: SpanStyle
+    /// The opening tag at `start`, if one starts there: its style, and where
+    /// it ends. Only the shapes above; anything else is text.
+    static func openingTag(in text: String, at start: String.Index, limit: String.Index) -> (style: SpanStyle, end: String.Index)? {
+        guard let prefixEnd = tag(tagPrefix, in: text, at: start, limit: limit) else { return nil }
+        guard let (style, end) = declarations(in: text, from: prefixEnd, limit: limit) else { return nil }
+        return (style, end)
     }
 
-    /// The first opening tag in `range` with a closing tag after it, and
-    /// something between the two. An opening tag with no closing one, or
-    /// with nothing before its closing one, is text.
-    static func firstPair(in text: String, range: Range<String.Index>) -> Pair? {
-        var searchStart = range.lowerBound
-        while let prefix = text.range(of: tagPrefix, options: .caseInsensitive, range: searchStart..<range.upperBound) {
-            searchStart = prefix.upperBound
-            guard let (style, openEnd) = declarations(in: text, from: prefix.upperBound, limit: range.upperBound),
-                  let close = text.range(of: close, options: .caseInsensitive, range: openEnd..<range.upperBound),
-                  close.lowerBound > openEnd
-            else { continue }
-            return Pair(open: prefix.lowerBound..<openEnd, close: close, style: style)
-        }
-        return nil
+    /// Where a closing tag at `start` ends, if one starts there.
+    static func closingTag(in text: String, at start: String.Index, limit: String.Index) -> String.Index? {
+        tag(close, in: text, at: start, limit: limit)
+    }
+
+    /// Where `tag` ends, if it is at `start`, in either case. Most `<` in a
+    /// note are `vector<int>`, so the second character is checked first.
+    private static func tag(_ tag: String, in text: String, at start: String.Index, limit: String.Index) -> String.Index? {
+        let second = text.index(after: start)
+        guard second < limit, text[second].lowercased() == String(tag[tag.index(after: tag.startIndex)]),
+              let end = text.index(start, offsetBy: tag.count, limitedBy: limit),
+              text[start..<end].caseInsensitiveCompare(tag) == .orderedSame
+        else { return nil }
+        return end
     }
 
     /// `text` with every run's tags replaced by word joiners, a unit for a
     /// unit: what search reads, so a tag is never found and an excerpt never
     /// shows one, and every offset still points at the same character of the
     /// note, for the matches opening a result highlights.
+    ///
+    /// The tags are the parser's (`InlineParser`), so what search leaves out
+    /// is what the page hides: not a tag in a code block, which is code.
     static func maskingTags(in text: String) -> String {
         guard text.range(of: tagPrefix, options: .caseInsensitive) != nil else { return text }
         let masked = NSMutableString(string: text)
-        func mask(_ range: Range<String.Index>) {
-            let units = NSRange(range, in: text)
-            masked.replaceCharacters(in: units, with: String(repeating: "\u{2060}", count: units.length))
-        }
-        var lineStart = text.startIndex
-        while lineStart < text.endIndex {
-            let lineEnd = text[lineStart...].firstIndex(of: "\n") ?? text.endIndex
-            var cursor = lineStart
-            while let pair = firstPair(in: text, range: cursor..<lineEnd) {
-                mask(pair.open)
-                mask(pair.close)
-                cursor = pair.close.upperBound
+        for block in DocumentParser.parse(text) {
+            for inline in block.inlines where inline.kind.isSpanTag {
+                let units = NSRange(inline.range, in: text)
+                masked.replaceCharacters(in: units, with: String(repeating: "\u{2060}", count: units.length))
             }
-            lineStart = lineEnd < text.endIndex ? text.index(after: lineEnd) : text.endIndex
         }
         return masked as String
     }

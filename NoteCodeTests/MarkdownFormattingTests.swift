@@ -67,9 +67,9 @@ struct InlineFormattingTests {
     func parserAgrees(style: MarkdownFormatting.InlineStyle) {
         let (text, selection) = unpack("a «word» b")
         let result = MarkdownFormatting.toggle(style, in: text, selection: selection).applied(to: text)
-        let kinds = InlineParser.parse(result, in: result.startIndex..<result.endIndex).map(\.kind)
+        let kinds = TopLevelSpan.read(result).map(\.kind)
 
-        #expect(kinds == [.text, style.kind, .text])
+        #expect(kinds == [.text, style.topLevelKind, .text])
     }
 
     @Test("Pressing again removes the style", arguments: MarkdownFormatting.InlineStyle.allCases)

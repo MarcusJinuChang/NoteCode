@@ -133,7 +133,7 @@ nonisolated enum TextRewritingPolicy: Equatable, Sendable {
             guard block.range.overlaps(replaced) || block.range.contains(replaced.lowerBound) else { return false }
             let code = block.isCode
                 ? [block.range]
-                : block.inlines.filter { $0.kind == .inlineCode }.map(\.range)
+                : InlineSpan.spans(in: block.inlines).filter { $0.markup == .inlineCode }.map(\.range)
             return code.contains { span in
                 changed.isEmpty
                     ? span.lowerBound < changed.lowerBound && changed.lowerBound < span.upperBound
@@ -145,21 +145,17 @@ nonisolated enum TextRewritingPolicy: Equatable, Sendable {
     /// Whether `caret` is in inline code within a line of prose: between a
     /// span's backticks, or after a backtick nothing closes yet.
     private static func isInInlineCode(_ caret: String.Index, block: BlockNode, source: String) -> Bool {
-        for inline in block.inlines {
+        // Right after the opening backtick to right before the closing one.
+        // After the closing one is prose again. Code can be inside bold.
+        for span in InlineSpan.spans(in: block.inlines) where span.markup == .inlineCode {
+            if span.range.lowerBound < caret, caret <= span.contentRange.upperBound { return true }
+        }
+        // The parser leaves a backtick as text when nothing on the line
+        // closes it, which is what one being typed looks like.
+        for inline in block.inlines where inline.kind == .text {
             guard inline.range.lowerBound < caret else { break }
-            switch inline.kind {
-            case .inlineCode:
-                // Right after the opening backtick to right before the
-                // closing one. After the closing one is prose again.
-                if caret <= inline.contentRange.upperBound { return true }
-            case .text:
-                // The parser leaves a backtick as text when nothing on the
-                // line closes it, which is what one being typed looks like.
-                let before = inline.range.lowerBound..<min(inline.range.upperBound, caret)
-                if source[before].contains("`") { return true }
-            default:
-                break
-            }
+            let before = inline.range.lowerBound..<min(inline.range.upperBound, caret)
+            if source[before].contains("`") { return true }
         }
         return false
     }

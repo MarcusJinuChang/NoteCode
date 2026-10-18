@@ -48,7 +48,7 @@ nonisolated enum MarkdownFormatting {
             }
         }
 
-        var kind: InlineNode.Kind {
+        var markup: InlineMarkup {
             switch self {
             case .bold:          .strong
             case .italic:        .emphasis
@@ -62,10 +62,13 @@ nonisolated enum MarkdownFormatting {
 
     /// Adds or removes an inline style.
     ///
-    /// - Inside a span of this style, the span's markers come off.
+    /// - Inside a span of this style, the span's markers come off: the
+    ///   innermost, where spans nest.
     /// - Inside a span of a different style, its markers are swapped for this
-    ///   one's. `InlineParser` doesn't nest spans, so bold-inside-italic would
-    ///   render as neither; replacing is the version that shows what it says.
+    ///   one's: the outermost, which is the span a line read before spans
+    ///   nested had. Phase 3 of the text overhaul makes it add instead.
+    /// - A styled run's tags are never swapped: they aren't a style this
+    ///   sets.
     /// - Otherwise the selection is wrapped. With nothing selected an empty pair
     ///   goes in with the caret between, and pressing again takes it back out.
     /// - A selection across lines is styled a line at a time. A span can't
@@ -94,13 +97,17 @@ nonisolated enum MarkdownFormatting {
         let line = lines(touching: selection, in: ns)[0]
         let lineText = ns.substring(with: line)
 
-        for node in InlineParser.parse(lineText, in: lineText.startIndex..<lineText.endIndex) where node.kind != .text {
-            let whole = shifted(NSRange(node.range, in: lineText), by: line.location)
-            let content = shifted(NSRange(node.contentRange, in: lineText), by: line.location)
+        let spans = InlineSpan.spans(in: InlineParser.parse(lineText, in: lineText.startIndex..<lineText.endIndex))
+        let candidates = spans.compactMap { span -> (span: InlineSpan, whole: NSRange, content: NSRange)? in
+            guard !span.markup.isStyled else { return nil }
+            let whole = shifted(NSRange(span.range, in: lineText), by: line.location)
+            let content = shifted(NSRange(span.contentRange, in: lineText), by: line.location)
+            return selection == whole || content.contains(selection) ? (span, whole, content) : nil
+        }
+        // Outer spans come first.
+        if let (node, whole, content) = candidates.last(where: { $0.span.markup == style.markup }) ?? candidates.first {
             let selectsWhole = selection == whole
-            guard selectsWhole || content.contains(selection) else { continue }
-
-            let marker = node.kind == style.kind ? "" : style.marker
+            let marker = node.markup == style.markup ? "" : style.marker
             let newMarkerLength = (marker as NSString).length
             let oldMarkerLength = content.location - whole.location
 
@@ -126,7 +133,7 @@ nonisolated enum MarkdownFormatting {
 
         // Mixed lines get the style added, not removed — the same rule a
         // selection that is only partly bold follows in any editor.
-        let removing = !written.isEmpty && written.allSatisfy { soleSpan(in: $0)?.kind == style.kind }
+        let removing = !written.isEmpty && written.allSatisfy { soleSpan(in: $0)?.markup == style.markup }
 
         let rewritten = segments.map { segment -> String in
             guard !isBlank(segment) else { return segment }
@@ -137,7 +144,7 @@ nonisolated enum MarkdownFormatting {
 
             let inner = String(segment[span.contentRange])
             if removing { return inner }
-            if span.kind == style.kind { return segment }
+            if span.markup == style.markup { return segment }
             return style.marker + inner + style.marker
         }
 
@@ -149,11 +156,13 @@ nonisolated enum MarkdownFormatting {
         )
     }
 
-    /// The single span that makes up all of `segment`, if it is exactly one.
-    private static func soleSpan(in segment: String) -> InlineNode? {
-        let nodes = InlineParser.parse(segment, in: segment.startIndex..<segment.endIndex)
-        guard nodes.count == 1, let node = nodes.first, node.kind != .text else { return nil }
-        return node
+    /// The single span that makes up all of `segment`, if it is exactly one:
+    /// the outermost, where spans nest. Not a styled run.
+    private static func soleSpan(in segment: String) -> InlineSpan? {
+        let whole = segment.startIndex..<segment.endIndex
+        let spans = InlineSpan.spans(in: InlineParser.parse(segment, in: whole))
+        guard let span = spans.first, span.range == whole, !span.markup.isStyled else { return nil }
+        return span
     }
 
     /// True for `**|**`, and false for `***|***`, where taking the inner two

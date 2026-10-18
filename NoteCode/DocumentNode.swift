@@ -200,81 +200,174 @@ nonisolated enum ListMarker: Equatable, Sendable {
 
 // MARK: - Inline
 
-/// A span *within* a block.
+/// What a pair of markers does to the text between them.
+nonisolated enum InlineMarkup: Hashable, Sendable {
+    /// `**bold**` or `__bold__`
+    case strong
+    /// `*italic*` or `_italic_`
+    case emphasis
+    /// `` `code` ``
+    case inlineCode
+    /// `~~struck~~`
+    case strikethrough
+    /// `[text](url)`, whose markers are `[` and `](url)`; or a bare
+    /// `http(s)://` address, which has none (`InlineSpan`).
+    case link
+    /// `<span style="…">` and `</span>`, a styled run (`SpanStyle`): a
+    /// colour, a size or both.
+    case styled(SpanStyle)
+
+    var isStyled: Bool {
+        if case .styled = self { return true }
+        return false
+    }
+}
+
+/// How a stretch of a line is drawn: what every pair of markers around it
+/// says, so `***x***` is bold and italic and bold inside a run is coloured.
+nonisolated struct InlineAttributes: Hashable, Sendable {
+    var bold = false
+    var italic = false
+    var strikethrough = false
+    var code = false
+    var link = false
+    /// The innermost run's colour (`TextColour`), or `nil` for none.
+    var colour: Int?
+    /// The size against the block's text, or `nil` for its own. A run
+    /// inside a sized run multiplies, as em does in Obsidian's HTML.
+    var size: SpanSize?
+
+    static let plain = InlineAttributes()
+
+    /// What text inside one more pair has.
+    func inside(_ markup: InlineMarkup) -> InlineAttributes {
+        var inner = self
+        switch markup {
+        case .strong:        inner.bold = true
+        case .emphasis:      inner.italic = true
+        case .inlineCode:    inner.code = true
+        case .strikethrough: inner.strikethrough = true
+        case .link:          inner.link = true
+        case .styled(let style):
+            if let colour = style.colour { inner.colour = colour }
+            if let runSize = style.size {
+                inner.size = if let outer = size { SpanSize(em: outer.em * runSize.em) } else { runSize }
+            }
+        }
+        return inner
+    }
+
+    /// Cheap and exact, for the block signature: two different sets of
+    /// attributes never give the same number.
+    var signature: Int {
+        let flags = (bold ? 1 : 0) | (italic ? 2 : 0) | (strikethrough ? 4 : 0) | (code ? 8 : 0) | (link ? 16 : 0)
+        let colourBits = colour.map { ($0 & 0xFFFFFF) + 1 } ?? 0
+        let sizeBits = size.map { $0.thousandths + 1 } ?? 0
+        return flags | colourBits << 5 | sizeBits << 30
+    }
+}
+
+/// A piece of a line: some text, or a marker that opens or closes a pair.
+///
+/// A line's nodes are flat and contiguous, and cover its content exactly,
+/// so a caller can walk them without checking for holes. Pairs nest, and
+/// what a stretch of text is drawn with is on its node (`attributes`), so
+/// nothing has to work out what it is inside. `InlineSpan` reads the pairs
+/// back out, for the editing rules that act on a whole span.
 nonisolated struct InlineNode: Equatable, Sendable {
     enum Kind: Equatable, Sendable {
         case text
-        /// `**bold**` or `__bold__`
-        case strong
-        /// `*italic*` or `_italic_`
-        case emphasis
-        /// `` `code` ``
-        case inlineCode
-        /// `~~struck~~`
-        case strikethrough
-        /// `[text](url)`, or a bare `http(s)://` address. For the first the
-        /// content is the text and the markers are `[` and `](url)`; for the
-        /// second the whole span is the content and there are no markers.
-        case link
-        /// `<span style="…">`, the opening of a styled run (`SpanStyle`): a
-        /// colour, a size or both. Markers only, its content empty. The text
-        /// it styles is the spans between it and the next `spanClose`, which
-        /// are parsed as any other, so bold or a link can be coloured.
-        case spanOpen(SpanStyle)
-        /// `</span>`, closing a styled run: markers only.
-        case spanClose
-        // .math arrives with a later step.
+        /// The markers that open a pair: `**`, `[`, `<span style="…">`.
+        case opening(InlineMarkup)
+        /// The markers that close one: `**`, `](url)`, `</span>`.
+        case closing(InlineMarkup)
 
-        var discriminant: Int {
+        var isMarker: Bool { self != .text }
+
+        var markup: InlineMarkup? {
             switch self {
-            case .text:          0
-            case .strong:        1
-            case .emphasis:      2
-            case .inlineCode:    3
-            case .strikethrough: 4
-            case .link:          5
-            // The style is in it: a recolour keeps every length the same,
-            // and the styler must still notice.
-            case .spanOpen(let style):
-                spanDiscriminant(style)
-            case .spanClose:     7
+            case .text:                 nil
+            case .opening(let markup):  markup
+            case .closing(let markup):  markup
             }
-        }
-
-        private func spanDiscriminant(_ style: SpanStyle) -> Int {
-            let colour: Int = style.colour ?? 0x1000000
-            let size: Int = style.size.map { $0.thousandths + 1 } ?? 0
-            return 6 &+ colour &* 8 &+ size &* 0x8000_0000
         }
 
         /// A run's tag, which marks where a style starts or stops and holds
         /// no text of its own.
-        var isSpanTag: Bool {
-            switch self {
-            case .spanOpen, .spanClose: true
-            default: false
+        var isSpanTag: Bool { markup?.isStyled ?? false }
+
+        /// For the block signature. The style is in it: a recolour keeps
+        /// every length the same, and the styler must still notice.
+        var discriminant: Int {
+            let side = switch self {
+            case .text:    0
+            case .opening: 1
+            case .closing: 2
             }
+            let markupBits: Int = switch markup {
+            case nil:                 0
+            case .strong?:            1
+            case .emphasis?:          2
+            case .inlineCode?:        3
+            case .strikethrough?:     4
+            case .link?:              5
+            case .styled(let style)?: 6 &+ (style.colour ?? 0x1000000) &* 8 &+ (style.size.map { $0.thousandths + 1 } ?? 0) &* 0x8000_0000
+            }
+            return side &+ markupBits &* 4
         }
     }
 
     var kind: Kind
-    /// The whole span, markers included — what gets dimmed.
+    /// The node's characters: text, or markers alone.
     var range: Range<String.Index>
-    /// Just the text between the markers — what gets bolded, italicised or
-    /// monospaced. Equal to `range` for `.text`.
-    ///
-    /// Two ranges for the same reason `CodeBlock` has them: the markers are
-    /// part of the document and stay visible, but they aren't the content.
+    /// For text, how it is drawn. For a marker, how the text around its
+    /// pair is drawn, which is the font a hidden marker keeps.
+    var attributes: InlineAttributes
+    /// Where a link goes: the address inside `(…)`, on a link's text and
+    /// both its markers, or a bare address itself. `nil` elsewhere.
+    var destination: Range<String.Index>? = nil
+}
+
+/// A pair of markers and the text between them, or a bare address: a line
+/// read as spans, for the rules that act on one whole (Backspace, the
+/// caret's formatting, links, colour and size).
+nonisolated struct InlineSpan: Equatable, Sendable {
+    var markup: InlineMarkup
+    /// The whole span, markers included.
+    var range: Range<String.Index>
+    /// Between the markers; the whole span for a bare address.
     var contentRange: Range<String.Index>
-    /// Where a link goes: the address inside `(…)`, or the span itself for a
-    /// bare address. `nil` for everything else.
+    /// Where a link goes; `nil` for everything else.
     var destination: Range<String.Index>? = nil
 
     /// The marker characters, as the ranges either side of the content.
     var markerRanges: [Range<String.Index>] {
-        guard kind != .text else { return [] }
-        return [range.lowerBound..<contentRange.lowerBound, contentRange.upperBound..<range.upperBound]
-            .filter { !$0.isEmpty }
+        [range.lowerBound..<contentRange.lowerBound, contentRange.upperBound..<range.upperBound].filter { !$0.isEmpty }
+    }
+
+    /// Every pair among `nodes` and every bare address, in the order they
+    /// start, so a pair comes before the pairs inside it.
+    static func spans(in nodes: [InlineNode]) -> [InlineSpan] {
+        var spans: [InlineSpan] = []
+        var open: [(index: Int, markers: Range<String.Index>)] = []
+        for node in nodes {
+            switch node.kind {
+            case .text:
+                if let destination = node.destination, destination == node.range {
+                    spans.append(InlineSpan(markup: .link, range: node.range, contentRange: node.range, destination: destination))
+                }
+            case .opening(let markup):
+                open.append((spans.count, node.range))
+                spans.append(InlineSpan(markup: markup, range: node.range, contentRange: node.range, destination: node.destination))
+            case .closing:
+                // The parser only makes pairs that nest, so the innermost
+                // open one is this one's.
+                guard let start = open.popLast() else { continue }
+                spans[start.index].range = start.markers.lowerBound..<node.range.upperBound
+                spans[start.index].contentRange = start.markers.upperBound..<node.range.lowerBound
+            }
+        }
+        return spans
     }
 }
 
