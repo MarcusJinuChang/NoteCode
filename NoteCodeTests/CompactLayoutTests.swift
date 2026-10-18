@@ -91,3 +91,94 @@ struct CompactLayoutTests {
         #expect(CompactScreen.listShowing(in: path) == (listShowing && !noteOpen))
     }
 }
+
+#if canImport(UIKit)
+import SwiftUI
+import UIKit
+
+/// The options rows on a phone narrower than they are long.
+@Suite("Options rows on a narrow phone", .serialized)
+@MainActor
+struct NarrowOptionsRowTests {
+
+    private func scrollViews(in view: UIView) -> [UIScrollView] {
+        (view as? UIScrollView).map { [$0] } ?? [] + view.subviews.flatMap(scrollViews(in:))
+    }
+
+    /// The pen's row, in ink mode at the bottom, given `limit` along the bar.
+    private func penRow(limit: CGFloat?) -> UIScrollView? {
+        let editor = NoteEditor()
+        editor.setMode(.ink)
+        editor.inkTool.kind = .pen
+        let host = UIHostingController(rootView: Hotbar(
+            editor: editor,
+            dock: .constant(.bottom),
+            onDrop: { _ in },
+            maxRowLength: limit
+        ))
+        let window = HotbarLayoutTests.makeWindow()
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        let end = Date(timeIntervalSinceNow: 0.8)
+        repeat {
+            window.layoutIfNeeded()
+            CATransaction.flush()
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+        } while Date() < end
+        // The bar's own tools are shorter than the pen's seven colours, Add
+        // Colour and three widths, about 391pt.
+        return scrollViews(in: host.view).first { $0.contentSize.width > 350 }
+    }
+
+    @Test("Given less room than it needs, the pen's row is that long and scrolls")
+    func rowScrollsWhenLonger() throws {
+        let row = try #require(penRow(limit: 300))
+        #expect(row.bounds.width <= 300.5)
+        #expect(row.contentSize.width > row.bounds.width + 50)
+    }
+
+    @Test("Given room, or no limit, the row is its own length and doesn't scroll")
+    func rowHugsWhenItFits() throws {
+        for limit: CGFloat? in [nil, 600] {
+            let row = try #require(penRow(limit: limit))
+            #expect(abs(row.bounds.width - row.contentSize.width) < 1, "limit \(String(describing: limit))")
+        }
+    }
+}
+#endif
+
+/// The hotbar and a Duo's fold.
+@Suite("The Duo's fold")
+struct FoldAvoidanceTests {
+
+    /// The Duo unfolded and held sideways, as the 27.1 simulator reports it:
+    /// a 951 by 669pt window with the fold a 40pt band down the middle.
+    private let area = CGSize(width: 951, height: 669)
+    private let downTheMiddle = CGRect(x: 455.5, y: 0, width: 40, height: 669)
+    private let acrossTheMiddle = CGRect(x: 0, y: 314.5, width: 951, height: 40)
+    private let band = Hotbar.footprint
+
+    @Test("A fold down the screen moves a bottom bar to the left, and leaves a side bar alone")
+    func foldDownTheScreen() {
+        #expect(FoldAvoidance.dock(.bottom, avoiding: [downTheMiddle], in: area, band: band) == .left)
+        #expect(FoldAvoidance.dock(.left, avoiding: [downTheMiddle], in: area, band: band) == .left)
+        #expect(FoldAvoidance.dock(.right, avoiding: [downTheMiddle], in: area, band: band) == .right)
+    }
+
+    @Test("A fold across the screen moves a side bar to the bottom, and leaves a bottom bar alone")
+    func foldAcrossTheScreen() {
+        #expect(FoldAvoidance.dock(.left, avoiding: [acrossTheMiddle], in: area, band: band) == .bottom)
+        #expect(FoldAvoidance.dock(.right, avoiding: [acrossTheMiddle], in: area, band: band) == .bottom)
+        #expect(FoldAvoidance.dock(.bottom, avoiding: [acrossTheMiddle], in: area, band: band) == .bottom)
+    }
+
+    @Test("No fold, or one the bar's band doesn't reach, changes nothing", arguments: HotbarDock.allCases)
+    func nothingInTheWay(dock: HotbarDock) {
+        #expect(FoldAvoidance.dock(dock, avoiding: [], in: area, band: band) == dock)
+        // A fold down the top half only, clear of the bottom band.
+        let short = CGRect(x: 455.5, y: 0, width: 40, height: 300)
+        #expect(FoldAvoidance.dock(dock, avoiding: [short], in: area, band: band) == dock)
+        // Before the area has been measured.
+        #expect(FoldAvoidance.dock(dock, avoiding: [downTheMiddle, acrossTheMiddle], in: .zero, band: band) == dock)
+    }
+}

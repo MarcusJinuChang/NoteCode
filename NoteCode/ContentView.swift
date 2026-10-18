@@ -118,7 +118,8 @@ struct ContentView: View {
             isPresented: $showsSettings,
             onOpenWelcomeNote: openWelcomeNote,
             onShowWelcomeScreen: showWelcomeScreen,
-            onExportFinished: exported
+            onExportFinished: exported,
+            hotbarCanMove: !isCompact
         )
         .sheet(isPresented: $showsExportAll) {
             ExportAllSheet(onFinished: { count in

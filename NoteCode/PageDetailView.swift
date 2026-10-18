@@ -71,11 +71,20 @@ struct PageDetailView: View {
     private var isCompact: Bool { false }
 #endif
 
-    /// Where the bar is: the stored edge, or the bottom in a compact width.
+    /// Where the bar is: the stored edge, or the bottom in a compact width,
+    /// and never across a Duo's fold while it is partly folded
+    /// (`FoldAvoidance`). Only a drag or Settings changes the stored edge.
     private var dock: HotbarDock {
-        get { isCompact ? .bottom : storedDock }
+        get {
+            if isCompact { return .bottom }
+            return FoldAvoidance.dock(storedDock, avoiding: folds, in: pageSize, band: Hotbar.footprint)
+        }
         nonmutating set { if !isCompact { storedDock = newValue } }
     }
+
+    /// The active folds over the page area, in its coordinates
+    /// (`FoldReader`). None on any device but a Duo, nor on a Duo flat open.
+    @State private var folds: [CGRect] = []
 
     /// How pages are shown. Per device, like the dock: it's how this reader
     /// likes to look at notes, and changes nothing in the note itself.
@@ -443,7 +452,8 @@ struct PageDetailView: View {
                 dock: Binding(get: { dock }, set: { dock = $0 }),
                 onDrop: drop,
                 textRowHidden: sheetCoversPage,
-                isMovable: !isCompact
+                isMovable: !isCompact,
+                maxRowLength: maxRowLength
             )
                 .padding(Hotbar.margin)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: dock.alignment)
@@ -462,6 +472,11 @@ struct PageDetailView: View {
         .background {
             Color(PageView.surroundColor)
                 .ignoresSafeArea()
+        }
+        .background {
+            FoldReader { found in
+                if folds != found { folds = found }
+            }
         }
         .coordinateSpace(.named(Hotbar.coordinateSpace))
         .onGeometryChange(for: CGSize.self) { $0.size } action: { pageSize = $0 }
@@ -482,6 +497,14 @@ struct PageDetailView: View {
 
     /// Under the header.
     private static let badgeInset: CGFloat = 18
+
+    /// The most an options row may take along the bar: the page area's length
+    /// that way, less the bar's margin at each end. Nothing until the area has
+    /// been measured.
+    private var maxRowLength: CGFloat? {
+        let length = dock.isVertical ? pageSize.height : pageSize.width
+        return length > 0 ? length - Hotbar.margin * 2 : nil
+    }
 
     /// Whether a sheet is over the page, which takes the text options row
     /// away: the info sheet and the folder editor.

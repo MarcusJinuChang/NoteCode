@@ -29,19 +29,23 @@ struct TextOptionsRow: View {
     @Environment(\.optionsRow) private var style
 
     var body: some View {
-        HotbarStack(isVertical: isVertical) {
-            TextSizeStepper(editor: editor, isVertical: isVertical)
-            HotbarDivider(isVertical: isVertical)
-            switch editor.caretFormatting.block {
-            case .paragraph:
-                ParagraphControls(editor: editor)
-            case .listItem:
-                ListControls(editor: editor)
-            case .code(let label, let kind, let isClosed):
-                CodeControls(editor: editor, label: label, kind: kind, isClosed: isClosed)
+        // Scrolls along the bar when it's longer than the space beside it
+        // (a narrow phone, with the size and colour menus at the end).
+        OptionsRowTrack(isVertical: isVertical) {
+            HotbarStack(isVertical: isVertical) {
+                TextSizeStepper(editor: editor, isVertical: isVertical)
+                HotbarDivider(isVertical: isVertical)
+                switch editor.caretFormatting.block {
+                case .paragraph:
+                    ParagraphControls(editor: editor)
+                case .listItem:
+                    ListControls(editor: editor)
+                case .code(let label, let kind, let isClosed):
+                    CodeControls(editor: editor, label: label, kind: kind, isClosed: isClosed)
+                }
             }
+            .padding(isVertical ? .vertical : .horizontal, 2)
         }
-        .padding(isVertical ? .vertical : .horizontal, 2)
         .background(alignment: style?.faceAlignment ?? .center) {
             Color.clear
                 .frame(
