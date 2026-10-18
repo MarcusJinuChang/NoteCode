@@ -347,27 +347,6 @@ enum DocumentStyler {
 
     // MARK: Colour and size
 
-    /// The stretches between each run's opening tag and its closing one, with
-    /// its style. The parser only makes the tags in pairs.
-    static func styleRuns(in inlines: [InlineLayout]) -> [(range: NSRange, style: SpanStyle)] {
-        var runs: [(NSRange, SpanStyle)] = []
-        var open: (end: Int, style: SpanStyle)?
-        for inline in inlines {
-            switch inline.kind {
-            case .spanOpen(let style):
-                open = (NSMaxRange(inline.markers.first ?? inline.contentRange), style)
-            case .spanClose:
-                if let start = open, let tag = inline.markers.first {
-                    runs.append((NSRange(location: start.end, length: tag.location - start.end), start.style))
-                }
-                open = nil
-            default:
-                break
-            }
-        }
-        return runs
-    }
-
     /// The font a sized run's text is set in: the font around it, at the
     /// run's size against it, so a heading's run is a larger heading.
     ///
@@ -466,10 +445,16 @@ enum DocumentStyler {
         }
     }
 
+    /// An inline node as UTF-16 offsets: its kind, its characters, and
+    /// what it is drawn with.
     struct InlineLayout {
         var kind: InlineNode.Kind
-        var contentRange: NSRange
-        var markers: [NSRange]
+        var range: NSRange
+        var attributes: InlineAttributes
+
+        /// A marker's characters, which a rendered note lays out at no width
+        /// (`MarkdownLayout`) and the styler dims; none for text.
+        var markers: [NSRange] { kind.isMarker ? [range] : [] }
     }
 
     /// Converts every range in the document to UTF-16 offsets in one forward pass.
@@ -498,28 +483,21 @@ enum DocumentStyler {
 
             for inline in block.inlines {
                 let inlineLength = source[inline.range].utf16.count
-                let inlineLeading = source[inline.range.lowerBound..<inline.contentRange.lowerBound].utf16.count
-                let inlineContent = source[inline.contentRange].utf16.count
-
-                let content = NSRange(location: inlineOffset + inlineLeading, length: inlineContent)
-                var markers: [NSRange] = []
-                if inlineLeading > 0 {
-                    markers.append(NSRange(location: inlineOffset, length: inlineLeading))
-                }
-                let trailingStart = content.location + content.length
-                let trailingLength = inlineOffset + inlineLength - trailingStart
-                if trailingLength > 0 {
-                    markers.append(NSRange(location: trailingStart, length: trailingLength))
-                }
-
-                inlines.append(InlineLayout(kind: inline.kind, contentRange: content, markers: markers))
+                inlines.append(InlineLayout(
+                    kind: inline.kind,
+                    range: NSRange(location: inlineOffset, length: inlineLength),
+                    attributes: inline.attributes
+                ))
                 inlineOffset += inlineLength
             }
 
+            // What the text is drawn with is in it, since a recolour or a
+            // change of nesting can keep every length the same.
             var inlineHash = 17
             for inline in inlines {
                 inlineHash = inlineHash &* 31 &+ inline.kind.discriminant
-                inlineHash = inlineHash &* 31 &+ inline.contentRange.length
+                inlineHash = inlineHash &* 31 &+ inline.range.length
+                inlineHash = inlineHash &* 31 &+ inline.attributes.signature
             }
 
             layouts.append(
@@ -583,58 +561,59 @@ enum DocumentStyler {
         return NSRange(location: range.location, length: max(range.length - last.utf16.count, 0))
     }
 
-    /// Applies inline spans over a block whose base font is already set.
+    /// Applies inline nodes over a block whose base font is already set.
     ///
-    /// Traits are derived from the block's own font rather than a fixed one, so
-    /// bold inside a heading is a bold heading, not bold body text.
+    /// One pass: each node is drawn with its own attributes, which hold
+    /// every pair it is inside. Fonts are derived from the block's own,
+    /// sized first, then given their traits, so bold inside a heading is a
+    /// bold heading and bold inside a sized run is bold at the run's size.
+    /// A marker keeps the font of the text around its pair and is dimmed.
     private static func apply(_ inlines: [InlineLayout], over blockFont: UIFont, to storage: NSMutableAttributedString) {
-        // Runs first, so what is inside one keeps its own: a link stays the
-        // link colour, a marker the marker colour, and bold is bold at the
-        // run's size.
-        for run in styleRuns(in: inlines) {
-            if let colour = run.style.colour {
-                storage.addAttribute(.foregroundColor, value: textColour(hex: colour), range: run.range)
+        for inline in inlines {
+            let attributes = inline.attributes
+            if inline.kind.isMarker {
+                if attributes != .plain {
+                    storage.addAttribute(.font, value: font(for: attributes, over: blockFont), range: inline.range)
+                }
+                storage.addAttribute(.foregroundColor, value: markerColor, range: inline.range)
+                continue
             }
-            if run.style.size != nil {
-                storage.addAttribute(.font, value: font(blockFont, sizedTo: run.style.size), range: run.range)
-            }
-        }
+            guard attributes != .plain else { continue }
 
-        // The font the spans build on: the block's, or a sized run's while
-        // the spans are inside one.
-        var baseFont = blockFont
-        for inline in inlines where inline.kind != .text {
-            switch inline.kind {
-            case .strong:
-                storage.addAttribute(.font, value: baseFont.withTraits(.traitBold), range: inline.contentRange)
-            case .emphasis:
-                storage.addAttribute(.font, value: baseFont.withTraits(.traitItalic), range: inline.contentRange)
-            case .inlineCode:
-                storage.addAttribute(
-                    .font,
-                    value: UIFont.monospacedSystemFont(ofSize: baseFont.pointSize, weight: .regular),
-                    range: inline.contentRange
-                )
+            if attributes.size != nil || attributes.bold || attributes.italic || attributes.code {
+                storage.addAttribute(.font, value: font(for: attributes, over: blockFont), range: inline.range)
+            }
+            // A link keeps the link colour inside a coloured run.
+            if attributes.link {
+                storage.addAttribute(.foregroundColor, value: linkColor, range: inline.range)
+                storage.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: inline.range)
+            } else if let colour = attributes.colour {
+                storage.addAttribute(.foregroundColor, value: textColour(hex: colour), range: inline.range)
+            }
+            if attributes.code {
                 // A per-glyph background is right here, unlike a code block —
                 // an inline span is short and doesn't need to square off.
-                storage.addAttribute(.backgroundColor, value: UIColor.secondarySystemFill, range: inline.contentRange)
-            case .strikethrough:
-                storage.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: inline.contentRange)
-            case .link:
-                storage.addAttribute(.foregroundColor, value: linkColor, range: inline.contentRange)
-                storage.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: inline.contentRange)
-            case .spanOpen(let style):
-                baseFont = font(blockFont, sizedTo: style.size)
-            case .spanClose:
-                baseFont = blockFont
-            case .text:
-                break
+                storage.addAttribute(.backgroundColor, value: UIColor.secondarySystemFill, range: inline.range)
             }
-
-            for marker in inline.markers {
-                storage.addAttribute(.foregroundColor, value: markerColor, range: marker)
+            if attributes.strikethrough {
+                storage.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: inline.range)
             }
         }
+    }
+
+    /// The font text with `attributes` is set in, in a block set in
+    /// `blockFont`: sized, then monospaced for code, or given bold and
+    /// italic. Code is regular weight unless it is inside bold.
+    static func font(for attributes: InlineAttributes, over blockFont: UIFont) -> UIFont {
+        let sized = font(blockFont, sizedTo: attributes.size)
+        if attributes.code {
+            let code = UIFont.monospacedSystemFont(ofSize: sized.pointSize, weight: attributes.bold ? .bold : .regular)
+            return attributes.italic ? code.withTraits(.traitItalic) : code
+        }
+        var traits: UIFontDescriptor.SymbolicTraits = []
+        if attributes.bold { traits.insert(.traitBold) }
+        if attributes.italic { traits.insert(.traitItalic) }
+        return traits.isEmpty ? sized : sized.withTraits(traits)
     }
 
 

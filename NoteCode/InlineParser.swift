@@ -2,183 +2,334 @@
 //  InlineParser.swift
 //  NoteCode
 //
-//  Splits a block's content into inline spans.
+//  Splits a block's content into inline nodes.
 //
 
 import Foundation
 
 nonisolated enum InlineParser {
 
-    /// Scans `range` within `text` for inline markdown spans.
+    /// Reads `range` within `text` as inline Markdown: inline code, strong,
+    /// emphasis, strikethrough, links and styled runs, nested.
     ///
-    /// A deliberately small subset — inline code, strong, emphasis,
-    /// strikethrough, and links. Spans don't nest. Full
-    /// CommonMark inline parsing (reference links, nested emphasis, HTML) is a
-    /// famous tar pit and none of it is needed for class notes.
+    /// A deliberately small subset. Full CommonMark inline parsing (reference
+    /// links, autolinks in angle brackets, raw HTML) is a famous tar pit and
+    /// none of it is needed for class notes.
     ///
-    /// Returned spans are contiguous and cover `range` exactly: the gaps
-    /// between markup become `.text`, so callers can walk the list without
-    /// checking for holes. An unmatched marker is just text.
+    /// Returned nodes are contiguous and cover `range` exactly: markers are
+    /// nodes of their own and everything else is `.text`, carrying what it
+    /// is drawn with (`InlineAttributes`). An unmatched marker is just text.
     ///
-    /// A styled run is the one wrapper (step 10): a `<span style="…">` and
-    /// the `</span>` after it are found first (`SpanStyle`), each becomes a
-    /// node of markers alone, and the text between them is parsed as any
-    /// other. So a run can hold bold or a link, but a span can't cross its
-    /// edge, and runs don't nest.
+    /// **How** (text overhaul, phase 2; docs/text-system-overhaul.md,
+    /// decision 4). Code spans and links are found first, left to right, as
+    /// before: nothing inside a code span is read, and a link's text is read
+    /// on its own, so nothing in it pairs with anything outside. The rest is
+    /// CommonMark's delimiter stack ("process emphasis", spec §6.2) for `*`,
+    /// `**`, `_`, `__` and `~~`, so pairs nest (`***x***`, `**a *b* c**`)
+    /// and pairs that would cross are text. Styled runs' tags pair on the
+    /// same stack, first, as a link's brackets do in CommonMark: emphasis
+    /// inside a run is processed on its own, so emphasis that would cross a
+    /// run's edge is text and shows its `**`, rather than leaving a whole
+    /// `<span style="…">` showing.
+    ///
+    /// Which markers can open or close is today's rule, not CommonMark's
+    /// flanking: no opening before a space or closing after one, so
+    /// `2 * 3 * 4` stays arithmetic, and no `_` inside a word, so
+    /// `snake_case_name` stays an identifier. `~~` has no such rule, as
+    /// before. A note about code is full of these, and with markers hidden a
+    /// false span would make characters vanish.
     static func parse(_ text: String, in range: Range<String.Index>) -> [InlineNode] {
-        guard let pair = SpanStyle.firstPair(in: text, range: range) else {
-            return parseSpans(text, in: range)
-        }
-        return parseSpans(text, in: range.lowerBound..<pair.open.lowerBound)
-            + [InlineNode(kind: .spanOpen(pair.style), range: pair.open, contentRange: pair.open.upperBound..<pair.open.upperBound)]
-            + parseSpans(text, in: pair.open.upperBound..<pair.close.lowerBound)
-            + [InlineNode(kind: .spanClose, range: pair.close, contentRange: pair.close.lowerBound..<pair.close.lowerBound)]
-            + parse(text, in: pair.close.upperBound..<range.upperBound)
+        guard !range.isEmpty else { return [] }
+        var pieces: [Piece] = []
+        collect(text, in: range, allowsLinks: true, into: &pieces)
+        pieces.sort { $0.range.lowerBound < $1.range.lowerBound }
+        return nodes(covering: range, from: pieces)
     }
 
-    private static func parseSpans(_ text: String, in range: Range<String.Index>) -> [InlineNode] {
+    // MARK: Pieces
+
+    /// A marker, or a bare address: where the walk that makes the nodes
+    /// changes what it is drawing.
+    private struct Piece {
+        enum Kind {
+            case opening(InlineMarkup)
+            case closing(InlineMarkup)
+            case address
+        }
+
+        var kind: Kind
+        var range: Range<String.Index>
+        var destination: Range<String.Index>? = nil
+    }
+
+    /// The nodes for `range`, from its pieces in order: text between them,
+    /// carrying the attributes of every pair it is inside.
+    private static func nodes(covering range: Range<String.Index>, from pieces: [Piece]) -> [InlineNode] {
         var nodes: [InlineNode] = []
-        var plainStart = range.lowerBound
+        nodes.reserveCapacity(pieces.count * 2 + 1)
+
+        var open: [(attributes: InlineAttributes, destination: Range<String.Index>?)] = []
+        var attributes = InlineAttributes.plain
+        var destination: Range<String.Index>?
         var cursor = range.lowerBound
 
-        func flushPlainText(upTo end: String.Index) {
-            guard plainStart < end else { return }
-            nodes.append(InlineNode(kind: .text, range: plainStart..<end, contentRange: plainStart..<end))
+        func text(upTo end: String.Index) {
+            guard cursor < end else { return }
+            nodes.append(InlineNode(kind: .text, range: cursor..<end, attributes: attributes, destination: destination))
         }
 
-        while cursor < range.upperBound {
-            let character = text[cursor]
-
-            // Inline code wins over emphasis: `a *b* c` is code containing
-            // asterisks, not code wrapped around emphasis.
-            if character == "`" {
-                let contentStart = text.index(after: cursor)
-                if let closing = firstIndex(of: "`", in: text, from: contentStart, limit: range.upperBound),
-                   closing > contentStart {
-                    flushPlainText(upTo: cursor)
-                    let end = text.index(after: closing)
-                    nodes.append(InlineNode(kind: .inlineCode, range: cursor..<end, contentRange: contentStart..<closing))
-                    cursor = end
-                    plainStart = cursor
-                    continue
+        for piece in pieces {
+            text(upTo: piece.range.lowerBound)
+            switch piece.kind {
+            case .opening(let markup):
+                nodes.append(InlineNode(kind: .opening(markup), range: piece.range, attributes: attributes, destination: piece.destination))
+                open.append((attributes, destination))
+                attributes = attributes.inside(markup)
+                if markup == .link { destination = piece.destination }
+            case .closing(let markup):
+                if let outside = open.popLast() {
+                    attributes = outside.attributes
+                    destination = outside.destination
                 }
-            } else if character == "[" {
-                if let link = markdownLink(in: text, at: cursor, limit: range.upperBound) {
-                    flushPlainText(upTo: cursor)
-                    nodes.append(link)
-                    cursor = link.range.upperBound
-                    plainStart = cursor
-                    continue
-                }
-            } else if character == "h" {
-                if let link = bareLink(in: text, at: cursor, limit: range.upperBound, plainStart: plainStart) {
-                    flushPlainText(upTo: cursor)
-                    nodes.append(link)
-                    cursor = link.range.upperBound
-                    plainStart = cursor
-                    continue
-                }
-            } else if character == "*" || character == "_" {
-                let second = text.index(after: cursor)
-                let intraword = character == "_"
-
-                // Doubled marker first, or `**bold**` would parse as emphasis
-                // wrapping `*bold*`.
-                if second < range.upperBound, text[second] == character {
-                    let contentStart = text.index(after: second)
-                    if canOpen(at: cursor, contentStart: contentStart, in: text, range: range, intraword: intraword),
-                       let closing = closingMarker(character, doubled: true, in: text, from: contentStart, limit: range.upperBound) {
-                        flushPlainText(upTo: cursor)
-                        let end = text.index(closing, offsetBy: 2)
-                        nodes.append(InlineNode(kind: .strong, range: cursor..<end, contentRange: contentStart..<closing))
-                        cursor = end
-                        plainStart = cursor
-                        continue
-                    }
-                } else if canOpen(at: cursor, contentStart: second, in: text, range: range, intraword: intraword),
-                          let closing = closingMarker(character, doubled: false, in: text, from: second, limit: range.upperBound) {
-                    flushPlainText(upTo: cursor)
-                    let end = text.index(after: closing)
-                    nodes.append(InlineNode(kind: .emphasis, range: cursor..<end, contentRange: second..<closing))
-                    cursor = end
-                    plainStart = cursor
-                    continue
-                }
-            } else if character == "~" {
-                // Doubled only. A single tilde is ordinary text in notes —
-                // `~5ms`, `~/Developer` — and nothing renders it as markup.
-                let second = text.index(after: cursor)
-                if second < range.upperBound, text[second] == "~" {
-                    let contentStart = text.index(after: second)
-                    if let closing = firstDoubled("~", in: text, from: contentStart, limit: range.upperBound),
-                       closing > contentStart {
-                        flushPlainText(upTo: cursor)
-                        let end = text.index(closing, offsetBy: 2)
-                        nodes.append(InlineNode(kind: .strikethrough, range: cursor..<end, contentRange: contentStart..<closing))
-                        cursor = end
-                        plainStart = cursor
-                        continue
-                    }
-                }
+                nodes.append(InlineNode(kind: .closing(markup), range: piece.range, attributes: attributes, destination: piece.destination))
+            case .address:
+                var linked = attributes
+                linked.link = true
+                nodes.append(InlineNode(kind: .text, range: piece.range, attributes: linked, destination: piece.range))
             }
-
-            cursor = text.index(after: cursor)
+            cursor = piece.range.upperBound
         }
-
-        flushPlainText(upTo: range.upperBound)
+        text(upTo: range.upperBound)
         return nodes
     }
 
-    // MARK: Emphasis rules
+    // MARK: Finding the pairs
 
-    /// Whether the marker at `cursor` may open a span whose text starts at
-    /// `contentStart`. CommonMark's rule, less its corners: the text must not
-    /// start with a space, so `2 * 3 * 4` and `a * b` stay arithmetic and
-    /// prose; and an underscore can't open inside a word, so `snake_case_name`
-    /// stays an identifier. A note about code is full of both, and with
-    /// markers hidden a false span would make characters vanish.
-    private static func canOpen(
-        at cursor: String.Index,
-        contentStart: String.Index,
-        in text: String,
-        range: Range<String.Index>,
-        intraword: Bool
-    ) -> Bool {
-        guard contentStart < range.upperBound, !text[contentStart].isWhitespace else { return false }
-        if intraword, cursor > range.lowerBound {
-            let before = text[text.index(before: cursor)]
-            if before.isLetter || before.isNumber { return false }
+    /// A run of `*`, `_` or `~`, or a styled run's opening tag, waiting on
+    /// the stack for something to close it.
+    private struct Delimiter {
+        enum Kind: Equatable {
+            case run(Character)
+            case tag(SpanStyle)
         }
-        return true
+
+        var kind: Kind
+        /// What is left of it. A pair takes the characters nearest its text:
+        /// from an opener's end, from a closer's start.
+        var lower: String.Index
+        var upper: String.Index
+        var count: Int
+        /// The run's length before anything took from it: CommonMark's rule
+        /// of three counts it.
+        let length: Int
+        let canOpen: Bool
+        let canClose: Bool
+        var active = true
+
+        var isTag: Bool {
+            if case .tag = kind { return true }
+            return false
+        }
     }
 
-    /// The first marker at or after `start` that can close a span: not
-    /// preceded by a space, and for an underscore not followed by a letter.
-    private static func closingMarker(
-        _ character: Character,
-        doubled: Bool,
-        in text: String,
-        from start: String.Index,
-        limit: String.Index
-    ) -> String.Index? {
-        var cursor = start
+    /// Finds the pieces in `range`: code spans and links as they come, then
+    /// the pairs on the delimiter stack.
+    ///
+    /// - Parameter allowsLinks: off inside a link's text. A link can't hold
+    ///   another, and an address in its text is its text.
+    private static func collect(_ text: String, in range: Range<String.Index>, allowsLinks: Bool, into pieces: inout [Piece]) {
+        var delimiters: [Delimiter] = []
+        var cursor = range.lowerBound
+        let limit = range.upperBound
+
         while cursor < limit {
-            guard text[cursor] == character else {
-                cursor = text.index(after: cursor)
+            let character = text[cursor]
+            switch character {
+            case "`":
+                // Inline code wins over everything: `a *b* c` is code holding
+                // asterisks, not code wrapped around emphasis.
+                let contentStart = text.index(after: cursor)
+                if let closing = firstIndex(of: "`", in: text, from: contentStart, limit: limit), closing > contentStart {
+                    let end = text.index(after: closing)
+                    pieces.append(Piece(kind: .opening(.inlineCode), range: cursor..<contentStart))
+                    pieces.append(Piece(kind: .closing(.inlineCode), range: closing..<end))
+                    cursor = end
+                    continue
+                }
+
+            case "[" where allowsLinks:
+                if let link = markdownLink(in: text, at: cursor, limit: limit) {
+                    pieces.append(Piece(kind: .opening(.link), range: cursor..<link.text.lowerBound, destination: link.destination))
+                    collect(text, in: link.text, allowsLinks: false, into: &pieces)
+                    pieces.append(Piece(kind: .closing(.link), range: link.text.upperBound..<link.end, destination: link.destination))
+                    cursor = link.end
+                    continue
+                }
+
+            case "h" where allowsLinks:
+                if let end = bareLink(in: text, at: cursor, lower: range.lowerBound, limit: limit) {
+                    pieces.append(Piece(kind: .address, range: cursor..<end, destination: cursor..<end))
+                    cursor = end
+                    continue
+                }
+
+            case "*", "_", "~":
+                var end = text.index(after: cursor)
+                var length = 1
+                while end < limit, text[end] == character {
+                    end = text.index(after: end)
+                    length += 1
+                }
+                // One tilde is prose: `~5ms`, `~/Developer`.
+                if character != "~" || length >= 2 {
+                    let before: Character? = cursor > range.lowerBound ? text[text.index(before: cursor)] : nil
+                    let after: Character? = end < limit ? text[end] : nil
+                    let (canOpen, canClose) = flanking(character, before: before, after: after)
+                    delimiters.append(Delimiter(
+                        kind: .run(character), lower: cursor, upper: end, count: length, length: length,
+                        canOpen: canOpen, canClose: canClose
+                    ))
+                }
+                cursor = end
                 continue
+
+            case "<":
+                if let tag = SpanStyle.openingTag(in: text, at: cursor, limit: limit) {
+                    delimiters.append(Delimiter(
+                        kind: .tag(tag.style), lower: cursor, upper: tag.end, count: 1, length: 1,
+                        canOpen: true, canClose: false
+                    ))
+                    cursor = tag.end
+                    continue
+                }
+                if let end = SpanStyle.closingTag(in: text, at: cursor, limit: limit) {
+                    closeRun(at: cursor..<end, delimiters: &delimiters, in: text, into: &pieces)
+                    cursor = end
+                    continue
+                }
+
+            default:
+                break
             }
-            let next = text.index(after: cursor)
-            if doubled, !(next < limit && text[next] == character) {
-                cursor = next
-                continue
-            }
-            let after = doubled ? text.index(after: next) : next
-            let precededBySpace = cursor > start && text[text.index(before: cursor)].isWhitespace
-            let followedByWord = character == "_" && after < limit && (text[after].isLetter || text[after].isNumber)
-            if cursor > start, !precededBySpace, !followedByWord { return cursor }
-            cursor = doubled ? after : next
+            cursor = text.index(after: cursor)
         }
-        return nil
+
+        processEmphasis(&delimiters, above: -1, in: text, into: &pieces)
+    }
+
+    /// Whether a run of `character` between `before` and `after` can open
+    /// and close a span. `nil` is the edge of the block, which counts as a
+    /// space.
+    ///
+    /// Today's rule, less CommonMark's corners: an opener can't have a space
+    /// after it nor a closer one before it, and an underscore can't open or
+    /// close inside a word. Tildes have no rule.
+    private static func flanking(_ character: Character, before: Character?, after: Character?) -> (canOpen: Bool, canClose: Bool) {
+        guard character != "~" else { return (true, true) }
+        var canOpen = after.map { !$0.isWhitespace } ?? false
+        var canClose = before.map { !$0.isWhitespace } ?? false
+        if character == "_" {
+            if let before, before.isLetter || before.isNumber { canOpen = false }
+            if let after, after.isLetter || after.isNumber { canClose = false }
+        }
+        return (canOpen, canClose)
+    }
+
+    /// A `</span>` at `tag`: pairs it with the nearest opening tag still
+    /// open, and settles the emphasis between them on its own, so none of
+    /// it pairs across the run's edge. A tag with nothing open, or with
+    /// nothing between it and its opening tag, is text, and that opening
+    /// tag with it.
+    private static func closeRun(at tag: Range<String.Index>, delimiters: inout [Delimiter], in text: String, into pieces: inout [Piece]) {
+        guard let openIndex = delimiters.lastIndex(where: { $0.active && $0.isTag }),
+              case .tag(let style) = delimiters[openIndex].kind
+        else { return }
+        let opening = delimiters[openIndex]
+        guard opening.upper < tag.lowerBound else {
+            delimiters[openIndex].active = false
+            return
+        }
+        processEmphasis(&delimiters, above: openIndex, in: text, into: &pieces)
+        delimiters.removeSubrange(openIndex...)
+        pieces.append(Piece(kind: .opening(.styled(style)), range: opening.lower..<opening.upper))
+        pieces.append(Piece(kind: .closing(.styled(style)), range: tag))
+    }
+
+    /// CommonMark's "process emphasis" over the delimiters above `bottom`.
+    ///
+    /// Each closer, left to right, pairs with the nearest opener of its own
+    /// character below it, taking two characters from each where both have
+    /// two (strong, or a strike), else one (emphasis). What lay between the
+    /// two can no longer pair with anything outside them, and is text unless
+    /// it already paired.
+    private static func processEmphasis(_ delimiters: inout [Delimiter], above bottom: Int, in text: String, into pieces: inout [Piece]) {
+        var closerIndex = bottom + 1
+        while closerIndex < delimiters.count {
+            let closer = delimiters[closerIndex]
+            guard closer.active, closer.canClose, closer.count > 0, case .run(let character) = closer.kind else {
+                closerIndex += 1
+                continue
+            }
+
+            var found: Int?
+            var index = closerIndex - 1
+            while index > bottom {
+                let opener = delimiters[index]
+                if opener.active, opener.canOpen, opener.count > 0, opener.kind == .run(character), canPair(opener, closer, character) {
+                    found = index
+                    break
+                }
+                index -= 1
+            }
+
+            guard let openerIndex = found else {
+                // A closer that can't open is done with.
+                if !closer.canOpen { delimiters[closerIndex].active = false }
+                closerIndex += 1
+                continue
+            }
+
+            let used = character == "~" || (delimiters[openerIndex].count >= 2 && closer.count >= 2) ? 2 : 1
+            let markup: InlineMarkup = character == "~" ? .strikethrough : used == 2 ? .strong : .emphasis
+
+            let openEnd = delimiters[openerIndex].upper
+            let openStart = text.index(openEnd, offsetBy: -used)
+            delimiters[openerIndex].upper = openStart
+            delimiters[openerIndex].count -= used
+
+            let closeStart = delimiters[closerIndex].lower
+            let closeEnd = text.index(closeStart, offsetBy: used)
+            delimiters[closerIndex].lower = closeEnd
+            delimiters[closerIndex].count -= used
+
+            pieces.append(Piece(kind: .opening(markup), range: openStart..<openEnd))
+            pieces.append(Piece(kind: .closing(markup), range: closeStart..<closeEnd))
+
+            for between in (openerIndex + 1)..<closerIndex {
+                delimiters[between].active = false
+            }
+            if delimiters[openerIndex].count == 0 { delimiters[openerIndex].active = false }
+            if delimiters[closerIndex].count == 0 {
+                delimiters[closerIndex].active = false
+                closerIndex += 1
+            }
+        }
+    }
+
+    /// Whether `opener` and `closer`, runs of `character`, may pair.
+    ///
+    /// Tildes pair two and two. Stars and underscores follow CommonMark's
+    /// rule of three: where either run could both open and close, their
+    /// lengths mustn't add up to a multiple of three unless both are one,
+    /// which is what makes `*foo**bar**baz*` emphasis round strong rather
+    /// than emphasis then text.
+    private static func canPair(_ opener: Delimiter, _ closer: Delimiter, _ character: Character) -> Bool {
+        if character == "~" { return opener.count >= 2 && closer.count >= 2 }
+        if opener.canClose || closer.canOpen {
+            let sum = opener.length + closer.length
+            if sum % 3 == 0, !(opener.length % 3 == 0 && closer.length % 3 == 0) { return false }
+        }
+        return true
     }
 
     // MARK: Links
@@ -191,7 +342,7 @@ nonisolated enum InlineParser {
         in text: String,
         at open: String.Index,
         limit: String.Index
-    ) -> InlineNode? {
+    ) -> (text: Range<String.Index>, destination: Range<String.Index>, end: String.Index)? {
         let contentStart = text.index(after: open)
         guard contentStart < limit else { return nil }
 
@@ -213,24 +364,20 @@ nonisolated enum InlineParser {
         }
         guard end < limit, text[end] == ")", end > destinationStart else { return nil }
 
-        return InlineNode(
-            kind: .link,
-            range: open..<text.index(after: end),
-            contentRange: contentStart..<closeBracket,
-            destination: destinationStart..<end
-        )
+        return (contentStart..<closeBracket, destinationStart..<end, text.index(after: end))
     }
 
-    /// A bare `http://` or `https://` address, shown exactly as typed. It runs
-    /// to the next space, less the punctuation a sentence puts after it.
+    /// A bare `http://` or `https://` address, shown exactly as typed, and
+    /// where it ends. It runs to the next space or `<`, less the punctuation
+    /// a sentence puts after it.
     private static func bareLink(
         in text: String,
         at start: String.Index,
-        limit: String.Index,
-        plainStart: String.Index
-    ) -> InlineNode? {
+        lower: String.Index,
+        limit: String.Index
+    ) -> String.Index? {
         // Not the tail of a longer word: `xhttp://` isn't an address.
-        if start > plainStart {
+        if start > lower {
             let previous = text[text.index(before: start)]
             if previous.isLetter || previous.isNumber { return nil }
         }
@@ -247,21 +394,36 @@ nonisolated enum InlineParser {
 
         var end = text.index(start, offsetBy: schemeLength)
         let hostStart = end
-        while end < limit, !text[end].isWhitespace {
+        // A `<` ends it, as in GitHub's autolinks: `</span>` after an address
+        // in a run is the run's, not the address's.
+        while end < limit, !text[end].isWhitespace, text[end] != "<" {
             end = text.index(after: end)
         }
-        // A sentence's own punctuation, and a closing bracket the address
-        // didn't open.
+        // A sentence's own punctuation, a closing bracket the address didn't
+        // open, and the closing markers of a span around it: `*`, `_` or `~`
+        // at its end, where the address holds none of that character before
+        // them, so `**https://example.com**` is a bold address.
         while end > hostStart {
-            let last = text[text.index(before: end)]
+            let lastIndex = text.index(before: end)
+            let last = text[lastIndex]
             if ".,;:!?'\"".contains(last) || (last == ")" && !text[hostStart..<end].contains("(")) {
-                end = text.index(before: end)
-            } else {
-                break
+                end = lastIndex
+                continue
             }
+            if "*_~".contains(last) {
+                var runStart = lastIndex
+                while runStart > hostStart, text[text.index(before: runStart)] == last {
+                    runStart = text.index(before: runStart)
+                }
+                if !text[hostStart..<runStart].contains(last) {
+                    end = runStart
+                    continue
+                }
+            }
+            break
         }
         guard end > hostStart else { return nil }
-        return InlineNode(kind: .link, range: start..<end, contentRange: start..<end, destination: start..<end)
+        return end
     }
 
     // MARK: Private
@@ -276,24 +438,6 @@ nonisolated enum InlineParser {
         while cursor < limit {
             if text[cursor] == character { return cursor }
             cursor = text.index(after: cursor)
-        }
-        return nil
-    }
-
-    /// Finds the next pair of `character`, returning the index of the first of them.
-    private static func firstDoubled(
-        _ character: Character,
-        in text: String,
-        from start: String.Index,
-        limit: String.Index
-    ) -> String.Index? {
-        var cursor = start
-        while cursor < limit {
-            let next = text.index(after: cursor)
-            if text[cursor] == character, next < limit, text[next] == character {
-                return cursor
-            }
-            cursor = next
         }
         return nil
     }

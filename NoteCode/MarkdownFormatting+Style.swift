@@ -87,9 +87,9 @@ extension MarkdownFormatting {
     ///
     /// - A run per line: a selection over several lines styles each line's
     ///   part of it, never the heading's `#` or a list item's marker.
-    /// - Runs don't nest. A run the text overlaps is taken off and its text
-    ///   joins the rest, keeping its other setting: a large red run made blue
-    ///   stays large. So restyling part of a run restyles it all.
+    /// - Runs aren't written nested. A run the text overlaps is taken off and
+    ///   its text joins the rest, keeping its other setting: a large red run
+    ///   made blue stays large. So restyling part of a run restyles it all.
     /// - A run never cuts a span in two: one the text runs into (half of a
     ///   bold word, say) is taken in whole, since a span can't cross a run's
     ///   edge and would show its markers.
@@ -251,32 +251,44 @@ extension MarkdownFormatting {
         var line: NSString
         var headingLevel: Int
         var content: NSRange
+        /// Every span but a run, markers included: bold, code, links.
         var spans: [NSRange] = []
+        /// The runs, an outer one before those inside it.
         var runs: [StyledRun] = []
+        /// The text that is drawn, each piece with its size against the
+        /// block's.
+        var text: [(range: NSRange, size: SpanSize?)] = []
 
         init?(_ line: String) {
             guard let block = DocumentParser.parse(line).first, !block.isCode else { return nil }
             self.line = line as NSString
             headingLevel = block.headingLevel ?? 0
             content = NSRange(block.contentRange, in: line)
-            var open: (tag: NSRange, style: SpanStyle)?
-            for inline in block.inlines {
-                let whole = NSRange(inline.range, in: line)
-                switch inline.kind {
-                case .text: break
-                case .spanOpen(let style): open = (whole, style)
-                case .spanClose:
-                    if let start = open { runs.append(StyledRun(open: start.tag, close: whole, style: start.style)) }
-                    open = nil
-                default: spans.append(whole)
+            for span in InlineSpan.spans(in: block.inlines) {
+                guard case .styled(let style) = span.markup else {
+                    spans.append(NSRange(span.range, in: line))
+                    continue
                 }
+                let open = NSRange(span.range.lowerBound..<span.contentRange.lowerBound, in: line)
+                let close = NSRange(span.contentRange.upperBound..<span.range.upperBound, in: line)
+                runs.append(StyledRun(open: open, close: close, style: style))
             }
+            text = block.inlines.filter { !$0.kind.isMarker }.map { (NSRange($0.range, in: line), $0.attributes.size) }
         }
 
         /// The run a caret at `offset` is in: from just after its opening
-        /// tag's first character to the start of its closing tag.
+        /// tag's first character to the start of its closing tag. The
+        /// outermost, where runs nest.
         func run(atCaret offset: Int) -> StyledRun? {
             runs.first { offset > $0.open.location && offset <= $0.close.location }
+        }
+
+        /// The size of the text a caret at `offset` is in, by the same rule:
+        /// every run it is in, multiplied.
+        func size(atCaret offset: Int) -> SpanSize? {
+            runs.filter { offset > $0.open.location && offset <= $0.close.location }
+                .reduce(InlineAttributes.plain) { $0.inside(.styled($1.style)) }
+                .size
         }
 
         /// What a change acts on, before the runs and spans it reaches are
@@ -342,7 +354,7 @@ extension MarkdownFormatting {
             let local: NSRange
             if selection.length == 0 {
                 local = NSRange(location: selection.location - line.location, length: 0)
-                add(SizeSample(headingLevel: parsed.headingLevel, size: parsed.run(atCaret: local.location)?.style.size))
+                add(SizeSample(headingLevel: parsed.headingLevel, size: parsed.size(atCaret: local.location)))
             } else {
                 let start = max(selection.location, line.location)
                 let end = min(NSMaxRange(selection), NSMaxRange(line))
@@ -353,23 +365,9 @@ extension MarkdownFormatting {
             hasTarget = true
             guard selection.length > 0 else { continue }
 
-            // The selected text inside each run, and outside every run's
-            // tags and text, in the order it comes on the line.
-            var pieces: [(range: NSRange, size: SpanSize?)] = []
-            var outside = [target]
-            for run in parsed.runs {
-                pieces.append((NSIntersectionRange(target, run.text), run.style.size))
-                outside = outside.flatMap { piece -> [NSRange] in
-                    let cut = NSIntersectionRange(piece, run.whole)
-                    guard cut.length > 0 else { return [piece] }
-                    return [
-                        NSRange(location: piece.location, length: cut.location - piece.location),
-                        NSRange(location: NSMaxRange(cut), length: NSMaxRange(piece) - NSMaxRange(cut)),
-                    ].filter { $0.length > 0 }
-                }
-            }
-            pieces += outside.map { ($0, nil) }
-            for piece in pieces.sorted(by: { $0.range.location < $1.range.location }) where parsed.hasText(in: piece.range) {
+            // The selected text that is drawn, markers and tags left out, in
+            // the order it comes on the line.
+            for piece in parsed.text where parsed.hasText(in: NSIntersectionRange(target, piece.range)) {
                 add(SizeSample(headingLevel: parsed.headingLevel, size: piece.size))
             }
         }

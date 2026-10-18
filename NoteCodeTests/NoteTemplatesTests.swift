@@ -86,7 +86,7 @@ struct NoteTemplatesTests {
 
         func links(in content: String) -> Int {
             DocumentParser.parse(content).reduce(0) { total, block in
-                total + block.inlines.filter { $0.kind == .link }.count
+                total + InlineSpan.spans(in: block.inlines).filter { $0.markup == .link }.count
             }
         }
         #expect(links(in: content) == 0)

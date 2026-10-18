@@ -7,15 +7,18 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-private func inlines(_ source: String) -> [InlineNode] {
-    InlineParser.parse(source, in: source.startIndex..<source.endIndex)
+/// The line in the shape before spans nested (`TopLevelSpan`): these tests
+/// are about which spans a line has, and a line that doesn't nest reads as
+/// it always did.
+private func inlines(_ source: String) -> [TopLevelSpan] {
+    TopLevelSpan.read(source)
 }
 
-private func spans(_ source: String) -> [(InlineNode.Kind, String)] {
+private func spans(_ source: String) -> [(TopLevelSpan.Kind, String)] {
     inlines(source).map { ($0.kind, String(source[$0.contentRange])) }
 }
 
-private func kinds(_ source: String) -> [InlineNode.Kind] {
+private func kinds(_ source: String) -> [TopLevelSpan.Kind] {
     inlines(source).map(\.kind)
 }
 
@@ -28,14 +31,14 @@ struct InlineParserTests {
     }
 
     @Test("Strong, emphasis and inline code are recognized", arguments: [
-        ("**bold**", InlineNode.Kind.strong, "bold"),
+        ("**bold**", TopLevelSpan.Kind.strong, "bold"),
         ("__bold__", .strong, "bold"),
         ("*italic*", .emphasis, "italic"),
         ("_italic_", .emphasis, "italic"),
         ("`code`", .inlineCode, "code"),
         ("~~struck~~", .strikethrough, "struck"),
     ])
-    func recognizesMarkup(source: String, kind: InlineNode.Kind, content: String) {
+    func recognizesMarkup(source: String, kind: TopLevelSpan.Kind, content: String) {
         let parsed = spans(source)
 
         #expect(parsed.count == 1)
@@ -101,7 +104,7 @@ struct InlineParserTests {
         "",
     ])
     func spansCoverTheRange(source: String) {
-        let parsed = inlines(source)
+        let parsed = InlineParser.parse(source, in: source.startIndex..<source.endIndex)
         guard !parsed.isEmpty else {
             #expect(source.isEmpty)
             return
@@ -164,7 +167,7 @@ struct HeadingTests {
     @Test("Heading content is scanned for inline markup")
     func headingCarriesInlines() {
         let block = DocumentParser.parse("# A **bold** title")[0]
-        #expect(block.inlines.map(\.kind) == [.text, .strong, .text])
+        #expect(block.topLevel.map(\.kind) == [.text, .strong, .text])
     }
 
     @Test("Headings inside a code block stay code")
@@ -183,8 +186,8 @@ struct HeadingTests {
 @Suite("Inline parser: not markup")
 struct InlineMarkupLookalikeTests {
 
-    private func kinds(_ text: String) -> [InlineNode.Kind] {
-        InlineParser.parse(text, in: text.startIndex..<text.endIndex).map(\.kind).filter { $0 != .text }
+    private func kinds(_ text: String) -> [TopLevelSpan.Kind] {
+        TopLevelSpan.read(text).map(\.kind).filter { $0 != .text }
     }
 
     @Test("Stars and underscores that aren't markup", arguments: [
@@ -201,7 +204,7 @@ struct InlineMarkupLookalikeTests {
     }
 
     @Test("Real spans still parse next to the same characters", arguments: [
-        ("a *b* c", InlineNode.Kind.emphasis),
+        ("a *b* c", TopLevelSpan.Kind.emphasis),
         ("a _b_ c", .emphasis),
         ("(**b**)", .strong),
         ("x *b c* y", .emphasis),
@@ -209,7 +212,7 @@ struct InlineMarkupLookalikeTests {
         ("*b*.", .emphasis),
         ("_b_,", .emphasis),
     ])
-    func stillSpans(_ text: String, _ kind: InlineNode.Kind) {
+    func stillSpans(_ text: String, _ kind: TopLevelSpan.Kind) {
         #expect(kinds(text) == [kind])
     }
 }

@@ -17,12 +17,12 @@ struct TextColourTests {
     static func tag(_ hex: Int) -> String { SpanStyle(colour: hex).openTag }
     static let close = SpanStyle.close
 
-    static func kinds(_ line: String) -> [InlineNode.Kind] {
-        DocumentParser.parse(line).first?.inlines.map(\.kind) ?? []
+    static func kinds(_ line: String) -> [TopLevelSpan.Kind] {
+        DocumentParser.parse(line).first?.topLevel.map(\.kind) ?? []
     }
 
     static func texts(_ line: String) -> [String] {
-        DocumentParser.parse(line).first?.inlines.map { String(line[$0.range]) } ?? []
+        DocumentParser.parse(line).first?.topLevel.map { String(line[$0.range]) } ?? []
     }
 
     // MARK: Reading
@@ -34,7 +34,7 @@ struct TextColourTests {
         #expect(Self.texts(line) == ["a ", Self.tag(Self.red), "red ", "**bold**", Self.close, " b"])
 
         // The tags are markers, wholly: nothing of them is content.
-        let inlines = DocumentParser.parse(line).first!.inlines
+        let inlines = DocumentParser.parse(line).first!.topLevel
         #expect(inlines[1].markerRanges == [inlines[1].range])
         #expect(inlines[4].markerRanges == [inlines[4].range])
     }
@@ -74,7 +74,7 @@ struct TextColourTests {
 
     @Test("A recolour changes the block's signature, though no length changes")
     func recolourChangesTheSignature() {
-        #expect(InlineNode.Kind.spanOpen(SpanStyle(colour: Self.red)).discriminant != InlineNode.Kind.spanOpen(SpanStyle(colour: Self.blue)).discriminant)
+        #expect(InlineNode.Kind.opening(.styled(SpanStyle(colour: Self.red))).discriminant != InlineNode.Kind.opening(.styled(SpanStyle(colour: Self.blue))).discriminant)
     }
 
     @Test("Every colour reads at 4.5:1 or better on the page in both appearances")

@@ -88,6 +88,34 @@ struct MarkdownLayoutTests {
         Self.assertSame(a, b, "collapsed against deleted")
     }
 
+    /// Lines whose pairs nest (text overhaul, phase 2): inside one another,
+    /// inside runs and runs inside them, inside a link's text, and ending a
+    /// line.
+    static let nested = [
+        "***Both*** at once and **a *b* c** in one line" + long,
+        "**\(SpanStyle(colour: TextColour.red.hex).openTag)red bold\(SpanStyle.close)** then \(SpanStyle(colour: TextColour.blue.hex).openTag)**bold blue**\(SpanStyle.close)",
+        "# A **heading *with* nesting**",
+        "- an item with [**a bold link**](https://example.com) and ~~struck **bold**~~" + long,
+        "\(SpanStyle(size: SpanSize(em: 1.5)).openTag)large **bold *and italic***\(SpanStyle.close) beside **`code in bold`**",
+        "Ends nested: **a *b***",
+        "",
+    ].joined(separator: "\n")
+
+    @Test("Nested lines too: every line is where it would be if the markers weren't there",
+          arguments: [PageLayout(), PageLayout(mode: .print), PageLayout(orientation: .landscape)])
+    func nestedLinesEqualMarkerlessLines(layout: PageLayout) {
+        let (rendered, deleted) = Self.pair(Self.nested, layout: layout)
+        // Every marker of every pair is hidden: only the words are left.
+        let words = deleted.textView.textStorage.string
+        for marker in ["*", "~", "`", "<", "[", "]("] {
+            #expect(!words.contains(marker), "\(marker) is laid out in \(words)")
+        }
+        let a = CodeFenceDisplayTests.lineFrames(of: rendered.textView)
+        let b = CodeFenceDisplayTests.lineFrames(of: deleted.textView)
+        #expect(a.count > 8)
+        Self.assertSame(a, b, "nested, collapsed against deleted")
+    }
+
     @Test("Without the swap the same note's lines are different: the test can fail")
     func linesDifferWithoutTheSwap() {
         let (rendered, deleted) = Self.pair()

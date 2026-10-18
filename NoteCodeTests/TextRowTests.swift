@@ -81,7 +81,7 @@ struct TextRowEditTests {
         let edit = MarkdownFormatting.link(address: "https://a.b/c", over: NSRange(location: 4, length: 5), in: text as NSString)
         let result = edit.applied(to: text)
         let block = try #require(DocumentParser.parse(result).first)
-        let link = try #require(block.inlines.first { $0.kind == .link })
+        let link = try #require(InlineSpan.spans(in: block.inlines).first { $0.markup == .link })
         #expect(String(result[link.contentRange]) == "notes")
         #expect(link.destination.map { String(result[$0]) } == "https://a.b/c")
     }
