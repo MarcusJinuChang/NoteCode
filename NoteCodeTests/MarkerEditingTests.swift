@@ -351,7 +351,11 @@ struct ListEditingTests {
         #expect(state("- ite|m").list == .bullet)
         #expect(state("3. ite|m").list == .numbered)
         #expect(state("- [ ] ite|m").list == .checklist)
-        #expect(state("plain| text") == MarkdownFormatting.CaretFormatting())
+        // Nothing lit; the size control reads body text, and has a word to size.
+        var plain = MarkdownFormatting.CaretFormatting()
+        plain.sizes = [MarkdownFormatting.SizeSample(headingLevel: 0, size: nil)]
+        plain.canResize = true
+        #expect(state("plain| text") == plain)
         // Code has no inline formatting, though the row now knows it is in code.
         var inCode = MarkdownFormatting.CaretFormatting()
         inCode.block = .code(label: "Plain Text", kind: .plain, isClosed: true)

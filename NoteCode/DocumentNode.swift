@@ -236,9 +236,15 @@ nonisolated struct InlineNode: Equatable, Sendable {
             // The style is in it: a recolour keeps every length the same,
             // and the styler must still notice.
             case .spanOpen(let style):
-                6 &+ (style.colour ?? 0x1000000) &* 8 &+ (style.size.map { $0.rawValue + 1 } ?? 0) &* 0x8000_0000
+                spanDiscriminant(style)
             case .spanClose:     7
             }
+        }
+
+        private func spanDiscriminant(_ style: SpanStyle) -> Int {
+            let colour: Int = style.colour ?? 0x1000000
+            let size: Int = style.size.map { $0.thousandths + 1 } ?? 0
+            return 6 &+ colour &* 8 &+ size &* 0x8000_0000
         }
 
         /// A run's tag, which marks where a style starts or stops and holds

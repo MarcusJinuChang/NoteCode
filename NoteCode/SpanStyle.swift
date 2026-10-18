@@ -125,7 +125,7 @@ nonisolated struct SpanStyle: Hashable, Sendable {
             guard let em = Double(number) else { return false }
             cursor = text.index(cursor, offsetBy: number.count)
             guard take("em") else { return false }
-            style.size = SpanSize.nearest(toEm: em)
+            style.size = SpanSize(em: em)
             return true
         }
 
@@ -151,44 +151,74 @@ nonisolated struct SpanStyle: Hashable, Sendable {
 /// A size text can be set in, against the text around it: a heading's run
 /// is larger than a paragraph's.
 ///
-/// Three steps, as the research proposed: body text and headings cover the
-/// rest. A size read from elsewhere snaps to the nearest step, and one nearer
-/// to 1em than to any is no size at all, so every line holds text in one of
-/// a few sizes.
-nonisolated enum SpanSize: Int, CaseIterable, Sendable {
-    case small
-    case large
-    case larger
+/// **Any size** (text overhaul, phase 1, 18 Oct; docs/text-system-overhaul.md).
+/// Written as em against the text around it, to the thousandth, so a note
+/// resized with its stepper keeps its proportions and Obsidian draws it the
+/// same way; chosen and shown in points (`init(points:against:)`,
+/// `points(against:)`). Step 10's three steps, 0.85, 1.25 and 1.5em, read as
+/// they always did. Exactly 1em is no size.
+nonisolated struct SpanSize: Hashable, Sendable {
 
-    var em: Double {
-        switch self {
-        case .small:  0.85
-        case .large:  1.25
-        case .larger: 1.5
-        }
+    /// Thousandths of an em, as written: two sizes that write the same tag
+    /// are the same size.
+    let thousandths: Int
+
+    /// What a tag can say, clamped: a size from elsewhere outside it reads
+    /// as its nearest end, rather than as text.
+    static let ems: ClosedRange<Double> = 0.1...10
+
+    /// `nil` for 1em, the size of the text around it, and for a size that
+    /// isn't one.
+    init?(em: Double) {
+        guard em.isFinite, em > 0 else { return nil }
+        let clamped = min(max(em, Self.ems.lowerBound), Self.ems.upperBound)
+        let thousandths = Int((clamped * 1000).rounded())
+        guard thousandths != 1000 else { return nil }
+        self.thousandths = thousandths
     }
 
-    /// How it is written in the tag.
+    var em: Double { Double(thousandths) / 1000 }
+
+    /// How it is written in the tag: `1.412em`, `1.5em`, `2em`.
     var written: String {
-        switch self {
-        case .small:  "0.85em"
-        case .large:  "1.25em"
-        case .larger: "1.5em"
-        }
+        var number = String(thousandths / 1000)
+        var fraction = String(format: "%03d", thousandths % 1000)
+        while fraction.hasSuffix("0") { fraction.removeLast() }
+        if !fraction.isEmpty { number += "." + fraction }
+        return number + "em"
     }
 
-    var name: String {
-        switch self {
-        case .small:  "Small"
-        case .large:  "Large"
-        case .larger: "Larger"
-        }
+    // MARK: Points
+
+    /// The sizes the size control sets, in points.
+    static let points: ClosedRange<Double> = 8...72
+
+    /// The sizes its list offers, as Word's does.
+    static let presets: [Double] = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 60, 72]
+
+    /// The size that sets text at `points` beside text of `base` points:
+    /// `nil` where that is `base` itself.
+    init?(points: Double, against base: Double) {
+        guard base > 0 else { return nil }
+        self.init(em: points / base)
     }
 
-    /// The step nearest `em`, or `nil` where 1em, normal size, is nearer.
-    static func nearest(toEm em: Double) -> SpanSize? {
-        let nearest = allCases.min { abs($0.em - em) < abs($1.em - em) }
-        guard let nearest, abs(nearest.em - em) < abs(1 - em) else { return nil }
-        return nearest
+    /// The points a run of this size comes to beside text of `base` points,
+    /// to the half point, which is what the styler sets it in. Written to
+    /// the thousandth, every half point the control sets comes back exactly
+    /// beside text of up to 80 points; a note's largest is a heading of about
+    /// 40.
+    func points(against base: Double) -> Double {
+        (base * em * 2).rounded() / 2
+    }
+
+    /// `points(against:)`, with no size being `base` itself.
+    static func points(_ size: SpanSize?, against base: Double) -> Double {
+        size?.points(against: base) ?? base
+    }
+
+    /// A size in points as the control writes it: `24`, or `24.5`.
+    static func label(points: Double) -> String {
+        points.rounded() == points ? String(Int(points)) : String(format: "%.1f", points)
     }
 }

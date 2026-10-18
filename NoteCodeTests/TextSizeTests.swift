@@ -311,7 +311,7 @@ struct TextSizeReflowTests {
     }
 }
 
-@Suite("Text size: the stepper, and the question on a note with ink", .serialized)
+@Suite("Text size: ••• › Text Size, and the question on a note with ink", .serialized)
 @MainActor
 struct TextSizeEditorTests {
 
@@ -352,32 +352,31 @@ struct TextSizeEditorTests {
         func wait() async { try? await Task.sleep(for: .milliseconds(120)) }
     }
 
-    @Test("A note without ink changes at once, once the taps stop")
+    @Test("A note without ink changes once the pause is over")
     func noInkChangesAtOnce() async {
         let harness = Harness(withInk: false)
-        harness.editor.stepTextSize(by: 1)
-        #expect(harness.editor.textSize == 19, "the stepper shows the tap straight away")
-        #expect(harness.committed.isEmpty, "…and the note catches up once the taps stop")
+        harness.editor.setTextSize(19)
+        #expect(harness.editor.textSize == 19, "the menu shows the pick straight away")
+        #expect(harness.committed.isEmpty, "…and the note catches up after the pause")
         await harness.wait()
         #expect(harness.committed == [19])
         #expect(harness.editor.sizeAwaitingConfirmation == nil)
     }
 
-    @Test("A run of taps lays the note out once, at the last size")
+    @Test("A run of picks lays the note out once, at the last size")
     func runOfTapsSettlesOnce() async {
         let harness = Harness(withInk: false)
-        for _ in 0..<3 { harness.editor.stepTextSize(by: 1) }
-        harness.editor.stepTextSize(by: -1)
+        for size in [19, 21, 23, 21] { harness.editor.setTextSize(size) }
         await harness.wait()
         #expect(harness.committed == [21], "17 → 19 → 21 → 23 → 21 is one change, to 21: \(harness.committed)")
         #expect(harness.editor.textSize == 21)
     }
 
-    @Test("Taps that end where they began change nothing")
+    @Test("Picks that end where they began change nothing")
     func backToWhereItWas() async {
         let harness = Harness(withInk: false)
-        harness.editor.stepTextSize(by: 1)
-        harness.editor.stepTextSize(by: -1)
+        harness.editor.setTextSize(19)
+        harness.editor.setTextSize(17)
         await harness.wait()
         #expect(harness.committed.isEmpty)
     }
@@ -386,7 +385,7 @@ struct TextSizeEditorTests {
     func defaultStoredAsNil() async {
         let harness = Harness(withInk: false)
         harness.editor.syncTextSize(to: 19)
-        harness.editor.stepTextSize(by: -1)
+        harness.editor.setTextSize(17)
         await harness.wait()
         #expect(harness.committed.count == 1)
         #expect(harness.committed.first == .some(nil), "17 is nil in the model: \(harness.committed)")
@@ -395,7 +394,7 @@ struct TextSizeEditorTests {
     @Test("A note with ink asks first, and changes only on Change")
     func inkAsks() async {
         let harness = Harness(withInk: true)
-        harness.editor.stepTextSize(by: 1)
+        harness.editor.setTextSize(19)
         await harness.wait()
 
         #expect(harness.editor.sizeAwaitingConfirmation == 19)
@@ -411,7 +410,7 @@ struct TextSizeEditorTests {
     func inkCancel() async {
         let harness = Harness(withInk: true)
         harness.editor.syncTextSize(to: 16)
-        harness.editor.stepTextSize(by: 1)
+        harness.editor.setTextSize(17)
         await harness.wait()
         #expect(harness.editor.sizeAwaitingConfirmation == 17)
 
@@ -425,12 +424,12 @@ struct TextSizeEditorTests {
     @Test("Once answered, the question isn't asked again for that note")
     func askedOncePerOpening() async {
         let harness = Harness(withInk: true)
-        harness.editor.stepTextSize(by: 1)
+        harness.editor.setTextSize(19)
         await harness.wait()
         harness.editor.confirmTextSize()
         harness.editor.syncTextSize(to: 19)
 
-        harness.editor.stepTextSize(by: 1)
+        harness.editor.setTextSize(21)
         await harness.wait()
 
         #expect(harness.editor.sizeAwaitingConfirmation == nil)
@@ -441,27 +440,16 @@ struct TextSizeEditorTests {
     func lockedNote() async {
         let harness = Harness(withInk: false)
         harness.editor.setTextLocked(true)
-        harness.editor.stepTextSize(by: 1)
+        harness.editor.setTextSize(19)
         await harness.wait()
         #expect(harness.committed.isEmpty)
         #expect(harness.editor.textSize == 17)
     }
 
-    @Test("Bigger and Smaller stop at the ends of the steps")
-    func ends() {
-        let harness = Harness(withInk: false)
-        harness.editor.syncTextSize(to: 23)
-        #expect(harness.editor.canStepTextSize.bigger == false)
-        #expect(harness.editor.canStepTextSize.smaller == true)
-        harness.editor.syncTextSize(to: 14)
-        #expect(harness.editor.canStepTextSize.bigger == true)
-        #expect(harness.editor.canStepTextSize.smaller == false)
-    }
-
-    @Test("Following the note's stored size doesn't undo a tap still in flight")
+    @Test("Following the note's stored size doesn't undo a pick still in flight")
     func syncWaitsForTheTap() async {
         let harness = Harness(withInk: false)
-        harness.editor.stepTextSize(by: 1)
+        harness.editor.setTextSize(19)
         harness.editor.syncTextSize(to: nil)
         #expect(harness.editor.textSize == 19)
         await harness.wait()
