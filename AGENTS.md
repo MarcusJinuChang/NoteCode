@@ -328,11 +328,13 @@ are compact, and get this; an unfolded Duo is regular and gets the iPad's.
   compact, 466 by 678pt, with no fold regions, and the system runs the
   status bar and the navigation bar's buttons down the right side; the page
   sits at 0.55x, centred 31.7pt in. Unfolded and held sideways it is
-  regular, 951 by 669pt, and gets the iPad's layout, the page at 1.06x. Its
-  fold is one division region (`UIView.reservedRegions(kind: .division)`,
-  iOS 27.1), a 40pt band down the middle with the margins for controls
-  included, **inactive while the Duo is flat open and active while it is
-  partly folded**. `simctl` can't fold or unfold it; Xcode 27.1's DeviceHub
+  regular, 951 by 669pt, and gets the iPad's layout, the page at 1.06x;
+  upright, 669 by 951pt, the page at 0.82x, with the navigation bar across
+  the top. Its fold is one division region (`UIView.reservedRegions(kind:
+  .division)`, iOS 27.1), a 40pt band through the middle with the margins
+  for controls included (down the screen sideways, across it upright),
+  **inactive while the Duo is flat open and active while it is partly
+  folded**. `simctl` can't fold or unfold it; Xcode 27.1's DeviceHub
   app (where Simulator.app was) can, and can half-fold it.
 - **The hotbar keeps off an active fold** (`FoldAvoidance`, pure;
   `FoldReader` reports the active regions on layout and on the hinge moving,
@@ -361,17 +363,18 @@ are compact, and get this; an unfolded Duo is regular and gets the iPad's.
   the folder editor (the eight colours fit across), Export All and Recently
   Deleted. All are standard sheets and fit; only the two Settings rows
   needed a change.
-- **Open (the board's):** whether portrait should fit the column or the
-  whole page, and whether a phone note opens zoomed to 1x. Built as the
-  column, opening at the fit.
+- **Decided 17 Oct (Marcus): a phone fits the text column**, the board's
+  open question, as built. A note opens at that fit; pinch zoom makes it
+  larger.
 - **Checked in the simulator:** iPhone 17 (Home, a note opened from
   Continue, the list pushed from Show All, a note opened from the list and
   back, the hotbar and both options rows at the bottom, ink mode, the
   sheets above), iPhone 17e (the rows), and the Duo folded, unfolded flat
-  and half-folded. **Not checked:** an iPhone in landscape on screen, the
-  list's search, a folder tile, Delete's Undo in the stack, a search result
-  row's tap, the Duo unfolded upright (portrait), a real device, the
-  Pencil, `HotbarUITests` (XCUITest, not run).
+  and half-folded, and unfolded upright. **Not checked:** an iPhone in
+  landscape on screen, the list's search, a folder tile, Delete's Undo in
+  the stack, a search result row's tap, the Duo upright and half-folded, a
+  physical Duo (none to hand: the simulator is all there is before it
+  ships), the Pencil, `HotbarUITests` (XCUITest, not run).
 
 ## The page fills the window
 

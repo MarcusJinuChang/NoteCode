@@ -493,8 +493,9 @@ changes how notes are stored lands before it.
     and a note; the page fitted by its text column; the hotbar fixed at the
     bottom; Home in two columns; options rows that scroll on a narrow phone;
     the sheets checked on a phone. On the Duo, the hotbar keeps off the fold
-    while it is partly folded. Left: the board's open question, column or
-    whole page, and a device. See AGENTS.md › iPhone and the Duo.)
+    while it is partly folded. Decided 17 Oct: a phone fits the text
+    column. Left: a physical Duo, which isn't available; everything Duo was
+    checked in the 27.1 simulator. See AGENTS.md › iPhone and the Duo.)
 12. **The list's foot: the mark, Feature Request, the tip jar**, and the
     postponed Send Feedback and Privacy Policy rows. Last before submitting,
     since all of them wait on the pages in `docs/site/` being hosted.
