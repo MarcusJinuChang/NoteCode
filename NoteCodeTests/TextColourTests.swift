@@ -257,7 +257,7 @@ struct TextColourLayoutTests {
     static let note = [
         "A paragraph with \(SpanStyle(colour: red).openTag)red words and **bold**\(SpanStyle.close) in it, long enough that it wraps onto a second line on the page.",
         "# A \(SpanStyle(colour: TextColour.blue.hex).openTag)blue\(SpanStyle.close) heading",
-        "- an item ending in \(SpanStyle(colour: TextColour.green.hex, size: .large).openTag)green\(SpanStyle.close)",
+        "- an item ending in \(SpanStyle(colour: TextColour.green.hex, size: SpanSize(em: 1.25)).openTag)green\(SpanStyle.close)",
         "plain",
         "",
     ].joined(separator: "\n")

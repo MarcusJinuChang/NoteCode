@@ -12,17 +12,37 @@ import Foundation
 
 extension MarkdownFormatting {
 
+    /// The point size of each kind of block's text, which a size chosen in
+    /// points is written against (`SpanSize`): the note's, from its
+    /// typography, since the same 24 is a different em in a heading.
+    struct BlockSizes: Equatable, Sendable {
+        var body: Double
+        /// Heading levels 1 to 6.
+        var headings: [Double]
+
+        /// A heading's size, or the body's for level 0 and for a list item.
+        func size(forHeadingLevel level: Int) -> Double {
+            headings.indices.contains(level - 1) ? headings[level - 1] : body
+        }
+    }
+
     /// What a colour or size control changes: one of a run's two settings,
     /// to a value or to none. The other is kept.
     enum StyleChange: Equatable, Sendable {
         case colour(Int?)
         case size(SpanSize?)
+        /// A size in points, written on each line against that line's own
+        /// text (`BlockSizes`), so a selection from a heading into a
+        /// paragraph comes out one size. `nil` is the text's own size.
+        case points(Double?, BlockSizes)
 
-        func applied(to style: SpanStyle) -> SpanStyle {
+        func applied(to style: SpanStyle, headingLevel: Int) -> SpanStyle {
             var style = style
             switch self {
             case .colour(let colour): style.colour = colour
             case .size(let size):     style.size = size
+            case .points(let points, let sizes):
+                style.size = points.flatMap { SpanSize(points: $0, against: sizes.size(forHeadingLevel: headingLevel)) }
             }
             return style
         }
@@ -30,8 +50,9 @@ extension MarkdownFormatting {
         /// Whether it takes its setting off rather than putting one on.
         var clears: Bool {
             switch self {
-            case .colour(let colour): colour == nil
-            case .size(let size):     size == nil
+            case .colour(let colour):    colour == nil
+            case .size(let size):        size == nil
+            case .points(let points, _): points == nil
             }
         }
     }
@@ -46,6 +67,19 @@ extension MarkdownFormatting {
     /// the caret; `nil` makes them normal size again. See `style`.
     static func size(_ size: SpanSize?, selection: NSRange, in text: NSString, codeRanges: [CodeRange]) -> TextEdit? {
         style(.size(size), selection: selection, in: text, codeRanges: codeRanges)
+    }
+
+    /// Sets the selection, the run the caret is in or the word at the caret
+    /// at `points`, against each line's own text; `nil`, or the text's own
+    /// size, makes them normal size again. What the size control does.
+    static func size(
+        points: Double?,
+        blockSizes: BlockSizes,
+        selection: NSRange,
+        in text: NSString,
+        codeRanges: [CodeRange]
+    ) -> TextEdit? {
+        style(.points(points, blockSizes), selection: selection, in: text, codeRanges: codeRanges)
     }
 
     /// Changes the selection's colour or size, or the run the caret is in,
@@ -132,53 +166,12 @@ extension MarkdownFormatting {
     ///   between its new tags, or where the text taken out of a run now is),
     ///   and for a caret its new place. `nil` for a line with nothing to do.
     static func styleLine(_ line: String, selection: NSRange, change: StyleChange) -> (text: String, coloured: NSRange, caret: Int?)? {
-        guard let block = DocumentParser.parse(line).first, !block.isCode else { return nil }
-        let ns = line as NSString
-        let content = NSRange(block.contentRange, in: line)
-
-        // The spans and runs on the line, in its offsets.
-        var spans: [NSRange] = []
-        var runs: [(open: NSRange, close: NSRange, style: SpanStyle)] = []
-        var open: (tag: NSRange, style: SpanStyle)?
-        for inline in block.inlines {
-            let whole = NSRange(inline.range, in: line)
-            switch inline.kind {
-            case .text: break
-            case .spanOpen(let style): open = (whole, style)
-            case .spanClose:
-                if let start = open { runs.append((start.tag, whole, start.style)) }
-                open = nil
-            default: spans.append(whole)
-            }
-        }
-        func text(of run: (open: NSRange, close: NSRange, style: SpanStyle)) -> NSRange {
-            NSRange(location: NSMaxRange(run.open), length: run.close.location - NSMaxRange(run.open))
-        }
+        guard let parsed = LineRuns(line) else { return nil }
+        let (spans, runs) = (parsed.spans, parsed.runs)
 
         // What to colour.
-        var target: NSRange
-        var caret: Int?
-        if selection.length == 0 {
-            let at = selection.location
-            caret = at
-            if let run = runs.first(where: { at > $0.open.location && at <= $0.close.location }) {
-                target = text(of: run)
-            } else {
-                target = word(at: at, in: ns)
-                guard target.length > 0, NSLocationInRange(target.location, content) else { return nil }
-            }
-        } else {
-            target = NSIntersectionRange(selection, content)
-            guard target.length > 0 else { return nil }
-            // Not the spaces at either end.
-            while target.length > 0, ns.character(at: target.location) == 32 {
-                target = NSRange(location: target.location + 1, length: target.length - 1)
-            }
-            while target.length > 0, ns.character(at: NSMaxRange(target) - 1) == 32 {
-                target.length -= 1
-            }
-            guard target.length > 0 else { return nil }
-        }
+        guard var target = parsed.target(of: selection) else { return nil }
+        let caret: Int? = selection.length == 0 ? selection.location : nil
 
         // Runs it overlaps come off, their text joining it; spans it runs
         // into come in whole. Again, since taking a run in can reach another
@@ -189,10 +182,10 @@ extension MarkdownFormatting {
         while changed {
             changed = false
             for run in runs where !removed.contains(run.open) {
-                let whole = NSRange(location: run.open.location, length: NSMaxRange(run.close) - run.open.location)
+                let whole = run.whole
                 guard NSIntersectionRange(whole, target).length > 0 || NSLocationInRange(target.location, whole) else { continue }
                 removed += [run.open, run.close]
-                target = NSUnionRange(target, text(of: run))
+                target = NSUnionRange(target, run.text)
                 if kept == nil { kept = run.style }
                 changed = true
             }
@@ -205,7 +198,7 @@ extension MarkdownFormatting {
 
         // Rebuild the line: the old tags out, the new ones round the target,
         // none if nothing is left to set.
-        let style = change.applied(to: kept ?? SpanStyle())
+        let style = change.applied(to: kept ?? SpanStyle(), headingLevel: parsed.headingLevel)
         let opening = style.isEmpty ? "" : style.openTag
         let closing = style.isEmpty ? "" : SpanStyle.close
         var edits: [(range: NSRange, insert: String)] = removed.map { ($0, "") }
@@ -236,9 +229,156 @@ extension MarkdownFormatting {
         return (result as String, colouredRange, caret.map { moved($0, afterInsertsAt: true) })
     }
 
+    // MARK: A line's runs
+
+    /// A styled run on a line: its two tags and its style, in the line's
+    /// offsets.
+    struct StyledRun: Equatable {
+        var open: NSRange
+        var close: NSRange
+        var style: SpanStyle
+
+        /// The text between the tags.
+        var text: NSRange { NSRange(location: NSMaxRange(open), length: close.location - NSMaxRange(open)) }
+        /// The tags and the text.
+        var whole: NSRange { NSRange(location: open.location, length: NSMaxRange(close) - open.location) }
+    }
+
+    /// One line read for colour and size: its block's text, its spans and
+    /// its styled runs, in the line's own offsets. `nil` for a line of code
+    /// or nothing.
+    struct LineRuns {
+        var line: NSString
+        var headingLevel: Int
+        var content: NSRange
+        var spans: [NSRange] = []
+        var runs: [StyledRun] = []
+
+        init?(_ line: String) {
+            guard let block = DocumentParser.parse(line).first, !block.isCode else { return nil }
+            self.line = line as NSString
+            headingLevel = block.headingLevel ?? 0
+            content = NSRange(block.contentRange, in: line)
+            var open: (tag: NSRange, style: SpanStyle)?
+            for inline in block.inlines {
+                let whole = NSRange(inline.range, in: line)
+                switch inline.kind {
+                case .text: break
+                case .spanOpen(let style): open = (whole, style)
+                case .spanClose:
+                    if let start = open { runs.append(StyledRun(open: start.tag, close: whole, style: start.style)) }
+                    open = nil
+                default: spans.append(whole)
+                }
+            }
+        }
+
+        /// The run a caret at `offset` is in: from just after its opening
+        /// tag's first character to the start of its closing tag.
+        func run(atCaret offset: Int) -> StyledRun? {
+            runs.first { offset > $0.open.location && offset <= $0.close.location }
+        }
+
+        /// What a change acts on, before the runs and spans it reaches are
+        /// taken in: for a caret, the run it is in or the word at it; for a
+        /// selection, its part of the block's text less spaces at either
+        /// end. `selection` is in the line's offsets and may run past either
+        /// end. `nil` where there is nothing: a caret on no word and in no
+        /// run, or a selection of spaces or markers alone.
+        func target(of selection: NSRange) -> NSRange? {
+            if selection.length == 0 {
+                if let run = run(atCaret: selection.location) { return run.text }
+                let word = MarkdownFormatting.word(at: selection.location, in: line)
+                return word.length > 0 && NSLocationInRange(word.location, content) ? word : nil
+            }
+            var target = NSIntersectionRange(selection, content)
+            guard target.length > 0 else { return nil }
+            while target.length > 0, line.character(at: target.location) == 32 {
+                target = NSRange(location: target.location + 1, length: target.length - 1)
+            }
+            while target.length > 0, line.character(at: NSMaxRange(target) - 1) == 32 {
+                target.length -= 1
+            }
+            return target.length > 0 ? target : nil
+        }
+
+        /// Whether `range` holds anything but white space.
+        func hasText(in range: NSRange) -> Bool {
+            range.length > 0 && line.substring(with: range).contains { !$0.isWhitespace }
+        }
+    }
+
+    // MARK: Reading sizes
+
+    /// The size of some of the text a size control acts on: the block it
+    /// is in (a heading's level, 0 for body text and list items) and its
+    /// run's size. The control turns it into points with the note's fonts.
+    struct SizeSample: Hashable, Sendable {
+        var headingLevel: Int
+        var size: SpanSize?
+    }
+
+    /// The sizes of the text the size control would act on, in the order
+    /// they come, each once; and whether there is anything for it to act on.
+    ///
+    /// A caret has one: the size of the run it is in, or its block's, even
+    /// where nothing would change (so the control can say what size the
+    /// text there is). A selection has one for each size its text is in, by
+    /// line, spaces and tags not counted. Nothing in or across code, where
+    /// sizes don't go.
+    static func sizes(at selection: NSRange, in text: NSString, codeRanges: [CodeRange]) -> (samples: [SizeSample], hasTarget: Bool) {
+        let selection = clamped(selection, to: text.length)
+        guard !codeRanges.contains(where: { NSIntersectionRange($0.range, selection).length > 0 || $0.contains(selection) })
+        else { return ([], false) }
+
+        var samples: [SizeSample] = []
+        var hasTarget = false
+        func add(_ sample: SizeSample) {
+            if !samples.contains(sample) { samples.append(sample) }
+        }
+
+        for line in lines(touching: selection, in: text) {
+            guard let parsed = LineRuns(text.substring(with: line)) else { continue }
+            let local: NSRange
+            if selection.length == 0 {
+                local = NSRange(location: selection.location - line.location, length: 0)
+                add(SizeSample(headingLevel: parsed.headingLevel, size: parsed.run(atCaret: local.location)?.style.size))
+            } else {
+                let start = max(selection.location, line.location)
+                let end = min(NSMaxRange(selection), NSMaxRange(line))
+                guard end > start else { continue }
+                local = NSRange(location: start - line.location, length: end - start)
+            }
+            guard let target = parsed.target(of: local) else { continue }
+            hasTarget = true
+            guard selection.length > 0 else { continue }
+
+            // The selected text inside each run, and outside every run's
+            // tags and text, in the order it comes on the line.
+            var pieces: [(range: NSRange, size: SpanSize?)] = []
+            var outside = [target]
+            for run in parsed.runs {
+                pieces.append((NSIntersectionRange(target, run.text), run.style.size))
+                outside = outside.flatMap { piece -> [NSRange] in
+                    let cut = NSIntersectionRange(piece, run.whole)
+                    guard cut.length > 0 else { return [piece] }
+                    return [
+                        NSRange(location: piece.location, length: cut.location - piece.location),
+                        NSRange(location: NSMaxRange(cut), length: NSMaxRange(piece) - NSMaxRange(cut)),
+                    ].filter { $0.length > 0 }
+                }
+            }
+            pieces += outside.map { ($0, nil) }
+            for piece in pieces.sorted(by: { $0.range.location < $1.range.location }) where parsed.hasText(in: piece.range) {
+                add(SizeSample(headingLevel: parsed.headingLevel, size: piece.size))
+            }
+        }
+        return (samples, hasTarget)
+    }
+
     /// The word `offset` is in or against: letters, digits and the
     /// underscore of an identifier, as Link takes it.
-    private static func word(at offset: Int, in text: NSString) -> NSRange {
+    fileprivate static func word(at offset: Int, in text: NSString) -> NSRange {
         func isWordCharacter(at index: Int) -> Bool {
             guard index >= 0, index < text.length else { return false }
             let unit = text.character(at: index)

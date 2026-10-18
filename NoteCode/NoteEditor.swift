@@ -334,8 +334,15 @@ final class NoteEditor {
     /// Assigns only on a real change: this runs on every caret move and
     /// keystroke, and an observable property invalidates its readers on any
     /// assignment, equal value or not.
+    ///
+    /// A stepper tap still waiting for the taps to stop goes on at once if
+    /// the selection moves away from it: the reader saw the number change.
     func setCaretFormatting(_ formatting: MarkdownFormatting.CaretFormatting) {
         if caretFormatting != formatting { caretFormatting = formatting }
+        if let pending = pendingSelectionSize, let textView, textView.selectedRange != pending.selection {
+            selectionSizeTask?.cancel()
+            settleSelectionSize(keeping: textView.selectedRange)
+        }
     }
 
     /// Starts a code block, and remembers its language for
@@ -442,52 +449,259 @@ final class NoteEditor {
         }
     }
 
-    /// A size for a run (`SpanSize`) waiting for the reader's yes, with the
-    /// selection it was asked for: the alert takes the keyboard, and the
-    /// text view's selection isn't something to read back afterwards.
-    struct SpanSizeRequest: Equatable {
-        var size: SpanSize?
+    // MARK: The size of the text at the caret
+
+    /// What the size control reads: the text at the caret, or the
+    /// selection, in points.
+    struct SelectionTextSize: Equatable {
+        /// The size, or `nil` for a selection of text in several sizes.
+        var points: Double?
+        /// The size of the text at the selection's start: where + and −
+        /// start from on a selection of several.
+        var startPoints: Double
+        /// The size the text there has with no size of its own: what
+        /// Default sets.
+        var ownPoints: Double
+        /// Whether there is anything to size: text mode, unlocked, not in
+        /// code, and not a caret on no word and in no run.
+        var canChange: Bool
+    }
+
+    /// A size for the selection in points (`nil`: the text's own), with the
+    /// selection it was asked for: kept through the stepper's pause and the
+    /// ink question, since the alert takes the keyboard and the text view's
+    /// selection isn't something to read back afterwards.
+    struct SizeRequest: Equatable {
+        var points: Double?
         var selection: NSRange
     }
 
-    /// `nil` unless the alert is up.
-    private(set) var spanSizeAwaitingConfirmation: SpanSizeRequest?
+    /// The stepper's latest tap, which the text catches up to once the taps
+    /// stop (`settleDelay`), so a run of taps re-wraps the note once.
+    private(set) var pendingSelectionSize: SizeRequest?
+    @ObservationIgnored private var selectionSizeTask: Task<Void, Never>?
+    /// The note's length when the pending tap was first made. Text typed
+    /// since has moved what its selection points at, so it is dropped.
+    @ObservationIgnored private var pendingTextLength = 0
 
-    /// Size: sets `size` on the selection, the run at the caret or the word
-    /// there; `nil` makes them normal size. The text re-wraps around it, so
-    /// on a note with ink it asks first, as the note's text size does, and
-    /// one yes covers both until the note is next opened.
-    func setSpanSize(_ size: SpanSize?) {
-        guard mode == .text, !isTextLocked, let textView,
-              MarkdownFormatting.size(
-                  size, selection: textView.selectedRange, in: textView.textStorage.mutableString, codeRanges: codeRanges?() ?? []
-              ) != nil
+    /// A size waiting for the reader's yes, because the note has ink. `nil`
+    /// unless the alert is up.
+    private(set) var selectionSizeAwaitingConfirmation: SizeRequest?
+
+    /// The selection Custom… sizes, kept while the size is asked for. `nil`
+    /// unless the alert is up.
+    private(set) var customSizeSelection: NSRange?
+
+    /// What the size control shows: the tap or the answer in flight, or the
+    /// text as it is.
+    var selectionTextSize: SelectionTextSize {
+        var reading = textSize(reading: caretFormatting)
+        if let request = selectionSizeAwaitingConfirmation ?? pendingSelectionSize {
+            reading.points = request.points ?? reading.ownPoints
+        }
+        return reading
+    }
+
+    /// + and −, and ⌘+ and ⌘−. Off at the control's ends, 8 and 72 points.
+    var canStepSelectionSize: (bigger: Bool, smaller: Bool) {
+        let reading = selectionTextSize
+        guard reading.canChange, selectionSizeAwaitingConfirmation == nil else { return (false, false) }
+        let current = reading.points ?? reading.startPoints
+        return (Self.stepped(current, by: 1) != nil, Self.stepped(current, by: -1) != nil)
+    }
+
+    /// + and −: a point bigger or smaller, for the selection, the run at the
+    /// caret or the word there. A selection of several sizes all goes to its
+    /// start's size, a point on.
+    func stepSelectionSize(by steps: Int) {
+        guard let textView, selectionSizeAwaitingConfirmation == nil else { return }
+        let reading = textSize(reading: currentFormatting(of: textView))
+        guard mode == .text, !isTextLocked, reading.canChange else { return }
+        let current = pendingSelectionSize.map { $0.points ?? reading.ownPoints } ?? reading.points ?? reading.startPoints
+        guard let next = Self.stepped(current, by: steps) else { return }
+        if pendingSelectionSize == nil { pendingTextLength = textView.textStorage.length }
+        pendingSelectionSize = SizeRequest(points: next, selection: pendingSelectionSize?.selection ?? textView.selectedRange)
+        selectionSizeTask?.cancel()
+        selectionSizeTask = Task { [weak self, settleDelay] in
+            try? await Task.sleep(for: settleDelay)
+            guard !Task.isCancelled else { return }
+            self?.settleSelectionSize()
+        }
+    }
+
+    /// A size picked from the list, or `nil` for Default: at once, since a
+    /// pick isn't one of a run of taps.
+    func setSelectionSize(points: Double?) {
+        guard let textView, mode == .text, !isTextLocked, selectionSizeAwaitingConfirmation == nil else { return }
+        dropPendingSelectionSize()
+        requestSelectionSize(SizeRequest(points: points.map { Self.clampedPoints($0) }, selection: textView.selectedRange))
+    }
+
+    /// Custom…: asks for a size (`PageDetailView`'s alert).
+    func beginCustomSize() {
+        guard let textView, mode == .text, !isTextLocked,
+              textSize(reading: currentFormatting(of: textView)).canChange
         else { return }
-        let request = SpanSizeRequest(size: size, selection: textView.selectedRange)
-        if hasInk, !inkQuestionAnswered {
-            spanSizeAwaitingConfirmation = request
-        } else {
-            applySpanSize(request)
-        }
+        dropPendingSelectionSize()
+        customSizeSelection = textView.selectedRange
     }
 
-    /// The alert's Change.
-    func confirmSpanSize() {
-        guard let request = spanSizeAwaitingConfirmation else { return }
+    /// Whether Custom…'s alert should also say what the ink question says.
+    /// One alert, not two: a second can't come up as the first goes. Its Set
+    /// counts as the yes.
+    var customSizeAsksAboutInk: Bool { hasInk && !inkQuestionAnswered }
+
+    func cancelCustomSize() {
+        customSizeSelection = nil
+    }
+
+    /// The alert's Set: the typed size, clamped to 8 to 72 and to the half
+    /// point. Anything that isn't a number sets nothing.
+    func finishCustomSize(typed: String) {
+        defer { customSizeSelection = nil }
+        guard let selection = customSizeSelection, let points = Self.points(typed: typed) else { return }
+        if hasInk { inkQuestionAnswered = true }
+        applySelectionSize(SizeRequest(points: points, selection: selection))
+    }
+
+    /// The ink alert's Change.
+    func confirmSelectionSize() {
+        guard let request = selectionSizeAwaitingConfirmation else { return }
         inkQuestionAnswered = true
-        spanSizeAwaitingConfirmation = nil
-        applySpanSize(request)
+        selectionSizeAwaitingConfirmation = nil
+        applySelectionSize(request)
     }
 
-    /// The alert's Cancel.
-    func cancelSpanSize() {
-        spanSizeAwaitingConfirmation = nil
+    /// The ink alert's Cancel: the control goes back to the text's size.
+    func cancelSelectionSize() {
+        selectionSizeAwaitingConfirmation = nil
     }
 
-    private func applySpanSize(_ request: SpanSizeRequest) {
-        perform { [codeRanges] text, _ in
-            MarkdownFormatting.size(request.size, selection: request.selection, in: text as NSString, codeRanges: codeRanges?() ?? [])
+    /// `points` stepped a point at a time, or `nil` past the control's ends.
+    /// Text already outside them (a large run in a note made larger) steps
+    /// back towards them, never further out.
+    nonisolated static func stepped(_ points: Double, by steps: Int) -> Double? {
+        let range = SpanSize.points
+        if steps > 0, points >= range.upperBound { return nil }
+        if steps < 0, points <= range.lowerBound { return nil }
+        let next = points + Double(steps)
+        return min(max(next, min(range.lowerBound, points)), max(range.upperBound, points))
+    }
+
+    /// A size the control can set: 8 to 72, to the half point.
+    nonisolated static func clampedPoints(_ points: Double) -> Double {
+        (min(max(points, SpanSize.points.lowerBound), SpanSize.points.upperBound) * 2).rounded() / 2
+    }
+
+    /// A typed size: a number, with "pt" or without, and a comma for a
+    /// decimal point as some keyboards type it.
+    nonisolated static func points(typed: String) -> Double? {
+        var text = typed.trimmingCharacters(in: .whitespaces).lowercased()
+        if text.hasSuffix("pt") { text.removeLast(2) }
+        text = text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
+        guard let value = Double(text), value.isFinite else { return nil }
+        return clampedPoints(value)
+    }
+
+    /// The caret's formatting read from the text view itself, for an action:
+    /// `caretFormatting` is what the coordinator last reported, for the bar.
+    private func currentFormatting(of textView: UITextView) -> MarkdownFormatting.CaretFormatting {
+        MarkdownFormatting.formatting(at: textView.selectedRange, in: textView.textStorage.mutableString, codeRanges: codeRanges?() ?? [])
+    }
+
+    /// `formatting`'s sizes in points, in the note's fonts as laid out.
+    private func textSize(reading formatting: MarkdownFormatting.CaretFormatting) -> SelectionTextSize {
+        let typography = self.typography
+        if case .code = formatting.block {
+            let code = Double(typography.code.pointSize)
+            return SelectionTextSize(points: code, startPoints: code, ownPoints: code, canChange: false)
         }
+        let sizes = blockSizes
+        let points = formatting.sizes.map { SpanSize.points($0.size, against: sizes.size(forHeadingLevel: $0.headingLevel)) }
+        let own = formatting.sizes.first.map { sizes.size(forHeadingLevel: $0.headingLevel) } ?? sizes.body
+        let start = points.first ?? own
+        return SelectionTextSize(
+            points: Set(points).count > 1 ? nil : start,
+            startPoints: start,
+            ownPoints: own,
+            canChange: mode == .text && !isTextLocked && formatting.canResize
+        )
+    }
+
+    /// The note's block sizes as laid out, kept per text size: they come from
+    /// the system's fonts, and the bar asks on every caret move.
+    private var blockSizes: MarkdownFormatting.BlockSizes {
+        if let cached = blockSizesCache, cached.bodySize == appliedTextSize { return cached.sizes }
+        let sizes = typography.blockSizes
+        blockSizesCache = (appliedTextSize, sizes)
+        return sizes
+    }
+    @ObservationIgnored private var blockSizesCache: (bodySize: Int, sizes: MarkdownFormatting.BlockSizes)?
+
+    /// The pending tap goes on. `keeping` is where the reader has just put
+    /// the caret, which stays there rather than going back to the text sized.
+    private func settleSelectionSize(keeping selection: NSRange? = nil) {
+        selectionSizeTask = nil
+        guard let request = pendingSelectionSize else { return }
+        pendingSelectionSize = nil
+        guard textView?.textStorage.length == pendingTextLength else { return }
+        requestSelectionSize(request, keeping: selection)
+    }
+
+    private func dropPendingSelectionSize() {
+        selectionSizeTask?.cancel()
+        selectionSizeTask = nil
+        pendingSelectionSize = nil
+    }
+
+    /// Sizes the text, or asks first on a note with ink: it re-wraps around
+    /// the new size, and ink stays where it was drawn. One yes covers this
+    /// and the note's own size until the note is next opened.
+    private func requestSelectionSize(_ request: SizeRequest, keeping selection: NSRange? = nil) {
+        guard let textView, sizeEdit(for: request, in: textView.textStorage.mutableString) != nil else { return }
+        if hasInk, !inkQuestionAnswered {
+            selectionSizeAwaitingConfirmation = request
+        } else {
+            applySelectionSize(request, keeping: selection)
+        }
+    }
+
+    /// Sizes the text. The caret ends on what was sized, unless `keeping`
+    /// says where else it was just put: there, moved past the tags if they
+    /// went in before it.
+    private func applySelectionSize(_ request: SizeRequest, keeping selection: NSRange? = nil) {
+        guard let textView, let edit = sizeEdit(for: request, in: textView.textStorage.mutableString) else { return }
+        let replaced = textView.textStorage.mutableString.substring(with: edit.range)
+        perform { _, _ in edit }
+        guard let kept = selection,
+              let start = Self.offset(kept.location, through: edit, replacing: replaced),
+              let end = Self.offset(NSMaxRange(kept), through: edit, replacing: replaced)
+        else { return }
+        textView.selectedRange = NSRange(location: start, length: end - start)
+    }
+
+    /// Where `offset` in the text before `edit` is after it, if it lies in
+    /// what the edit left as it was: the start of the lines it rewrote, up
+    /// to the first change, or their end, from the last. `nil` in between.
+    nonisolated static func offset(_ offset: Int, through edit: TextEdit, replacing old: String) -> Int? {
+        let old = Array(old.utf16)
+        let new = Array(edit.replacement.utf16)
+        if offset <= edit.range.location { return offset }
+        if offset >= NSMaxRange(edit.range) { return offset + new.count - old.count }
+        var prefix = 0
+        while prefix < min(old.count, new.count), old[prefix] == new[prefix] { prefix += 1 }
+        var suffix = 0
+        while suffix < min(old.count, new.count) - prefix, old[old.count - 1 - suffix] == new[new.count - 1 - suffix] { suffix += 1 }
+        let local = offset - edit.range.location
+        if local <= prefix { return offset }
+        if local >= old.count - suffix { return offset + new.count - old.count }
+        return nil
+    }
+
+    private func sizeEdit(for request: SizeRequest, in text: NSString) -> TextEdit? {
+        MarkdownFormatting.size(
+            points: request.points, blockSizes: blockSizes, selection: request.selection, in: text, codeRanges: codeRanges?() ?? []
+        )
     }
 
     /// What Link will wrap, kept while the address is asked for: the alert
@@ -532,11 +746,11 @@ final class NoteEditor {
         }
     }
 
-    // MARK: Text size
+    // MARK: The note's text size
 
-    /// The size the stepper shows: the reader's latest tap, which the note
-    /// catches up to once they stop (`settleDelay`) and, for a note with ink,
-    /// say yes.
+    /// The note's own body size as ••• › Text Size shows it: the reader's
+    /// latest pick, which the note catches up to after `settleDelay` and,
+    /// for a note with ink, a yes. Every size in the note is against it.
     private(set) var textSize = NoteTypography.defaultSize
 
     /// The size the note is laid out in now, from `Page.textSize`.
@@ -558,8 +772,8 @@ final class NoteEditor {
     /// Not an edit: the page leaves `modifiedAt` and the undo stack alone.
     @ObservationIgnored var commitTextSize: ((Int?) -> Void)?
 
-    /// How long the stepper waits after a tap before the note re-flows, so a
-    /// run of taps lays the note out once.
+    /// How long a size waits after a tap or a pick before the text re-flows,
+    /// so a run of the size control's taps lays the note out once.
     @ObservationIgnored var settleDelay = Duration.milliseconds(300)
     @ObservationIgnored private var settleTask: Task<Void, Never>?
 
@@ -572,14 +786,8 @@ final class NoteEditor {
         if settleTask == nil, sizeAwaitingConfirmation == nil, textSize != size { textSize = size }
     }
 
-    /// + and −: one step bigger or smaller. Text mode only, and not for a
+    /// A size picked from ••• › Text Size. Text mode only, and not for a
     /// locked note, whose text is read and not changed.
-    func stepTextSize(by steps: Int) {
-        guard let size = NoteTypography(bodySize: textSize).size(steppedBy: steps) else { return }
-        setTextSize(size)
-    }
-
-    /// A size picked from the list, or stepped to.
     func setTextSize(_ size: Int) {
         guard mode == .text, !isTextLocked, sizeAwaitingConfirmation == nil else { return }
         let size = NoteTypography(bodySize: size).bodySize
@@ -591,12 +799,6 @@ final class NoteEditor {
             guard !Task.isCancelled else { return }
             self?.settleTextSize()
         }
-    }
-
-    /// ⌘+ and ⌘−.
-    var canStepTextSize: (bigger: Bool, smaller: Bool) {
-        let typography = NoteTypography(bodySize: textSize)
-        return (typography.size(steppedBy: 1) != nil, typography.size(steppedBy: -1) != nil)
     }
 
     private func settleTextSize() {

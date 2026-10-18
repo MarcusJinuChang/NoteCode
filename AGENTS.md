@@ -1050,7 +1050,8 @@ Phase 9 of `docs/ui-design-v2-implementation.md` (12 Oct).
     the text view and window and checks the font, the styled text and the
     content height didn't move; it fails with the old two lines back.
   - **Decided 12 Oct (Marcus), built in v3 phase 6:** text size is a property
-    of each note (`Page.textSize`), set from the text options row. It is
+    of each note (`Page.textSize`), set from ••• › Text Size (the text
+    options row until 18 Oct). It is
     still never an app-wide setting and never follows Dynamic Type, which is
     what the two bullets above are about. See "Navigation and the text
     options row".
@@ -1693,16 +1694,19 @@ v3 phase 6 (14 Oct, `docs/ui-design-v3-implementation.md`).
     down to the line and settles the offset on it, again while it moves (the
     page count, and so the bands, can still change). The test checks the line
     at the top against the same note laid out from scratch at the new size.
-  - **A stepper tap isn't a change yet.** `NoteEditor.textSize` is what the
-    stepper shows; the note catches up 300ms after the last tap, so a run of
-    taps lays out once (`settleDelay`). A note with ink asks first, in the
-    board's wording, **once each time the note is opened** (the editor is made
-    per note): Cancel puts the stepper back. The size is written through
-    `commitTextSize` into `Page.textSize` and nothing else: `modifiedAt`
-    stays, nothing goes on the text undo stack.
-  - **⌘+ and ⌘−** (Bigger Text, Smaller Text, in Format) are bound; the system
-    left both free. Not tried with a real keyboard (the key is "+", which on a
-    US layout is ⇧⌘=).
+  - **Picked from ••• › Text Size** since 18 Oct (text overhaul, phase 1):
+    the row's stepper became the selection's size (see "Coloured and sized
+    text"). A pick isn't a change yet: `NoteEditor.textSize` is what the menu
+    shows, and the note catches up after `settleDelay` (300ms). A note with
+    ink asks first, in the board's wording, **once each time the note is
+    opened** (the editor is made per note): Cancel puts the menu back. The
+    size is written through `commitTextSize` into `Page.textSize` and nothing
+    else: `modifiedAt` stays, nothing goes on the text undo stack. Off in ink
+    mode and for a locked note, as the stepper was.
+  - **⌘+ and ⌘−** (Bigger Text, Smaller Text, in Format) step the
+    selection's size since 18 Oct, as Pages' do; the system left both free.
+    Not tried with a real keyboard (the key is "+", which on a US layout is
+    ⇧⌘=).
   - **Measured while writing the tests:** TextKit 2 sets a line taller than
     the font's own `lineHeight` (19.0pt a line at 14, 22.0 at 17; the font
     says 16.7 and 20.3), so a Letter page holds 48 lines at 14 and 41 at 17.
@@ -1724,9 +1728,10 @@ v3 phase 6 (14 Oct, `docs/ui-design-v3-implementation.md`).
   - **With the keyboard up**, docked at the bottom, `keyboardClearance` adds the
     row's gap and reach (8 + 44) while it is showing, so the caret's line
     stays above it (`PageDetailView.keyboardClearance`).
-  - **The stepper comes first**, `+ 17 −` across and `+` over `17` over `−`
-    down, with the size on a `secondarySystemFill` pill; tapping it lists the
-    steps (the default marked). `+` and `−` are disabled at the ends.
+  - **The size control comes first**, `+ 17 −` across and `+` over `17` over
+    `−` down, with the size on a `secondarySystemFill` pill. Since 18 Oct it
+    is the size of the text at the caret or the selection, not the note's
+    (see "Coloured and sized text").
   - **The rest follows the caret** (`CaretFormatting.block`, from the parse
     of one line, and for code from the `CodeRange` list, which now carries the
     fence's tag): a paragraph or heading shows Body, H1, H2, H3 (the current
@@ -2210,7 +2215,8 @@ Roadmap step 10, second and third parts: colour (17 Oct, branch
 `claude/text-colour`, on `claude/code-block-room`) and size (17 Oct, branch
 `claude/text-size`, on `claude/text-colour`). The format is step 3's
 recommendation (docs/research-notability-obsidian.md). `SpanStyle` holds the
-tag, `TextColour` the palette, `SpanSize` the sizes.
+tag, `TextColour` the palette, `SpanSize` the sizes. Any size since 18 Oct
+(text overhaul, phase 1; docs/text-system-overhaul.md).
 
 - **Written as Obsidian writes it:** an HTML span with an inline style, on
   one line, colour first when it has both, so the two never nest:
@@ -2244,29 +2250,70 @@ tag, `TextColour` the palette, `SpanSize` the sizes.
   - The palette: Red `#E5484D`, Orange `#E5750A`, Yellow `#B88700`, Green
     `#2F9E44`, Blue `#3B82F6`, Purple `#9061F9`, each at least 4.5:1 once
     adjusted, in both appearances (tested).
-- **Size is against the text around it:** Small 0.85em, Large 1.25em,
-  Larger 1.5em (`SpanSize`), of the block's font, so a heading's run is a
-  larger heading (still bold), to the half point
-  (`DocumentStyler.font(_:sizedTo:)`). Spans inside a sized run build on the
-  sized font, so bold in a large run is large bold. A size read from
-  elsewhere snaps to the nearest step, and one nearer 1em is no size, so a
-  line holds text in a few known sizes.
+- **Any size, stored as em, shown in points** (decided 18 Oct, Marcus;
+  docs/text-system-overhaul.md, decision 1). `SpanSize` holds thousandths of
+  an em against the block's font, so a heading's run is a larger heading
+  (still bold), and a note resized as a whole keeps its proportions. The
+  styler sets it to the half point (`SpanSize.points(against:)`,
+  `DocumentStyler.font(_:sizedTo:)`), and a size chosen in points is
+  written as points over the block's size (`init(points:against:)`), to the
+  thousandth: every half point from 8 to 72 comes back exactly, beside every
+  block of every note size (`SpanSizeTests.pointsRoundTrip`,
+  `SpanSizeLayoutTests.pointsInEveryBlock`). Step 10's 0.85, 1.25 and 1.5em
+  read as before; any em reads as written, clamped to 0.1–10; exactly 1em
+  is no size. Spans inside a sized run build on the sized font, so bold in
+  a large run is large bold.
+  - **The number moves with its block.** 24 in a 17pt paragraph is 1.412em,
+    and shows 27 once the note is 19, or 48 moved into an H1. Word and Pages
+    keep points; em was chosen for the note's size and for Obsidian.
+  - **`withSize` keeps the leading, scaled** (measured 18 Oct: 1.713pt at
+    17, 2.418 at 24, where `systemFont(ofSize:)` has none), so a run at its
+    text's own size lays out exactly as plain text, and a sized line is as
+    tall as its own text makes it (31.06pt at 24). The system's 23pt body
+    at xxxLarge has a smaller leading than 17pt scaled to 23 (1.553 against
+    2.317): sizes made by `withSize` are their own line height, not a
+    Dynamic Type step's.
   - **A sized line is taller, and that is all:** a line is pushed across a
     page break whole, so every mode still paginates alike (see "Code blocks:
     room around and inside" for why room is never paragraph spacing).
   - **It re-wraps, so on a note with ink it asks first**
-    (`NoteEditor.setSpanSize`), in the text size's own words, and one yes
-    covers both until the note is next opened (`inkQuestionAnswered`). The
-    request keeps the selection it was asked for, since the alert takes the
-    keyboard. Asked only for an edit that would change something.
+    (`NoteEditor.requestSelectionSize`), in the text size's own words, and
+    one yes covers both until the note is next opened (`inkQuestionAnswered`).
+    The request keeps the selection it was asked for, since the alert takes
+    the keyboard. Asked only for an edit that would change something, and
+    after a run of taps stops, once.
 - The block signature's inline hash carries the style, since a recolour or
   resize changes no length.
-- **The menus** end the text options row for a paragraph, heading or list
-  item: Size (`SizeMenu`: Larger, Large, Normal, Small; lit in a sized run)
-  and Colour (`ColourMenu`: the six colours and Default; its face is the
-  caret's colour or an empty ring). Both `.menuOrder(.fixed)`, so they read
-  top to bottom whichever way they open. `MarkdownFormatting.style` makes
-  the edit (`colour` and `size` call it):
+- **The size control** is the row's `+ 17 −` (`SizeControl`, decision 2,
+  18 Oct): the size of the text at the caret or the selection in points,
+  from `CaretFormatting.sizes` (each line's heading level and run size,
+  `MarkdownFormatting.sizes`), turned into points with the note's fonts
+  (`NoteEditor.selectionTextSize`, `NoteTypography.blockSizes`). A dash for
+  a selection in several sizes, a heading and a paragraph included. Size ▾
+  went into it.
+  - **+ and −** step a point (`NoteEditor.stepSelectionSize`), and wait out
+    `settleDelay` as the note's size does, so five taps re-wrap once and ask
+    the ink question once. A selection of several sizes goes to its start's
+    size, a point on. They stop at 8 and 72; text already past them steps
+    back towards them (`NoteEditor.stepped`).
+  - **A caret moved during the pause** puts the size on at once, and stays
+    where the reader put it (`NoteEditor.offset(_:through:replacing:)`, since
+    the edit rewrites whole lines); text typed during it drops the tap.
+  - **The number** lists the presets, 8 to 72 as Word's are, then Default
+    (the text's own size: takes the size off) and Custom…, an alert asking
+    for points (`NoteEditor.points(typed:)`: "pt" or not, a comma for a
+    point, clamped, to the half point). On a note with ink Custom…'s alert
+    says the ink question's words too and its Set is the yes, since a
+    second alert can't come up as the first goes.
+  - **Off** in code (it shows the code's size), on a locked note, and for a
+    caret on no word and in no run (`CaretFormatting.canResize`): Phase 4's
+    typing style is what will size text not typed yet.
+- **The colour menu** ends the text options row for a paragraph, heading or
+  list item (`ColourMenu`: the six colours and Default; its face is the
+  caret's colour or an empty ring), `.menuOrder(.fixed)`, so it reads top to
+  bottom whichever way it opens. `MarkdownFormatting.style` makes the edit
+  for colour and size (`colour`, `size`, and `size(points:blockSizes:…)`,
+  which writes each line against its own block):
   - the selection, or the run the caret is in, or the word at the caret;
   - a run per line, after a heading's or list item's marker, spaces at the
     ends left out;
@@ -2289,14 +2336,24 @@ tag, `TextColour` the palette, `SpanSize` the sizes.
   "span" or "color" finds nothing, an excerpt shows no tag, and match
   offsets still point at the note's own characters. Get Info skips words
   inside tags.
-- **Not built:** a typing colour or size (for text not yet typed), keyboard
-  shortcuts, highlight (`==🟡text==` in the research).
+- **Not built:** a typing colour or size (for text not yet typed; phase 4),
+  a size on part of a bold word (it takes the word; phase 3), a colour
+  shortcut, highlight (`==🟡text==` in the research).
 - **Checked in the simulator** (11-inch, light and dark): colour runs, the
   colour menu and its face, recolouring a run beside another on one line,
   colouring a word in a list item; sized runs in a heading, a paragraph and
   a small aside, the size menu lit and resizing a run. **Not checked:** the
   iPad, the Pencil, a hardware keyboard, the ink question on screen, the PDF
   of a coloured or sized note, a selection over several lines on screen.
+- **Free sizes, checked in the simulator** (18 Oct, 11-inch, light, bottom
+  dock): the control dimmed with no caret on a word and live at 17 with
+  one; + stepping a word from 17 to 22 and the line growing after the
+  pause, the caret staying after the word; the list (72 down) and 36 picked
+  from it. One of five synthesised taps in quick succession didn't count
+  (21, not 22); a single tap after it did, and `stepsSettleOnce` counts five.
+  **Not checked:** Custom…, Default, ••• › Text Size, ⌘+ and ⌘−, the ink
+  question, a selection in several sizes (the dash), a side dock, dark
+  mode, the iPad, the Pencil.
 
 ## Organising notes
 

@@ -12,9 +12,11 @@ import SwiftUI
 
 /// The row that floats beside the hotbar in text mode.
 ///
-/// It starts with the text size stepper, `+ 17 −` across (`+` over `17` over
-/// `−` down the side), in that order: `−` usually comes first, and `+` comes
-/// first here because that is how it was asked for. The rest follows the
+/// It starts with the size control, `+ 17 −` across (`+` over `17` over `−`
+/// down the side), in that order: `−` usually comes first, and `+` comes
+/// first here because that is how it was asked for. It is the size of the
+/// text at the caret or the selection, as in Pages (text overhaul, phase 1,
+/// 18 Oct); the note's own size is in ••• › Text Size. The rest follows the
 /// caret, by what it is in (`CaretFormatting.block`): a paragraph or heading,
 /// a list item, or a code block. Every control does what a menu already did
 /// (Style ▾, List ▾, the language button, Tab and ⇧Tab), through the editor's
@@ -33,7 +35,7 @@ struct TextOptionsRow: View {
         // (a narrow phone, with the size and colour menus at the end).
         OptionsRowTrack(isVertical: isVertical) {
             HotbarStack(isVertical: isVertical) {
-                TextSizeStepper(editor: editor, isVertical: isVertical)
+                SizeControl(editor: editor, isVertical: isVertical)
                 HotbarDivider(isVertical: isVertical)
                 switch editor.caretFormatting.block {
                 case .paragraph:
@@ -59,40 +61,53 @@ struct TextOptionsRow: View {
 
 // MARK: - Size
 
-/// `+`, the size on a pill, `−`. Tapping the number lists the sizes.
-private struct TextSizeStepper: View {
+/// `+`, the size on a pill, `−`: the size of the text at the caret or the
+/// selection, a point a step, or a dash for a selection in several sizes.
+/// Tapping the number lists sizes, Default (the text's own) and Custom….
+/// In code it shows the code's size and does nothing: code isn't sized.
+private struct SizeControl: View {
     @Bindable var editor: NoteEditor
     var isVertical: Bool
 
     var body: some View {
+        let reading = editor.selectionTextSize
+        let steps = editor.canStepSelectionSize
         HotbarStack(isVertical: isVertical) {
-            HotbarButton("Increase Text Size", "plus") { editor.stepTextSize(by: 1) }
-                .disabled(!editor.canStepTextSize.bigger)
+            HotbarButton("Bigger", "plus") { editor.stepSelectionSize(by: 1) }
+                .disabled(!steps.bigger)
 
             Menu {
-                ForEach(NoteTypography.sizes.reversed(), id: \.self) { size in
+                ForEach(SpanSize.presets.reversed(), id: \.self) { size in
                     Toggle(isOn: Binding(
-                        get: { editor.textSize == size },
-                        set: { _ in editor.setTextSize(size) }
+                        get: { reading.points == size },
+                        set: { _ in editor.setSelectionSize(points: size) }
                     )) {
-                        Text(size == NoteTypography.defaultSize ? "\(size) · Default" : "\(size)")
+                        Text(SpanSize.label(points: size))
                     }
                 }
+                Divider()
+                Button("Default · \(SpanSize.label(points: reading.ownPoints))") { editor.setSelectionSize(points: nil) }
+                Button("Custom…") { editor.beginCustomSize() }
             } label: {
-                Text("\(editor.textSize)")
+                Text(reading.points.map(SpanSize.label(points:)) ?? "–")
                     .font(.system(size: 15, weight: .semibold))
                     .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                     .foregroundStyle(.primary)
-                    .frame(width: 28, height: 26)
+                    .frame(minWidth: 28, maxWidth: 36, minHeight: 26, maxHeight: 26)
+                    .padding(.horizontal, 2)
                     .background(Color(.secondarySystemFill), in: .capsule)
                     .hotbarTarget()
             }
             .modifier(HotbarMenuStyle())
+            .menuOrder(.fixed)
+            .disabled(!reading.canChange)
             .accessibilityLabel("Text Size")
-            .accessibilityValue("\(editor.textSize) points")
+            .accessibilityValue(reading.points.map { "\(SpanSize.label(points: $0)) points" } ?? "Mixed")
 
-            HotbarButton("Decrease Text Size", "minus") { editor.stepTextSize(by: -1) }
-                .disabled(!editor.canStepTextSize.smaller)
+            HotbarButton("Smaller", "minus") { editor.stepSelectionSize(by: -1) }
+                .disabled(!steps.smaller)
         }
     }
 }
@@ -114,39 +129,7 @@ private struct ParagraphControls: View {
         // Lit while the caret is in a link: nothing to add to one that is there.
         HotbarButton("Link", "link", isSelected: editor.caretFormatting.link) { editor.beginLink() }
             .disabled(editor.caretFormatting.link)
-        SizeMenu(editor: editor)
         ColourMenu(editor: editor)
-    }
-}
-
-/// Size (`SpanSize`) for the selection or the word at the caret, against
-/// the text around it: Larger, Large, Normal, Small. Lit while the caret is
-/// in a sized run.
-private struct SizeMenu: View {
-    @Bindable var editor: NoteEditor
-
-    var body: some View {
-        let current = editor.caretFormatting.size
-        Menu {
-            ForEach([SpanSize.larger, .large], id: \.self) { size in item(size, current: current) }
-            item(nil, current: current)
-            item(.small, current: current)
-        } label: {
-            Image(systemName: "textformat.size")
-                .font(.system(size: 17, weight: .medium))
-                .foregroundStyle(current == nil ? AnyShapeStyle(.primary) : AnyShapeStyle(.tint))
-                .hotbarTarget(isHighlighted: current != nil)
-        }
-        .modifier(HotbarMenuStyle())
-        .menuOrder(.fixed)
-        .accessibilityLabel("Size")
-        .accessibilityValue(current?.name ?? "Normal")
-    }
-
-    private func item(_ size: SpanSize?, current: SpanSize?) -> some View {
-        Toggle(isOn: Binding(get: { current == size }, set: { _ in editor.setSpanSize(size) })) {
-            Text(size?.name ?? "Normal")
-        }
     }
 }
 
@@ -216,7 +199,6 @@ private struct ListControls: View {
             }
         }
         IndentControls(editor: editor)
-        SizeMenu(editor: editor)
         ColourMenu(editor: editor)
     }
 }

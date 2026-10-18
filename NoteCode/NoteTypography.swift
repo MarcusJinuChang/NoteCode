@@ -125,6 +125,15 @@ extension NoteTypography {
         return UIFont(descriptor: descriptor, size: 0)
     }
 
+    /// The point size of each kind of block's text, which a size chosen in
+    /// points is written against: a heading's, or the body's.
+    var blockSizes: MarkdownFormatting.BlockSizes {
+        MarkdownFormatting.BlockSizes(
+            body: Double(prose.pointSize),
+            headings: (1...6).map { Double(heading(level: $0).pointSize) }
+        )
+    }
+
     /// A code line's number: the code's face, a little smaller so it recedes.
     var lineNumber: UIFont {
         Self.lineNumberFont(forCodeSize: code.pointSize)

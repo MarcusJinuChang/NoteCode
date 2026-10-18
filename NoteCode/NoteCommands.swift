@@ -224,13 +224,14 @@ struct NoteCommands: Commands {
                 Button(NoteShortcut.codeBlock.title) { editor?.insertCodeBlockInLastLanguage() }
                     .keyboardShortcut(.codeBlock)
                 Divider()
-                // The note's own size, a step at a time. Off at either end.
-                Button(NoteShortcut.biggerText.title) { editor?.stepTextSize(by: 1) }
+                // The selection's size, a point at a time, as the text row's
+                // + and − do (and Pages' ⌘+ and ⌘−). Off at 8 and 72.
+                Button(NoteShortcut.biggerText.title) { editor?.stepSelectionSize(by: 1) }
                     .keyboardShortcut(.biggerText)
-                    .disabled(editor?.canStepTextSize.bigger != true)
-                Button(NoteShortcut.smallerText.title) { editor?.stepTextSize(by: -1) }
+                    .disabled(editor?.canStepSelectionSize.bigger != true)
+                Button(NoteShortcut.smallerText.title) { editor?.stepSelectionSize(by: -1) }
                     .keyboardShortcut(.smallerText)
-                    .disabled(editor?.canStepTextSize.smaller != true)
+                    .disabled(editor?.canStepSelectionSize.smaller != true)
             }
             .disabled(!canFormat)
 

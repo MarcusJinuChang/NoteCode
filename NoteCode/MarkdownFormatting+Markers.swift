@@ -353,6 +353,13 @@ extension MarkdownFormatting {
         /// The size of the run the caret is in (`SpanSize`), or `nil` for
         /// normal size.
         var size: SpanSize?
+        /// The sizes of the text the size control acts on, each once
+        /// (`MarkdownFormatting.sizes`): one for a caret, more for a
+        /// selection of text in several sizes. Empty in code.
+        var sizes: [SizeSample] = []
+        /// Whether the size control has anything to act on: not in code,
+        /// and not a caret on no word and in no run.
+        var canResize = false
         /// 1 to 6, or 0 for body text.
         var headingLevel = 0
         var list: ListStyle?
@@ -394,6 +401,7 @@ extension MarkdownFormatting {
             return state
         }
         guard selection.location <= text.length else { return state }
+        (state.sizes, state.canResize) = sizes(at: selection, in: text, codeRanges: codeRanges)
 
         let line = contentLine(containing: selection.location, in: text)
         guard line.length > 0 else { return state }

@@ -136,6 +136,9 @@ struct PageDetailView: View {
 
     /// What the Link alert's field holds.
     @State private var linkAddress = ""
+
+    /// What Custom… has typed so far.
+    @State private var customSize = ""
 #endif
 
     @State private var showsInfo = false
@@ -228,13 +231,34 @@ struct PageDetailView: View {
             Text("The text re-flows to the new size. Ink stays where it was drawn, so it may no longer sit on its words.")
         }
         .alert("Change Text Size?", isPresented: Binding(
-            get: { editor.spanSizeAwaitingConfirmation != nil },
+            get: { editor.selectionSizeAwaitingConfirmation != nil },
             set: { _ in }
         )) {
-            Button("Cancel", role: .cancel) { editor.cancelSpanSize() }
-            Button("Change") { editor.confirmSpanSize() }
+            Button("Cancel", role: .cancel) { editor.cancelSelectionSize() }
+            Button("Change") { editor.confirmSelectionSize() }
         } message: {
             Text("The text re-flows to the new size. Ink stays where it was drawn, so it may no longer sit on its words.")
+        }
+        // Custom… in the size control's list. On a note with ink it also says
+        // what the question above does, and its Set is the yes: a second
+        // alert can't come up as this one goes.
+        .alert("Text Size", isPresented: Binding(
+            get: { editor.customSizeSelection != nil },
+            set: { _ in }
+        )) {
+            TextField("Points", text: $customSize)
+                .keyboardType(.decimalPad)
+            Button("Cancel", role: .cancel) { editor.cancelCustomSize() }
+            Button("Set") { editor.finishCustomSize(typed: customSize) }
+        } message: {
+            if editor.customSizeAsksAboutInk {
+                Text("8 to 72 points. The text re-flows to the new size. Ink stays where it was drawn, so it may no longer sit on its words.")
+            } else {
+                Text("8 to 72 points.")
+            }
+        }
+        .onChange(of: editor.customSizeSelection != nil) { _, asking in
+            if asking { customSize = editor.selectionTextSize.points.map(SpanSize.label(points:)) ?? "" }
         }
         .alert("Add Link", isPresented: Binding(
             get: { editor.linkTarget != nil },
@@ -359,6 +383,23 @@ struct PageDetailView: View {
                     editor.addPage()
                 }
             }
+
+            // The note's own size, which every size in it is against. The
+            // size control in the text row is the selection's.
+            Menu {
+                Picker("Text Size", selection: Binding(
+                    get: { editor.textSize },
+                    set: { editor.setTextSize($0) }
+                )) {
+                    ForEach(NoteTypography.sizes.reversed(), id: \.self) { size in
+                        Text(size == NoteTypography.defaultSize ? "\(size) · Default" : "\(size)").tag(size)
+                    }
+                }
+                .pickerStyle(.inline)
+            } label: {
+                Label("Text Size", systemImage: "textformat.size")
+            }
+            .disabled(editor.mode != .text || page.isTextLocked)
 
             Button("Outline", systemImage: "list.bullet.indent") { showsOutline = true }
 
