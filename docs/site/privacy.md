@@ -1,6 +1,6 @@
 # NoteCode Privacy Policy
 
-_Last updated: DATE (fill in when you publish)_
+_Last updated: 10/17/26_
 
 NoteCode is a note-taking app for computer science coursework. It collects
 nothing, and it has no account, no servers of its own and no analytics.
@@ -45,4 +45,4 @@ is released.
 
 ## Contact
 
-EMAIL ADDRESS (fill in)
+changm2608@gmail.com
