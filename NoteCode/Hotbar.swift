@@ -34,6 +34,12 @@ struct Hotbar: View {
     /// take a third of the screen from the page.
     var isMovable = true
 
+    /// The longest the options row may be along the bar, or `nil` for no
+    /// limit. The page passes its own length less the margins, and a row
+    /// longer than that scrolls: the pen's row is about 391pt, which a 390pt
+    /// phone can't show whole.
+    var maxRowLength: CGFloat?
+
     /// How far the bar has been dragged from its dock.
     ///
     /// Gesture state rather than the page's own, so a drag that is cancelled
@@ -117,7 +123,7 @@ struct Hotbar: View {
         // is whichever mode, tool or edge the bar is on. Inside the offset,
         // so it travels with the bar when the grip drags it.
         .overlay {
-            BesideBar(dock: dock, gap: Self.optionsGap) { optionsRow }
+            BesideBar(dock: dock, gap: Self.optionsGap, maxLength: maxRowLength) { optionsRow }
         }
         .animation(.snappy, value: showsOptions)
         .animation(.snappy, value: showsTextRow)
@@ -141,8 +147,8 @@ struct Hotbar: View {
     /// along it: the selected ink tool's options in ink mode, the text size
     /// and the paragraph's controls in text mode.
     ///
-    /// `fixedSize` because an overlay is proposed the bar's size, and the
-    /// pen's row is longer than a side-docked bar. It slides out from the
+    /// `BesideBar` sizes it, not the overlay, which proposes the bar's size:
+    /// the pen's row is longer than a side-docked bar. It slides out from the
     /// bar, or under Reduce Motion fades.
     @ViewBuilder
     private var optionsRow: some View {
@@ -151,12 +157,10 @@ struct Hotbar: View {
         if showsOptions {
             InkOptionsRow(editor: editor, isVertical: dock.isVertical)
                 .environment(\.optionsRow, style)
-                .fixedSize()
                 .transition(transition)
         } else if showsTextRow {
             TextOptionsRow(editor: editor, isVertical: dock.isVertical)
                 .environment(\.optionsRow, style)
-                .fixedSize()
                 .transition(transition)
         }
     }
@@ -373,6 +377,22 @@ private struct HotbarTrack: Layout {
     }
 }
 
+/// An options row's controls, hugged when they fit beside the bar and
+/// scrolled along it when they don't, as the bar's tools are. Inside the
+/// row's glass, so the capsule's ends stay put while the controls scroll.
+struct OptionsRowTrack<Content: View>: View {
+    var isVertical: Bool
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        let axes: Axis.Set = isVertical ? .vertical : .horizontal
+        HotbarTrack(axis: isVertical ? .vertical : .horizontal) {
+            ScrollView(axes, showsIndicators: false) { content }
+                .scrollBounceBehavior(.basedOnSize, axes: axes)
+        }
+    }
+}
+
 /// The options row's glass, around what the selected tool can be set to.
 ///
 /// 40pt thick, drawn at the bar's end of the row: the controls are 4pt
@@ -384,8 +404,10 @@ struct InkOptionsRow: View {
     @Environment(\.optionsRow) private var style
 
     var body: some View {
-        InkOptions(editor: editor, isVertical: isVertical)
-            .padding(isVertical ? .vertical : .horizontal, 2)
+        OptionsRowTrack(isVertical: isVertical) {
+            InkOptions(editor: editor, isVertical: isVertical)
+                .padding(isVertical ? .vertical : .horizontal, 2)
+        }
             .background(alignment: style?.faceAlignment ?? .center) {
                 Color.clear
                     .frame(
@@ -409,16 +431,19 @@ struct InkOptionsRow: View {
 private struct BesideBar<Row: View>: View {
     var dock: HotbarDock
     var gap: CGFloat
+    var maxLength: CGFloat?
     @ViewBuilder var row: Row
 
     var body: some View {
-        BesideBarLayout(dock: dock, gap: gap) { row }
+        BesideBarLayout(dock: dock, gap: gap, maxLength: maxLength) { row }
     }
 }
 
 private struct BesideBarLayout: Layout {
     var dock: HotbarDock
     var gap: CGFloat
+    /// The most the row may take along the bar; past it the row scrolls.
+    var maxLength: CGFloat?
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         // The bar's own size, which is all an overlay is offered.
@@ -427,7 +452,10 @@ private struct BesideBarLayout: Layout {
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         guard let row = subviews.first else { return }
-        let size = row.sizeThatFits(.unspecified)
+        let size = row.sizeThatFits(ProposedViewSize(
+            width: dock.isVertical ? nil : maxLength,
+            height: dock.isVertical ? maxLength : nil
+        ))
         let origin: CGPoint
         switch dock {
         case .bottom: origin = CGPoint(x: bounds.midX - size.width / 2, y: bounds.minY - gap - size.height)

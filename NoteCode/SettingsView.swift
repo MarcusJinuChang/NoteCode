@@ -21,6 +21,13 @@ private extension FocusedValues {
     @Entry var showsSettings: Binding<Bool>?
 }
 
+private extension EnvironmentValues {
+    /// Whether the window Settings came from can move its hotbar: not in a
+    /// compact width, where the bar stays at the bottom. The sheet's own size
+    /// class isn't the window's, so the window says.
+    @Entry var hotbarCanMove = true
+}
+
 extension View {
     /// Presents Settings as a form sheet, and lets ⌘, open it.
     ///
@@ -32,11 +39,14 @@ extension View {
     /// - Parameter onExportFinished: called with the number of notes when
     ///   Notes › Export All Notes… has written them, likewise after the
     ///   sheet has been asked to close, so the window's toast isn't hidden by it.
+    /// - Parameter hotbarCanMove: false in a compact width, where General
+    ///   leaves out Toolbar Position and Haptic on Snap.
     func settingsSheet(
         isPresented: Binding<Bool>,
         onOpenWelcomeNote: @escaping () -> Void = {},
         onShowWelcomeScreen: @escaping () -> Void = {},
-        onExportFinished: @escaping (Int) -> Void = { _ in }
+        onExportFinished: @escaping (Int) -> Void = { _ in },
+        hotbarCanMove: Bool = true
     ) -> some View {
         self
             .focusedSceneValue(\.showsSettings, isPresented)
@@ -47,6 +57,7 @@ extension View {
                     onExportFinished: onExportFinished
                 )
                     .presentationSizing(.form)
+                    .environment(\.hotbarCanMove, hotbarCanMove)
             }
     }
 }
@@ -264,6 +275,7 @@ private struct GeneralSettings: View {
 #if canImport(UIKit)
     @AppStorage(HotbarDock.defaultsKey) private var dock = HotbarDock.default
     @AppStorage(SnapHaptic.defaultsKey) private var hapticOnSnap = SnapHaptic.isOnByDefault
+    @Environment(\.hotbarCanMove) private var hotbarCanMove
 #endif
 
     var body: some View {
@@ -285,14 +297,17 @@ private struct GeneralSettings: View {
 #if canImport(UIKit)
             AppIconSection()
 
-            // The Mac has no hotbar: its editor is text only.
-            Section {
-                Picker("Toolbar Position", selection: $dock) {
-                    ForEach(HotbarDock.allCases, id: \.self) { Text($0.title) }
+            // The Mac has no hotbar: its editor is text only. A phone's bar
+            // stays at the bottom, so there is nothing to set there.
+            if hotbarCanMove {
+                Section {
+                    Picker("Toolbar Position", selection: $dock) {
+                        ForEach(HotbarDock.allCases, id: \.self) { Text($0.title) }
+                    }
+                    Toggle("Haptic on Snap", isOn: $hapticOnSnap)
+                } footer: {
+                    Text("Toolbar Position moves the bar without dragging it. Dragging the bar's grip to an edge does the same.")
                 }
-                Toggle("Haptic on Snap", isOn: $hapticOnSnap)
-            } footer: {
-                Text("Toolbar Position moves the bar without dragging it. Dragging the bar's grip to an edge does the same.")
             }
 #endif
         }
