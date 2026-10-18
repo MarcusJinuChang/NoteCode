@@ -122,11 +122,22 @@ nonisolated enum AppInfo {
 
     /// The `mailto:` link for Send Feedback, or `nil` without an address.
     static func feedbackURL(address: String? = feedbackAddress) -> URL? {
+        mail(to: address, subject: "NoteCode Feedback")
+    }
+
+    /// The `mailto:` link for Feature Request, at the list's foot: the same
+    /// address under its own subject, so requests can be told from reports
+    /// in the inbox. `nil` without an address, like Send Feedback.
+    static func featureRequestURL(address: String? = feedbackAddress) -> URL? {
+        mail(to: address, subject: "NoteCode Feature Request")
+    }
+
+    private static func mail(to address: String?, subject: String) -> URL? {
         guard let address, !address.isEmpty else { return nil }
         var components = URLComponents()
         components.scheme = "mailto"
         components.path = address
-        components.queryItems = [URLQueryItem(name: "subject", value: "NoteCode Feedback")]
+        components.queryItems = [URLQueryItem(name: "subject", value: subject)]
         return components.url
     }
 

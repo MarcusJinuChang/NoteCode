@@ -410,12 +410,22 @@ changes how notes are stored lands before it.
 
 ### Before the App Store submission (November)
 
-2. **Ads or a tip jar: decide now, build at step 12.**
-   - Ads mean an ad SDK, a tracking prompt, and a privacy label that no
-     longer says nothing is collected.
-   - Proposed: a tip jar through StoreKit, which passes review everywhere.
-   - A plain Buy Me a Coffee link is thought to be allowed only on the US
-     storefront. Check guideline 3.1 before building.
+2. **Ads or a tip jar: decided 17 Oct, a StoreKit tip jar now; ads and a
+   Pro subscription later.** Built with step 12.
+   - **Now:** three consumable tips through In-App Purchase. They unlock
+     nothing, so the privacy label still says nothing is collected.
+   - **Not Buy Me a Coffee in the app.** Since the 2025 Epic ruling a US
+     storefront app may link out to pay, but guideline 3.1.1 still sends
+     tips through In-App Purchase, and a developer reported App Review
+     rejecting a Buy Me a Coffee link on an About page for exactly that.
+     Outside the US it is a rejection. In-app is also one Face ID tap, and
+     Apple's 15% (Small Business Program) is no worse than Buy Me a Coffee's
+     5% plus card fees on a $3 tip.
+   - **Later, after the release:** ads, with a Pro subscription that removes
+     them and carries the AI features (step 18). Ads bring an ad SDK, a
+     tracking prompt, a privacy label that no longer says nothing is
+     collected, and a rewrite of `docs/site/privacy.md`, so they land with
+     Pro, not before.
 3. **Notability and Obsidian deep dive**, timeboxed. Moved up from last: it
    is the only item that can add to or reorder this list, and it feeds step
    10's format decision.
@@ -491,6 +501,13 @@ changes how notes are stored lands before it.
 12. **The list's foot: the mark, Feature Request, the tip jar**, and the
     postponed Send Feedback and Privacy Policy rows. Last before submitting,
     since all of them wait on the pages in `docs/site/` being hosted.
+    (Built 17 Oct, branch `claude/list-foot`: the foot is the mark and the
+    version, then each row once it works: Tip Jar once the App Store
+    answers with the products, Feature Request and Send Feedback once
+    `AppInfo.feedbackAddress` is set, Privacy Policy once
+    `AppInfo.privacyPolicy` is. Before submitting: the three tips in App
+    Store Connect, the Paid Applications agreement, and the Small Business
+    Program. See AGENTS.md › The list's foot and the tip jar.)
 13. **Freeze the model as version 1**, the last change before submitting.
     Versioning starts with what ships.
     (Built 17 Oct, branch `claude/freeze-model-v1`: `NoteSchemaV1` and a plan
