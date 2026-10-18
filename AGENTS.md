@@ -2319,24 +2319,36 @@ Pinning, sorting, note info and search needed no model change: the pins
 
 ## The model
 
-`Page` and `Folder` (Page.swift, Folder.swift) are plain `@Model` classes, and
-`NoteSchema.current` is a `Schema` of the two. There are no versions and no
-migration plan.
+`Page` and `Folder` are typealiases for `NoteSchemaV1.Page` and `.Folder`,
+whose classes are in Page.swift and Folder.swift. `NoteSchema.current` is
+version 1's schema, and `Storage` opens every store with `NoteMigrationPlan`,
+which holds version 1 and no stages (17 Oct, step 13 of docs/ROADMAP.md).
 
-- **Edited in place until the release** (15 Oct, step 4 of docs/ROADMAP.md).
-  Nothing important is stored in the app yet, so a model change carries no
-  migration, and a store that won't open is deleted with the app. TestFlight
-  testers reinstall after this change. The frozen versions 1 to 7, the
-  version-7 stage that marked notes without ink `rendered`, and
-  `SchemaMigrationTests` went with it; they are in the history of
-  NoteSchema.swift.
-- **Step 13 starts versioning again**: freeze the model as it stands as
-  version 1. After that a model change is a new `VersionedSchema` with its own
-  copies of the classes, the old one frozen (SwiftData matches a store to its
-  version by the shape of its entities, so a copy that drifts stops old
-  stores opening), and a stage in a plan; a test writes a store in the old
-  shape and opens it through `Storage`, never a container built some other
-  way. Anything that changes how notes are stored lands before that.
+- **Edited in place until the release** (decided 15 Oct, step 4). Nothing
+  important was stored in the app, so the frozen versions 1 to 7, the
+  version-7 stage and `SchemaMigrationTests` went, and are in the history of
+  NoteSchema.swift. Their numbers are reused: today's version 1 is the shape
+  that ships, not the old one.
+- **Version 1 is frozen by its hashes** (`ModelFreezeTests`). SwiftData
+  matches a store to a version by Core Data's entity version hashes, so the
+  test pins them (`NSManagedObjectModel.makeManagedObjectModel(for:)`,
+  `entityVersionHashesByName`). Adding an attribute fails it, and so does
+  opening stores without the plan (both mutation-checked, 17 Oct).
+  - **Before the App Store release** a model change may still edit version
+    1 in place and update the pinned hashes; TestFlight testers then
+    reinstall.
+  - **After it, a changed hash means a new version.** Copy the classes as
+    they were into `NoteSchemaV1` (frozen: same names, types, defaults,
+    external storage and relationships), move the live ones to
+    `extension NoteSchemaV2`, point the typealiases at it, add a stage, and
+    write a test that saves a store with the frozen copy and opens it through
+    `Storage`, never a container built some other way. Pin version 2's
+    hashes beside version 1's.
+- **A store from before versions opens as version 1**, since its shape is
+  the same: the TestFlight builds from 17 Oct opened a plain
+  `Schema([Page.self, Folder.self])`, and
+  `ModelFreezeTests.storeFromBeforeVersionsOpens` writes one that way, with
+  ink, nested folders and a deleted note, and opens it through `Storage`.
 - **A store that can't be opened looks like lost notes.** `Storage` falls back
   to an in-memory store with a warning; the file is untouched, but the app
   can't see it.
