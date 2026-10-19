@@ -226,7 +226,7 @@ struct Hotbar: View {
             ))
             Divider()
             Toggle(isOn: Binding(
-                get: { editor.caretFormatting.strikethrough },
+                get: { editor.formattingShown.strikethrough },
                 set: { _ in editor.toggle(.strikethrough) }
             )) {
                 Label("Strikethrough", systemImage: "strikethrough")
@@ -237,9 +237,9 @@ struct Hotbar: View {
         .modifier(HotbarMenuStyle())
         .accessibilityLabel("Style")
 
-        button("Bold", "bold", isSelected: editor.caretFormatting.bold) { editor.toggle(.bold) }
-        button("Italic", "italic", isSelected: editor.caretFormatting.italic) { editor.toggle(.italic) }
-        button("Inline Code", "chevron.left.forwardslash.chevron.right", isSelected: editor.caretFormatting.code) {
+        button("Bold", "bold", isSelected: editor.formattingShown.bold) { editor.toggle(.bold) }
+        button("Italic", "italic", isSelected: editor.formattingShown.italic) { editor.toggle(.italic) }
+        button("Inline Code", "chevron.left.forwardslash.chevron.right", isSelected: editor.formattingShown.code) {
             editor.toggle(.code)
         }
 

@@ -228,10 +228,11 @@ struct SpanSizeTests {
     func caretTargets() {
         #expect(Self.sizes("plain words", Self.caret(in: "words", of: "plain words")) == ([Self.sample()], true))
         #expect(Self.sizes("# Title", Self.caret(in: "Title", of: "# Title")) == ([Self.sample(1)], true))
-        // After the space at a line's end: no word, no run. Phase 4's typing
-        // style is what will size text there.
+        // After the space at a line's end: no word to size, so the control sets
+        // the typing style (phase 4): there is something to size.
         let afterSpace = NSRange(location: ("plain " as NSString).length, length: 0)
-        #expect(Self.sizes("plain ", afterSpace) == ([Self.sample()], false))
+        #expect(Self.sizes("plain ", afterSpace) == ([Self.sample()], true))
+        #expect(Self.sizes("", NSRange(location: 0, length: 0)) == ([Self.sample()], true), "a blank line too")
     }
 
     @Test("A selection reads each size its text is in, in order, spaces and tags not counted")
@@ -518,17 +519,18 @@ struct SizeControlTests {
         #expect(NoteEditor.stepped(24.5, by: 1) == 25.5)
     }
 
-    @Test("A caret on no word and in no run has nothing to size")
-    func nothingToSize() async {
+    @Test("A caret off a word steps the typing size, and changes no text")
+    func typingSizeOnly() async {
         let harness = Harness(withInk: false)
         harness.textView.text = "words \n"
         harness.textView.selectedRange = NSRange(location: 6, length: 0)
         Self.report(harness)
-        #expect(!harness.editor.selectionTextSize.canChange)
-        #expect(harness.editor.canStepSelectionSize == (false, false))
+        #expect(harness.editor.selectionTextSize.canChange)
         harness.editor.stepSelectionSize(by: 1)
         await harness.wait()
         #expect(harness.textView.text == "words \n")
+        #expect(harness.editor.typingStyle.points == .set(18))
+        #expect(harness.editor.selectionTextSize.points == 18, "the control shows the size the next text gets")
     }
 
     @Test("A locked note's text isn't sized")
