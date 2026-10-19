@@ -5,9 +5,8 @@ does in Obsidian and most other editors, with free resizing of any text at
 the very least.
 
 **Status:** decisions 1 to 4 below taken as recommended (Marcus, 18 Oct).
-Phases 1 to 4 are merged (#73 to #77). Phase 5 is on branch
-`claude/paste-copy-formatting`. Phase 6 is built on branch
-`claude/obsidian-blocks` (19 Oct, asked for by Marcus).
+Phases 1 to 4 and 6 are merged (#73 to #78). Phase 5 is built on branch
+`claude/paste-copy-formatting` (19 Oct, asked for by Marcus).
 
 Each phase below is one branch and one PR off `main`. A session starting a
 phase reads this file, AGENTS.md and the files the phase names.
@@ -268,10 +267,22 @@ Japanese or Chinese ones (not installed), dictation, or a tapped QuickType word.
 
 ### Phase 5: paste and copy with formatting (optional)
 
-- Check first what a paste of styled text does today.
-- Paste: bold and italic traits, the point size against the block's font
-  and the colour are read off the pasted text and written by Phase 3's
-  writer. Pasting into code stays plain.
+Built 19 Oct, branch `claude/paste-copy-formatting`; AGENTS.md › Paste and copy
+with formatting has what was found on the way. Built on Marcus's "continue
+with the text overhaul" while decision 5 was still open. One change to the
+plan as written:
+
+- **A paste's sizes are against the paste's own body, not the block's
+  font.** "The point size against the block's font" would write every
+  character of a 16px web page as 0.94em of a 17pt note. The size most of the
+  pasted characters have is the body, and every other size is its ratio to it.
+
+- Check first what a paste of styled text does today. **Measured 19 Oct:** RTF
+  arrives as its plain text, and a copy puts only the Markdown on the
+  pasteboard, so Pages and Mail got the stars and hashes.
+- Paste: bold and italic traits, the point size and the colour are read off
+  the pasted text and written by Phase 3's writer. Pasting into code stays
+  plain.
 - Copy: the Markdown as the plain string, as now, and an RTF copy beside it,
   so Pages and Mail keep the formatting.
 
@@ -348,4 +359,5 @@ On the iPad, not through a value the code computes:
    to ••• › Text Size. **Decided 18 Oct.**
 3. ⌘+ and ⌘− follow the row's control, as in Pages. **Decided 18 Oct.**
 4. 8 to 72pt, with presets like Word's. **Decided 18 Oct.**
-5. Phases 5 and 6 in or out? Phase 6 is in (built 19 Oct). Phase 5: open.
+5. Phases 5 and 6 in or out? Both built (19 Oct): Phase 6 on Marcus's ask,
+   Phase 5 on "continue". Phase 6 is merged; Phase 5 awaits review.

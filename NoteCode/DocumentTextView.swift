@@ -374,7 +374,10 @@ struct DocumentTextView: UIViewRepresentable {
         /// Forgets `layoutCodeRanges` whenever the text storage is edited.
         func observeEdits(of textView: UITextView) {
             self.textView = textView as? DocumentUITextView
-            if let documentView = self.textView { installMarkerGestures(on: documentView) }
+            if let documentView = self.textView {
+                installMarkerGestures(on: documentView)
+                installClipboard(on: documentView)
+            }
             NotificationCenter.default.addObserver(
                 self,
                 selector: #selector(textStorageDidProcessEditing),
