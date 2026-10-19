@@ -3,7 +3,8 @@
 //  NoteCode
 //
 //  Text overhaul, phase 5: styled text pasted into a note keeps its bold,
-//  italic, strikethrough, links, colour and size, written as Markdown by
+//  italic, strikethrough, underline, highlight, links, colour and size,
+//  written as Markdown by
 //  phase 3's writer. The conversion is pure (`RichPaste.markdown(from:)`);
 //  reading the pasteboard is the UIKit part at the foot of the file.
 //
@@ -22,6 +23,9 @@ nonisolated struct PastedAttributes: Hashable, Sendable {
     var colour: Int?
     /// In the source's own points; 0 where it didn't say.
     var pointSize: Double = 0
+    var underline = false
+    /// The nearest of the six highlights to the source's background colour.
+    var highlight: HighlightColour?
 }
 
 /// A stretch of pasted text drawn one way.
@@ -43,6 +47,10 @@ nonisolated struct PastedRun: Sendable {
 /// - **Code stays code.** A line that is all monospaced is pasted as plain
 ///   text, since code pasted into prose in backticks is worse than none; a
 ///   monospaced stretch among proportional text is an inline code span.
+/// - **Underline and highlight** are phase 6's marks. A link's underline is
+///   the browser's, not the writer's, so it isn't one. A background colour is
+///   a highlight only if it is a colour, and is the nearest of the six by hue
+///   (`highlight(forBackground:)`); white and greys are the page's.
 /// - **Lists** the source drew with a bullet or number and a tab become `- `
 ///   and `1. ` items, nested by their tabs.
 /// - **Never a line that shows its markers.** Each line goes through
@@ -125,6 +133,38 @@ nonisolated enum RichPaste {
     static func isDefaultColour(_ hex: Int) -> Bool {
         let channels = [(hex >> 16) & 0xFF, (hex >> 8) & 0xFF, hex & 0xFF]
         return (channels.max() ?? 0) - (channels.min() ?? 0) < 38
+    }
+
+    /// The highlight a background colour stands for: the one of the six whose
+    /// hue is nearest, within 45 degrees. White, greys and anything too pale
+    /// to have a hue are the page's own background and no highlight.
+    static func highlight(forBackground hex: Int) -> HighlightColour? {
+        guard !isDefaultColour(hex), let hue = hue(of: hex) else { return nil }
+        let nearest = HighlightColour.allCases
+            .compactMap { colour in self.hue(of: colour.hex.light).map { (colour, angle(hue, $0)) } }
+            .min { $0.1 < $1.1 }
+        guard let nearest, nearest.1 <= 45 else { return nil }
+        return nearest.0
+    }
+
+    /// The hue of `0xRRGGBB` in degrees, or `nil` for a grey.
+    private static func hue(of hex: Int) -> Double? {
+        let red = Double((hex >> 16) & 0xFF), green = Double((hex >> 8) & 0xFF), blue = Double(hex & 0xFF)
+        let high = max(red, green, blue), low = min(red, green, blue)
+        guard high > low else { return nil }
+        let spread = high - low
+        let degrees: Double
+        switch high {
+        case red:   degrees = (green - blue) / spread
+        case green: degrees = (blue - red) / spread + 2
+        default:    degrees = (red - green) / spread + 4
+        }
+        return (degrees * 60 + 360).truncatingRemainder(dividingBy: 360)
+    }
+
+    private static func angle(_ a: Double, _ b: Double) -> Double {
+        let difference = abs(a - b).truncatingRemainder(dividingBy: 360)
+        return min(difference, 360 - difference)
     }
 
     // MARK: Lists
@@ -210,12 +250,14 @@ nonisolated enum RichPaste {
             }
             style.bold = attributes.bold
             style.italic = attributes.italic
+            style.highlight = attributes.highlight
             if let address = attributes.link.flatMap(address(of:)) {
                 if address != previousLink { linkID += 1 }
                 previousLink = address
                 style.link = StyledLine.Link(id: linkID, address: address)
             } else {
                 previousLink = nil
+                style.underline = attributes.underline
                 if let colour = attributes.colour, !isDefaultColour(colour) { style.colour = colour }
             }
             if let body, attributes.pointSize > 0, abs(attributes.pointSize / body - 1) >= sizeTolerance {
@@ -273,6 +315,14 @@ extension RichPaste {
         return nil
     }
 
+    /// `0xRRGGBB` for a colour that is mostly opaque, or `nil`.
+    private static func hex(of colour: UIColor) -> Int? {
+        var (red, green, blue, alpha) = (CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0))
+        guard colour.getRed(&red, green: &green, blue: &blue, alpha: &alpha), alpha > 0.5 else { return nil }
+        func byte(_ value: CGFloat) -> Int { Int((min(max(value, 0), 1) * 255).rounded()) }
+        return byte(red) << 16 | byte(green) << 8 | byte(blue)
+    }
+
     /// `attributed` as runs: what each stretch is drawn with, in the terms
     /// `markdown(from:)` reads.
     static func runs(from attributed: NSAttributedString) -> [PastedRun] {
@@ -289,16 +339,14 @@ extension RichPaste {
                 pasted.pointSize = Double(font.pointSize)
             }
             pasted.strikethrough = (attributes[.strikethroughStyle] as? Int ?? 0) != 0
+            pasted.underline = (attributes[.underlineStyle] as? Int ?? 0) != 0
+            if let background = (attributes[.backgroundColor] as? UIColor).flatMap(Self.hex(of:)) {
+                pasted.highlight = highlight(forBackground: background)
+            }
             if let link = attributes[.link] {
                 pasted.link = (link as? URL)?.absoluteString ?? (link as? String)
             }
-            if let colour = attributes[.foregroundColor] as? UIColor {
-                var (red, green, blue, alpha) = (CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0))
-                if colour.getRed(&red, green: &green, blue: &blue, alpha: &alpha), alpha > 0.5 {
-                    func byte(_ value: CGFloat) -> Int { Int((min(max(value, 0), 1) * 255).rounded()) }
-                    pasted.colour = byte(red) << 16 | byte(green) << 8 | byte(blue)
-                }
-            }
+            pasted.colour = (attributes[.foregroundColor] as? UIColor).flatMap(Self.hex(of:))
             runs.append(PastedRun(text: text.substring(with: range), attributes: pasted))
         }
         return runs

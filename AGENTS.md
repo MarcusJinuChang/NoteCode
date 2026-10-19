@@ -2907,7 +2907,7 @@ note reads there as it does here.
 
 Text overhaul, phase 5 (19 Oct, branch `claude/paste-copy-formatting`;
 docs/text-system-overhaul.md). Styled text pasted into a note keeps its
-bold, italic, strikethrough, links, colour and size; a copy from a note
+bold, italic, strikethrough, underline, highlight, links, colour and size; a copy from a note
 carries them to Pages, Mail and Notes. The pure part is `RichPaste.markdown`;
 `RichCopy` builds the RTF; the text view's side is `DocumentUITextView`'s
 `copy`, `cut` and `paste` overrides, and the coordinator's is
@@ -3046,7 +3046,16 @@ DocumentTextView+Clipboard.swift.
   (fonts, sizes, colours, list indents), Universal Clipboard, pasting a page of
   several thousand lines, the iPhone layout, the Pencil's squeeze, and the
   macOS app (the pure part compiles there; the text view is UIKit). Not built:
-  Paste and Match Style, tables, images, and a block quote or highlight (phase 6).
+  Paste and Match Style, tables, images, and a block quote or rule.
+- **Underline and highlight** (19 Oct, after phase 6 merged; the branch was
+  rebased onto it). Paste reads `.underlineStyle` and `.backgroundColor`: an
+  underline on a link is the browser's and not written; a background is the
+  nearest of the six highlights by hue within 45 degrees, and white or a grey
+  (the page's own) is none (`RichPaste.highlight(forBackground:)`). Copy writes
+  both, the highlight as its colour looks over a white page, since RTF has no
+  translucency. Mutation-checked: underline dropped from paste and the
+  highlight dropped from copy each fail their test. A quote and a rule are not
+  carried either way.
 
 ## Organising notes
 

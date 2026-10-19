@@ -72,6 +72,8 @@ struct RichClipboardTests {
         text.append(NSAttributedString(string: "gone", attributes: [.font: Self.regular, .strikethroughStyle: NSUnderlineStyle.single.rawValue]))
         text.append(NSAttributedString(string: "site", attributes: [.font: Self.regular, .link: url]))
         text.append(NSAttributedString(string: "red", attributes: [.font: Self.regular, .foregroundColor: UIColor(red: 0.9, green: 0.2, blue: 0.3, alpha: 1)]))
+        text.append(NSAttributedString(string: "under", attributes: [.font: Self.regular, .underlineStyle: NSUnderlineStyle.single.rawValue]))
+        text.append(NSAttributedString(string: "lit", attributes: [.font: Self.regular, .backgroundColor: UIColor(red: 1, green: 0.92, blue: 0.23, alpha: 1)]))
 
         let runs = RichPaste.runs(from: text)
         func attributes(_ word: String) -> PastedAttributes? { runs.first { $0.text == word }?.attributes }
@@ -83,6 +85,10 @@ struct RichClipboardTests {
         #expect(attributes("gone")?.strikethrough == true)
         #expect(attributes("site")?.link == "https://example.com/a")
         #expect(attributes("red")?.colour == 0xE6334D)
+        #expect(attributes("under")?.underline == true)
+        #expect(attributes("plain ")?.underline == false)
+        #expect(attributes("lit")?.highlight == .yellow)
+        #expect(attributes("plain ")?.highlight == nil)
     }
 
     @Test("HTML, which Safari puts on the pasteboard, comes through: emphasis, a link, a colour, a heading and code")
@@ -259,6 +265,27 @@ struct RichClipboardTests {
         #expect(abs(red - CGFloat((drawn >> 16) & 0xFF) / 255) < 0.01 && abs(blue - CGFloat(drawn & 0xFF) / 255) < 0.01,
                 "a colour as a light page draws it")
         #expect(Self.attribute(.foregroundColor, of: "some", in: text) == nil)
+    }
+
+    @Test("Underline and a highlight go to the RTF, the highlight as it looks over white")
+    func copiesMarks() throws {
+        Self.clearPasteboard()
+        let source = "an <u>under</u> and ==🟡lit== word"
+        let harness = Harness("|" + source)
+        harness.textView.selectedRange = NSRange(location: 0, length: source.utf16.count)
+        harness.textView.copy(nil)
+
+        let text = try #require(Self.copiedText())
+        #expect(text.string == "an under and lit word")
+        #expect((Self.attribute(.underlineStyle, of: "under", in: text) as? Int ?? 0) != 0)
+        #expect(Self.attribute(.underlineStyle, of: "and", in: text) == nil)
+        let background = try #require(Self.attribute(.backgroundColor, of: "lit", in: text) as? UIColor)
+        var (red, green, blue, alpha) = (CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0))
+        background.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        let shown = HighlightColour.alpha(isDark: false)
+        let expected = (CGFloat(0xD6) * shown + 255 * (1 - shown)) / 255
+        #expect(abs(green - expected) < 0.01, "yellow's green channel over white")
+        #expect(Self.attribute(.backgroundColor, of: "word", in: text) == nil)
     }
 
     @Test("A selection that starts inside a span still has the span's style")

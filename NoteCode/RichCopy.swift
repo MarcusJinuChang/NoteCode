@@ -137,6 +137,16 @@ enum RichCopy {
             )),
         ]
         if style.strikethrough { attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
+        if style.underline { attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue }
+        if let highlight = style.highlight {
+            // RTF has no translucency: the colour as it looks over a white page.
+            let alpha = HighlightColour.alpha(isDark: false)
+            let hex = highlight.hex.light
+            func channel(_ shift: Int) -> CGFloat {
+                (CGFloat((hex >> shift) & 0xFF) * alpha + 255 * (1 - alpha)) / 255
+            }
+            attributes[.backgroundColor] = UIColor(red: channel(16), green: channel(8), blue: channel(0), alpha: 1)
+        }
         if let link = style.link {
             if let url = LinkTarget.url(for: link.address ?? text) { attributes[.link] = url }
         } else if let colour = style.colour {

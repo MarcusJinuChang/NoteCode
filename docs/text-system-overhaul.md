@@ -280,7 +280,8 @@ plan as written:
 - Check first what a paste of styled text does today. **Measured 19 Oct:** RTF
   arrives as its plain text, and a copy puts only the Markdown on the
   pasteboard, so Pages and Mail got the stars and hashes.
-- Paste: bold and italic traits, the point size and the colour are read off
+- Paste: bold and italic traits, underline, a background colour (as the
+  nearest highlight), the point size and the colour are read off
   the pasted text and written by Phase 3's writer. Pasting into code stays
   plain.
 - Copy: the Markdown as the plain string, as now, and an RTF copy beside it,

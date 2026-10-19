@@ -168,6 +168,44 @@ struct RichPasteTests {
         #expect(Self.markdown(Self.run("\t•\tOne\n\t•\tTwo"), atLineStart: false) == "One\n- Two")
     }
 
+    // MARK: Underline and highlight (phase 6's marks)
+
+    static func marked(_ text: String, underline: Bool = false, highlight: HighlightColour? = nil, link: String? = nil) -> PastedRun {
+        var run = Self.run(text, link: link)
+        run.attributes.underline = underline
+        run.attributes.highlight = highlight
+        return run
+    }
+
+    @Test("Underline and a highlight are written as the note writes them")
+    func underlineAndHighlight() {
+        #expect(Self.markdown(Self.run("a "), Self.marked("under", underline: true), Self.run(" b")) == "a <u>under</u> b")
+        #expect(Self.markdown(Self.run("a "), Self.marked("lit", highlight: .yellow), Self.run(" b")) == "a ==🟡lit== b")
+        let both = Self.markdown(Self.run("a "), Self.marked("both", underline: true, highlight: .blue), Self.run(" b"))
+        let line = StyledLine(both ?? "")
+        #expect(line?.glyphs.filter { $0.style.underline && $0.style.highlight == .blue }.map(\.text).joined() == "both")
+        #expect(line?.glyphs.map(\.text).joined() == "a both b")
+    }
+
+    @Test("A link's underline is the browser's, not an underline")
+    func linkUnderline() {
+        #expect(Self.markdown(Self.run("see "), Self.marked("it", underline: true, link: "https://example.com")) == "see [it](https://example.com)")
+    }
+
+    @Test("A background colour is the nearest of the six highlights by hue")
+    func backgroundColours() {
+        #expect(RichPaste.highlight(forBackground: 0xFFFF00) == .yellow)
+        #expect(RichPaste.highlight(forBackground: 0xFFEB3B) == .yellow)
+        #expect(RichPaste.highlight(forBackground: 0xFF3B30) == .red)
+        #expect(RichPaste.highlight(forBackground: 0x34C759) == .green)
+        #expect(RichPaste.highlight(forBackground: 0x5AC8FA) == .blue)
+        #expect(RichPaste.highlight(forBackground: 0xAF52DE) == .purple)
+        #expect(RichPaste.highlight(forBackground: 0xFFA500) == .orange)
+        #expect(RichPaste.highlight(forBackground: 0xFFFFFF) == nil, "a white page is no highlight")
+        #expect(RichPaste.highlight(forBackground: 0xF2F2F7) == nil, "nor is a grey")
+        #expect(RichPaste.highlight(forBackground: 0x000000) == nil)
+    }
+
     // MARK: Never a line that shows its markers
 
     @Test("Literal markers in the pasted text are plain, as a plain paste has them")
