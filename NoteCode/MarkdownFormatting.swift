@@ -79,11 +79,10 @@ nonisolated enum MarkdownFormatting {
     ///   a bold word makes it bold italic, and Bold again leaves it italic.
     ///   Over several lines, each line's part, blank lines and code left
     ///   alone.
-    /// - A caret inside a span of the style takes the style off the whole
-    ///   span. Inside a span of another style (a bold word, a link, code),
-    ///   that span gains it.
-    /// - Otherwise an empty pair goes in with the caret between, and pressing
-    ///   again takes it back out. (Phase 4 replaces it with a typing style.)
+    /// - A caret strictly inside a word acts on the word, as a selection of it
+    ///   would. Anywhere else there is no edit: the button sets the typing
+    ///   style instead (`caretTarget`, `TypingStyle`), and nothing is written
+    ///   until text is typed. There is no empty `****` pair any more.
     /// - Code spans and links are taken whole: half a link would be two.
     ///
     /// `nil` where there is nothing to do, or where the line can't be written
@@ -108,59 +107,16 @@ nonisolated enum MarkdownFormatting {
 
     private static func toggle(_ style: InlineStyle, atCaret caret: Int, in ns: NSString, codeRanges: [CodeRange]) -> TextEdit? {
         guard !isCode(caret, in: codeRanges) else { return nil }
-        let markerLength = (style.marker as NSString).length
-
-        // The empty pair a previous press left behind. `****` is text to the
-        // parser, so the span search below can't see it.
-        if isEmptyPair(of: style.marker, at: caret, in: ns) {
-            return TextEdit(
-                range: NSRange(location: caret - markerLength, length: markerLength * 2),
-                replacement: "",
-                selection: NSRange(location: caret - markerLength, length: 0)
-            )
-        }
-
         let line = contentLine(containing: caret, in: ns)
-        if let styled = StyledLine(ns.substring(with: line)) {
-            let local = caret - line.location
-            // The spans the caret is in, ends included, outer first. A run's
-            // tags aren't a style this sets.
-            let around = InlineSpan.spans(in: styled.inlines).filter { span in
-                let content = NSRange(span.contentRange, in: styled.line)
-                return !span.markup.isStyled && local >= content.location && local <= NSMaxRange(content)
-            }
-            if let span = around.first(where: { $0.markup == style.markup }) ?? around.first {
-                let content = NSRange(span.contentRange, in: styled.line)
-                let glyphs = styled.wholeAtoms(styled.glyphCount(endingBy: content.location)..<styled.glyphCount(startingBefore: NSMaxRange(content)))
-                let removing = span.markup == style.markup
-                return restyle([LinePart(line: line, styled: styled, glyphs: glyphs)], in: ns, selection: NSRange(location: caret, length: 0)) { glyph, _ in
-                    glyph[keyPath: style.attribute] = !removing
-                }
-            }
+        guard let styled = StyledLine(ns.substring(with: line)),
+              let word = styled.wordGlyphs(atCaret: caret - line.location)
+        else { return nil }
+
+        let glyphs = styled.wholeAtoms(word)
+        let removing = glyphs.allSatisfy { styled.glyphs[$0].isSpace || styled.glyphs[$0].style[keyPath: style.attribute] }
+        return restyle([LinePart(line: line, styled: styled, glyphs: glyphs)], in: ns, selection: NSRange(location: caret, length: 0)) { glyph, _ in
+            glyph[keyPath: style.attribute] = !removing
         }
-
-        return TextEdit(
-            range: NSRange(location: caret, length: 0),
-            replacement: style.marker + style.marker,
-            selection: NSRange(location: caret + markerLength, length: 0)
-        )
-    }
-
-    /// True for `**|**`, and false for `***|***`, where taking the inner two
-    /// away would leave something that isn't empty.
-    private static func isEmptyPair(of marker: String, at location: Int, in ns: NSString) -> Bool {
-        let length = (marker as NSString).length
-        guard location >= length, location + length <= ns.length,
-              ns.substring(with: NSRange(location: location - length, length: length)) == marker,
-              ns.substring(with: NSRange(location: location, length: length)) == marker
-        else { return false }
-
-        let markerCharacter = (marker as NSString).character(at: 0)
-        let before = location - length - 1
-        let after = location + length
-        if before >= 0, ns.character(at: before) == markerCharacter { return false }
-        if after < ns.length, ns.character(at: after) == markerCharacter { return false }
-        return true
     }
 
     // MARK: Line markers

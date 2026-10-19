@@ -140,7 +140,7 @@ private struct ColourMenu: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let current = editor.caretFormatting.colour
+        let current = editor.formattingShown.colour
         Menu {
             ForEach(TextColour.allCases, id: \.self) { colour in
                 Toggle(isOn: Binding(get: { current == colour.hex }, set: { _ in editor.setColour(colour.hex) })) {

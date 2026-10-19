@@ -77,6 +77,12 @@ nonisolated struct StyledLine: Sendable {
         var isSpace: Bool {
             !style.code && text.allSatisfy(\.isWhitespace)
         }
+
+        /// A letter, digit or underscore: what a word is made of.
+        var isWordCharacter: Bool {
+            guard let scalar = text.unicodeScalars.first else { return false }
+            return CharacterSet.alphanumerics.contains(scalar) || scalar == "_"
+        }
     }
 
     let line: String
@@ -95,14 +101,16 @@ nonisolated struct StyledLine: Sendable {
     private let mayStart: [Bool]
     private let mayEnd: [Bool]
 
-    /// `nil` for a line of code: a fence, read alone.
+    /// `nil` for a line of code: a fence, read alone. A blank line is a line
+    /// of no glyphs, which is where text is typed first.
     init?(_ line: String) {
-        guard let block = DocumentParser.parse(line).first, !block.isCode else { return nil }
+        let block = DocumentParser.parse(line).first
+        guard !(block?.isCode ?? false), block != nil || line.isEmpty else { return nil }
         let ns = line as NSString
         self.line = line
-        content = NSRange(block.contentRange, in: line)
-        headingLevel = block.headingLevel ?? 0
-        inlines = block.inlines
+        content = block.map { NSRange($0.contentRange, in: line) } ?? NSRange(location: 0, length: 0)
+        headingLevel = block?.headingLevel ?? 0
+        inlines = block?.inlines ?? []
 
         var starts = [Bool](repeating: false, count: content.length + 1)
         var ends = [Bool](repeating: false, count: content.length + 1)
@@ -201,6 +209,43 @@ nonisolated struct StyledLine: Sendable {
         return lower..<upper
     }
 
+    // MARK: Typing
+
+    /// What text typed at `offset`, a place in the line, would be drawn with:
+    /// the pairs it falls inside, by the rule the bar's lit state follows (from
+    /// just after a pair's first marker character to the end of its text). The
+    /// link and code it would join are left out of `style`, and `joinsLinkOrCode`
+    /// says there was one: typed text there would be part of it.
+    func typedStyle(at offset: Int) -> (style: Style, joinsLinkOrCode: Bool) {
+        var attributes = InlineAttributes.plain
+        for span in InlineSpan.spans(in: inlines) {
+            let whole = NSRange(span.range, in: line)
+            let inner = NSRange(span.contentRange, in: line)
+            guard offset > whole.location, offset <= NSMaxRange(inner) else { continue }
+            attributes = attributes.inside(span.markup)
+        }
+        let style = Style(
+            bold: attributes.bold, italic: attributes.italic, strikethrough: attributes.strikethrough,
+            colour: attributes.colour, size: attributes.size
+        )
+        return (style, attributes.link || attributes.code)
+    }
+
+    /// The glyphs of the word a caret at `offset` is inside, or `nil` where it
+    /// is not strictly inside one: a word character on each side. At a word's
+    /// ends, between words and on a blank line a button sets the typing style
+    /// instead (docs/text-system-overhaul.md, decision 5). A word is letters,
+    /// digits and the underscore, as `MarkdownFormatting.word` has it.
+    func wordGlyphs(atCaret offset: Int) -> Range<Int>? {
+        let index = glyphCount(endingBy: offset)
+        guard index > 0, index < glyphs.count, glyphs[index - 1].isWordCharacter, glyphs[index].isWordCharacter else { return nil }
+        var lower = index - 1
+        var upper = index + 1
+        while lower > 0, glyphs[lower - 1].isWordCharacter { lower -= 1 }
+        while upper < glyphs.count, glyphs[upper].isWordCharacter { upper += 1 }
+        return lower..<upper
+    }
+
     // MARK: Rewriting
 
     /// The line with each glyph drawn as `styles` says, read back: `nil`
@@ -214,31 +259,59 @@ nonisolated struct StyledLine: Sendable {
         guard let first = styles.indices.first(where: { styles[$0] != glyphs[$0].style }),
               let last = styles.indices.last(where: { styles[$0] != glyphs[$0].style })
         else { return nil }
+        return edited(
+            replacing: first..<(last + 1),
+            with: glyphs[first...last].map(\.text),
+            styles: Array(styles[first...last])
+        )
+    }
+
+    /// The line with glyphs `range` replaced by `texts`, one glyph each,
+    /// drawn as `styles` say, read back: `nil` where the line can't be
+    /// written to read that way. An empty `range` inserts before it, which is
+    /// how typed text is written (`MarkdownFormatting.typed`).
+    ///
+    /// The stretch rewritten is as `restyled` describes it, out to places
+    /// where nothing is open; an insertion starts from the markers between its
+    /// two neighbours, so text typed in front of a closing `**` can go in
+    /// front of it, behind it or inside a new pair.
+    func edited(replacing range: Range<Int>, with newTexts: [String], styles newStyles: [Style]) -> StyledLine? {
+        precondition(newTexts.count == newStyles.count && range.upperBound <= glyphs.count)
 
         // The stretch to rewrite, out to places where nothing is open.
-        var start = glyphs[first].source.location
+        var start: Int
+        var end: Int
+        if range.isEmpty {
+            start = earliestPosition(at: range.lowerBound)
+            end = latestPosition(at: range.lowerBound)
+        } else {
+            start = glyphs[range.lowerBound].source.location
+            end = NSMaxRange(glyphs[range.upperBound - 1].source)
+        }
         while !mayStart[start - content.location] { start -= 1 }
-        var end = NSMaxRange(glyphs[last].source)
         while !mayEnd[end - content.location] { end += 1 }
         let from = glyphCount(startingBefore: start)
         let to = glyphCount(startingBefore: end)
+        guard from <= range.lowerBound, to >= range.upperBound else { return nil }
 
         let ns = line as NSString
-        let texts = glyphs.map(\.text)
+        let stretch = Array(glyphs[from..<range.lowerBound])
+            + zip(newTexts, newStyles).map { Glyph(text: $0, style: $1, source: NSRange(location: 0, length: 0)) }
+            + Array(glyphs[range.upperBound..<to])
+        let allTexts = glyphs[..<from].map(\.text) + stretch.map(\.text) + glyphs[to...].map(\.text)
         var best: (read: StyledLine, length: Int)?
         for delimiters in Delimiters.choices {
             for order in Layer.orders {
-                var expected = styles
-                let written = Self.normalised(Array(glyphs[from..<to]), styles: Array(styles[from..<to]), order: order)
-                expected.replaceSubrange(from..<to, with: written)
+                let written = Self.normalised(stretch, styles: stretch.map(\.style), order: order)
+                let expected = glyphs[..<from].map(\.style) + written + glyphs[to...].map(\.style)
 
-                let markdown = Self.write(texts: Array(texts[from..<to]), styles: written, order: order, delimiters: delimiters)
+                let markdown = Self.write(texts: stretch.map(\.text), styles: written, order: order, delimiters: delimiters)
                 let length = (markdown as NSString).length
                 if let best, best.length <= length { continue }
                 guard let read = StyledLine(ns.substring(to: start) + markdown + ns.substring(from: end)),
                       read.content.location == content.location,
                       read.headingLevel == headingLevel,
-                      read.draws(texts, as: expected)
+                      read.draws(allTexts, as: expected)
                 else { continue }
                 best = (read, length)
             }

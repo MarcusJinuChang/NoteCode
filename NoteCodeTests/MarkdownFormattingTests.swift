@@ -81,11 +81,30 @@ struct InlineFormattingTests {
         #expect(toggled(style, once) == "a «word» b")
     }
 
-    @Test("A caret anywhere inside a span removes the whole span")
+    @Test("A caret strictly inside a word takes the style off that word, not the span")
     func caretInsideRemoves() {
         #expect(toggled(.bold, "a **wo«»rd** b") == "a wo«»rd b")
-        #expect(toggled(.bold, "a **«»word** b") == "a «»word b")
-        #expect(toggled(.bold, "a **word«»** b") == "a word«» b")
+        #expect(toggled(.bold, "**one tw«»o**") == "**one** tw«»o")
+    }
+
+    @Test("A caret at a word's end, or at its start, writes nothing: the button sets the typing style")
+    func caretAtAnEdgeWritesNothing() {
+        for style in MarkdownFormatting.InlineStyle.allCases {
+            #expect(toggled(style, "a **«»word** b") == "a **«»word** b")
+            #expect(toggled(style, "a **word«»** b") == "a **word«»** b")
+            #expect(toggled(style, "a word«» b") == "a word«» b")
+        }
+    }
+
+    @Test("A caret strictly inside a word gives it the style, as selecting it would", arguments: [
+        (MarkdownFormatting.InlineStyle.bold, "a **wo«»rd** b"),
+        (.italic, "a *wo«»rd* b"),
+        (.strikethrough, "a ~~wo«»rd~~ b"),
+        (.code, "a `wo«»rd` b"),
+    ])
+    func caretInAWord(style: MarkdownFormatting.InlineStyle, expected: String) {
+        #expect(toggled(style, "a wo«»rd b") == expected)
+        #expect(toggled(style, expected) == "a wo«»rd b", "pressing again takes it off")
     }
 
     @Test("Selecting a span with its markers removes them")
@@ -107,21 +126,13 @@ struct InlineFormattingTests {
         #expect(toggled(.italic, "**«word»**") == "***«word»***")
     }
 
-    @Test("With nothing selected, an empty pair goes in with the caret between")
-    func emptyPair() {
-        #expect(toggled(.bold, "a «»b") == "a **«»**b")
-        #expect(toggled(.strikethrough, "«»") == "~~«»~~")
-    }
-
-    @Test("Pressing again on an empty pair takes it back out")
-    func emptyPairRemoves() {
-        #expect(toggled(.bold, "a **«»**b") == "a «»b")
-        #expect(toggled(.italic, "*«»*") == "«»")
-    }
-
-    @Test("An empty bold pair isn't read as an empty italic pair")
-    func emptyBoldIsNotItalic() {
-        #expect(toggled(.italic, "**«»**") == "***«»***")
+    @Test("With nothing selected between words, no empty pair goes in")
+    func noEmptyPair() {
+        for style in MarkdownFormatting.InlineStyle.allCases {
+            #expect(toggled(style, "a «»b") == "a «»b")
+            #expect(toggled(style, "«»") == "«»")
+            #expect(toggled(style, "line one\n«»\nline three") == "line one\n«»\nline three")
+        }
     }
 
     @Test("Several lines are styled one line at a time, skipping blank ones")

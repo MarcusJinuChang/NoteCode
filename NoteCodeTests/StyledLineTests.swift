@@ -163,19 +163,23 @@ struct StyledLineTests {
         #expect(MarkdownFormatting.links(onLineAt: 0, in: result.text as NSString, codeRanges: []).count == 1)
     }
 
-    @Test("A caret in a link or in code gives it the style; in the style, takes it off the span")
+    @Test("A caret inside a word of a link or of code gives the whole link or code the style; inside a bold word, takes it off the word")
     func caretInSpans() throws {
         let link = "see [the notes](u) now"
         let caret = NSRange(location: Self.range(of: "notes", in: link).location + 1, length: 0)
         #expect(MarkdownFormatting.toggle(.bold, in: link, selection: caret)?.applied(to: link) == "see **[the notes](u)** now")
 
-        let code = "call `f` here"
-        let inCode = NSRange(location: Self.range(of: "f", in: code).location, length: 0)
-        #expect(MarkdownFormatting.toggle(.bold, in: code, selection: inCode)?.applied(to: code) == "call **`f`** here")
+        let code = "call `push_back` here"
+        let inCode = NSRange(location: Self.range(of: "back", in: code).location + 1, length: 0)
+        #expect(MarkdownFormatting.toggle(.bold, in: code, selection: inCode)?.applied(to: code) == "call **`push_back`** here")
 
         let bold = "**two words**"
         let inBold = NSRange(location: Self.range(of: "words", in: bold).location + 2, length: 0)
-        #expect(MarkdownFormatting.toggle(.bold, in: bold, selection: inBold)?.applied(to: bold) == "two words")
+        #expect(MarkdownFormatting.toggle(.bold, in: bold, selection: inBold)?.applied(to: bold) == "**two** words")
+
+        // At the end of the link's text there is no word to act on.
+        let atEnd = NSRange(location: Self.range(of: "notes", in: link).location + 5, length: 0)
+        #expect(MarkdownFormatting.toggle(.bold, in: link, selection: atEnd) == nil)
     }
 
     @Test("A line that can't be written to read as asked is left alone")

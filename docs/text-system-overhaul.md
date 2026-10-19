@@ -5,8 +5,8 @@ does in Obsidian and most other editors, with free resizing of any text at
 the very least.
 
 **Status:** decisions 1 to 4 below taken as recommended (Marcus, 18 Oct).
-Phases 1 and 2 are merged (#73, #74). Phase 3 is built on branch
-`claude/per-character-formatting`. Phases 5 and 6 are still to be decided.
+Phases 1 to 3 are merged (#73, #74, #75). Phase 4 is built on branch
+`claude/typing-style`. Phases 5 and 6 are still to be decided.
 
 Each phase below is one branch and one PR off `main`. A session starting a
 phase reads this file, AGENTS.md and the files the phase names.
@@ -23,8 +23,8 @@ or Obsidian does differently.
 | Italic on a bold word makes it italic, not bold italic: the markers are swapped, "since `InlineParser` doesn't nest spans". (Combine since Phase 3.) | `MarkdownFormatting.toggle` | Styles combine |
 | `***x***`, `**a *b* c**` and `**<span…>x</span>**` aren't read, and show their markers. Span tags are the parser's one wrapper level. (Read since Phase 2.) | `InlineParser.parse` | Read |
 | A size or colour on half a bold word takes the whole word: "a run never cuts a span in two". (Exactly the letters since Phase 3.) | `MarkdownFormatting.styleLine` | Exactly the selected letters |
-| Bold with nothing selected types `****` and puts the caret between, and it shows, since an empty pair isn't a span. | `toggle` | The next typed text is bold; nothing shows |
-| A size or colour with a caret only changes the word at the caret. Nothing sets the size of text not typed yet ("Not built" in AGENTS.md). | `style` | In a word: the word (Word). Between words: the next typed text |
+| Bold with nothing selected types `****` and puts the caret between, and it shows, since an empty pair isn't a span. (A typing style since Phase 4.) | `toggle` | The next typed text is bold; nothing shows |
+| A size or colour with a caret only changes the word at the caret. Nothing sets the size of text not typed yet ("Not built" in AGENTS.md). (A typing style since Phase 4.) | `style` | In a word: the word (Word). Between words: the next typed text |
 | Paste: no handling of its own, so presumably plain text. Not checked. | `DocumentUITextView` | Bold, italic, size and colour survive |
 | No blockquote, horizontal rule, highlight or underline; Style ▾ offers H1 to H3. | `DocumentParser`, `TextOptionsRow` | Obsidian has all of them |
 
@@ -125,6 +125,16 @@ lit in the bar, nothing written. The next text typed there is written with
 it, in the same undo step. A caret move, a mode switch or the keyboard going
 away clears it. Typing at the end of a styled run already continues it (the
 caret stop's rule).
+
+**Built 18 Oct, as follows.** "Inside a word" is *strictly* inside: a word
+character on each side. A word's ends are the typing style's, so a word just
+typed can be followed by text in the other style, and `MarkdownFormatting.
+caretTarget` is the one place to change that if a tap that lands at a word's
+end should take the word. The word is the caret's only target now: the run or
+span it is in no longer is (at the end of a bold word, Bold used to unbold the
+whole word just typed). Off is a setting: Bold at the end of a bold word turns
+bold off for the next text. The text is written from `textViewDidChange`, not
+`shouldChangeTextIn`: see Phase 4.
 
 ### 6. Fonts at free sizes
 
@@ -229,6 +239,9 @@ decision 3 as written:
 
 ### Phase 4: the typing style
 
+Built 18 Oct, branch `claude/typing-style`; AGENTS.md › Typing style has what
+was found on the way.
+
 - Decision 5. Bold's empty `****` goes.
 - **Probe first**, one question: does replacing typed text in
   `shouldChangeTextIn` survive autocorrect, predictive text, dictation and
@@ -236,6 +249,21 @@ decision 3 as written:
   the fact from `textViewDidChange`, never inside marked text.
 - XCUITest's `typeText` skips autocorrect, so a check taps the keyboard's
   keys or uses the iPad.
+
+**The probe's answer: no, so the fallback is the design.** On a real keyboard
+(soft-key taps in the simulator) `shouldChangeTextIn` reports the iPad's
+Korean keyboard's first jamo with no marked text and each next jamo as an
+insertion at the caret, where the text view really replaces the character before
+it; an English autocorrect is a replacement of a range that is not the selection.
+What it is told isn't what is done, so the typed text is found from the note's
+own text instead: its length less the caret's place doesn't change while text is
+typed or replaced at the caret, and the run between the style's place and that
+length is written again with the style on (`NoteEditor.typingTextDidChange`),
+in the same undo step as the typing. The caret is left just after the run,
+inside the markers that close behind it, so the keyboard's next move (Korean's
+replace-the-character-before-the-caret, an autocorrect of the word) works on the
+same character. Tried on the simulator's Korean and English keyboards; not on
+Japanese or Chinese ones (not installed), dictation, or a tapped QuickType word.
 
 ### Phase 5: paste and copy with formatting (optional)
 
@@ -261,9 +289,11 @@ plan.
   starts.
 - **The writer could write what the parser reads differently.** The
   round-trip property test is the definition of done for Phase 3.
-- **The typing style against the keyboard** is the riskiest piece of UI:
+- **The typing style against the keyboard** was the riskiest piece of UI:
   autocorrect, the suggestion bar and input methods all edit around the
-  caret. Phase 4 probes before building.
+  caret. Phase 4 probed first (see its section) and found the keyboard's own
+  report of an edit can't be trusted; what is left unseen is Japanese and
+  Chinese input, dictation and a tapped suggestion.
 - **Mixed sizes on a line:** line height, the caret (`caretRect` reads the
   font before the caret, so it should follow) and selection highlights,
   which stay the line's height. Notability shipped a fix for mixed sizes on
@@ -283,6 +313,8 @@ On the iPad, not through a value the code computes:
 2. Bold, then Italic, on a word: bold italic. Italic again: bold.
 3. A caret after a space, 30 chosen, "hi" typed: "hi" is 30pt, and no
    marker showed at any point.
+   (Phase 4: seen with Bold and a colour on the simulator's Korean and English
+   keyboards, no marker showing; the size by a unit test. Not on the iPad.)
 4. `+` tapped five times fast on a note with ink: one question, one
    re-wrap.
 5. The exported `.md` opens in Obsidian with the same sizes, styles and

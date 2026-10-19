@@ -96,20 +96,21 @@ extension MarkdownFormatting {
         style(.steps(steps, blockSizes), selection: selection, in: text, codeRanges: codeRanges)
     }
 
-    /// Changes the selection's colour or size, or the run the caret is in,
-    /// or the word at the caret, per character (text overhaul, phase 3;
-    /// `StyledLine`).
+    /// Changes the selection's colour or size, or the word the caret is
+    /// inside, per character (text overhaul, phases 3 and 4; `StyledLine`).
     ///
     /// - Exactly the selected characters, less spaces at either end, and
     ///   each line's part of a selection over several, never the heading's
     ///   `#` or a list item's marker. Half a bold word can be red.
-    /// - A caret changes the run it is in, or else the word at it.
+    /// - A caret strictly inside a word changes the word; anywhere else it
+    ///   changes nothing here, and the control sets the typing style instead
+    ///   (`caretTarget`, `TypingStyle`).
     /// - Each character keeps its other settings: a large red run made blue
     ///   stays large. One that loses its last setting leaves its run.
     /// - Code spans and links are taken whole.
     ///
-    /// `nil` where there is nothing to do: in code, a caret on no word and in
-    /// no run, taking off what nothing has, or a line that can't be written
+    /// `nil` where there is nothing to do: in code, a caret not inside a
+    /// word, taking off what nothing has, or a line that can't be written
     /// to read as asked.
     static func style(_ change: StyleChange, selection: NSRange, in text: NSString, codeRanges: [CodeRange]) -> TextEdit? {
         let selection = clamped(selection, to: text.length)
@@ -122,19 +123,20 @@ extension MarkdownFormatting {
             guard let runs = LineRuns(lineText), let styled = StyledLine(lineText) else { continue }
             // The selection's part of this line, in the line's offsets:
             // clipped first, since an NSRange can't start before 0.
-            let local: NSRange
+            var glyphs: Range<Int>
             if selection.length == 0 {
-                local = NSRange(location: selection.location - line.location, length: 0)
+                guard let word = styled.wordGlyphs(atCaret: selection.location - line.location) else { continue }
+                glyphs = styled.wholeAtoms(word)
             } else {
                 let start = max(selection.location, line.location)
                 let end = min(NSMaxRange(selection), NSMaxRange(line))
-                guard end > start else { continue }
-                local = NSRange(location: start - line.location, length: end - start)
+                guard end > start,
+                      let target = runs.target(of: NSRange(location: start - line.location, length: end - start))
+                else { continue }
+                glyphs = styled.wholeAtoms(
+                    styled.glyphCount(endingBy: target.location)..<styled.glyphCount(startingBefore: NSMaxRange(target))
+                )
             }
-            guard let target = runs.target(of: local) else { continue }
-            let glyphs = styled.wholeAtoms(
-                styled.glyphCount(endingBy: target.location)..<styled.glyphCount(startingBefore: NSMaxRange(target))
-            )
             guard !glyphs.isEmpty else { continue }
             parts.append(LinePart(line: line, styled: styled, glyphs: glyphs))
         }
@@ -280,7 +282,11 @@ extension MarkdownFormatting {
         var text: [(range: NSRange, size: SpanSize?)] = []
 
         init?(_ line: String) {
-            guard let block = DocumentParser.parse(line).first, !block.isCode else { return nil }
+            // A blank line has no block, and is a line of nothing to size where
+            // the typing style goes.
+            let parsed = DocumentParser.parse(line).first
+            guard !(parsed?.isCode ?? false), parsed != nil || line.isEmpty else { return nil }
+            let block = parsed ?? BlockNode(kind: .paragraph(inlines: []), range: line.startIndex..<line.endIndex, contentRange: line.startIndex..<line.endIndex)
             self.line = line as NSString
             headingLevel = block.headingLevel ?? 0
             content = NSRange(block.contentRange, in: line)
@@ -311,18 +317,14 @@ extension MarkdownFormatting {
                 .size
         }
 
-        /// What a change acts on, before the runs and spans it reaches are
-        /// taken in: for a caret, the run it is in or the word at it; for a
-        /// selection, its part of the block's text less spaces at either
-        /// end. `selection` is in the line's offsets and may run past either
-        /// end. `nil` where there is nothing: a caret on no word and in no
-        /// run, or a selection of spaces or markers alone.
+        /// What a change acts on a selection, before the runs and spans it
+        /// reaches are taken in: its part of the block's text less spaces at
+        /// either end. `selection` is in the line's offsets and may run past
+        /// either end. `nil` for a selection of spaces or markers alone. (A
+        /// caret acts on the word it is inside, `StyledLine.wordGlyphs`, or
+        /// sets the typing style.)
         func target(of selection: NSRange) -> NSRange? {
-            if selection.length == 0 {
-                if let run = run(atCaret: selection.location) { return run.text }
-                let word = MarkdownFormatting.word(at: selection.location, in: line)
-                return word.length > 0 && NSLocationInRange(word.location, content) ? word : nil
-            }
+            guard selection.length > 0 else { return nil }
             var target = NSIntersectionRange(selection, content)
             guard target.length > 0 else { return nil }
             while target.length > 0, line.character(at: target.location) == 32 {
@@ -373,17 +375,19 @@ extension MarkdownFormatting {
             guard let parsed = LineRuns(text.substring(with: line)) else { continue }
             let local: NSRange
             if selection.length == 0 {
+                // A caret has something to size anywhere in prose: the word
+                // it is inside, or the typing style.
                 local = NSRange(location: selection.location - line.location, length: 0)
                 add(SizeSample(headingLevel: parsed.headingLevel, size: parsed.size(atCaret: local.location)))
-            } else {
-                let start = max(selection.location, line.location)
-                let end = min(NSMaxRange(selection), NSMaxRange(line))
-                guard end > start else { continue }
-                local = NSRange(location: start - line.location, length: end - start)
+                hasTarget = true
+                continue
             }
+            let start = max(selection.location, line.location)
+            let end = min(NSMaxRange(selection), NSMaxRange(line))
+            guard end > start else { continue }
+            local = NSRange(location: start - line.location, length: end - start)
             guard let target = parsed.target(of: local) else { continue }
             hasTarget = true
-            guard selection.length > 0 else { continue }
 
             // The selected text that is drawn, markers and tags left out, in
             // the order it comes on the line.

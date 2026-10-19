@@ -119,6 +119,30 @@ final class NoteEditor {
     /// the delegate doesn't take it for the keyboard rewriting code.
     @ObservationIgnored private(set) var isFormatting = false
 
+    /// What the next text typed will be drawn with, set by a button that has
+    /// no word to act on (`TypingStyle`, docs/text-system-overhaul.md,
+    /// decision 5). Nothing is written until text is typed. Cleared by a
+    /// caret move, a mode switch, a locked note and the keyboard going away.
+    private(set) var typingStyle = TypingStyle.none
+
+    /// Where the typing style's text starts and what follows it, so what was
+    /// typed since can be told from any other edit without asking the keyboard
+    /// what it did (see `typingTextDidChange`).
+    private struct TypingAnchor {
+        /// Where the text typed next starts.
+        var from: Int
+        /// The note's length less where the caret is: unchanged while text
+        /// is typed or replaced at the caret.
+        var suffix: Int
+        /// Where the caret was left, so a caret that is somewhere else has moved.
+        var caret: Int
+    }
+    @ObservationIgnored private var typingAnchor: TypingAnchor?
+    /// An edit began before the anchor (an autocorrect of the word behind the
+    /// caret): the next change re-anchors instead of styling.
+    @ObservationIgnored private var typingAnchorIsStale = false
+    @ObservationIgnored private var isWritingTypedText = false
+
     /// Where the last code language is kept. Replaceable so a test doesn't
     /// write the device's own.
     @ObservationIgnored var defaults = UserDefaults.standard
@@ -240,6 +264,7 @@ final class NoteEditor {
         self.textView = textView
         self.canvas = canvas
         self.page = page
+        clearTypingStyle()
         canvas?.tool = inkTool.pencilKitTool
         canvas?.allowsFingerDrawing = !isPencilOnly
         canvas?.onUndoDidChange = { [weak self] in self?.refreshUndoState() }
@@ -251,6 +276,7 @@ final class NoteEditor {
     func setMode(_ newMode: EditorMode) {
         guard newMode != mode else { return }
         mode = newMode
+        clearTypingStyle()
         if let textView {
             savedSession = newMode.apply(to: textView, canvas: canvas, saved: savedSession, textLocked: isTextLocked)
         }
@@ -269,6 +295,7 @@ final class NoteEditor {
     func setTextLocked(_ locked: Bool) {
         guard locked != isTextLocked else { return }
         isTextLocked = locked
+        if locked { clearTypingStyle() }
         if let textView {
             savedSession = mode.apply(to: textView, canvas: canvas, saved: savedSession, textLocked: locked)
         }
@@ -302,7 +329,21 @@ final class NoteEditor {
 
     // MARK: Formatting
 
+    /// Bold, Italic, Strikethrough and Code. A selection, or a caret inside a
+    /// word, is an edit; a caret anywhere else in prose sets the typing style
+    /// (`TypingStyle`) and writes nothing.
     func toggle(_ style: MarkdownFormatting.InlineStyle) {
+        if let textView, mode == .text, !isTextLocked, isTypingCaret(in: textView) {
+            let shown = formattingShown
+            let lit = switch style {
+            case .bold:          shown.bold
+            case .italic:        shown.italic
+            case .strikethrough: shown.strikethrough
+            case .code:          shown.code
+            }
+            setTypingStyle(typingStyle.toggled(style, shown: lit))
+            return
+        }
         perform { [codeRanges] text, selection in
             MarkdownFormatting.toggle(style, in: text, selection: selection, codeRanges: codeRanges?() ?? [])
         }
@@ -345,6 +386,12 @@ final class NoteEditor {
             selectionSizeTask?.cancel()
             settleSelectionSize(keeping: textView.selectedRange)
         }
+    }
+
+    /// What the bar shows at the caret: the text's own formatting with the
+    /// typing style on top, so Bold lit means the next text typed is bold.
+    var formattingShown: MarkdownFormatting.CaretFormatting {
+        typingStyle.shown(over: caretFormatting)
     }
 
     /// Starts a code block, and remembers its language for
@@ -405,6 +452,127 @@ final class NoteEditor {
         refreshUndoState()
     }
 
+    // MARK: The typing style
+
+    /// Whether a press with the selection as it is sets the typing style: a
+    /// caret that isn't inside a word (`MarkdownFormatting.caretTarget`).
+    private func isTypingCaret(in textView: UITextView) -> Bool {
+        let selection = textView.selectedRange
+        return selection.length == 0 && MarkdownFormatting.caretTarget(
+            at: selection.location, in: textView.textStorage.mutableString, codeRanges: codeRanges?() ?? []
+        ) == .typing
+    }
+
+    /// Sets the typing style, with the keyboard up for it as a formatting
+    /// button brings it, and starts watching for the text typed.
+    private func setTypingStyle(_ style: TypingStyle) {
+        guard let textView else { return }
+        if !textView.isFirstResponder { textView.becomeFirstResponder() }
+        typingStyle = style
+        let caret = textView.selectedRange.location
+        typingAnchor = style.isEmpty ? nil : TypingAnchor(from: caret, suffix: textView.textStorage.length - caret, caret: caret)
+        typingAnchorIsStale = false
+    }
+
+    /// A caret move, a mode switch, a locked note, a keyboard going away.
+    func clearTypingStyle() {
+        if !typingStyle.isEmpty { typingStyle = .none }
+        typingAnchor = nil
+        typingAnchorIsStale = false
+    }
+
+    /// The text view is about to change `range`. Only a hint, since what the
+    /// keyboard says it is doing isn't always what it does (the iPad's Korean
+    /// keyboard reports a jamo inserted where it replaces one): an edit that
+    /// starts in front of the typing style's place is an autocorrect or
+    /// something else, never the text typed there.
+    func typingTextWillChange(range: NSRange) {
+        guard !isWritingTypedText, let anchor = typingAnchor, range.location < anchor.from else { return }
+        typingAnchorIsStale = true
+    }
+
+    /// The text changed. If it is text just typed where the typing style
+    /// was set, the same text is written again with the style on, in the same
+    /// turn of the run loop and so the same undo step as the typing.
+    ///
+    /// Written after the fact, from here, and never in `shouldChangeTextIn`:
+    /// that is told what the keyboard thinks it is doing, which for Korean
+    /// on the iPad is a jamo inserted at the caret where the text view really
+    /// replaces the one before it, with no marked text. What is typed is
+    /// found from the note's length instead. `suffix`, the length less the
+    /// caret's place, doesn't change while text is typed or replaced at the
+    /// caret, so the caret's place now says where the typed text ends,
+    /// whatever the keyboard did to get there.
+    ///
+    /// Not while a composition is open (`markedTextRange`): that is the
+    /// keyboard's text until it commits it, and the commit is where the style
+    /// goes on. `isTyping` is false for the app's own edits (a heading, a
+    /// list's Return, an undo), which only move the place.
+    func typingTextDidChange(in textView: UITextView, isTyping: Bool) {
+        guard var anchor = typingAnchor, !typingStyle.isEmpty, !isWritingTypedText, mode == .text else { return }
+        let selection = textView.selectedRange
+        // The caret moves as the composition does; it hasn't gone anywhere.
+        guard textView.markedTextRange == nil else {
+            typingAnchor?.caret = selection.location
+            return
+        }
+        guard selection.length == 0 else { return clearTypingStyle() }
+
+        let storage = textView.textStorage
+        let end = storage.length - anchor.suffix
+        defer { if typingAnchor != nil { typingAnchor?.caret = textView.selectedRange.location } }
+
+        guard isTyping, !typingAnchorIsStale, end == selection.location, end >= anchor.from else {
+            // Something else changed the text: start again from the caret.
+            typingAnchorIsStale = false
+            typingAnchor = TypingAnchor(from: selection.location, suffix: storage.length - selection.location, caret: selection.location)
+            return
+        }
+        guard end > anchor.from else { return }
+
+        let run = NSRange(location: anchor.from, length: end - anchor.from)
+        anchor.from = end
+        typingAnchor = anchor
+        let text = storage.mutableString
+        // A new line ends it, as a caret move does; a long paste is left as it is.
+        guard text.rangeOfCharacter(from: .newlines, options: [], range: run).location == NSNotFound else {
+            return clearTypingStyle()
+        }
+        guard run.length <= 2_000,
+              let edit = MarkdownFormatting.typed(
+                  typingStyle, run: run, in: text, blockSizes: blockSizes, codeRanges: codeRanges?() ?? []
+              ),
+              let start = textView.position(from: textView.beginningOfDocument, offset: edit.range.location),
+              let finish = textView.position(from: start, offset: edit.range.length),
+              let range = textView.textRange(from: start, to: finish)
+        else { return }
+
+        isWritingTypedText = true
+        isFormatting = true
+        textView.replace(range, withText: edit.replacement)
+        isFormatting = false
+        textView.selectedRange = edit.selection
+        isWritingTypedText = false
+        typingAnchor = TypingAnchor(
+            from: edit.selection.location, suffix: storage.length - edit.selection.location, caret: edit.selection.location
+        )
+        refreshUndoState()
+    }
+
+    /// The selection changed. A caret that went somewhere the typing didn't
+    /// take it has moved, and the typing style goes. A change that came with
+    /// an edit is typing (or the keyboard's composition) moving it.
+    func typingSelectionDidChange(afterEdit: Bool) {
+        guard let anchor = typingAnchor, !isWritingTypedText, !afterEdit, let textView else { return }
+        let selection = textView.selectedRange
+        // Within a composition the keyboard moves the caret as it likes.
+        if textView.markedTextRange != nil {
+            typingAnchor?.caret = selection.location
+        } else if selection.length != 0 || selection.location != anchor.caret {
+            clearTypingStyle()
+        }
+    }
+
     // MARK: The text options row
 
     /// The code blocks, for the edits that need to know where one is. The
@@ -445,7 +613,11 @@ final class NoteEditor {
     /// Colour (`TextColour`): sets `hex` on the selection, the coloured run
     /// at the caret or the word there; `nil` takes colour off.
     func setColour(_ hex: Int?) {
-        guard mode == .text, !isTextLocked else { return }
+        guard mode == .text, !isTextLocked, let textView else { return }
+        if isTypingCaret(in: textView) {
+            setTypingStyle(typingStyle.colouring(hex))
+            return
+        }
         perform { [codeRanges] text, selection in
             MarkdownFormatting.colour(hex, selection: selection, in: text as NSString, codeRanges: codeRanges?() ?? [])
         }
@@ -506,6 +678,12 @@ final class NoteEditor {
         var reading = textSize(reading: caretFormatting)
         if let request = selectionSizeAwaitingConfirmation ?? pendingSelectionSize {
             reading.points = request.steps == nil ? request.points ?? reading.ownPoints : request.points
+        } else {
+            switch typingStyle.points {
+            case .set(let points)?: reading.points = points
+            case .clear?:           reading.points = reading.ownPoints
+            case nil:               break
+            }
         }
         return reading
     }
@@ -525,6 +703,15 @@ final class NoteEditor {
         guard let textView, selectionSizeAwaitingConfirmation == nil else { return }
         let reading = textSize(reading: currentFormatting(of: textView))
         guard mode == .text, !isTextLocked, reading.canChange else { return }
+        // No word to resize: the next text typed gets the size, at once, since
+        // nothing is laid out again.
+        if isTypingCaret(in: textView) {
+            let shown = selectionTextSize
+            if let next = Self.stepped(shown.points ?? shown.startPoints, by: steps) {
+                setTypingStyle(typingStyle.sizing(next))
+            }
+            return
+        }
         // Where the control stands now, if the text is one size.
         let shown = pendingSelectionSize.map(\.points) ?? reading.points
         if let shown, Self.stepped(shown, by: steps) == nil { return }
@@ -548,6 +735,10 @@ final class NoteEditor {
     func setSelectionSize(points: Double?) {
         guard let textView, mode == .text, !isTextLocked, selectionSizeAwaitingConfirmation == nil else { return }
         dropPendingSelectionSize()
+        if isTypingCaret(in: textView) {
+            setTypingStyle(typingStyle.sizing(points.map { Self.clampedPoints($0) }))
+            return
+        }
         requestSelectionSize(SizeRequest(points: points.map { Self.clampedPoints($0) }, selection: textView.selectedRange))
     }
 
@@ -563,7 +754,14 @@ final class NoteEditor {
     /// Whether Custom…'s alert should also say what the ink question says.
     /// One alert, not two: a second can't come up as the first goes. Its Set
     /// counts as the yes.
-    var customSizeAsksAboutInk: Bool { hasInk && !inkQuestionAnswered }
+    var customSizeAsksAboutInk: Bool { hasInk && !inkQuestionAnswered && !sizesTypedText }
+
+    /// Whether the size control would set the typing style: no word to resize.
+    /// Nothing is laid out again then, so there is no ink question.
+    private var sizesTypedText: Bool {
+        guard let textView else { return false }
+        return isTypingCaret(in: textView)
+    }
 
     func cancelCustomSize() {
         customSizeSelection = nil
@@ -574,6 +772,10 @@ final class NoteEditor {
     func finishCustomSize(typed: String) {
         defer { customSizeSelection = nil }
         guard let selection = customSizeSelection, let points = Self.points(typed: typed) else { return }
+        if sizesTypedText {
+            setTypingStyle(typingStyle.sizing(points))
+            return
+        }
         if hasInk { inkQuestionAnswered = true }
         applySelectionSize(SizeRequest(points: points, selection: selection))
     }

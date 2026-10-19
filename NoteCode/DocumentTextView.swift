@@ -671,6 +671,14 @@ struct DocumentTextView: UIViewRepresentable {
         }
 
         func textViewDidChange(_ textView: UITextView) {
+            // Text just typed under a typing style is written with it, before
+            // the restyle below, which then sees the note as it will be.
+            let undoManager = textView.undoManager
+            editor?.typingTextDidChange(
+                in: textView,
+                isTyping: !isApplyingMarkerEdit && editor?.isFormatting != true && !isRetagging
+                    && undoManager?.isUndoing != true && undoManager?.isRedoing != true
+            )
             // A search result's highlights are for finding the place, and go
             // once the reader starts working there.
             (textView as? DocumentUITextView)?.clearSearchHighlights()
@@ -793,6 +801,7 @@ struct DocumentTextView: UIViewRepresentable {
         }
 
         func textViewDidChangeSelection(_ textView: UITextView) {
+            editor?.typingSelectionDidChange(afterEdit: editCount != editCountAtLastSelection)
             (textView as? DocumentUITextView)?.placeCaretOnTappedBlankLine()
             normalizeCaret(in: textView)
             defer {
@@ -864,6 +873,9 @@ struct DocumentTextView: UIViewRepresentable {
                   let end = textView.position(from: start, offset: edit.range.length),
                   let range = textView.textRange(from: start, to: end)
             else { return }
+            // A Return the app makes (a list's next item) ends the typing style
+            // as one the keyboard types does.
+            if edit.replacement.contains("\n") { editor?.clearTypingStyle() }
             isApplyingMarkerEdit = true
             textView.replace(range, withText: edit.replacement)
             isApplyingMarkerEdit = false
@@ -966,6 +978,11 @@ struct DocumentTextView: UIViewRepresentable {
             ))
         }
 
+        /// The keyboard going away ends the typing style.
+        func textViewDidEndEditing(_ textView: UITextView) {
+            editor?.clearTypingStyle()
+        }
+
         /// Sets the keyboard up for where the caret is, before it appears.
         ///
         /// A tap that leaves the caret where it was, as every tap into an
@@ -986,6 +1003,8 @@ struct DocumentTextView: UIViewRepresentable {
         /// marked text, and a formatting button knows what it's changing, so
         /// all of those go through untouched.
         func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+            if editor?.isFormatting != true, !isApplyingMarkerEdit { editor?.typingTextWillChange(range: range) }
+
             // A formatting edit's text is what its button meant. UIKit runs
             // smart punctuation over it as if it had been typed, as edits of
             // their own inside the replace, and turned a colour tag's quotes
