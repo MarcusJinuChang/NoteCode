@@ -5,9 +5,8 @@ does in Obsidian and most other editors, with free resizing of any text at
 the very least.
 
 **Status:** decisions 1 to 4 below taken as recommended (Marcus, 18 Oct).
-Phase 1 is built on branch `claude/free-text-size`, and Phase 2 on
-`claude/priceless-ardinghelli-fb07ea`, on top of it. Phases 5 and 6 are
-still to be decided.
+Phases 1 and 2 are merged (#73, #74). Phase 3 is built on branch
+`claude/per-character-formatting`. Phases 5 and 6 are still to be decided.
 
 Each phase below is one branch and one PR off `main`. A session starting a
 phase reads this file, AGENTS.md and the files the phase names.
@@ -21,9 +20,9 @@ or Obsidian does differently.
 |---|---|---|
 | A run of text has one of three sizes against the text around it: Small 0.85em, Large 1.25em, Larger 1.5em. A size read from a note snaps to the nearest, and one nearer 1em is dropped. | `SpanSize`, `SpanSize.nearest` | Any size: presets, ±1pt, or a typed number |
 | Two size controls. The row's `+ 17 −` is the note's body size (seven steps); Size ▾ beside Colour ▾ is the run's step. | `TextOptionsRow` | One control, showing the size of the text at the caret |
-| Italic on a bold word makes it italic, not bold italic: the markers are swapped, "since `InlineParser` doesn't nest spans". | `MarkdownFormatting.toggle` | Styles combine |
+| Italic on a bold word makes it italic, not bold italic: the markers are swapped, "since `InlineParser` doesn't nest spans". (Combine since Phase 3.) | `MarkdownFormatting.toggle` | Styles combine |
 | `***x***`, `**a *b* c**` and `**<span…>x</span>**` aren't read, and show their markers. Span tags are the parser's one wrapper level. (Read since Phase 2.) | `InlineParser.parse` | Read |
-| A size or colour on half a bold word takes the whole word: "a run never cuts a span in two". | `MarkdownFormatting.styleLine` | Exactly the selected letters |
+| A size or colour on half a bold word takes the whole word: "a run never cuts a span in two". (Exactly the letters since Phase 3.) | `MarkdownFormatting.styleLine` | Exactly the selected letters |
 | Bold with nothing selected types `****` and puts the caret between, and it shows, since an empty pair isn't a span. | `toggle` | The next typed text is bold; nothing shows |
 | A size or colour with a caret only changes the word at the caret. Nothing sets the size of text not typed yet ("Not built" in AGENTS.md). | `style` | In a word: the word (Word). Between words: the next typed text |
 | Paste: no handling of its own, so presumably plain text. Not checked. | `DocumentUITextView` | Bold, italic, size and colour survive |
@@ -200,6 +199,22 @@ would cross a run's edge is text rather than the run's tag; and runs nest
   worse.
 
 ### Phase 3: formatting per character
+
+Built 18 Oct, branch `claude/per-character-formatting`; AGENTS.md ›
+Formatting per character has what was found on the way. Three changes to
+decision 3 as written:
+
+- **Not one fixed order.** Tag, link, then emphasis split every bold
+  sentence round its links (`**see** [**it**](u) **now**). The writer tries
+  six nestings and keeps the shortest that reads back, so a link usually
+  sits inside the emphasis and a run's tag inside bold where that is
+  shorter (`**bo<span …>ld</span>**`).
+- **`_` where `*` can't work.** Italic starting where bold ends makes a
+  run of `***`, which the rule of three pairs another way; 1.6% of random
+  stylings had no star-only writing. Underscores are the fallback.
+- **Read back, or no edit.** With no escapes in the parser, a `*` typed as
+  text can pair with a new marker, so every rewrite is parsed again and
+  compared; a line that can't be written (`*x_` made bold) is left alone.
 
 - A pure type (`StyledLine`, say) for decision 3, beside
   `MarkdownFormatting`. It replaces `toggle` for Bold, Italic, Code and

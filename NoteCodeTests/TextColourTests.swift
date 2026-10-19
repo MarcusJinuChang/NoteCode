@@ -131,18 +131,21 @@ struct TextColourTests {
         #expect(removed.selection == NSRange(location: 4, length: 0))
     }
 
-    @Test("Part of a run recolours the whole run: colours don't nest")
+    @Test("Part of a run recolours just that part, in a run of its own: runs don't nest")
     func noNesting() throws {
         let text = "a \(Self.tag(Self.red))long word\(Self.close) b"
         let result = try #require(Self.colour(Self.blue, text, Self.range(of: "word", in: text)))
-        #expect(result.text == "a \(Self.tag(Self.blue))long word\(Self.close) b")
+        #expect(result.text == "a \(Self.tag(Self.red))long \(Self.close)\(Self.tag(Self.blue))word\(Self.close) b")
+        #expect((result.text as NSString).substring(with: result.selection) == "word")
     }
 
-    @Test("Half a bold word is taken in whole, so the bold isn't cut")
-    func takesSpansWhole() throws {
+    @Test("Half a bold word is coloured, and the rest keeps its bold")
+    func cutsSpans() throws {
         let text = "a **load factor** b"
         let result = try #require(Self.colour(Self.red, text, Self.range(of: "factor** b", in: text)))
-        #expect(result.text == "a \(Self.tag(Self.red))**load factor** b\(Self.close)")
+        // The tag can't cross the bold's edge, so the bold is written twice,
+        // and the space between, at the end of the first, goes outside it.
+        #expect(result.text == "a **load** \(Self.tag(Self.red))**factor** b\(Self.close)")
     }
 
     @Test("Over several lines, a run on each line, after a heading's or list item's marker")

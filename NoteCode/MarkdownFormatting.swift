@@ -56,113 +56,94 @@ nonisolated enum MarkdownFormatting {
             case .code:          .inlineCode
             }
         }
+
+        /// What it sets on each character.
+        var attribute: WritableKeyPath<StyledLine.Style, Bool> {
+            switch self {
+            case .bold:          \.bold
+            case .italic:        \.italic
+            case .strikethrough: \.strikethrough
+            case .code:          \.code
+            }
+        }
     }
 
     // MARK: Inline styles
 
-    /// Adds or removes an inline style.
+    /// Adds or removes an inline style, per character (text overhaul, phase
+    /// 3; `StyledLine`).
     ///
-    /// - Inside a span of this style, the span's markers come off: the
-    ///   innermost, where spans nest.
-    /// - Inside a span of a different style, its markers are swapped for this
-    ///   one's: the outermost, which is the span a line read before spans
-    ///   nested had. Phase 3 of the text overhaul makes it add instead.
-    /// - A styled run's tags are never swapped: they aren't a style this
-    ///   sets.
-    /// - Otherwise the selection is wrapped. With nothing selected an empty pair
-    ///   goes in with the caret between, and pressing again takes it back out.
-    /// - A selection across lines is styled a line at a time. A span can't
-    ///   cross a line, so wrapping the whole selection would leave two markers
-    ///   that never pair up.
-    static func toggle(_ style: InlineStyle, in text: String, selection: NSRange) -> TextEdit {
+    /// - A selection gains the style on exactly its characters, or loses it
+    ///   if every one already has it. Spaces don't count either way: at the
+    ///   end of a bold stretch they can't be bold. Styles combine: Italic on
+    ///   a bold word makes it bold italic, and Bold again leaves it italic.
+    ///   Over several lines, each line's part, blank lines and code left
+    ///   alone.
+    /// - A caret inside a span of the style takes the style off the whole
+    ///   span. Inside a span of another style (a bold word, a link, code),
+    ///   that span gains it.
+    /// - Otherwise an empty pair goes in with the caret between, and pressing
+    ///   again takes it back out. (Phase 4 replaces it with a typing style.)
+    /// - Code spans and links are taken whole: half a link would be two.
+    ///
+    /// `nil` where there is nothing to do, or where the line can't be written
+    /// to read as asked (a `*` typed as text beside the new markers).
+    static func toggle(_ style: InlineStyle, in text: String, selection: NSRange, codeRanges: [CodeRange] = []) -> TextEdit? {
         let ns = text as NSString
         let selection = clamped(selection, to: ns.length)
-
-        if ns.substring(with: selection).contains("\n") {
-            return toggleAcrossLines(style, in: ns, selection: selection)
+        guard selection.length > 0 else {
+            return toggle(style, atCaret: selection.location, in: ns, codeRanges: codeRanges)
         }
 
+        let parts = lineParts(of: selection, in: ns, codeRanges: codeRanges, trimmingSpaces: false)
+        let drawn = parts.flatMap { part in part.glyphs.map { part.styled.glyphs[$0] } }.filter { !$0.isSpace }
+        guard !drawn.isEmpty else { return nil }
+        // Mixed text gains the style, the rule a selection that is only
+        // partly bold follows in any editor.
+        let removing = drawn.allSatisfy { $0.style[keyPath: style.attribute] }
+        return restyle(parts, in: ns, selection: selection) { glyph, _ in
+            glyph[keyPath: style.attribute] = !removing
+        }
+    }
+
+    private static func toggle(_ style: InlineStyle, atCaret caret: Int, in ns: NSString, codeRanges: [CodeRange]) -> TextEdit? {
+        guard !isCode(caret, in: codeRanges) else { return nil }
         let markerLength = (style.marker as NSString).length
 
         // The empty pair a previous press left behind. `****` is text to the
         // parser, so the span search below can't see it.
-        if selection.length == 0, isEmptyPair(of: style.marker, at: selection.location, in: ns) {
+        if isEmptyPair(of: style.marker, at: caret, in: ns) {
             return TextEdit(
-                range: NSRange(location: selection.location - markerLength, length: markerLength * 2),
+                range: NSRange(location: caret - markerLength, length: markerLength * 2),
                 replacement: "",
-                selection: NSRange(location: selection.location - markerLength, length: 0)
+                selection: NSRange(location: caret - markerLength, length: 0)
             )
         }
 
-        let line = lines(touching: selection, in: ns)[0]
-        let lineText = ns.substring(with: line)
-
-        let spans = InlineSpan.spans(in: InlineParser.parse(lineText, in: lineText.startIndex..<lineText.endIndex))
-        let candidates = spans.compactMap { span -> (span: InlineSpan, whole: NSRange, content: NSRange)? in
-            guard !span.markup.isStyled else { return nil }
-            let whole = shifted(NSRange(span.range, in: lineText), by: line.location)
-            let content = shifted(NSRange(span.contentRange, in: lineText), by: line.location)
-            return selection == whole || content.contains(selection) ? (span, whole, content) : nil
-        }
-        // Outer spans come first.
-        if let (node, whole, content) = candidates.last(where: { $0.span.markup == style.markup }) ?? candidates.first {
-            let selectsWhole = selection == whole
-            let marker = node.markup == style.markup ? "" : style.marker
-            let newMarkerLength = (marker as NSString).length
-            let oldMarkerLength = content.location - whole.location
-
-            return TextEdit(
-                range: whole,
-                replacement: marker + ns.substring(with: content) + marker,
-                selection: selectsWhole
-                    ? NSRange(location: whole.location + newMarkerLength, length: content.length)
-                    : NSRange(location: selection.location - oldMarkerLength + newMarkerLength, length: selection.length)
-            )
-        }
-
-        return TextEdit(
-            range: selection,
-            replacement: style.marker + ns.substring(with: selection) + style.marker,
-            selection: NSRange(location: selection.location + markerLength, length: selection.length)
-        )
-    }
-
-    private static func toggleAcrossLines(_ style: InlineStyle, in ns: NSString, selection: NSRange) -> TextEdit {
-        let segments = ns.substring(with: selection).components(separatedBy: "\n")
-        let written = segments.filter { !isBlank($0) }
-
-        // Mixed lines get the style added, not removed — the same rule a
-        // selection that is only partly bold follows in any editor.
-        let removing = !written.isEmpty && written.allSatisfy { soleSpan(in: $0)?.markup == style.markup }
-
-        let rewritten = segments.map { segment -> String in
-            guard !isBlank(segment) else { return segment }
-
-            guard let span = soleSpan(in: segment) else {
-                return style.marker + segment + style.marker
+        let line = contentLine(containing: caret, in: ns)
+        if let styled = StyledLine(ns.substring(with: line)) {
+            let local = caret - line.location
+            // The spans the caret is in, ends included, outer first. A run's
+            // tags aren't a style this sets.
+            let around = InlineSpan.spans(in: styled.inlines).filter { span in
+                let content = NSRange(span.contentRange, in: styled.line)
+                return !span.markup.isStyled && local >= content.location && local <= NSMaxRange(content)
             }
-
-            let inner = String(segment[span.contentRange])
-            if removing { return inner }
-            if span.markup == style.markup { return segment }
-            return style.marker + inner + style.marker
+            if let span = around.first(where: { $0.markup == style.markup }) ?? around.first {
+                let content = NSRange(span.contentRange, in: styled.line)
+                let glyphs = styled.wholeAtoms(styled.glyphCount(endingBy: content.location)..<styled.glyphCount(startingBefore: NSMaxRange(content)))
+                let removing = span.markup == style.markup
+                return restyle([LinePart(line: line, styled: styled, glyphs: glyphs)], in: ns, selection: NSRange(location: caret, length: 0)) { glyph, _ in
+                    glyph[keyPath: style.attribute] = !removing
+                }
+            }
         }
 
-        let replacement = rewritten.joined(separator: "\n")
         return TextEdit(
-            range: selection,
-            replacement: replacement,
-            selection: NSRange(location: selection.location, length: (replacement as NSString).length)
+            range: NSRange(location: caret, length: 0),
+            replacement: style.marker + style.marker,
+            selection: NSRange(location: caret + markerLength, length: 0)
         )
-    }
-
-    /// The single span that makes up all of `segment`, if it is exactly one:
-    /// the outermost, where spans nest. Not a styled run.
-    private static func soleSpan(in segment: String) -> InlineSpan? {
-        let whole = segment.startIndex..<segment.endIndex
-        let spans = InlineSpan.spans(in: InlineParser.parse(segment, in: whole))
-        guard let span = spans.first, span.range == whole, !span.markup.isStyled else { return nil }
-        return span
     }
 
     /// True for `**|**`, and false for `***|***`, where taking the inner two

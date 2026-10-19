@@ -359,7 +359,10 @@ extension MarkdownFormatting {
     /// A caret is in a span from just after its opening markers' first
     /// character to the end of its text, so the end of a bold word is bold
     /// and the start of one isn't, which is what typing there would produce.
-    /// A selection has a style when it lies wholly inside one span of it.
+    /// A selection has bold, italic, code or strikethrough when every
+    /// character in it but spaces does, over every line, which is when the
+    /// button takes it off (`toggle`); a link or a colour when it lies
+    /// wholly inside one.
     static func formatting(at selection: NSRange, in text: NSString, codeRanges: [CodeRange]) -> CaretFormatting {
         var state = CaretFormatting()
         if let code = codeRanges.first(where: { $0.contains(NSRange(location: selection.location, length: 0)) }) {
@@ -414,7 +417,37 @@ extension MarkdownFormatting {
         }
         state.colour = runs.colour
         state.size = runs.size
+
+        if selection.length > 0, let styles = selectionStyles(selection, in: text, codeRanges: codeRanges) {
+            state.bold = styles.bold
+            state.italic = styles.italic
+            state.code = styles.code
+            state.strikethrough = styles.strikethrough
+        }
         return state
+    }
+
+    /// Which of bold, italic, code and strikethrough every glyph of the
+    /// selection but spaces has, `nil` for a selection of none. Stops at the
+    /// first line that settles it, since this runs on every selection change:
+    /// reading a 500-line note as glyphs is about 6ms.
+    private static func selectionStyles(_ selection: NSRange, in text: NSString, codeRanges: [CodeRange]) -> StyledLine.Style? {
+        var all = StyledLine.Style(bold: true, italic: true, strikethrough: true, code: true)
+        var any = false
+        for line in lines(touching: selection, in: text) {
+            guard let part = lineParts(of: NSIntersectionRange(selection, NSRange(location: line.location, length: line.length + 1)), in: text, codeRanges: codeRanges, trimmingSpaces: false).first
+            else { continue }
+            for index in part.glyphs where !part.styled.glyphs[index].isSpace {
+                let style = part.styled.glyphs[index].style
+                any = true
+                all.bold = all.bold && style.bold
+                all.italic = all.italic && style.italic
+                all.code = all.code && style.code
+                all.strikethrough = all.strikethrough && style.strikethrough
+            }
+            if any, !all.bold, !all.italic, !all.code, !all.strikethrough { break }
+        }
+        return any ? all : nil
     }
 }
 

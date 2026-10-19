@@ -213,6 +213,17 @@ nonisolated struct SpanSize: Hashable, Sendable {
         size?.points(against: base) ?? base
     }
 
+    /// `points` stepped a point at a time, or `nil` past the control's ends.
+    /// Text already outside them (a large run in a note made larger) steps
+    /// back towards them, never further out.
+    static func stepped(_ points: Double, by steps: Int) -> Double? {
+        let range = Self.points
+        if steps > 0, points >= range.upperBound { return nil }
+        if steps < 0, points <= range.lowerBound { return nil }
+        let next = points + Double(steps)
+        return min(max(next, min(range.lowerBound, points)), max(range.upperBound, points))
+    }
+
     /// A size in points as the control writes it: `24`, or `24.5`.
     static func label(points: Double) -> String {
         points.rounded() == points ? String(Int(points)) : String(format: "%.1f", points)

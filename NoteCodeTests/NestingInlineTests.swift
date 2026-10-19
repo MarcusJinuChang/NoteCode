@@ -432,7 +432,7 @@ struct NestingInlineTests {
     @Test("Bold toggles the bold of nested emphasis, Italic the italic")
     func toggle() {
         func toggled(_ style: MarkdownFormatting.InlineStyle, _ line: String, _ selection: NSRange) -> String {
-            MarkdownFormatting.toggle(style, in: line, selection: selection).applied(to: line)
+            MarkdownFormatting.toggle(style, in: line, selection: selection)?.applied(to: line) ?? line
         }
         #expect(toggled(.bold, "***x***", NSRange(location: 3, length: 1)) == "*x*")
         #expect(toggled(.italic, "***x***", NSRange(location: 3, length: 1)) == "**x**")
@@ -443,7 +443,7 @@ struct NestingInlineTests {
     func toggleLeavesTags() {
         let line = "\(Self.redTag)word\(Self.close)"
         let end = (line as NSString).range(of: Self.close).location
-        let result = MarkdownFormatting.toggle(.bold, in: line, selection: NSRange(location: end, length: 0)).applied(to: line)
+        let result = MarkdownFormatting.toggle(.bold, in: line, selection: NSRange(location: end, length: 0))?.applied(to: line) ?? line
         #expect(result.contains(Self.close))
     }
 

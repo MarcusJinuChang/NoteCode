@@ -493,15 +493,18 @@ struct SizeControlTests {
         #expect(harness.editor.pendingSelectionSize == nil)
     }
 
-    @Test("A selection in several sizes goes to its start's size, a point on")
+    @Test("A selection in several sizes steps each, a point at a time, and the control keeps its dash")
     func mixedSteps() async {
         let harness = Harness(withInk: false)
         harness.textView.text = "some \(SpanSizeTests.tag(1.412))big</span> words\n"
         harness.textView.selectedRange = NSRange(location: 0, length: (harness.textView.text as NSString).length - 1)
         Self.report(harness)
         harness.editor.stepSelectionSize(by: 1)
+        harness.editor.stepSelectionSize(by: 1)
+        #expect(harness.editor.selectionTextSize.points == nil, "17 and 24 stay two sizes")
         await harness.wait()
-        #expect(harness.textView.text == "\(SpanSizeTests.tag(18.0 / 17))some big words</span>\n")
+        let (small, big) = (SpanSizeTests.tag(19.0 / 17), SpanSizeTests.tag(26.0 / 17))
+        #expect(harness.textView.text == "\(small)some </span>\(big)big</span>\(small) words</span>\n")
     }
 
     @Test("Stepping stops at 8 and 72, and text past them steps back towards them")
