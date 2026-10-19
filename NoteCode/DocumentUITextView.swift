@@ -97,6 +97,34 @@ final class DocumentUITextView: UITextView {
         return super.canPerformAction(action, withSender: sender)
     }
 
+    // MARK: Copy and paste with formatting
+
+    /// The selection as RTF, asked for before the text view puts the
+    /// Markdown on the pasteboard (a cut removes it first). `RichCopy`.
+    var richCopy: ((DocumentUITextView) -> Data?)?
+
+    /// Pastes the pasteboard's styled text as Markdown, and says whether it
+    /// did. Not for code, and not for text with no style to keep: those are
+    /// the text view's own paste. `RichPaste`.
+    var richPaste: ((DocumentUITextView) -> Bool)?
+
+    override func copy(_ sender: Any?) {
+        let rich = richCopy?(self)
+        super.copy(sender)
+        if let rich { RichCopy.add(rich, to: .general) }
+    }
+
+    override func cut(_ sender: Any?) {
+        let rich = richCopy?(self)
+        super.cut(sender)
+        if let rich { RichCopy.add(rich, to: .general) }
+    }
+
+    override func paste(_ sender: Any?) {
+        if richPaste?(self) == true { return }
+        super.paste(sender)
+    }
+
     // MARK: The caret's height
 
     /// The caret, as tall as the font it stands in, on that font's baseline.
