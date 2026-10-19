@@ -363,15 +363,22 @@ struct ListEditingTests {
         #expect(!state("**a** b *c|*").bold)
     }
 
-    @Test("A selection is bold when it lies inside one bold span")
+    @Test("A selection is bold when every letter in it is, which is when Bold takes it off")
     func selectionState() {
         let text = "Keep **load factor** low"
-        func bold(_ range: NSRange) -> Bool {
+        func bold(_ range: NSRange, in text: String = text) -> Bool {
             MarkdownFormatting.formatting(at: range, in: text as NSString, codeRanges: []).bold
         }
         #expect(bold(NSRange(location: 7, length: 4)))
         #expect(bold(NSRange(location: 7, length: 11)))
         #expect(!bold(NSRange(location: 0, length: 11)), "reaching outside the span")
-        #expect(!bold(NSRange(location: 7, length: 14)))
+        #expect(bold(NSRange(location: 7, length: 14)), "the space after it doesn't count")
+        #expect(!bold(NSRange(location: 7, length: 15)), "the l of low does")
+
+        // Two bold words and the space between: every letter is bold.
+        let two = "**a** **b**\n**c**"
+        #expect(bold(NSRange(location: 0, length: 11), in: two))
+        #expect(bold(NSRange(location: 0, length: (two as NSString).length), in: two), "over lines")
+        #expect(MarkdownFormatting.toggle(.bold, in: two, selection: NSRange(location: 0, length: 11))?.applied(to: two) == "a b\n**c**")
     }
 }

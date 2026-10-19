@@ -303,7 +303,9 @@ final class NoteEditor {
     // MARK: Formatting
 
     func toggle(_ style: MarkdownFormatting.InlineStyle) {
-        perform { MarkdownFormatting.toggle(style, in: $0, selection: $1) }
+        perform { [codeRanges] text, selection in
+            MarkdownFormatting.toggle(style, in: text, selection: selection, codeRanges: codeRanges?() ?? [])
+        }
     }
 
     func setHeading(level: Int) {
@@ -472,8 +474,14 @@ final class NoteEditor {
     /// ink question, since the alert takes the keyboard and the text view's
     /// selection isn't something to read back afterwards.
     struct SizeRequest: Equatable {
+        /// The size, `nil` for the text's own; for + and −, the size the
+        /// text comes to, or `nil` for text in several sizes.
         var points: Double?
         var selection: NSRange
+        /// For + and −: how many points each character moves from its own
+        /// size, so text in several sizes keeps them apart. `nil` for a size
+        /// picked or typed, which `points` says.
+        var steps: Int? = nil
     }
 
     /// The stepper's latest tap, which the text catches up to once the taps
@@ -497,7 +505,7 @@ final class NoteEditor {
     var selectionTextSize: SelectionTextSize {
         var reading = textSize(reading: caretFormatting)
         if let request = selectionSizeAwaitingConfirmation ?? pendingSelectionSize {
-            reading.points = request.points ?? reading.ownPoints
+            reading.points = request.steps == nil ? request.points ?? reading.ownPoints : request.points
         }
         return reading
     }
@@ -511,16 +519,22 @@ final class NoteEditor {
     }
 
     /// + and −: a point bigger or smaller, for the selection, the run at the
-    /// caret or the word there. A selection of several sizes all goes to its
-    /// start's size, a point on.
+    /// caret or the word there. Text in several sizes moves a point each,
+    /// keeping them apart; each stops at the control's ends.
     func stepSelectionSize(by steps: Int) {
         guard let textView, selectionSizeAwaitingConfirmation == nil else { return }
         let reading = textSize(reading: currentFormatting(of: textView))
         guard mode == .text, !isTextLocked, reading.canChange else { return }
-        let current = pendingSelectionSize.map { $0.points ?? reading.ownPoints } ?? reading.points ?? reading.startPoints
-        guard let next = Self.stepped(current, by: steps) else { return }
+        // Where the control stands now, if the text is one size.
+        let shown = pendingSelectionSize.map(\.points) ?? reading.points
+        if let shown, Self.stepped(shown, by: steps) == nil { return }
+        let total = (pendingSelectionSize?.steps ?? 0) + steps
         if pendingSelectionSize == nil { pendingTextLength = textView.textStorage.length }
-        pendingSelectionSize = SizeRequest(points: next, selection: pendingSelectionSize?.selection ?? textView.selectedRange)
+        pendingSelectionSize = SizeRequest(
+            points: reading.points.flatMap { Self.stepped($0, by: total) ?? $0 },
+            selection: pendingSelectionSize?.selection ?? textView.selectedRange,
+            steps: total
+        )
         selectionSizeTask?.cancel()
         selectionSizeTask = Task { [weak self, settleDelay] in
             try? await Task.sleep(for: settleDelay)
@@ -581,11 +595,7 @@ final class NoteEditor {
     /// Text already outside them (a large run in a note made larger) steps
     /// back towards them, never further out.
     nonisolated static func stepped(_ points: Double, by steps: Int) -> Double? {
-        let range = SpanSize.points
-        if steps > 0, points >= range.upperBound { return nil }
-        if steps < 0, points <= range.lowerBound { return nil }
-        let next = points + Double(steps)
-        return min(max(next, min(range.lowerBound, points)), max(range.upperBound, points))
+        SpanSize.stepped(points, by: steps)
     }
 
     /// A size the control can set: 8 to 72, to the half point.
@@ -699,7 +709,12 @@ final class NoteEditor {
     }
 
     private func sizeEdit(for request: SizeRequest, in text: NSString) -> TextEdit? {
-        MarkdownFormatting.size(
+        if let steps = request.steps {
+            return MarkdownFormatting.size(
+                steppedBy: steps, blockSizes: blockSizes, selection: request.selection, in: text, codeRanges: codeRanges?() ?? []
+            )
+        }
+        return MarkdownFormatting.size(
             points: request.points, blockSizes: blockSizes, selection: request.selection, in: text, codeRanges: codeRanges?() ?? []
         )
     }

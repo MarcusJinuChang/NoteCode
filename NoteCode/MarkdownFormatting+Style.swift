@@ -35,24 +35,25 @@ extension MarkdownFormatting {
         /// text (`BlockSizes`), so a selection from a heading into a
         /// paragraph comes out one size. `nil` is the text's own size.
         case points(Double?, BlockSizes)
+        /// + and −: each character this many points bigger or smaller than
+        /// it is, so text in several sizes keeps them apart. Stops at the
+        /// control's ends (`SpanSize.stepped`).
+        case steps(Int, BlockSizes)
 
-        func applied(to style: SpanStyle, headingLevel: Int) -> SpanStyle {
-            var style = style
+        /// The change made to one character, in a block whose heading level
+        /// is `headingLevel` (0 for body text).
+        func apply(to style: inout StyledLine.Style, headingLevel: Int) {
             switch self {
-            case .colour(let colour): style.colour = colour
-            case .size(let size):     style.size = size
+            case .colour(let colour):
+                style.colour = colour
+            case .size(let size):
+                style.size = size
             case .points(let points, let sizes):
                 style.size = points.flatMap { SpanSize(points: $0, against: sizes.size(forHeadingLevel: headingLevel)) }
-            }
-            return style
-        }
-
-        /// Whether it takes its setting off rather than putting one on.
-        var clears: Bool {
-            switch self {
-            case .colour(let colour):    colour == nil
-            case .size(let size):        size == nil
-            case .points(let points, _): points == nil
+            case .steps(let steps, let sizes):
+                let base = sizes.size(forHeadingLevel: headingLevel)
+                guard let next = SpanSize.stepped(SpanSize.points(style.size, against: base), by: steps) else { return }
+                style.size = SpanSize(points: next, against: base)
             }
         }
     }
@@ -82,33 +83,43 @@ extension MarkdownFormatting {
         style(.points(points, blockSizes), selection: selection, in: text, codeRanges: codeRanges)
     }
 
+    /// Makes each character of the selection, the run the caret is in or the
+    /// word at the caret `steps` points bigger or smaller than it is, against
+    /// each line's own text: + and −.
+    static func size(
+        steppedBy steps: Int,
+        blockSizes: BlockSizes,
+        selection: NSRange,
+        in text: NSString,
+        codeRanges: [CodeRange]
+    ) -> TextEdit? {
+        style(.steps(steps, blockSizes), selection: selection, in: text, codeRanges: codeRanges)
+    }
+
     /// Changes the selection's colour or size, or the run the caret is in,
-    /// or the word at the caret.
+    /// or the word at the caret, per character (text overhaul, phase 3;
+    /// `StyledLine`).
     ///
-    /// - A run per line: a selection over several lines styles each line's
-    ///   part of it, never the heading's `#` or a list item's marker.
-    /// - Runs aren't written nested. A run the text overlaps is taken off and
-    ///   its text joins the rest, keeping its other setting: a large red run
-    ///   made blue stays large. So restyling part of a run restyles it all.
-    /// - A run never cuts a span in two: one the text runs into (half of a
-    ///   bold word, say) is taken in whole, since a span can't cross a run's
-    ///   edge and would show its markers.
+    /// - Exactly the selected characters, less spaces at either end, and
+    ///   each line's part of a selection over several, never the heading's
+    ///   `#` or a list item's marker. Half a bold word can be red.
+    /// - A caret changes the run it is in, or else the word at it.
+    /// - Each character keeps its other settings: a large red run made blue
+    ///   stays large. One that loses its last setting leaves its run.
+    /// - Code spans and links are taken whole.
     ///
     /// `nil` where there is nothing to do: in code, a caret on no word and in
-    /// no run, or taking off what nothing has.
+    /// no run, taking off what nothing has, or a line that can't be written
+    /// to read as asked.
     static func style(_ change: StyleChange, selection: NSRange, in text: NSString, codeRanges: [CodeRange]) -> TextEdit? {
         let selection = clamped(selection, to: text.length)
         guard !codeRanges.contains(where: { NSIntersectionRange($0.range, selection).length > 0 || $0.contains(selection) })
         else { return nil }
 
-        let lines = lines(touching: selection, in: text)
-        guard let first = lines.first, let last = lines.last else { return nil }
-
-        var rewritten: [String] = []
-        var coloured: [NSRange?] = []      // per line, the styled text in the new line
-        var caretAt: Int?                  // for a caret, its place in the new line
-        for line in lines {
+        var parts: [LinePart] = []
+        for line in lines(touching: selection, in: text) {
             let lineText = text.substring(with: line)
+            guard let runs = LineRuns(lineText), let styled = StyledLine(lineText) else { continue }
             // The selection's part of this line, in the line's offsets:
             // clipped first, since an NSRange can't start before 0.
             let local: NSRange
@@ -117,116 +128,125 @@ extension MarkdownFormatting {
             } else {
                 let start = max(selection.location, line.location)
                 let end = min(NSMaxRange(selection), NSMaxRange(line))
-                guard end > start else {
-                    rewritten.append(lineText)
-                    coloured.append(nil)
-                    continue
-                }
+                guard end > start else { continue }
                 local = NSRange(location: start - line.location, length: end - start)
             }
-            guard let result = styleLine(lineText, selection: local, change: change) else {
-                rewritten.append(lineText)
-                coloured.append(nil)
-                continue
+            guard let target = runs.target(of: local) else { continue }
+            let glyphs = styled.wholeAtoms(
+                styled.glyphCount(endingBy: target.location)..<styled.glyphCount(startingBefore: NSMaxRange(target))
+            )
+            guard !glyphs.isEmpty else { continue }
+            parts.append(LinePart(line: line, styled: styled, glyphs: glyphs))
+        }
+        return restyle(parts, in: text, selection: selection) { glyph, part in
+            change.apply(to: &glyph, headingLevel: part.styled.headingLevel)
+        }
+    }
+
+    // MARK: Restyling lines
+
+    /// One line's part in a change: the line read as glyphs, and the glyphs
+    /// the change acts on.
+    struct LinePart {
+        var line: NSRange
+        var styled: StyledLine
+        var glyphs: Range<Int>
+    }
+
+    /// Each touched line's part of `selection` as glyphs, out to whole code
+    /// spans and links: lines of code, blank lines and lines with nothing
+    /// selected after their marker left out. `trimmingSpaces` leaves out
+    /// spaces at either end of each part.
+    static func lineParts(of selection: NSRange, in text: NSString, codeRanges: [CodeRange], trimmingSpaces: Bool) -> [LinePart] {
+        lines(touching: selection, in: text).compactMap { line in
+            guard !codeRanges.contains(where: { $0.contains(NSRange(location: line.location, length: 0)) }),
+                  let styled = StyledLine(text.substring(with: line))
+            else { return nil }
+            let start = max(selection.location, line.location) - line.location
+            let end = min(NSMaxRange(selection), NSMaxRange(line)) - line.location
+            guard end > start else { return nil }
+            var lower = styled.glyphCount(endingBy: start)
+            var upper = styled.glyphCount(startingBefore: end)
+            if trimmingSpaces {
+                while lower < upper, styled.glyphs[lower].text.allSatisfy(\.isWhitespace) { lower += 1 }
+                while upper > lower, styled.glyphs[upper - 1].text.allSatisfy(\.isWhitespace) { upper -= 1 }
             }
-            rewritten.append(result.text)
-            coloured.append(result.coloured)
-            caretAt = result.caret
+            guard lower < upper else { return nil }
+            return LinePart(line: line, styled: styled, glyphs: styled.wholeAtoms(lower..<upper))
+        }
+    }
+
+    /// The edit that makes `change` to each part's glyphs, written back
+    /// line by line (`StyledLine.restyled`).
+    ///
+    /// The selection afterwards runs from the first changed character to the
+    /// last, after the markers in front and before the ones behind; a caret
+    /// stays in front of the character it was in front of, before any
+    /// markers there, which is where the caret stops anyway. `nil` where no
+    /// line changes. A line that can't be written to read as asked is left
+    /// as it was.
+    static func restyle(
+        _ parts: [LinePart],
+        in text: NSString,
+        selection: NSRange,
+        change: (inout StyledLine.Style, LinePart) -> Void
+    ) -> TextEdit? {
+        var rewritten: [(part: LinePart, read: StyledLine?)] = []
+        for part in parts {
+            var styles = part.styled.glyphs.map(\.style)
+            for index in part.glyphs { change(&styles[index], part) }
+            rewritten.append((part, part.styled.restyled(styles)))
+        }
+        guard let first = rewritten.first, let last = rewritten.last, rewritten.contains(where: { $0.read != nil })
+        else { return nil }
+
+        // The lines, rewritten, and the text between them as it was.
+        let whole = NSRange(location: first.part.line.location, length: NSMaxRange(last.part.line) - first.part.line.location)
+        var replacement = ""
+        var starts: [Int] = []          // where each part's line starts in the new text
+        var cursor = whole.location
+        for (part, read) in rewritten {
+            replacement += text.substring(with: NSRange(location: cursor, length: part.line.location - cursor))
+            starts.append(whole.location + (replacement as NSString).length)
+            replacement += read?.line ?? text.substring(with: part.line)
+            cursor = NSMaxRange(part.line)
         }
 
-        let replacement = rewritten.joined(separator: "\n")
-        let whole = NSRange(location: first.location, length: NSMaxRange(last) - first.location)
-        guard replacement != text.substring(with: whole) else { return nil }
-
-        // Where each new line starts, to place the selection afterwards.
-        var starts: [Int] = []
-        var position = first.location
-        for line in rewritten {
-            starts.append(position)
-            position += (line as NSString).length + 1
+        /// A place in front of glyph `index` of a part's line, in the new
+        /// text: after any markers there, or before them.
+        func position(_ item: Int, glyph index: Int, afterMarkers: Bool) -> Int {
+            let styled = rewritten[item].read ?? rewritten[item].part.styled
+            return starts[item] + (afterMarkers ? styled.latestPosition(at: index) : styled.earliestPosition(at: index))
         }
 
         let newSelection: NSRange
-        if selection.length == 0, let caretAt {
-            newSelection = NSRange(location: starts[0] + caretAt, length: 0)
-        } else if let start = zip(starts, coloured).first(where: { $0.1 != nil }),
-                  let end = Array(zip(starts, coloured)).last(where: { $0.1 != nil }) {
-            let from = start.0 + start.1!.location
-            newSelection = NSRange(location: from, length: end.0 + NSMaxRange(end.1!) - from)
+        if selection.length == 0 {
+            let local = selection.location - first.part.line.location
+            newSelection = NSRange(location: position(0, glyph: first.part.styled.glyphCount(endingBy: local), afterMarkers: false), length: 0)
         } else {
-            newSelection = NSRange(location: first.location, length: 0)
+            let start = position(0, glyph: first.part.glyphs.lowerBound, afterMarkers: true)
+            let end = position(rewritten.count - 1, glyph: last.part.glyphs.upperBound, afterMarkers: false)
+            newSelection = NSRange(location: start, length: max(0, end - start))
         }
-        return TextEdit(range: whole, replacement: replacement, selection: newSelection)
+
+        let edit = minimalEdit(replacing: whole, with: replacement, in: text)
+        return TextEdit(range: edit.range, replacement: edit.replacement, selection: newSelection)
     }
 
-    /// One line, restyled. `selection` is in the line's own offsets, and may
-    /// run past either end of it.
-    ///
-    /// - Returns: the new line, where its styled text now is (the text
-    ///   between its new tags, or where the text taken out of a run now is),
-    ///   and for a caret its new place. `nil` for a line with nothing to do.
-    static func styleLine(_ line: String, selection: NSRange, change: StyleChange) -> (text: String, coloured: NSRange, caret: Int?)? {
-        guard let parsed = LineRuns(line) else { return nil }
-        let (spans, runs) = (parsed.spans, parsed.runs)
-
-        // What to colour.
-        guard var target = parsed.target(of: selection) else { return nil }
-        let caret: Int? = selection.length == 0 ? selection.location : nil
-
-        // Runs it overlaps come off, their text joining it; spans it runs
-        // into come in whole. Again, since taking a run in can reach another
-        // span.
-        var removed: [NSRange] = []
-        var kept: SpanStyle?               // the first run's style, whose other setting stays
-        var changed = true
-        while changed {
-            changed = false
-            for run in runs where !removed.contains(run.open) {
-                let whole = run.whole
-                guard NSIntersectionRange(whole, target).length > 0 || NSLocationInRange(target.location, whole) else { continue }
-                removed += [run.open, run.close]
-                target = NSUnionRange(target, run.text)
-                if kept == nil { kept = run.style }
-                changed = true
-            }
-            for span in spans where NSIntersectionRange(span, target).length > 0 && NSUnionRange(span, target) != target {
-                target = NSUnionRange(target, span)
-                changed = true
-            }
-        }
-        if change.clears, removed.isEmpty { return nil }
-
-        // Rebuild the line: the old tags out, the new ones round the target,
-        // none if nothing is left to set.
-        let style = change.applied(to: kept ?? SpanStyle(), headingLevel: parsed.headingLevel)
-        let opening = style.isEmpty ? "" : style.openTag
-        let closing = style.isEmpty ? "" : SpanStyle.close
-        var edits: [(range: NSRange, insert: String)] = removed.map { ($0, "") }
-        edits.append((NSRange(location: target.location, length: 0), opening))
-        edits.append((NSRange(location: NSMaxRange(target), length: 0), closing))
-        // Back to front, and at one place the tag that is taken out before
-        // the one put in.
-        edits.sort { $0.range.location != $1.range.location ? $0.range.location > $1.range.location : $0.range.length > $1.range.length }
-
-        let result = NSMutableString(string: line)
-        for edit in edits {
-            result.replaceCharacters(in: edit.range, with: edit.insert)
-        }
-
-        // A place in the old line, in the new one: shifted by everything put
-        // in or taken out before it. The opening tag counts as before the
-        // target's start, so the coloured text begins after it.
-        func moved(_ offset: Int, afterInsertsAt equal: Bool) -> Int {
-            var shift = 0
-            for removal in removed where NSMaxRange(removal) <= offset { shift -= removal.length }
-            if target.location < offset || (equal && target.location == offset) { shift += (opening as NSString).length }
-            if NSMaxRange(target) < offset { shift += (closing as NSString).length }
-            return offset + shift
-        }
-        let start = moved(target.location, afterInsertsAt: true)
-        let end = moved(NSMaxRange(target), afterInsertsAt: true)
-        let colouredRange = NSRange(location: start, length: max(0, end - start))
-        return (result as String, colouredRange, caret.map { moved($0, afterInsertsAt: true) })
+    /// `range` replaced with `replacement`, less what the two share at either
+    /// end, so the edit touches only what changes. Never between the two
+    /// halves of a surrogate pair.
+    static func minimalEdit(replacing range: NSRange, with replacement: String, in text: NSString) -> (range: NSRange, replacement: String) {
+        let old = Array(text.substring(with: range).utf16)
+        let new = Array(replacement.utf16)
+        var prefix = 0
+        while prefix < min(old.count, new.count), old[prefix] == new[prefix] { prefix += 1 }
+        if prefix > 0, UTF16.isLeadSurrogate(old[prefix - 1]) { prefix -= 1 }
+        var suffix = 0
+        while suffix < min(old.count, new.count) - prefix, old[old.count - 1 - suffix] == new[new.count - 1 - suffix] { suffix += 1 }
+        if suffix > 0, UTF16.isTrailSurrogate(old[old.count - suffix]) { suffix -= 1 }
+        let kept = String(decoding: new[prefix..<(new.count - suffix)], as: UTF16.self)
+        return (NSRange(location: range.location + prefix, length: old.count - suffix - prefix), kept)
     }
 
     // MARK: A line's runs

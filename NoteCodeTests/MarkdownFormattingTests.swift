@@ -34,8 +34,11 @@ private func run(_ marked: String, _ format: (String, NSRange) -> TextEdit) -> S
     return pack(edit.applied(to: text), edit.selection)
 }
 
+/// A toggle with nothing to do leaves the text and selection as they were.
 private func toggled(_ style: MarkdownFormatting.InlineStyle, _ marked: String) -> String {
-    run(marked) { MarkdownFormatting.toggle(style, in: $0, selection: $1) }
+    let (text, selection) = unpack(marked)
+    guard let edit = MarkdownFormatting.toggle(style, in: text, selection: selection) else { return marked }
+    return pack(edit.applied(to: text), edit.selection)
 }
 
 private func headed(_ level: Int, _ marked: String) -> String {
@@ -64,9 +67,9 @@ struct InlineFormattingTests {
     }
 
     @Test("What a button writes, the parser reads as that style", arguments: MarkdownFormatting.InlineStyle.allCases)
-    func parserAgrees(style: MarkdownFormatting.InlineStyle) {
+    func parserAgrees(style: MarkdownFormatting.InlineStyle) throws {
         let (text, selection) = unpack("a «word» b")
-        let result = MarkdownFormatting.toggle(style, in: text, selection: selection).applied(to: text)
+        let result = try #require(MarkdownFormatting.toggle(style, in: text, selection: selection)).applied(to: text)
         let kinds = TopLevelSpan.read(result).map(\.kind)
 
         #expect(kinds == [.text, style.topLevelKind, .text])
@@ -90,18 +93,18 @@ struct InlineFormattingTests {
         #expect(toggled(.bold, "a «**word**» b") == "a «word» b")
     }
 
-    @Test("A different style replaces the span's markers, since spans don't nest")
-    func otherStyleReplaces() {
-        #expect(toggled(.italic, "a **«word»** b") == "a *«word»* b")
-        #expect(toggled(.strikethrough, "a *wo«»rd* b") == "a ~~wo«»rd~~ b")
+    @Test("A different style is added to the span's: styles combine")
+    func otherStyleCombines() {
+        #expect(toggled(.italic, "a **«word»** b") == "a ***«word»*** b")
+        #expect(toggled(.strikethrough, "a *wo«»rd* b") == "a *~~wo«»rd~~* b")
     }
 
     @Test("Italic inside bold is not mistaken for italic already present")
     func italicIsNotBold() {
         // `**word**` has a single star either side of the selection as well.
         // Reading that as italic would strip one star each side and leave
-        // `*word*` — italic, when the button asked for italic *added*.
-        #expect(toggled(.italic, "**«word»**") == "*«word»*")
+        // `*word*`, when the button asked for italic *added*.
+        #expect(toggled(.italic, "**«word»**") == "***«word»***")
     }
 
     @Test("With nothing selected, an empty pair goes in with the caret between")
@@ -123,7 +126,9 @@ struct InlineFormattingTests {
 
     @Test("Several lines are styled one line at a time, skipping blank ones")
     func acrossLines() {
-        #expect(toggled(.bold, "«one\n\ntwo»") == "«**one**\n\n**two**»")
+        // The selection keeps its characters: from the first one on the page
+        // to the last, inside the markers.
+        #expect(toggled(.bold, "«one\n\ntwo»") == "**«one**\n\n**two»**")
     }
 
     @Test("Several lines that all carry the style lose it")
@@ -133,7 +138,7 @@ struct InlineFormattingTests {
 
     @Test("Several lines with the style on only some gain it on the rest")
     func acrossLinesMixed() {
-        #expect(toggled(.bold, "«**one**\ntwo»") == "«**one**\n**two**»")
+        #expect(toggled(.bold, "«**one**\ntwo»") == "**«one**\n**two»**")
     }
 
     @Test("Offsets are UTF-16, so text after an emoji still lines up")
