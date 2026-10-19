@@ -27,8 +27,8 @@ extension MarkdownFormatting {
         /// `[a, b)`: from the first marker character to the first character
         /// after the last.
         var range: NSRange
-        /// A heading's `# ` or a checklist's `- [x] `. Text can't go before
-        /// it, so the stop is after it. Inline markers stop at their left
+        /// A heading's `# `, a quote's `> `, a rule's dashes or a checklist's
+        /// `- [x] `. Text can't go before it, so the stop is after it. Inline markers stop at their left
         /// edge: the end of a bold word is inside it, the start isn't.
         var pinsAfter: Bool
 
@@ -74,7 +74,7 @@ extension MarkdownFormatting {
 
         var stretches: [HiddenStretch] = []
         switch block.kind {
-        case .heading:
+        case .heading, .blockQuote, .rule:
             if let marker = block.markerRange {
                 stretches.append(HiddenStretch(range: absolute(marker), pinsAfter: true))
             }
@@ -188,7 +188,7 @@ extension MarkdownFormatting {
         // be left on the page as text. Spans nest, so that can be several,
         // all holding that one letter: the outermost goes, taking the rest.
         let spans = InlineSpan.spans(in: block.inlines).map { span in
-            (whole: absolute(span.range), content: absolute(span.contentRange), isRun: span.markup.isStyled)
+            (whole: absolute(span.range), content: absolute(span.contentRange), isRun: span.markup.isTag)
         }
         let drawn = block.inlines.filter { !$0.kind.isMarker }.map { absolute($0.range) }
 
@@ -319,10 +319,13 @@ extension MarkdownFormatting {
         var italic = false
         var code = false
         var strikethrough = false
+        var underline = false
         var link = false
         /// The colour of the run the caret is in (`TextColour`), or `nil`
         /// for none.
         var colour: Int?
+        /// The colour of the highlight the caret is in, or `nil` for none.
+        var highlight: HighlightColour?
         /// The size of the run the caret is in (`SpanSize`), or `nil` for
         /// normal size.
         var size: SpanSize?
@@ -335,6 +338,8 @@ extension MarkdownFormatting {
         var canResize = false
         /// 1 to 6, or 0 for body text.
         var headingLevel = 0
+        /// How many `>`s the line has, 0 for a line that isn't a quote.
+        var quoteDepth = 0
         var list: ListStyle?
         /// What the caret is in, which decides what the text options row
         /// offers after the size stepper.
@@ -385,6 +390,7 @@ extension MarkdownFormatting {
         guard let block = DocumentParser.parse(lineText).first, !block.isCode else { return state }
 
         state.headingLevel = block.headingLevel ?? 0
+        state.quoteDepth = block.quoteDepth ?? 0
         switch block.listMarker {
         case .bullet?:   state.list = .bullet
         case .ordered?:  state.list = .numbered
@@ -411,28 +417,31 @@ extension MarkdownFormatting {
             case .emphasis:      state.italic = true
             case .inlineCode:    state.code = true
             case .strikethrough: state.strikethrough = true
+            case .underline:     state.underline = true
             case .link:          state.link = true
-            case .styled:        runs = runs.inside(span.markup)
+            case .styled, .highlight: runs = runs.inside(span.markup)
             }
         }
         state.colour = runs.colour
         state.size = runs.size
+        state.highlight = runs.highlight
 
         if selection.length > 0, let styles = selectionStyles(selection, in: text, codeRanges: codeRanges) {
             state.bold = styles.bold
             state.italic = styles.italic
             state.code = styles.code
             state.strikethrough = styles.strikethrough
+            state.underline = styles.underline
         }
         return state
     }
 
-    /// Which of bold, italic, code and strikethrough every glyph of the
-    /// selection but spaces has, `nil` for a selection of none. Stops at the
+    /// Which of bold, italic, code, strikethrough and underline every glyph
+    /// of the selection but spaces has, `nil` for a selection of none. Stops at the
     /// first line that settles it, since this runs on every selection change:
     /// reading a 500-line note as glyphs is about 6ms.
     private static func selectionStyles(_ selection: NSRange, in text: NSString, codeRanges: [CodeRange]) -> StyledLine.Style? {
-        var all = StyledLine.Style(bold: true, italic: true, strikethrough: true, code: true)
+        var all = StyledLine.Style(bold: true, italic: true, strikethrough: true, code: true, underline: true)
         var any = false
         for line in lines(touching: selection, in: text) {
             guard let part = lineParts(of: NSIntersectionRange(selection, NSRange(location: line.location, length: line.length + 1)), in: text, codeRanges: codeRanges, trimmingSpaces: false).first
@@ -444,8 +453,9 @@ extension MarkdownFormatting {
                 all.italic = all.italic && style.italic
                 all.code = all.code && style.code
                 all.strikethrough = all.strikethrough && style.strikethrough
+                all.underline = all.underline && style.underline
             }
-            if any, !all.bold, !all.italic, !all.code, !all.strikethrough { break }
+            if any, !all.bold, !all.italic, !all.code, !all.strikethrough, !all.underline { break }
         }
         return any ? all : nil
     }

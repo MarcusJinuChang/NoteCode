@@ -5,8 +5,9 @@ does in Obsidian and most other editors, with free resizing of any text at
 the very least.
 
 **Status:** decisions 1 to 4 below taken as recommended (Marcus, 18 Oct).
-Phases 1 to 3 are merged (#73, #74, #75). Phase 4 is built on branch
-`claude/typing-style`. Phases 5 and 6 are still to be decided.
+Phases 1 to 4 are merged (#73 to #77). Phase 5 is on branch
+`claude/paste-copy-formatting`. Phase 6 is built on branch
+`claude/obsidian-blocks` (19 Oct, asked for by Marcus).
 
 Each phase below is one branch and one PR off `main`. A session starting a
 phase reads this file, AGENTS.md and the files the phase names.
@@ -276,10 +277,28 @@ Japanese or Chinese ones (not installed), dictation, or a tapped QuickType word.
 
 ### Phase 6: Obsidian's other blocks (optional, any order)
 
-Blockquote `> ` (a bar drawn in the margin by its fragment), horizontal rule
-`---` (a fixed-height line), highlight `==🟡text==` (research §2.6),
-underline `<u>text</u>`, and H4 to H6 in Style ▾. Tables aren't in this
+Blockquote `> `, horizontal rule `---`, highlight `==🟡text==` (research
+§2.6), underline `<u>text</u>`, and H4 to H6 in Style ▾. Tables aren't in this
 plan.
+
+Built 19 Oct, branch `claude/obsidian-blocks` (off `main` with phases 1 to 4
+merged); AGENTS.md › Obsidian's other marks and blocks has what was found on
+the way. Four changes to the plan as written:
+
+- **A quote's bar is drawn in the room its indent leaves, not in the
+  margin.** Text is indented 16pt a level and the bar sits in that room, so a
+  quote never leaves the page's column and a wrapped line hangs under its
+  first.
+- **A rule is an ordinary line of text, not a fixed-height one.** Its dashes
+  are hidden and the fragment draws a line through the middle of the line.
+  A fixed height would have meant the baseline-lift dance code fences need
+  for nothing a rule shows.
+- **`---` only.** `***` and `___` are rules in CommonMark, but a line of
+  just `***` is where `***bold italic***` starts, and with its marker hidden
+  the stars would vanish as the third was typed.
+- **Underline and highlight go through Phase 3's writer**, so they combine
+  with everything and come off alone, and through Phase 4's typing style.
+  A highlight's colour is the emoji, six of them, as Obsidian 1.14 has it.
 
 ## Risks
 
@@ -329,4 +348,4 @@ On the iPad, not through a value the code computes:
    to ••• › Text Size. **Decided 18 Oct.**
 3. ⌘+ and ⌘− follow the row's control, as in Pages. **Decided 18 Oct.**
 4. 8 to 72pt, with presets like Word's. **Decided 18 Oct.**
-5. Phases 5 and 6 in or out? Open.
+5. Phases 5 and 6 in or out? Phase 6 is in (built 19 Oct). Phase 5: open.

@@ -43,6 +43,8 @@ func inlineHTML(_ line: String) -> String {
         case .strikethrough: "del"
         case .link:          "a"
         case .styled:        "span"
+        case .underline:     "u"
+        case .highlight:     "mark"
         }
     }
 

@@ -30,6 +30,8 @@ extension MarkdownFormatting {
     /// to a value or to none. The other is kept.
     enum StyleChange: Equatable, Sendable {
         case colour(Int?)
+        /// A highlight's colour, or none.
+        case highlight(HighlightColour?)
         case size(SpanSize?)
         /// A size in points, written on each line against that line's own
         /// text (`BlockSizes`), so a selection from a heading into a
@@ -46,6 +48,8 @@ extension MarkdownFormatting {
             switch self {
             case .colour(let colour):
                 style.colour = colour
+            case .highlight(let colour):
+                style.highlight = colour
             case .size(let size):
                 style.size = size
             case .points(let points, let sizes):
@@ -62,6 +66,12 @@ extension MarkdownFormatting {
     /// the caret; `nil` takes colour off them instead. See `style`.
     static func colour(_ hex: Int?, selection: NSRange, in text: NSString, codeRanges: [CodeRange]) -> TextEdit? {
         style(.colour(hex), selection: selection, in: text, codeRanges: codeRanges)
+    }
+
+    /// Sets a highlight of `colour` on the selection or the word at the
+    /// caret; `nil` takes the highlight off them instead. See `style`.
+    static func highlight(_ colour: HighlightColour?, selection: NSRange, in text: NSString, codeRanges: [CodeRange]) -> TextEdit? {
+        style(.highlight(colour), selection: selection, in: text, codeRanges: codeRanges)
     }
 
     /// Sets `size` on the selection, the run the caret is in or the word at

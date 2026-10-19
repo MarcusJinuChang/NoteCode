@@ -22,7 +22,7 @@ enum NoteShortcut: CaseIterable, Sendable {
     case undo, redo
     case bold, italic, inlineCode
     case heading1, heading2, heading3, body
-    case strikethrough, bulletedList, codeBlock
+    case strikethrough, underline, bulletedList, codeBlock
     case runBlock, copyBlock
     case toggleMode
     case pen, highlighter, eraser, lasso
@@ -45,6 +45,7 @@ enum NoteShortcut: CaseIterable, Sendable {
         case .heading3:      "Heading 3"
         case .body:          "Body"
         case .strikethrough: "Strikethrough"
+        case .underline:     "Underline"
         case .bulletedList:  "Bulleted List"
         case .codeBlock:     "Code Block"
         case .runBlock:      "Run Block"
@@ -84,6 +85,7 @@ enum NoteShortcut: CaseIterable, Sendable {
         case .heading3:      "3"
         case .body:          "0"
         case .strikethrough: "x"
+        case .underline:     "u"
         case .bulletedList:  "l"
         case .codeBlock:     "k"
         case .runBlock:      "r"
@@ -114,7 +116,7 @@ enum NoteShortcut: CaseIterable, Sendable {
 
     var modifiers: EventModifiers {
         switch self {
-        case .undo, .bold, .italic, .inlineCode, .runBlock, .seamless, .compressed, .printLayout,
+        case .undo, .bold, .italic, .underline, .inlineCode, .runBlock, .seamless, .compressed, .printLayout,
              .find, .print, .newNote, .settings, .biggerText, .smallerText:
             .command
         case .redo, .strikethrough, .bulletedList, .codeBlock, .copyBlock, .toggleMode,

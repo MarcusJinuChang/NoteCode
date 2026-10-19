@@ -37,13 +37,14 @@ nonisolated struct TextEdit: Equatable, Sendable {
 nonisolated enum MarkdownFormatting {
 
     enum InlineStyle: CaseIterable, Sendable {
-        case bold, italic, strikethrough, code
+        case bold, italic, strikethrough, underline, code
 
         var marker: String {
             switch self {
             case .bold:          "**"
             case .italic:        "*"
             case .strikethrough: "~~"
+            case .underline:     InlineTag.underlineOpen
             case .code:          "`"
             }
         }
@@ -53,6 +54,7 @@ nonisolated enum MarkdownFormatting {
             case .bold:          .strong
             case .italic:        .emphasis
             case .strikethrough: .strikethrough
+            case .underline:     .underline
             case .code:          .inlineCode
             }
         }
@@ -63,6 +65,7 @@ nonisolated enum MarkdownFormatting {
             case .bold:          \.bold
             case .italic:        \.italic
             case .strikethrough: \.strikethrough
+            case .underline:     \.underline
             case .code:          \.code
             }
         }
@@ -121,6 +124,10 @@ nonisolated enum MarkdownFormatting {
 
     // MARK: Line markers
 
+    /// The levels a heading can have: `#` to `######`, the parser's own range
+    /// (`DocumentParser`) and what Style ▾ offers.
+    static let headingLevels = 1...6
+
     /// Makes the touched lines a heading of `level`, or body text for `0`.
     ///
     /// Pressing the level a line already has turns it back into body text, so
@@ -132,7 +139,7 @@ nonisolated enum MarkdownFormatting {
         let alreadyThere = level > 0 && candidates(touched, in: ns).allSatisfy {
             heading(ns.substring(with: $0))?.level == level
         }
-        let target = alreadyThere ? 0 : min(level, 6)
+        let target = alreadyThere ? 0 : min(level, headingLevels.upperBound)
         let marker = target > 0 ? String(repeating: "#", count: target) + " " : ""
 
         return replaceMarkers(on: touched, in: ns, selection: selection) { line in
@@ -214,6 +221,7 @@ nonisolated enum MarkdownFormatting {
     ///   next number, or an empty box. Whatever follows the caret moves to it.
     /// - In an empty item, the list ends: the marker goes and the line is
     ///   left empty.
+    /// - In a quote, the same with its `>`s.
     /// - In a rendered note, at the end of a line whose last characters are a
     ///   closing marker, the newline goes after the marker. The caret stands
     ///   in front of it (inside the bold) and the page can't show that, so a
@@ -238,6 +246,24 @@ nonisolated enum MarkdownFormatting {
         }
 
         let lineText = text.substring(with: line)
+
+        // A quote carries on: the next line starts with the same `>`s, and an
+        // empty one ends the quote, as an empty list item ends a list.
+        if let block = DocumentParser.parse(lineText).first, block.quoteDepth != nil, let markerRange = block.markerRange {
+            let markerEnd = line.location + NSRange(markerRange, in: lineText).upperBound
+            guard caret >= markerEnd else { return nil }
+            let after = text.substring(with: NSRange(location: markerEnd, length: NSMaxRange(line) - markerEnd))
+            if after.allSatisfy({ $0 == " " || $0 == "\t" }) {
+                return TextEdit(range: line, replacement: "", selection: NSRange(location: line.location, length: 0))
+            }
+            let insertion = "\n" + String(lineText[markerRange])
+            return TextEdit(
+                range: NSRange(location: caret, length: 0),
+                replacement: insertion,
+                selection: NSRange(location: caret + (insertion as NSString).length, length: 0)
+            )
+        }
+
         if let block = DocumentParser.parse(lineText).first, let marker = block.listMarker, let markerRange = block.markerRange {
             let markerEnd = line.location + NSRange(markerRange, in: lineText).upperBound
             guard caret >= markerEnd else { return nil }
@@ -474,6 +500,68 @@ nonisolated enum MarkdownFormatting {
 
     static func shifted(_ range: NSRange, by offset: Int) -> NSRange {
         NSRange(location: range.location + offset, length: range.length)
+    }
+}
+
+// MARK: - Quotes and rules
+
+extension MarkdownFormatting {
+
+    /// How many `>`s a quote line has and how long its marker is, as the
+    /// parser reads it.
+    private static func quote(_ line: String) -> (depth: Int, length: Int)? {
+        guard let block = DocumentParser.parse(line).first,
+              let depth = block.quoteDepth,
+              let marker = block.markerRange
+        else { return nil }
+        return (depth, line[marker].utf16.count)
+    }
+
+    /// Makes the touched lines a quote, or takes the quote off them if every
+    /// one already is. A heading's hashes or a list item's marker are replaced
+    /// by the `> `, since a quote's text is inline Markdown and nothing else.
+    /// A line that is already a quote is left as it is, nesting included.
+    static func toggleQuote(in text: String, selection: NSRange) -> TextEdit {
+        let ns = text as NSString
+        let touched = lines(touching: selection, in: ns)
+        let allThere = candidates(touched, in: ns).allSatisfy { quote(ns.substring(with: $0)) != nil }
+
+        return replaceMarkers(on: touched, in: ns, selection: selection) { line in
+            let existing = quote(line)
+            if allThere { return LineMarker(indent: 0, length: existing?.length ?? 0, replacement: "") }
+            if existing != nil { return LineMarker(indent: 0, length: 0, replacement: "") }
+            if let heading = heading(line) { return LineMarker(indent: 0, length: heading.length, replacement: "> ") }
+            if let item = listItem(line) { return LineMarker(indent: 0, length: item.indent + item.length, replacement: "> ") }
+            return LineMarker(indent: 0, length: 0, replacement: "> ")
+        }
+    }
+
+    /// Puts a horizontal rule on the line below the caret's, with the caret
+    /// on a fresh line under it. On an empty line the rule takes its place; on
+    /// a line of text a blank line goes between, so the rule reads as one
+    /// everywhere (under a line of text, `---` makes a heading on GitHub).
+    /// `nil` in code.
+    static func insertRule(in text: String, selection: NSRange, codeRanges: [CodeRange] = []) -> TextEdit? {
+        let ns = text as NSString
+        let selection = clamped(selection, to: ns.length)
+        guard !isCode(selection.location, in: codeRanges) else { return nil }
+
+        let line = contentLine(containing: selection.location, in: ns)
+        if line.length == 0 || isBlank(ns.substring(with: line)) {
+            return TextEdit(
+                range: line, replacement: "---\n",
+                selection: NSRange(location: line.location + 4, length: 0)
+            )
+        }
+        // The blank line, the rule, and the line the caret goes on, which is
+        // the note's last if the text was.
+        let insertion = "\n\n---\n"
+        let end = NSMaxRange(line)
+        return TextEdit(
+            range: NSRange(location: end, length: 0),
+            replacement: insertion,
+            selection: NSRange(location: end + (insertion as NSString).length, length: 0)
+        )
     }
 }
 

@@ -205,6 +205,8 @@ struct NoteCommands: Commands {
                     .keyboardShortcut(.bold)
                 Button(NoteShortcut.italic.title) { editor?.toggle(.italic) }
                     .keyboardShortcut(.italic)
+                Button(NoteShortcut.underline.title) { editor?.toggle(.underline) }
+                    .keyboardShortcut(.underline)
                 Button(NoteShortcut.inlineCode.title) { editor?.toggle(.code) }
                     .keyboardShortcut(.inlineCode)
                 Button(NoteShortcut.strikethrough.title) { editor?.toggle(.strikethrough) }

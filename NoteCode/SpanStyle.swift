@@ -72,7 +72,7 @@ nonisolated struct SpanStyle: Hashable, Sendable {
 
     /// Where `tag` ends, if it is at `start`, in either case. Most `<` in a
     /// note are `vector<int>`, so the second character is checked first.
-    private static func tag(_ tag: String, in text: String, at start: String.Index, limit: String.Index) -> String.Index? {
+    static func tag(_ tag: String, in text: String, at start: String.Index, limit: String.Index) -> String.Index? {
         let second = text.index(after: start)
         guard second < limit, text[second].lowercased() == String(tag[tag.index(after: tag.startIndex)]),
               let end = text.index(start, offsetBy: tag.count, limitedBy: limit),
@@ -89,7 +89,7 @@ nonisolated struct SpanStyle: Hashable, Sendable {
     /// The tags are the parser's (`InlineParser`), so what search leaves out
     /// is what the page hides: not a tag in a code block, which is code.
     static func maskingTags(in text: String) -> String {
-        guard text.range(of: tagPrefix, options: .caseInsensitive) != nil else { return text }
+        guard mayHoldTags(text) else { return text }
         let masked = NSMutableString(string: text)
         for block in DocumentParser.parse(text) {
             for inline in block.inlines where inline.kind.isSpanTag {
@@ -98,6 +98,15 @@ nonisolated struct SpanStyle: Hashable, Sendable {
             }
         }
         return masked as String
+    }
+
+    /// Whether `text` could hold a tag at all, so a search of notes with none
+    /// doesn't parse them: a run's `<span style="`, an underline's `<u>`, or
+    /// a highlight's `==` and an emoji (a note of code is full of `==`).
+    private static func mayHoldTags(_ text: String) -> Bool {
+        text.range(of: tagPrefix, options: .caseInsensitive) != nil
+            || text.range(of: InlineTag.underlineOpen, options: .caseInsensitive) != nil
+            || HighlightColour.allCases.contains { text.contains(InlineTag.highlightMark + $0.emoji) }
     }
 
     /// The declarations after `style="`, from `start`, and `">`: the style,

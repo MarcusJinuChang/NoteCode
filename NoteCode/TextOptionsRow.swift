@@ -126,10 +126,12 @@ private struct ParagraphControls: View {
                 editor.setHeading(level: heading)
             }
         }
+        HotbarButton("Quote", "text.quote", isSelected: editor.caretFormatting.quoteDepth > 0) { editor.toggleQuote() }
         // Lit while the caret is in a link: nothing to add to one that is there.
         HotbarButton("Link", "link", isSelected: editor.caretFormatting.link) { editor.beginLink() }
             .disabled(editor.caretFormatting.link)
         ColourMenu(editor: editor)
+        HighlightMenu(editor: editor)
     }
 }
 
@@ -188,6 +190,55 @@ private struct ColourMenu: View {
     }
 }
 
+/// Highlight (`HighlightColour`): the six, then None, which takes it off.
+/// The face is the highlighter, in the colour the caret is in.
+private struct HighlightMenu: View {
+    @Bindable var editor: NoteEditor
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let current = editor.formattingShown.highlight
+        Menu {
+            ForEach(HighlightColour.allCases, id: \.self) { colour in
+                Toggle(isOn: Binding(get: { current == colour }, set: { _ in editor.setHighlight(colour) })) {
+                    Label {
+                        Text(colour.name)
+                    } icon: {
+                        Image(uiImage: Self.swatch(colour, isDark: colorScheme == .dark)).renderingMode(.original)
+                    }
+                }
+            }
+            Divider()
+            Toggle(isOn: Binding(get: { current == nil }, set: { _ in editor.setHighlight(nil) })) {
+                Text("None")
+            }
+        } label: {
+            Image(systemName: "highlighter")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(current.map { Color(Self.solid($0, isDark: colorScheme == .dark)) } ?? Color.primary)
+                .hotbarTarget()
+        }
+        .modifier(HotbarMenuStyle())
+        .menuOrder(.fixed)
+        .accessibilityLabel("Highlight")
+        .accessibilityValue(current?.name ?? "None")
+    }
+
+    /// The hue as the menu paints it, opaque.
+    private static func solid(_ colour: HighlightColour, isDark: Bool) -> UIColor {
+        AccentPalette.uiColor(isDark ? colour.hex.dark : colour.hex.light)
+    }
+
+    /// A rounded square in the highlight as it shows on this page.
+    static func swatch(_ colour: HighlightColour, isDark: Bool, side: CGFloat = 16) -> UIImage {
+        let fill = solid(colour, isDark: isDark).withAlphaComponent(HighlightColour.alpha(isDark: isDark) + 0.35)
+        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { _ in
+            fill.setFill()
+            UIBezierPath(roundedRect: CGRect(x: 0, y: 0, width: side, height: side), cornerRadius: 4).fill()
+        }
+    }
+}
+
 /// A list item: the three kinds (the current one tinted), outdent and indent.
 private struct ListControls: View {
     @Bindable var editor: NoteEditor
@@ -200,6 +251,7 @@ private struct ListControls: View {
         }
         IndentControls(editor: editor)
         ColourMenu(editor: editor)
+        HighlightMenu(editor: editor)
     }
 }
 

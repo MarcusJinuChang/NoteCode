@@ -429,6 +429,15 @@ final class PrintedNote {
                    paragraph.lines.contains(where: { $0 === first }) {
                     checklist.drawBox(at: origin, in: context)
                 }
+                // A quote's bar beside the lines on this sheet, so a quote
+                // split by a page break has a bar on each and none across the
+                // gap; a rule's line with its one line, if that is here.
+                (paragraph.fragment as? BlockquoteLayoutFragment)?.drawBars(of: paragraph.lines, at: origin, in: context)
+                if let rule = paragraph.fragment as? RuleLayoutFragment,
+                   let first = rule.textLineFragments.first,
+                   paragraph.lines.contains(where: { $0 === first }) {
+                    rule.drawRule(on: first, at: origin, in: context)
+                }
             }
         }
         UIGraphicsPopContext()

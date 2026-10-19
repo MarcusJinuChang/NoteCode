@@ -23,6 +23,8 @@ struct TopLevelSpan: Equatable {
         case link
         case spanOpen(SpanStyle)
         case spanClose
+        case underline
+        case highlight(HighlightColour)
 
         init(_ markup: InlineMarkup) {
             switch markup {
@@ -32,6 +34,8 @@ struct TopLevelSpan: Equatable {
             case .strikethrough:     self = .strikethrough
             case .link:              self = .link
             case .styled(let style): self = .spanOpen(style)
+            case .underline:         self = .underline
+            case .highlight(let colour): self = .highlight(colour)
             }
         }
 

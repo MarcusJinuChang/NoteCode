@@ -214,7 +214,9 @@ struct Hotbar: View {
         // Checkmarks show the state at the caret: with the markers hidden,
         // this is the only place a heading's level or a struck word shows.
         Menu {
-            ForEach(1...3, id: \.self) { level in
+            // All six the parser reads. The text options row has chips for
+            // the first three only: a row is for what is used most.
+            ForEach(MarkdownFormatting.headingLevels, id: \.self) { level in
                 Toggle("Heading \(level)", isOn: Binding(
                     get: { editor.caretFormatting.headingLevel == level },
                     set: { _ in editor.setHeading(level: level) }
@@ -226,10 +228,28 @@ struct Hotbar: View {
             ))
             Divider()
             Toggle(isOn: Binding(
+                get: { editor.formattingShown.underline },
+                set: { _ in editor.toggle(.underline) }
+            )) {
+                Label("Underline", systemImage: "underline")
+            }
+            Toggle(isOn: Binding(
                 get: { editor.formattingShown.strikethrough },
                 set: { _ in editor.toggle(.strikethrough) }
             )) {
                 Label("Strikethrough", systemImage: "strikethrough")
+            }
+            Divider()
+            Toggle(isOn: Binding(
+                get: { editor.caretFormatting.quoteDepth > 0 },
+                set: { _ in editor.toggleQuote() }
+            )) {
+                Label("Quote", systemImage: "text.quote")
+            }
+            Button {
+                editor.insertRule()
+            } label: {
+                Label("Horizontal Rule", systemImage: "minus")
             }
         } label: {
             HotbarIcon(systemImage: "textformat")

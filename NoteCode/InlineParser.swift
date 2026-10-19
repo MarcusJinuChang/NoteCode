@@ -110,7 +110,9 @@ nonisolated enum InlineParser {
     private struct Delimiter {
         enum Kind: Equatable {
             case run(Character)
-            case tag(SpanStyle)
+            /// A tag's opening markup (`InlineMarkup.isTag`): a run's, an
+            /// underline's, a highlight's.
+            case tag(InlineMarkup)
         }
 
         var kind: Kind
@@ -129,6 +131,12 @@ nonisolated enum InlineParser {
         var isTag: Bool {
             if case .tag = kind { return true }
             return false
+        }
+
+        /// The tag family it opens (`InlineMarkup.tagFamily`), `nil` for a run.
+        var tagFamily: Int? {
+            if case .tag(let markup) = kind { return markup.tagFamily }
+            return nil
         }
     }
 
@@ -167,7 +175,10 @@ nonisolated enum InlineParser {
                 }
 
             case "h" where allowsLinks:
-                if let end = bareLink(in: text, at: cursor, lower: range.lowerBound, limit: limit) {
+                // Inside a highlight, a `==` at an address's end is the
+                // highlight's, not the address's.
+                let highlightOpen = { delimiters.contains { $0.active && $0.tagFamily == 2 } }
+                if let end = bareLink(in: text, at: cursor, lower: range.lowerBound, limit: limit, endsAtHighlight: highlightOpen) {
                     pieces.append(Piece(kind: .address, range: cursor..<end, destination: cursor..<end))
                     cursor = end
                     continue
@@ -195,18 +206,52 @@ nonisolated enum InlineParser {
 
             case "<":
                 if let tag = SpanStyle.openingTag(in: text, at: cursor, limit: limit) {
-                    delimiters.append(Delimiter(
-                        kind: .tag(tag.style), lower: cursor, upper: tag.end, count: 1, length: 1,
-                        canOpen: true, canClose: false
-                    ))
+                    delimiters.append(tagDelimiter(.styled(tag.style), cursor..<tag.end))
                     cursor = tag.end
                     continue
                 }
-                if let end = SpanStyle.closingTag(in: text, at: cursor, limit: limit) {
-                    closeRun(at: cursor..<end, delimiters: &delimiters, in: text, into: &pieces)
+                if let end = InlineTag.underlineOpening(in: text, at: cursor, limit: limit) {
+                    delimiters.append(tagDelimiter(.underline, cursor..<end))
                     cursor = end
                     continue
                 }
+                if let end = SpanStyle.closingTag(in: text, at: cursor, limit: limit) {
+                    closeRun(at: cursor..<end, family: 0, delimiters: &delimiters, in: text, into: &pieces)
+                    cursor = end
+                    continue
+                }
+                if let end = InlineTag.underlineClosing(in: text, at: cursor, limit: limit) {
+                    closeRun(at: cursor..<end, family: 1, delimiters: &delimiters, in: text, into: &pieces)
+                    cursor = end
+                    continue
+                }
+
+            case "=":
+                var end = text.index(after: cursor)
+                var length = 1
+                while end < limit, text[end] == "=" {
+                    end = text.index(after: end)
+                    length += 1
+                }
+                guard length >= 2 else { cursor = end; continue }
+                // With a highlight open, the first two close it. What is
+                // left of the run is read next, so `====🔴` ends one highlight
+                // and starts another, and `===` is a closing `==` and an `=`.
+                if delimiters.contains(where: { $0.active && $0.tagFamily == 2 }) {
+                    let closeEnd = text.index(cursor, offsetBy: 2)
+                    closeRun(at: cursor..<closeEnd, family: 2, delimiters: &delimiters, in: text, into: &pieces)
+                    cursor = closeEnd
+                    continue
+                }
+                // Otherwise only a run of exactly two, then an emoji, opens
+                // one: `a == b` and `====` are text.
+                if length == 2, let open = InlineTag.highlightOpening(in: text, at: cursor, limit: limit) {
+                    delimiters.append(tagDelimiter(.highlight(open.colour), cursor..<open.end))
+                    cursor = open.end
+                    continue
+                }
+                cursor = end
+                continue
 
             default:
                 break
@@ -235,14 +280,22 @@ nonisolated enum InlineParser {
         return (canOpen, canClose)
     }
 
-    /// A `</span>` at `tag`: pairs it with the nearest opening tag still
-    /// open, and settles the emphasis between them on its own, so none of
-    /// it pairs across the run's edge. A tag with nothing open, or with
-    /// nothing between it and its opening tag, is text, and that opening
-    /// tag with it.
-    private static func closeRun(at tag: Range<String.Index>, delimiters: inout [Delimiter], in text: String, into pieces: inout [Piece]) {
-        guard let openIndex = delimiters.lastIndex(where: { $0.active && $0.isTag }),
-              case .tag(let style) = delimiters[openIndex].kind
+    /// A closing tag at `tag` (a `</span>`, a `</u>` or a highlight's `==`):
+    /// pairs it with the nearest opening tag of its own family still open, and
+    /// settles the emphasis between them on its own, so none of it pairs
+    /// across the run's edge. A tag with nothing open, or with nothing between
+    /// it and its opening tag, is text, and that opening tag with it. A tag
+    /// of another family opened in between is dropped with what lay between,
+    /// as emphasis that crosses is: tags that cross are text.
+    private static func closeRun(
+        at tag: Range<String.Index>,
+        family: Int,
+        delimiters: inout [Delimiter],
+        in text: String,
+        into pieces: inout [Piece]
+    ) {
+        guard let openIndex = delimiters.lastIndex(where: { $0.active && $0.tagFamily == family }),
+              case .tag(let markup) = delimiters[openIndex].kind
         else { return }
         let opening = delimiters[openIndex]
         guard opening.upper < tag.lowerBound else {
@@ -251,8 +304,13 @@ nonisolated enum InlineParser {
         }
         processEmphasis(&delimiters, above: openIndex, in: text, into: &pieces)
         delimiters.removeSubrange(openIndex...)
-        pieces.append(Piece(kind: .opening(.styled(style)), range: opening.lower..<opening.upper))
-        pieces.append(Piece(kind: .closing(.styled(style)), range: tag))
+        pieces.append(Piece(kind: .opening(markup), range: opening.lower..<opening.upper))
+        pieces.append(Piece(kind: .closing(markup), range: tag))
+    }
+
+    /// A tag waiting on the stack for its closing tag.
+    private static func tagDelimiter(_ markup: InlineMarkup, _ range: Range<String.Index>) -> Delimiter {
+        Delimiter(kind: .tag(markup), lower: range.lowerBound, upper: range.upperBound, count: 1, length: 1, canOpen: true, canClose: false)
     }
 
     /// CommonMark's "process emphasis" over the delimiters above `bottom`.
@@ -374,7 +432,8 @@ nonisolated enum InlineParser {
         in text: String,
         at start: String.Index,
         lower: String.Index,
-        limit: String.Index
+        limit: String.Index,
+        endsAtHighlight: () -> Bool
     ) -> String.Index? {
         // Not the tail of a longer word: `xhttp://` isn't an address.
         if start > lower {
@@ -408,6 +467,12 @@ nonisolated enum InlineParser {
             let last = text[lastIndex]
             if ".,;:!?'\"".contains(last) || (last == ")" && !text[hostStart..<end].contains("(")) {
                 end = lastIndex
+                continue
+            }
+            // A highlight's closing `==`, only inside one: outside, an
+            // address ending in `==` (a padded base64 query) keeps it.
+            if last == "=", end > text.index(after: hostStart), text[text.index(before: lastIndex)] == "=", endsAtHighlight() {
+                end = text.index(before: lastIndex)
                 continue
             }
             if "*_~".contains(last) {

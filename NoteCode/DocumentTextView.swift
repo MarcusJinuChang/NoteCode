@@ -766,6 +766,7 @@ struct DocumentTextView: UIViewRepresentable {
             let inline = UIMenu(options: .displayInline, children: [
                 UIAction(title: "Bold", image: UIImage(systemName: "bold")) { _ in editor.toggle(.bold) },
                 UIAction(title: "Italic", image: UIImage(systemName: "italic")) { _ in editor.toggle(.italic) },
+                UIAction(title: "Underline", image: UIImage(systemName: "underline")) { _ in editor.toggle(.underline) },
                 UIAction(title: "Code", image: UIImage(systemName: "chevron.left.forwardslash.chevron.right")) { _ in
                     editor.toggle(.code)
                 },
@@ -778,6 +779,9 @@ struct DocumentTextView: UIViewRepresentable {
                 UIAction(title: "Heading 1") { _ in editor.setHeading(level: 1) },
                 UIAction(title: "Heading 2") { _ in editor.setHeading(level: 2) },
                 UIAction(title: "Heading 3") { _ in editor.setHeading(level: 3) },
+                UIAction(title: "Heading 4") { _ in editor.setHeading(level: 4) },
+                UIAction(title: "Heading 5") { _ in editor.setHeading(level: 5) },
+                UIAction(title: "Heading 6") { _ in editor.setHeading(level: 6) },
                 UIAction(title: "Body") { _ in editor.setHeading(level: 0) },
             ])
 
@@ -1279,8 +1283,9 @@ extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
         return proseFragment(for: textElement, range: element, in: storage) ?? plain
     }
 
-    /// A heading, which can draw its hashes, or a checklist item, which draws
-    /// its box. `nil` for anything else.
+    /// A heading, which can draw its hashes, a checklist item, which draws
+    /// its box, a quote, which draws its bar, or a rule, which draws its line.
+    /// `nil` for anything else.
     private func proseFragment(for textElement: NSTextElement, range element: NSRange, in storage: NSTextStorage) -> NSTextLayoutFragment? {
         guard element.length > 0, element.location + element.length <= storage.length else { return nil }
         let text = storage.mutableString
@@ -1301,6 +1306,16 @@ extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
             fragment.boxIndex = box.indent + 2
             fragment.collapsed = rendersMarkdown
             return fragment
+        }
+
+        if let depth = ProseLine.quoteDepth(in: text, line: element) {
+            let fragment = BlockquoteLayoutFragment(textElement: textElement, range: textElement.elementRange)
+            fragment.depth = depth
+            return fragment
+        }
+
+        if ProseLine.isRule(in: text, line: element) {
+            return RuleLayoutFragment(textElement: textElement, range: textElement.elementRange)
         }
         return nil
     }

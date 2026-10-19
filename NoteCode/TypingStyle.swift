@@ -10,7 +10,7 @@
 import Foundation
 
 /// What a formatting button has set for the text about to be typed: Bold,
-/// Italic, Strikethrough, Code, a colour or a size, each on, off or left as
+/// Italic, Strikethrough, Underline, Code, a colour, a highlight or a size, each on, off or left as
 /// the text around the caret has it. Nothing is written until text is typed;
 /// then `MarkdownFormatting.typed` writes it with the style on.
 ///
@@ -27,9 +27,11 @@ nonisolated struct TypingStyle: Equatable, Sendable {
     var bold: Bool?
     var italic: Bool?
     var strikethrough: Bool?
+    var underline: Bool?
     var code: Bool?
     /// `TextColour`'s hex.
     var colour: Setting<Int>?
+    var highlight: Setting<HighlightColour>?
     /// A size in points, written against the line's own text when the text
     /// is typed (`SpanSize`), as the size control writes one.
     var points: Setting<Double>?
@@ -45,11 +47,17 @@ nonisolated struct TypingStyle: Equatable, Sendable {
         if let bold { style.bold = bold }
         if let italic { style.italic = italic }
         if let strikethrough { style.strikethrough = strikethrough }
+        if let underline { style.underline = underline }
         if let code { style.code = code }
         switch colour {
         case .set(let hex)?: style.colour = hex
         case .clear?:        style.colour = nil
         case nil:            break
+        }
+        switch highlight {
+        case .set(let colour)?: style.highlight = colour
+        case .clear?:           style.highlight = nil
+        case nil:               break
         }
         switch points {
         case .set(let points)?:
@@ -69,11 +77,17 @@ nonisolated struct TypingStyle: Equatable, Sendable {
         if let bold { shown.bold = bold }
         if let italic { shown.italic = italic }
         if let strikethrough { shown.strikethrough = strikethrough }
+        if let underline { shown.underline = underline }
         if let code { shown.code = code }
         switch colour {
         case .set(let hex)?: shown.colour = hex
         case .clear?:        shown.colour = nil
         case nil:            break
+        }
+        switch highlight {
+        case .set(let colour)?: shown.highlight = colour
+        case .clear?:           shown.highlight = nil
+        case nil:               break
         }
         return shown
     }
@@ -85,6 +99,7 @@ nonisolated struct TypingStyle: Equatable, Sendable {
         case .bold:          next.bold = !shown
         case .italic:        next.italic = !shown
         case .strikethrough: next.strikethrough = !shown
+        case .underline:     next.underline = !shown
         case .code:          next.code = !shown
         }
         return next
@@ -94,6 +109,13 @@ nonisolated struct TypingStyle: Equatable, Sendable {
     func colouring(_ hex: Int?) -> TypingStyle {
         var next = self
         next.colour = hex.map { .set($0) } ?? .clear
+        return next
+    }
+
+    /// `colour` as the highlight for typed text, or none for `nil`.
+    func highlighting(_ colour: HighlightColour?) -> TypingStyle {
+        var next = self
+        next.highlight = colour.map { .set($0) } ?? .clear
         return next
     }
 

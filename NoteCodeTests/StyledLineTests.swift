@@ -214,6 +214,7 @@ struct StyledLineTests {
         let letters = ["a", "b", "c", "x", "é", "👩‍💻", " ", " ", ",", "(", ")", ":", "'"]
         let colours: [Int?] = [nil, Self.red, Self.blue]
         let sizes: [SpanSize?] = [nil, SpanSize(em: 1.25), SpanSize(em: 0.85), SpanSize(em: 2)]
+        let highlights: [HighlightColour?] = [nil, .yellow, .red, .blue]
         var random = NestingInlineTests.Seeded(state: 19_10_2026)
         var failures: [String] = []
         var written = 0
@@ -232,7 +233,7 @@ struct StyledLineTests {
                 return min(a, b)..<max(a, b)
             }
             var styles = line.glyphs.map(\.style)
-            let flags: [WritableKeyPath<Style, Bool>] = [\.bold, \.italic, \.strikethrough, \.code]
+            let flags: [WritableKeyPath<Style, Bool>] = [\.bold, \.italic, \.strikethrough, \.underline, \.code]
             for flag in flags {
                 for _ in 0..<Int.random(in: 0...2, using: &random) {
                     for index in stretch() { styles[index][keyPath: flag] = true }
@@ -245,6 +246,12 @@ struct StyledLineTests {
             for _ in 0..<Int.random(in: 0...2, using: &random) {
                 let size = sizes.randomElement(using: &random)!
                 for index in stretch() { styles[index].size = size }
+            }
+            // Highlights of different colours side by side too: `====🔴` ends
+            // one and starts the next.
+            for _ in 0..<Int.random(in: 0...3, using: &random) {
+                let highlight = highlights.randomElement(using: &random)!
+                for index in stretch() { styles[index].highlight = highlight }
             }
             if Bool.random(using: &random) {
                 let span = stretch()
@@ -293,6 +300,8 @@ struct StyledLineTests {
             if style.italic { flags += "I" }
             if style.strikethrough { flags += "S" }
             if style.code { flags += "C" }
+            if style.underline { flags += "U" }
+            if style.highlight != nil { flags += "H" }
             if let link = style.link { flags += "L\(link.id)" }
             if style.colour != nil { flags += "#" }
             if style.size != nil { flags += "@" }
@@ -307,7 +316,8 @@ struct StyledLineTests {
     @Test("A button never changes what a line shows but the style it sets")
     func neverCorrupts() throws {
         let pieces = ["a", "b", " ", "*", "**", "_", "__", "~~", "`", "[", "](u)", "é",
-                      "https://x.io", SpanStyle(colour: Self.red).openTag, Self.close]
+                      "https://x.io", SpanStyle(colour: Self.red).openTag, Self.close,
+                      "<u>", "</u>", "==", "==🟡", "==🔴", "🟡", "="]
         var random = NestingInlineTests.Seeded(state: 20_10_2026)
         var edits = 0
         for _ in 0..<4000 {
