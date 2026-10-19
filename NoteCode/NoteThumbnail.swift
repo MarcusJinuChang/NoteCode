@@ -26,8 +26,9 @@ nonisolated enum NoteThumbnail {
     /// markers. 3: step 10's room around code blocks. 4: code in the light
     /// theme's colours, which a thumbnail made on a dark device didn't have
     /// (16 Oct). 5: spans that nest, whose markers were drawn before (text
-    /// overhaul, phase 2, 18 Oct).
-    static let version = 5
+    /// overhaul, phase 2, 18 Oct). 6: underline, highlight, quotes and rules,
+    /// which a note written before drew as their markers (phase 6, 19 Oct).
+    static let version = 6
 
     /// Pixels per page point: a Letter page is 449 by 581.
     ///

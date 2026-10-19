@@ -74,7 +74,8 @@ enum MarkdownLayout {
             case .paragraph:
                 break
 
-            case .heading:
+            case .heading, .blockQuote, .rule:
+                // A heading's hashes, a quote's `>`s and a rule's dashes.
                 let length = layout.contentRange.location - layout.range.location
                 if length > 0 {
                     runs.append(Run(range: NSRange(location: layout.range.location, length: length), kind: .joiners))

@@ -207,11 +207,21 @@ struct HeadingFormattingTests {
         #expect(headed(1, "«»#include") == "# «»#include")
     }
 
-    @Test("The parser reads the result as the heading asked for", arguments: 1...6)
+    @Test("The parser reads the result as the heading asked for", arguments: MarkdownFormatting.headingLevels)
     func parserAgrees(level: Int) {
         let (text, selection) = unpack("Tit«»le")
         let result = MarkdownFormatting.setHeading(level: level, in: text, selection: selection).applied(to: text)
         #expect(DocumentParser.parse(result).first?.headingLevel == level)
+    }
+
+    @Test("Style offers exactly the levels the parser reads: six, and not a seventh")
+    func levelsAreTheParsers() {
+        #expect(MarkdownFormatting.headingLevels == 1...6)
+        let seventh = String(repeating: "#", count: 7) + " Title"
+        #expect(DocumentParser.parse(seventh).first?.headingLevel == nil)
+        let (text, selection) = unpack("Tit«»le")
+        let asked = MarkdownFormatting.setHeading(level: 9, in: text, selection: selection).applied(to: text)
+        #expect(DocumentParser.parse(asked).first?.headingLevel == 6)
     }
 }
 

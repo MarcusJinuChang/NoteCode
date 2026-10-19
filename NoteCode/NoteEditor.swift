@@ -329,7 +329,7 @@ final class NoteEditor {
 
     // MARK: Formatting
 
-    /// Bold, Italic, Strikethrough and Code. A selection, or a caret inside a
+    /// Bold, Italic, Strikethrough, Underline and Code. A selection, or a caret inside a
     /// word, is an edit; a caret anywhere else in prose sets the typing style
     /// (`TypingStyle`) and writes nothing.
     func toggle(_ style: MarkdownFormatting.InlineStyle) {
@@ -339,6 +339,7 @@ final class NoteEditor {
             case .bold:          shown.bold
             case .italic:        shown.italic
             case .strikethrough: shown.strikethrough
+            case .underline:     shown.underline
             case .code:          shown.code
             }
             setTypingStyle(typingStyle.toggled(style, shown: lit))
@@ -355,6 +356,18 @@ final class NoteEditor {
 
     func toggleBullet() {
         toggleList(.bullet)
+    }
+
+    /// Makes the lines at the caret a quote, or takes the quote off them.
+    func toggleQuote() {
+        perform { MarkdownFormatting.toggleQuote(in: $0, selection: $1) }
+    }
+
+    /// A horizontal rule below the caret's line.
+    func insertRule() {
+        perform { [codeRanges] text, selection in
+            MarkdownFormatting.insertRule(in: text, selection: selection, codeRanges: codeRanges?() ?? [])
+        }
     }
 
     func toggleList(_ style: MarkdownFormatting.ListStyle) {
@@ -620,6 +633,19 @@ final class NoteEditor {
         }
         perform { [codeRanges] text, selection in
             MarkdownFormatting.colour(hex, selection: selection, in: text as NSString, codeRanges: codeRanges?() ?? [])
+        }
+    }
+
+    /// Highlight (`HighlightColour`): the same, with a background; `nil`
+    /// takes the highlight off.
+    func setHighlight(_ colour: HighlightColour?) {
+        guard mode == .text, !isTextLocked, let textView else { return }
+        if isTypingCaret(in: textView) {
+            setTypingStyle(typingStyle.highlighting(colour))
+            return
+        }
+        perform { [codeRanges] text, selection in
+            MarkdownFormatting.highlight(colour, selection: selection, in: text as NSString, codeRanges: codeRanges?() ?? [])
         }
     }
 

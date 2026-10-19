@@ -50,6 +50,8 @@ nonisolated struct StyledLine: Sendable {
         var colour: Int?
         /// Against the block's text, or `nil` for its own size.
         var size: SpanSize?
+        var underline = false
+        var highlight: HighlightColour?
 
         /// The run's tag that says the colour and size: empty for neither.
         var tag: SpanStyle { SpanStyle(colour: colour, size: size) }
@@ -140,7 +142,8 @@ nonisolated struct StyledLine: Sendable {
                 }
                 let style = Style(
                     bold: attributes.bold, italic: attributes.italic, strikethrough: attributes.strikethrough,
-                    code: attributes.code, link: link, colour: attributes.colour, size: attributes.size
+                    code: attributes.code, link: link, colour: attributes.colour, size: attributes.size,
+                    underline: attributes.underline, highlight: attributes.highlight
                 )
                 var position = range.location
                 while position < NSMaxRange(range) {
@@ -226,7 +229,8 @@ nonisolated struct StyledLine: Sendable {
         }
         let style = Style(
             bold: attributes.bold, italic: attributes.italic, strikethrough: attributes.strikethrough,
-            colour: attributes.colour, size: attributes.size
+            colour: attributes.colour, size: attributes.size,
+            underline: attributes.underline, highlight: attributes.highlight
         )
         return (style, attributes.link || attributes.code)
     }
@@ -343,14 +347,24 @@ nonisolated struct StyledLine: Sendable {
 
     /// The layers markers are written in.
     enum Layer: CaseIterable, Sendable {
-        case tag, link, bold, italic, strikethrough, code
+        case tag, link, bold, italic, strikethrough, underline, highlight, code
 
         /// The nestings a stretch is written in, outermost first: the
         /// shortest that reads back is kept, the first of equals. Emphasis
         /// and a run's tag go outside a link but in the last two, which are
         /// for a link with part of its own text bold or coloured. Code is
         /// always innermost.
-        static let orders: [[Layer]] = [
+        ///
+        /// Underline and highlight are tags that hold anything, so each
+        /// nesting is tried with the two outermost and with them just outside
+        /// the code: all of a sentence highlighted with one word bold is
+        /// `==🟡a **b** c==` with them outside, and the same text with them
+        /// inside is a highlight round every piece.
+        static let orders: [[Layer]] = bases.flatMap { base in
+            [[.underline, .highlight] + base, Array(base.dropLast()) + [.underline, .highlight, .code]]
+        }
+
+        private static let bases: [[Layer]] = [
             [.tag, .bold, .italic, .strikethrough, .link, .code],
             [.tag, .italic, .bold, .strikethrough, .link, .code],
             [.bold, .italic, .strikethrough, .tag, .link, .code],
@@ -366,6 +380,8 @@ nonisolated struct StyledLine: Sendable {
             case .bold:          style.bold ? true : nil
             case .italic:        style.italic ? true : nil
             case .strikethrough: style.strikethrough ? true : nil
+            case .underline:     style.underline ? true : nil
+            case .highlight:     style.highlight
             case .code:          style.code ? true : nil
             }
         }
@@ -377,6 +393,8 @@ nonisolated struct StyledLine: Sendable {
             case .bold:          (delimiters.bold, delimiters.bold)
             case .italic:        (delimiters.italic, delimiters.italic)
             case .strikethrough: ("~~", "~~")
+            case .underline:     (InlineTag.underlineOpen, InlineTag.underlineClose)
+            case .highlight:     style.highlight.map { (InlineTag.highlightMark + $0.emoji, InlineTag.highlightMark) } ?? ("", "")
             case .code:          ("`", "`")
             }
         }

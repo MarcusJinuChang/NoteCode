@@ -268,6 +268,23 @@ enum DocumentStyler {
                 for marker in layout.blockMarkers {
                     styled.addAttribute(.foregroundColor, value: markerColor, range: marker)
                 }
+
+            case .blockQuote(let depth, _):
+                // Indented past its bar, which its fragment draws. Whole
+                // paragraphs, as a list item's style is: the storage makes a
+                // paragraph's characters share its first one's.
+                styled.addAttribute(.paragraphStyle, value: ProseBlockMetrics.quoteParagraphStyle(depth: depth), range: layout.range)
+                apply(layout.inlines, over: typography.prose, to: styled)
+                for marker in layout.blockMarkers {
+                    styled.addAttribute(.foregroundColor, value: markerColor, range: marker)
+                }
+
+            case .rule:
+                // An ordinary line of text with its dashes hidden; its
+                // fragment draws the line through it.
+                for marker in layout.blockMarkers {
+                    styled.addAttribute(.foregroundColor, value: markerColor, range: marker)
+                }
             }
         }
 
@@ -372,6 +389,26 @@ enum DocumentStyler {
     }
 
     private static let colourCache = TextColourCache()
+
+    /// The colour a highlight is drawn in: its hue over the page, translucent
+    /// (`HighlightColour.alpha`), a dynamic colour per appearance.
+    ///
+    /// One object per colour, made once, for the reason `textColour` has: the
+    /// styler writes only attributes that differ from the storage's, and two
+    /// dynamic colours made alike aren't equal.
+    static func highlightColour(_ colour: HighlightColour) -> UIColor {
+        highlightColours[colour]!
+    }
+
+    private static let highlightColours: [HighlightColour: UIColor] = Dictionary(
+        uniqueKeysWithValues: HighlightColour.allCases.map { colour in
+            (colour, UIColor { traits in
+                let isDark = traits.userInterfaceStyle == .dark
+                let hex = isDark ? colour.hex.dark : colour.hex.light
+                return AccentPalette.uiColor(hex).withAlphaComponent(HighlightColour.alpha(isDark: isDark))
+            })
+        }
+    )
 
     // MARK: Incremental restyling
 
@@ -595,8 +632,15 @@ enum DocumentStyler {
                 // an inline span is short and doesn't need to square off.
                 storage.addAttribute(.backgroundColor, value: UIColor.secondarySystemFill, range: inline.range)
             }
+            // After code's, so a highlighted word of code shows the highlight.
+            if let highlight = attributes.highlight {
+                storage.addAttribute(.backgroundColor, value: highlightColour(highlight), range: inline.range)
+            }
             if attributes.strikethrough {
                 storage.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: inline.range)
+            }
+            if attributes.underline {
+                storage.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: inline.range)
             }
         }
     }
@@ -690,6 +734,11 @@ enum DocumentStyler {
             textView.typingAttributes = attributes
         case .heading(let level, _):
             textView.typingAttributes = headingAttributes(level: level, typography: typography)
+        case .blockQuote(let depth, _):
+            // The indent carries, or a quote's new line starts at the margin.
+            var attributes = proseAttributes(typography)
+            attributes[.paragraphStyle] = ProseBlockMetrics.quoteParagraphStyle(depth: depth)
+            textView.typingAttributes = attributes
         case .listItem:
             // Carry the indent, or text typed into a wrapped list line jumps
             // back to the margin.

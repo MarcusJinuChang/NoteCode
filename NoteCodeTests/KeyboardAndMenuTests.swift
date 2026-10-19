@@ -233,17 +233,30 @@ struct KeyboardAndMenuTests {
 
     // MARK: The edit menu
 
-    @Test("On prose the edit menu has Bold, Italic, Code and a Format submenu")
+    @Test("On prose the edit menu has Bold, Italic, Underline, Code and a Format submenu")
     func proseMenu() {
         let harness = Harness()
         let menu = editMenu(harness, at: 0, selecting: 5)
 
         let all = titles(of: menu)
-        #expect(all.starts(with: ["Bold", "Italic", "Code", "Format"]))
-        for title in ["Strikethrough", "Heading 1", "Heading 2", "Heading 3", "Body"] {
+        #expect(all.starts(with: ["Bold", "Italic", "Underline", "Code", "Format"]))
+        for title in ["Strikethrough", "Heading 1", "Heading 2", "Heading 3", "Heading 4", "Heading 5", "Heading 6", "Body"] {
             #expect(all.contains(title), "\(title)")
         }
         #expect(!all.contains("Run Block"))
+    }
+
+    @Test("Underline in the edit menu does what the button does, undoably")
+    func underlineMenuActs() throws {
+        let harness = Harness("a word b")
+        let menu = editMenu(harness, at: 2, selecting: 4)
+
+        let underline = try #require(allActions(in: menu).first { $0.title == "Underline" })
+        underline.performWithSender(nil, target: nil)
+
+        #expect(harness.textView.text == "a <u>word</u> b")
+        harness.editor.undo()
+        #expect(harness.textView.text == "a word b")
     }
 
     @Test("Bold in the edit menu does what the button does, undoably")

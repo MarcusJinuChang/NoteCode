@@ -216,10 +216,36 @@ nonisolated enum InlineMarkup: Hashable, Sendable {
     /// `<span style="…">` and `</span>`, a styled run (`SpanStyle`): a
     /// colour, a size or both.
     case styled(SpanStyle)
+    /// `<u>underlined</u>`
+    case underline
+    /// `==🟡highlighted==`, whose opening marker is the `==` and the emoji.
+    case highlight(HighlightColour)
 
     var isStyled: Bool {
         if case .styled = self { return true }
         return false
+    }
+
+    /// The kinds that are tags: a pair of markers that hold no text of
+    /// their own, with a style set between them. They pair first, on the
+    /// parser's stack, and Backspace, search and Get Info treat their
+    /// markers alike.
+    var isTag: Bool {
+        switch self {
+        case .styled, .underline, .highlight: true
+        default: false
+        }
+    }
+
+    /// Which tags close which: a `</u>` takes the nearest open `<u>`, whatever
+    /// else is open between them. `nil` for everything that isn't a tag.
+    var tagFamily: Int? {
+        switch self {
+        case .styled:    0
+        case .underline: 1
+        case .highlight: 2
+        default:         nil
+        }
     }
 }
 
@@ -236,6 +262,9 @@ nonisolated struct InlineAttributes: Hashable, Sendable {
     /// The size against the block's text, or `nil` for its own. A run
     /// inside a sized run multiplies, as em does in Obsidian's HTML.
     var size: SpanSize?
+    var underline = false
+    /// The innermost highlight's colour, or `nil` for none.
+    var highlight: HighlightColour?
 
     static let plain = InlineAttributes()
 
@@ -248,6 +277,8 @@ nonisolated struct InlineAttributes: Hashable, Sendable {
         case .inlineCode:    inner.code = true
         case .strikethrough: inner.strikethrough = true
         case .link:          inner.link = true
+        case .underline:     inner.underline = true
+        case .highlight(let colour): inner.highlight = colour
         case .styled(let style):
             if let colour = style.colour { inner.colour = colour }
             if let runSize = style.size {
@@ -261,9 +292,11 @@ nonisolated struct InlineAttributes: Hashable, Sendable {
     /// attributes never give the same number.
     var signature: Int {
         let flags = (bold ? 1 : 0) | (italic ? 2 : 0) | (strikethrough ? 4 : 0) | (code ? 8 : 0) | (link ? 16 : 0)
-        let colourBits = colour.map { ($0 & 0xFFFFFF) + 1 } ?? 0
-        let sizeBits = size.map { $0.thousandths + 1 } ?? 0
-        return flags | colourBits << 5 | sizeBits << 30
+            | (underline ? 32 : 0)
+        let highlightBits = highlight?.number ?? 0       // 3 bits
+        let colourBits = colour.map { ($0 & 0xFFFFFF) + 1 } ?? 0   // 25 bits
+        let sizeBits = size.map { $0.thousandths + 1 } ?? 0        // 14 bits
+        return flags | highlightBits << 6 | colourBits << 9 | sizeBits << 34
     }
 }
 
@@ -292,9 +325,10 @@ nonisolated struct InlineNode: Equatable, Sendable {
             }
         }
 
-        /// A run's tag, which marks where a style starts or stops and holds
+        /// A tag (`InlineMarkup.isTag`): a run's, an underline's or a
+        /// highlight's, which marks where a style starts or stops and holds
         /// no text of its own.
-        var isSpanTag: Bool { markup?.isStyled ?? false }
+        var isSpanTag: Bool { markup?.isTag ?? false }
 
         /// For the block signature. The style is in it: a recolour keeps
         /// every length the same, and the styler must still notice.
@@ -312,6 +346,10 @@ nonisolated struct InlineNode: Equatable, Sendable {
             case .strikethrough?:     4
             case .link?:              5
             case .styled(let style)?: 6 &+ (style.colour ?? 0x1000000) &* 8 &+ (style.size.map { $0.thousandths + 1 } ?? 0) &* 0x8000_0000
+            // A run's is 6 more than a multiple of 8, and the simple ones
+            // are 1 to 5: these two take 7 and the multiples of 8.
+            case .underline?:         7
+            case .highlight(let colour)?: colour.number &* 8
             }
             return side &+ markupBits &* 4
         }
@@ -394,7 +432,14 @@ nonisolated struct BlockNode: Equatable, Sendable {
         /// `depth` is the nesting level, counted from the line's indentation.
         case listItem(depth: Int, marker: ListMarker, inlines: [InlineNode])
         case code(CodeBlock)
-        // .blockQuote and .math arrive with later steps.
+        /// `> quoted`, `> > nested`, `>>`: one line of a quote. `depth` is the
+        /// number of `>`s. Its text is read as inline Markdown; a heading or
+        /// a list inside one is not read as such (text overhaul, phase 6).
+        case blockQuote(depth: Int, inlines: [InlineNode])
+        /// `---`: a horizontal rule. The dashes are its marker and the
+        /// content is the line's end alone, so `inlines` is the terminator.
+        case rule(inlines: [InlineNode])
+        // .math arrives with a later step.
     }
 
     var kind: Kind
@@ -422,6 +467,8 @@ nonisolated struct BlockNode: Equatable, Sendable {
         case .paragraph(let inlines):     inlines
         case .heading(_, let inlines):    inlines
         case .listItem(_, _, let inlines): inlines
+        case .blockQuote(_, let inlines): inlines
+        case .rule(let inlines):          inlines
         case .code:                       []
         }
     }
@@ -433,6 +480,8 @@ nonisolated struct BlockNode: Equatable, Sendable {
         case .heading:   1
         case .listItem:  2
         case .code:      3
+        case .blockQuote: 4
+        case .rule:      5
         }
     }
 
@@ -443,6 +492,8 @@ nonisolated struct BlockNode: Equatable, Sendable {
         case .paragraph:                 0
         case .heading(let level, _):     level
         case .listItem(let depth, _, _): depth
+        case .blockQuote(let depth, _):  depth
+        case .rule:                      0
         // Output is part of it: python -> output is the same length, and the
         // styler must still notice, since the text colour changes.
         case .code(let code):
@@ -455,14 +506,26 @@ nonisolated struct BlockNode: Equatable, Sendable {
         return nil
     }
 
-    /// The block-level marker, if any — a heading's `#`s or a list item's
-    /// bullet, each including the space after it.
+    /// The block-level marker, if any — a heading's `#`s, a list item's
+    /// bullet or a quote's `>`s, each including the space after it; a
+    /// rule's dashes.
     ///
     /// `nil` for a paragraph, whose content is the whole block. Code blocks
     /// handle their fence lines separately, since they have one at each end.
     var markerRange: Range<String.Index>? {
         guard !isCode, range.lowerBound < contentRange.lowerBound else { return nil }
         return range.lowerBound..<contentRange.lowerBound
+    }
+
+    /// How many `>`s a quote line has, `nil` for anything else.
+    var quoteDepth: Int? {
+        if case .blockQuote(let depth, _) = kind { return depth }
+        return nil
+    }
+
+    var isRule: Bool {
+        if case .rule = kind { return true }
+        return false
     }
 
     var listDepth: Int? {

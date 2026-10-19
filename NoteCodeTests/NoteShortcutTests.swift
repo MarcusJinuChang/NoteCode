@@ -14,10 +14,12 @@ import Testing
 struct NoteShortcutTests {
 
     /// The brief's table, written out by hand so a typo in `NoteShortcut`
-    /// can't also be in the expectation.
+    /// can't also be in the expectation. (⌘U is Underline, added with phase 6
+    /// of the text overhaul: Pages and Word both have it, and nothing else
+    /// answers it.)
     static let expected: [(NoteShortcut, String)] = [
         (.undo, "⌘Z"), (.redo, "⇧⌘Z"),
-        (.bold, "⌘B"), (.italic, "⌘I"), (.inlineCode, "⌘E"),
+        (.bold, "⌘B"), (.italic, "⌘I"), (.underline, "⌘U"), (.inlineCode, "⌘E"),
         (.heading1, "⌥⌘1"), (.heading2, "⌥⌘2"), (.heading3, "⌥⌘3"), (.body, "⌥⌘0"),
         (.strikethrough, "⇧⌘X"), (.bulletedList, "⇧⌘L"), (.codeBlock, "⇧⌘K"),
         (.runBlock, "⌘R"), (.copyBlock, "⇧⌘C"),

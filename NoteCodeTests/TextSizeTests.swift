@@ -35,6 +35,16 @@ struct TextSizeFontTests {
         #expect(NoteTypography(bodySize: nil) == .standard)
     }
 
+    @Test("Every heading level is bold and smaller than the one above it, at every note size", arguments: [14, 15, 16, 17, 19, 21, 23])
+    func headingLevelsDescend(size: Int) {
+        let typography = NoteTypography(bodySize: size)
+        let fonts = MarkdownFormatting.headingLevels.map { typography.heading(level: $0) }
+        for (index, font) in fonts.enumerated() {
+            #expect(font.fontDescriptor.symbolicTraits.contains(.traitBold), "level \(index + 1) isn't bold")
+            if index > 0 { #expect(font.pointSize < fonts[index - 1].pointSize, "level \(index + 1) isn't smaller than level \(index)") }
+        }
+    }
+
     @Test("A stored size that isn't a step becomes the nearest one", arguments: [(13, 14), (18, 17), (20, 19), (40, 23), (0, 14)])
     func snapping(stored: Int, snapped: Int) {
         #expect(NoteTypography(bodySize: stored).bodySize == snapped)

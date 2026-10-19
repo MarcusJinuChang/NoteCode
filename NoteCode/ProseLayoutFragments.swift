@@ -72,6 +72,27 @@ nonisolated enum ProseLine {
         return DocumentParser.parse(content).first?.headingLevel
     }
 
+    /// How many `>`s a quote line has, `nil` for anything else.
+    static func quoteDepth(in text: NSString, line: NSRange) -> Int? {
+        guard let first = firstCharacter(in: text, line: line), first == 0x3E else { return nil }
+        return DocumentParser.parse(text.substring(with: line)).first?.quoteDepth
+    }
+
+    /// Whether the line is a horizontal rule.
+    static func isRule(in text: NSString, line: NSRange) -> Bool {
+        guard line.length >= 3, let first = firstCharacter(in: text, line: line), first == 0x2D else { return false }
+        return DocumentParser.parse(text.substring(with: line)).first?.isRule == true
+    }
+
+    /// The first character after up to three spaces: what a line begins
+    /// with, for the prefilter every paragraph TextKit lays out goes through.
+    private static func firstCharacter(in text: NSString, line: NSRange) -> unichar? {
+        var cursor = line.location
+        let end = min(NSMaxRange(line), line.location + 4)
+        while cursor < end, text.character(at: cursor) == 0x20 { cursor += 1 }
+        return cursor < NSMaxRange(line) ? text.character(at: cursor) : nil
+    }
+
     /// A checklist line's indentation (in UTF-16 units) and whether it is ticked.
     static func checkbox(in text: NSString, line: NSRange) -> (indent: Int, checked: Bool)? {
         var cursor = line.location

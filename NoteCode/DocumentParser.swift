@@ -108,6 +108,26 @@ nonisolated enum DocumentParser {
         from start: String.Index,
         to end: String.Index
     ) -> BlockNode {
+        // A rule first: `---` is no list item (a bullet needs its space), but
+        // the order keeps the line from being read as anything else.
+        if isRule(line) {
+            let contentRange = line.endIndex..<end
+            return BlockNode(
+                kind: .rule(inlines: InlineParser.parse(text, in: contentRange)),
+                range: start..<end,
+                contentRange: contentRange
+            )
+        }
+
+        if let quote = quoteInfo(line) {
+            let contentRange = quote.contentStart..<end
+            return BlockNode(
+                kind: .blockQuote(depth: quote.depth, inlines: InlineParser.parse(text, in: contentRange)),
+                range: start..<end,
+                contentRange: contentRange
+            )
+        }
+
         if let list = listInfo(line) {
             let contentRange = list.contentStart..<end
             return BlockNode(
@@ -136,6 +156,56 @@ nonisolated enum DocumentParser {
             range: contentRange,
             contentRange: contentRange
         )
+    }
+
+    /// A horizontal rule: three or more hyphens and nothing else, up to three
+    /// spaces in front and any after.
+    ///
+    /// `---` only. `***` and `___` are rules in CommonMark too, but a line of
+    /// just `***` is where `***bold italic***` begins, and with its marker
+    /// hidden the stars would vanish as the third was typed.
+    ///
+    /// Not a setext heading: text above `---` is not made a heading, as it is
+    /// on GitHub and in Obsidian. Put a blank line above a rule to read the
+    /// same everywhere.
+    static func isRule(_ line: Substring) -> Bool {
+        var cursor = line.startIndex
+        var indent = 0
+        while cursor < line.endIndex, line[cursor] == " ", indent < 4 {
+            indent += 1
+            cursor = line.index(after: cursor)
+        }
+        guard indent <= 3 else { return false }
+
+        var hyphens = 0
+        while cursor < line.endIndex, line[cursor] == "-" {
+            hyphens += 1
+            cursor = line.index(after: cursor)
+        }
+        guard hyphens >= 3 else { return false }
+        return line[cursor...].allSatisfy { $0 == " " || $0 == "\t" }
+    }
+
+    /// A quote line: up to three spaces, then one or more `>`, each with an
+    /// optional space after it. `depth` is the number of `>`s; the content
+    /// starts after the last space.
+    private static func quoteInfo(_ line: Substring) -> (depth: Int, contentStart: String.Index)? {
+        var cursor = line.startIndex
+        var indent = 0
+        while cursor < line.endIndex, line[cursor] == " ", indent < 4 {
+            indent += 1
+            cursor = line.index(after: cursor)
+        }
+        guard indent <= 3 else { return nil }
+
+        var depth = 0
+        while cursor < line.endIndex, line[cursor] == ">" {
+            depth += 1
+            cursor = line.index(after: cursor)
+            if cursor < line.endIndex, line[cursor] == " " { cursor = line.index(after: cursor) }
+        }
+        guard depth > 0 else { return nil }
+        return (depth, cursor)
     }
 
     /// Recognizes a list item: optional indentation, a marker, then a space.
