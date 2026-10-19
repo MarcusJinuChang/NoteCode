@@ -334,7 +334,7 @@ struct PageDetailView: View {
         // Beside the sidebar button, at the top left. The house goes where
         // the list's Home row was: the list is no longer where Home lives.
         if let onGoHome {
-            ToolbarItem(placement: .topBarLeading) {
+            ToolbarItem(placement: homePlacement) {
                 Button("Home", systemImage: "house", action: onGoHome)
                     .tint(.primary)
                     .accessibilityIdentifier("homeButton")
@@ -352,6 +352,16 @@ struct PageDetailView: View {
             moreMenu
                 .tint(.primary)
         }
+    }
+
+    /// The top left. `.topBarLeading` is iOS's only; the Mac's leading
+    /// place in a window's toolbar is `.navigation`.
+    private var homePlacement: ToolbarItemPlacement {
+#if os(iOS)
+        .topBarLeading
+#else
+        .navigation
+#endif
     }
 
     /// •••: how pages are shown, where code runs, the outline and find.
