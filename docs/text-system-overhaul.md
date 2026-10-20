@@ -5,8 +5,9 @@ does in Obsidian and most other editors, with free resizing of any text at
 the very least.
 
 **Status:** decisions 1 to 4 below taken as recommended (Marcus, 18 Oct).
-Phases 1 to 4 and 6 are merged (#73 to #78). Phase 5 is built on branch
-`claude/paste-copy-formatting` (19 Oct, asked for by Marcus).
+All six phases are built and merged (#73 to #79). What is left is looking at
+it on the iPad: see "Done means, on screen" and each phase's "Not checked" in
+AGENTS.md.
 
 Each phase below is one branch and one PR off `main`. A session starting a
 phase reads this file, AGENTS.md and the files the phase names.
@@ -25,8 +26,8 @@ or Obsidian does differently.
 | A size or colour on half a bold word takes the whole word: "a run never cuts a span in two". (Exactly the letters since Phase 3.) | `MarkdownFormatting.styleLine` | Exactly the selected letters |
 | Bold with nothing selected types `****` and puts the caret between, and it shows, since an empty pair isn't a span. (A typing style since Phase 4.) | `toggle` | The next typed text is bold; nothing shows |
 | A size or colour with a caret only changes the word at the caret. Nothing sets the size of text not typed yet ("Not built" in AGENTS.md). (A typing style since Phase 4.) | `style` | In a word: the word (Word). Between words: the next typed text |
-| Paste: no handling of its own, so presumably plain text. Not checked. | `DocumentUITextView` | Bold, italic, size and colour survive |
-| No blockquote, horizontal rule, highlight or underline; Style ▾ offers H1 to H3. | `DocumentParser`, `TextOptionsRow` | Obsidian has all of them |
+| Paste: no handling of its own, so presumably plain text. Not checked. (Rich paste and copy since Phase 5.) | `DocumentUITextView` | Bold, italic, size and colour survive |
+| No blockquote, horizontal rule, highlight or underline; Style ▾ offers H1 to H3. (All built since Phase 6; tables are not in this plan.) | `DocumentParser`, `TextOptionsRow` | Obsidian has all of them |
 
 **What stays, because ink depends on it:**
 
@@ -267,7 +268,7 @@ Japanese or Chinese ones (not installed), dictation, or a tapped QuickType word.
 
 ### Phase 5: paste and copy with formatting (optional)
 
-Built 19 Oct, branch `claude/paste-copy-formatting`; AGENTS.md › Paste and copy
+Built 19 Oct, branch `claude/paste-copy-formatting`, merged as #79; AGENTS.md › Paste and copy
 with formatting has what was found on the way. Built on Marcus's "continue
 with the text overhaul" while decision 5 was still open. One change to the
 plan as written:
@@ -286,6 +287,13 @@ plan as written:
   plain.
 - Copy: the Markdown as the plain string, as now, and an RTF copy beside it,
   so Pages and Mail keep the formatting.
+
+Known gaps, from the build: a list copied from a web page pastes as plain
+lines (iOS's HTML importer drops `<ul>` and `<ol>`; RTF lists from Notes and
+Pages are assumed, from hand-written test RTF); Paste and Match Style, tables,
+images, and a quote or rule are not carried. Nothing was tried with another
+app's real pasteboard (Safari, Pages, Notes, Mail, Word), the "Allow Paste"
+prompt, or Universal Clipboard.
 
 ### Phase 6: Obsidian's other blocks (optional, any order)
 
@@ -360,5 +368,5 @@ On the iPad, not through a value the code computes:
    to ••• › Text Size. **Decided 18 Oct.**
 3. ⌘+ and ⌘− follow the row's control, as in Pages. **Decided 18 Oct.**
 4. 8 to 72pt, with presets like Word's. **Decided 18 Oct.**
-5. Phases 5 and 6 in or out? Both built (19 Oct): Phase 6 on Marcus's ask,
-   Phase 5 on "continue". Phase 6 is merged; Phase 5 awaits review.
+5. Phases 5 and 6 in or out? Both in, built and merged (19 Oct): Phase 6 on
+   Marcus's ask, Phase 5 on "continue".
