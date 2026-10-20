@@ -24,7 +24,7 @@ import UIKit
 ///
 /// **Why PaperKit.** Shapes, arrows, images and text boxes come with it, each
 /// selectable and resizable, and its strokes are PencilKit's. See
-/// docs/phase-drawing-layer.md.
+/// docs/archive/phase-drawing-layer.md.
 @MainActor
 final class DrawingCanvas: UIView {
 

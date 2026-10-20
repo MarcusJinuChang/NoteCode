@@ -120,7 +120,7 @@ final class NoteEditor {
     @ObservationIgnored private(set) var isFormatting = false
 
     /// What the next text typed will be drawn with, set by a button that has
-    /// no word to act on (`TypingStyle`, docs/text-system-overhaul.md,
+    /// no word to act on (`TypingStyle`, docs/archive/text-system-overhaul.md,
     /// decision 5). Nothing is written until text is typed. Cleared by a
     /// caret move, a mode switch, a locked note and the keyboard going away.
     private(set) var typingStyle = TypingStyle.none

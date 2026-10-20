@@ -2,7 +2,7 @@
 //  TypingStyle.swift
 //  NoteCode
 //
-//  Text overhaul, phase 4 (docs/text-system-overhaul.md, decision 5): what the
+//  Text overhaul, phase 4 (docs/archive/text-system-overhaul.md, decision 5): what the
 //  next text typed will be drawn with, which a button sets when it has no
 //  word to act on.
 //

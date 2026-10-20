@@ -156,7 +156,7 @@ nonisolated struct SpanStyle: Hashable, Sendable {
 /// A size text can be set in, against the text around it: a heading's run
 /// is larger than a paragraph's.
 ///
-/// **Any size** (text overhaul, phase 1, 18 Oct; docs/text-system-overhaul.md).
+/// **Any size** (text overhaul, phase 1, 18 Oct; docs/archive/text-system-overhaul.md).
 /// Written as em against the text around it, to the thousandth, so a note
 /// resized with its stepper keeps its proportions and Obsidian draws it the
 /// same way; chosen and shown in points (`init(points:against:)`,
