@@ -318,6 +318,13 @@ PaperKit's bytes always the **resolved** one and the anchor an optional **link**
   what an anchor means after the paragraph is deleted (nearest surviving offset,
   the caret rule). Each is a decision for the anchoring phase and none changes the
   format: they change what the resolver does with the table.
+- **Order against `docs/ROADMAP.md`.** The roadmap lists text-anchored ink
+  (item 4) *before* the object system (item 6) and says the object system's
+  storage is "the one format change after release". Marcus moved the object
+  system ahead of the submission (21 Oct), so the table has to carry anchors
+  from its first version, which is what this section is for: with it, anchored
+  ink after release changes no format, only what the resolver does. The
+  roadmap line wants updating when this lands.
 - This is why the table keys on stable object ids from the first build, and why
   commands are applied to families: the thing that later gets an anchor is the
   object the user already selects.
