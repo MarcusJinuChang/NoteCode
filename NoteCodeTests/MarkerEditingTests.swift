@@ -358,7 +358,7 @@ struct ListEditingTests {
         #expect(state("plain| text") == plain)
         // Code has no inline formatting, though the row now knows it is in code.
         var inCode = MarkdownFormatting.CaretFormatting()
-        inCode.block = .code(label: "Plain Text", kind: .plain, isClosed: true)
+        inCode.block = .code(label: "Code", kind: .plain, isClosed: true)
         #expect(state("```\n**x|**\n```") == inCode, "code has no formatting")
         #expect(!state("**a** b *c|*").bold)
     }

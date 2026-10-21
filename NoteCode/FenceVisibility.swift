@@ -123,11 +123,11 @@ extension CodeRange {
 nonisolated enum FenceTag {
 
     /// What the language button says: the language's name, the tag as typed
-    /// when the app doesn't know it, or "Plain Text" for a bare fence.
+    /// when the app doesn't know it, or "Code" for a bare fence.
     static func label(language: CodeLanguage?, tag: String) -> String {
         if let language { return language.displayName }
         if CodeBlockKind.isOutputTag(Substring(tag)) { return CodeBlockKind.output.displayName }
-        return tag.isEmpty ? "Plain Text" : tag
+        return tag.isEmpty ? "Code" : tag
     }
 
     /// The same, from an opening fence's line: for paper, where there is no

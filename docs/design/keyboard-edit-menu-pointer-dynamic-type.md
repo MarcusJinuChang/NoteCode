@@ -38,7 +38,7 @@ Phase 9 of `docs/archive/ui-design-v2-implementation.md` (12 Oct).
   coordinator's `run` and `copy`, so there is one path for each.
 - **Code Block, last language (⇧⌘K)**: `LastCodeLanguage`, per device
   (`lastCodeLanguage`), written by every code-block insert including the
-  hotbar's menu, C++ until one is made, Plain Text remembered as `plain`.
+  hotbar's menu, C++ until one is made, Code (no language) remembered as `plain`.
 - **[ and ]** step the selected tool's width (`InkToolState.stepWidth`): the
   pen's and the highlighter's three, the eraser's three sizes (from a custom
   size, the nearest preset that way), nothing for the lasso.

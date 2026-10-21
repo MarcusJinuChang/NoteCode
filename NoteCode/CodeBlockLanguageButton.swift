@@ -19,7 +19,7 @@ import UIKit
 /// overlay keeps it under the ink canvas.
 final class CodeBlockLanguageButton: UIButton {
 
-    /// Called with what was picked: a language, Output or Plain Text.
+    /// Called with what was picked: a language, Output or Code.
     var onChoose: ((CodeBlockKind) -> Void)?
 
     /// What the block is now, so the menu can tick it. `nil` for a tag the
