@@ -339,6 +339,22 @@ struct NoteEditorTests {
         #expect(PencilResponse(.ignore) == .nothing)
     }
 
+    @Test("A Pencil gesture in text mode goes to ink first, unless it would do nothing")
+    func pencilFromText() {
+        let harness = Harness("a word b")
+        #expect(harness.editor.mode == .text)
+
+        #expect(harness.editor.enterInkForPencil(.nothing) == false)
+        #expect(harness.editor.mode == .text)
+
+        #expect(harness.editor.enterInkForPencil(.toggleEraser))
+        #expect(harness.editor.mode == .ink)
+        // Already in ink: nothing to switch.
+        #expect(harness.editor.enterInkForPencil(.toggleEraser) == false)
+        harness.editor.toggleEraser()
+        #expect(harness.editor.inkTool.kind == .eraser)
+    }
+
     @Test("The hotbar's tool reaches the canvas")
     func toolReachesTheCanvas() {
         let harness = Harness("a word b")

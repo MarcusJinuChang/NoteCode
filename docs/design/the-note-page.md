@@ -137,6 +137,17 @@ Laid out from the 12 September mockup.
   Apple Pencil (`PencilResponse`), in ink mode only: swap to the eraser and
   back, swap to the previous tool, or show the ink tools beside the Pencil.
   Hardware only — the simulator has no Pencil.
+  - **From text mode** (21 Oct) a double tap or squeeze first switches to ink
+    mode (`NoteEditor.enterInkForPencil`), then does the same action, so the
+    first tap lands on the eraser or the palette. Not when the reader's setting
+    is off or a system shortcut (`PencilResponse.nothing`): switching mode for
+    a gesture that then does nothing would only surprise. **Unverified:**
+    whether SwiftUI's `onPencilDoubleTap` is delivered while the text view is
+    first responder. The simulator can't send a Pencil event and no iPad
+    Pencil was to hand, so only the mode switch is tested
+    (`NoteEditorTests.pencilFromText`). If a double tap in text mode does
+    nothing on the iPad, the fallback is a `UIPencilInteraction` on the text
+    view itself, with the same `respond` behind it.
 - **Formatting is markdown in the source.** A button computes a `TextEdit` in
   `MarkdownFormatting`, which is pure and defers to the parsers, so a button
   never writes markers the styler won't draw. `NoteEditor` applies the edit

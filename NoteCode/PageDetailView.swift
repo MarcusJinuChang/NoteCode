@@ -616,6 +616,8 @@ struct PageDetailView: View {
     /// - Parameter anchor: where the Pencil is hovering over the page, if it
     ///   is — where the ink tools show. Without it, they show by the hotbar.
     private func respond(to response: PencilResponse, at anchor: UnitPoint?) {
+        // From text mode the gesture first switches to ink, then acts.
+        editor.enterInkForPencil(response)
         guard editor.mode == .ink else { return }
         switch response {
         case .toggleEraser:

@@ -60,6 +60,18 @@ final class NoteEditor {
         inkTool.kind = previousInkKind
     }
 
+    /// The Pencil's double tap or squeeze while the text has the page: goes to
+    /// ink mode so the gesture has something to act on, then does what the
+    /// reader set it to. Nothing when the setting is off or a shortcut the
+    /// system runs itself, since switching mode for a gesture that then does
+    /// nothing would only surprise. Whether the mode changed.
+    @discardableResult
+    func enterInkForPencil(_ response: PencilResponse) -> Bool {
+        guard mode == .text, response != .nothing else { return false }
+        setMode(.ink)
+        return true
+    }
+
     /// Picks a tool from the keyboard (P, H, E, L). Ink mode only: in text
     /// mode these are letters.
     func selectTool(_ kind: InkToolKind) {
