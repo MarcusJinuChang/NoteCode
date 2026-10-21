@@ -38,6 +38,13 @@ final class NoteEditor {
                 previousInkKind = oldValue.kind
             }
             canvas?.tool = inkTool.pencilKitTool
+            // The selection is the canvas controller's, not the tool's, so it
+            // outlived the lasso (reported 21 Oct). Only *leaving* the lasso
+            // clears it: `insertIntoInk` selects what it inserted and then
+            // switches to the lasso, and that must keep the selection.
+            if oldValue.kind == .lasso, inkTool.kind != .lasso {
+                canvas?.clearPaperKitSelection()
+            }
         }
     }
 

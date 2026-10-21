@@ -102,6 +102,16 @@ final class DrawingCanvas: UIView {
         return takesTouch(convert(point, to: superview))
     }
 
+    /// Lets go of whatever PaperKit has selected.
+    ///
+    /// The selection belongs to the controller, not to the tool, so changing
+    /// tool leaves it up (`NoteEditor.inkTool`). Does nothing when nothing is
+    /// selected: assigning the property reaches the delegate.
+    func clearPaperKitSelection() {
+        guard !controller.selection.isEmpty else { return }
+        controller.selection = []
+    }
+
     /// Called when ink's undo stack gains or loses something the hotbar's
     /// arrows should reflect.
     var onUndoDidChange: (() -> Void)?
@@ -404,6 +414,9 @@ final class DrawingCanvas: UIView {
         // PencilKit's canvas can be rebuilt as the controller settles in, and
         // the drawing policy lives on it.
         applyTouchMode()
+        #if DEBUG
+        SelectionProbe.attach(to: self)
+        #endif
 
         guard controller.parent == nil, let parent = nearestViewController() else { return }
         parent.addChild(controller)
@@ -432,6 +445,16 @@ extension DrawingCanvas: PaperMarkupViewController.Delegate {
         // stayed dim after a stroke.
         onUndoDidChange?()
     }
+
+    #if DEBUG
+    func paperMarkupViewControllerDidChangeSelection(_ paperMarkupViewController: PaperMarkupViewController) {
+        probeDelegate("PaperKit selection changed")
+    }
+
+    func paperMarkupViewControllerDidBeginDrawing(_ paperMarkupViewController: PaperMarkupViewController) {
+        probeDelegate("PaperKit began drawing")
+    }
+    #endif
 }
 
 #endif

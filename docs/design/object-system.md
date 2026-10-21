@@ -435,6 +435,44 @@ test fails without the fix".
 Steps 1 and 2 are file-disjoint from every other stream. Step 3 touches
 `PageView`: sequence it after P's changes there.
 
+## Step 0, as built (21 Oct)
+
+- **Fix:** `NoteEditor.inkTool.didSet` calls `DrawingCanvas.clearPaperKitSelection()`
+  when the tool *leaves* the lasso. Leaving only: `insertIntoInk` selects what it
+  inserted and then switches to the lasso, which must keep the selection. Tests in
+  `NoteEditorTests` (leaving clears, entering keeps, a pen colour change keeps).
+  Mutation-checked: with the call removed, `leavingTheLassoClearsTheSelection`
+  fails. **Not yet seen on the iPad.**
+- **Probe:** `SelectionProbe` (debug builds, off unless launched with
+  `-debug-selection-probe`) writes `tmp/selectionprobe.log` in the app container:
+  every touch in the window (finger, Pencil or pointer, what it hit), PaperKit's
+  selection and began-drawing callbacks, keyboard notifications, who is first
+  responder, the text view's inset and offset, the page frame, and the hotbar's
+  frame in global coordinates. Each touch's result is snapshotted 0.2s after it
+  lifts.
+- **Built** for `generic/platform=iOS` (Debug, signed, `BUILD SUCCEEDED`), so the
+  loop below works as written; the simulator run of `NoteEditorTests` passes.
+- **Run it** (the iPad must be plugged in; `devicectl list devices` shows it
+  `available`):
+
+      xcodebuild build -project NoteCode.xcodeproj -scheme NoteCode -configuration Debug \
+        -destination 'generic/platform=iOS' -allowProvisioningUpdates
+      xcrun devicectl device install app --device 00008142-000C28EA2109401C <path to NoteCode.app>
+      xcrun devicectl device process launch --terminate-existing --device 00008142-000C28EA2109401C \
+        com.marcus.NoteCode -debug-selection-probe
+
+  Then: (1) in ink mode with the pen, tap a few strokes close together (the
+  cluster highlight), then with the lasso, select and move something, then tap
+  empty space; (2) switch lasso → pen with a selection up (should now let go);
+  (3) watch the hotbar after the lasso move. Pull the log with
+  `xcrun devicectl device copy from --device <udid> --domain-type appDataContainer
+  --domain-identifier com.marcus.NoteCode --source tmp/selectionprobe.log
+  --destination <file>`.
+- **Reading it:** a `selection changed` line with `pkSelection > 0` after a pen
+  tap says the pen selects; the line before it has the touch and its view chain.
+  The hotbar lines (`hotbar frame`) beside `keyboard…` lines and a changed
+  `firstResponder` or `textView inset` say which of the hypotheses above holds.
+
 ## Questions for Marcus (with a recommendation)
 
 1. **Storage: container inside `drawingData` (A) or a new attribute (B)?**
