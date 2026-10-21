@@ -40,7 +40,7 @@ extension EditorMode {
     /// reason: settings that have to agree live in one call, or one of them
     /// eventually gets missed at a call site. The tool picker's settings never
     /// join it — the hotbar replaces `PKToolPicker`, see
-    /// docs/phase-drawing-layer.md.
+    /// docs/archive/phase-drawing-layer.md.
     ///
     /// The canvas brings one knob, not the two the plan expected. Which input
     /// may draw turned out to be a property of the canvas rather than of the

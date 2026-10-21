@@ -25,7 +25,7 @@ import UIKit
 /// text container's exclusion paths; `PageLayout` has the geometry and why
 /// every mode paginates identically. The bands make typing cost more, because
 /// TextKit lays out everything below an edit once any exclusion path exists —
-/// see docs/phase-drawing-layer.md for the numbers.
+/// see docs/archive/phase-drawing-layer.md for the numbers.
 final class PageView: UIScrollView, UIGestureRecognizerDelegate {
 
     let textView: DocumentUITextView

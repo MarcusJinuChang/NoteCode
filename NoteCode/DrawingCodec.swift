@@ -13,7 +13,7 @@ import PaperKit
 /// Reading never throws. What can't be read comes back as `.unreadable`, and
 /// the caller's job is then to leave the stored bytes exactly as they are:
 /// saving an empty canvas over unreadable ink would turn a passing bug into a
-/// semester of lost notes. See docs/phase-drawing-layer.md, step 4.
+/// semester of lost notes. See docs/archive/phase-drawing-layer.md, step 4.
 nonisolated enum DrawingCodec {
 
     enum Loaded {

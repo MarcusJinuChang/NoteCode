@@ -20,7 +20,7 @@ nonisolated enum InlineParser {
     /// nodes of their own and everything else is `.text`, carrying what it
     /// is drawn with (`InlineAttributes`). An unmatched marker is just text.
     ///
-    /// **How** (text overhaul, phase 2; docs/text-system-overhaul.md,
+    /// **How** (text overhaul, phase 2; docs/archive/text-system-overhaul.md,
     /// decision 4). Code spans and links are found first, left to right, as
     /// before: nothing inside a code span is read, and a link's text is read
     /// on its own, so nothing in it pairs with anything outside. The rest is

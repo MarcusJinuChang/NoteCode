@@ -11,7 +11,7 @@ import Foundation
 
 /// One line of a note as the characters on the page, for the formatting
 /// buttons: a button sets or clears one attribute over some of them, and the
-/// line is written back so it reads that way (docs/text-system-overhaul.md,
+/// line is written back so it reads that way (docs/archive/text-system-overhaul.md,
 /// decision 3).
 ///
 /// - **Only what has to change is rewritten**: the stretch between the
@@ -238,7 +238,7 @@ nonisolated struct StyledLine: Sendable {
     /// The glyphs of the word a caret at `offset` is inside, or `nil` where it
     /// is not strictly inside one: a word character on each side. At a word's
     /// ends, between words and on a blank line a button sets the typing style
-    /// instead (docs/text-system-overhaul.md, decision 5). A word is letters,
+    /// instead (docs/archive/text-system-overhaul.md, decision 5). A word is letters,
     /// digits and the underscore, as `MarkdownFormatting.word` has it.
     func wordGlyphs(atCaret offset: Int) -> Range<Int>? {
         let index = glyphCount(endingBy: offset)
