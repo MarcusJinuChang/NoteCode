@@ -397,6 +397,7 @@ private struct NotesSettings: View {
     var onExportFinished: (Int) -> Void
 
     @AppStorage(NewNotes.defaultsKey) private var newNotes = PageOrientation.default
+    @AppStorage(NewNotes.opensAfterCreatingKey) private var opensAfterCreating = NewNotes.opensAfterCreatingByDefault
     @AppStorage(PageViewMode.defaultsKey) private var viewMode = PageViewMode.default
     @AppStorage(NoteSort.defaultsKey) private var sort = NoteSort.default
 
@@ -406,8 +407,9 @@ private struct NotesSettings: View {
                 Picker("New Notes", selection: $newNotes) {
                     ForEach(PageOrientation.allCases, id: \.self) { Text($0.title) }
                 }
+                Toggle("Open Note After Creating", isOn: $opensAfterCreating)
             } footer: {
-                Text("Which way up the + button's tap makes a note's pages. Hold + to choose the other for one note. A note keeps its orientation once it's made.")
+                Text("Which way up the + button's tap makes a note's pages. Hold + to choose the other for one note. A note keeps its orientation once it's made. With Open Note After Creating off, a new note is added to the list and a message offers to open it.")
             }
 
             Section {

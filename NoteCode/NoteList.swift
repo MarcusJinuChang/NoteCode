@@ -85,6 +85,11 @@ struct NoteList: View {
     /// (Settings › Notes › New Notes).
     @AppStorage(NewNotes.defaultsKey) private var newNoteOrientation = PageOrientation.default
 
+    /// Whether a note made here is opened (Settings › Notes › Open Note After
+    /// Creating).
+    @AppStorage(NewNotes.opensAfterCreatingKey)
+    private var opensNewNote = NewNotes.opensAfterCreatingByDefault
+
     /// Where code blocks run when nothing more specific says, for the
     /// folder menu's "Default" row.
     @AppStorage(RunDestinationPreference.appDefaultKey)
@@ -746,8 +751,7 @@ struct NoteList: View {
             }
             return Page.create(orientation: orientation, in: folder, context: modelContext)
         }
-        onNewPage(page)
-        selection = page
+        finishAdding(page, in: folder)
     }
 
     private func addPage(from template: NoteTemplate, in folder: Folder?) {
@@ -757,8 +761,21 @@ struct NoteList: View {
             }
             return Page.create(from: template, orientation: newNoteOrientation, in: folder, context: modelContext)
         }
-        onNewPage(page)
-        selection = page
+        finishAdding(page, in: folder)
+    }
+
+    /// Opens a note just made, or, with Open Note After Creating off, leaves
+    /// the reader where they were and says it was added, with a way in.
+    private func finishAdding(_ page: Page, in folder: Folder?) {
+        if opensNewNote {
+            onNewPage(page)
+        } else {
+            toasts?.show(NewNotes.addedMessage(in: folder), actionTitle: "Open") {
+                onNewPage(page)
+                selection = page
+            }
+        }
+        selection = NewNotes.selection(afterCreating: page, current: selection, opens: opensNewNote)
     }
 
     private func startRenaming(_ page: Page) {

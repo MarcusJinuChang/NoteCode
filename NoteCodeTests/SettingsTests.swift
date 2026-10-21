@@ -30,6 +30,8 @@ struct SettingsTests {
         #expect(CodeIndent.widthKey == "indentWidth")
         #expect(CodeKeys.enabledKey == "codeKeys")
         #expect(LineNumbers.defaultsKey == "lineNumbers")
+        #expect(NewNotes.defaultsKey == "newNoteOrientation")
+        #expect(NewNotes.opensAfterCreatingKey == "openNoteAfterCreating")
     }
 
     @Test("Appearance round-trips through its stored text, and system is the default")

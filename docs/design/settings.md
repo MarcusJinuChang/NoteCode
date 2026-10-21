@@ -30,6 +30,18 @@ the version string, the licence text, the palette reset) are `AppSettings.swift`
   window's state, so the window in front hands it its sheet's binding through
   `focusedSceneValue`. The sheet is owned by `ContentView`, above the list,
   so ⌘, works with the list slid away over a note.
+- **Open Note After Creating** (21 Oct, Settings › Notes beside New Notes; key
+  `openNoteAfterCreating`, `NewNotes.opensAfterCreatingKey`, off by default).
+  Off, the list's "+" tap, its hold menu (Portrait/Landscape Pages and From
+  Template), a folder's New Note menu and the empty list's New Note button
+  make the note, file it in the open note's folder as always, leave the open
+  note (or Home) where it is, and show a toast "Note added to CS133" (or "Note
+  added") with an Open button. On, they open it with its title ready to rename,
+  as before. Every one goes through `NoteList.finishAdding`, and what is
+  selected afterwards is `NewNotes.selection(afterCreating:current:opens:)`,
+  pure and tested. **Not covered:** ⌘N, Home's New Note and From Template, and
+  Import: those are explicit "make me a note and show it" commands made from a
+  place where nothing visible would otherwise happen, so they still open.
 - **Appearance is applied at the root of the scene** (`AppearanceModifier`,
   `preferredColorScheme`, on both the note view and the storage-unavailable
   view), so every window, the sheet and UIKit controllers presented from it

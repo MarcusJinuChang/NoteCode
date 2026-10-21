@@ -18,6 +18,24 @@ import SwiftData
 nonisolated enum NewNotes {
     static let defaultsKey = "newNoteOrientation"
 
+    /// Settings › Notes › Open Note After Creating: whether the list's "+"
+    /// (its tap, its menu and the folder menu) opens the note it makes. Off
+    /// until chosen, so adding several notes in a row leaves the reader where
+    /// they were; the note shows up in the list with a toast.
+    static let opensAfterCreatingKey = "openNoteAfterCreating"
+    static let opensAfterCreatingByDefault = false
+
+    /// What the list selects once it has made `page`: the note itself if the
+    /// reader wants it opened, else whatever was open.
+    static func selection(afterCreating page: Page, current: Page?, opens: Bool) -> Page? {
+        opens ? page : current
+    }
+
+    /// The toast for a note made without opening it.
+    static func addedMessage(in folder: Folder?) -> String {
+        folder.map { "Note added to \($0.name)" } ?? "Note added"
+    }
+
     /// The stored choice, or portrait where nothing valid is stored.
     static func orientation(in defaults: UserDefaults = .standard) -> PageOrientation {
         defaults.string(forKey: defaultsKey).flatMap(PageOrientation.init(rawValue:)) ?? .default
