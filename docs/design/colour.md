@@ -111,7 +111,8 @@ page `#FFFFFF`/`#000000`, panel `#F2F2F7`/`#1C1C1E`; OKLCH.
   colours are the more vibrant. Nothing in `penShades`, the pen palette or its
   tests changes, and Ink stays `#000000`. (The deeper, softer pens in the first
   version of this proposal are dropped.)
-- **Highlighters: the proposed values**, as seen behind text in the sheet.
+- **Highlighters: the proposed values**, as seen behind text in the sheet,
+  **except Orange, which keeps today's** (`FFB866`, dark `995200`).
 - **The hotbar's selected swatch ring is grey, not black**: black was too
   jarring in light mode.
 - **Highlighters are marker chips** on the hotbar (28 by 18pt).
@@ -128,12 +129,12 @@ about 4.5:1 (yellow 4.8, was 3.1:1 failing). Contrast is on page / on panel.
 | Highlighter | Today (stored → dark) | Proposed (stored → dark) | Dark hotbar face | Light: page / panel | Dark: page / panel |
 |---|---|---|---|---|---|
 | Graphite | `B8B8B8` → `474747` | `9B9BA1` → `5E5E64` | `9B9BA1` | 2.0 / 1.8 → 2.8 / 2.5 | 2.3 / 1.8 → 3.3 / 2.6 |
-| Orange | `FFB866` → `995200` | `FA9242` → `BD5505` | `F97E1F` | 1.7 / 1.5 → 2.3 / 2.0 | 3.6 / 2.9 → 4.5 / 3.6 |
-| Yellow | `FFF066` → `998A00` | `FCDD79` → `866703` | `FAC61F` | 1.2 / 1.1 → 1.3 / 1.2 | 6.0 / 4.9 → 4.0 / 3.2 |
-| Green | `83E286` → `1D7C20` | `81E4A2` → `1B7E3C` | `25F46A` | 1.6 / 1.4 → 1.5 / 1.4 | 4.0 / 3.2 → 4.1 / 3.3 |
-| Pink | `F877B8` → `880748` | `EC558D` → `AA134B` | `F42572` | 2.5 / 2.3 → 3.4 / 3.0 | 2.2 / 1.8 → 2.9 / 2.4 |
+| Orange | `FFB866` → `995200` | unchanged | `FF9C29` | 1.7 / 1.5 | 3.6 / 2.9 |
+| Yellow | `FFF066` → `998A00` | `FCDD79` → `866703` | `FACA2D` | 1.2 / 1.1 → 1.3 / 1.2 | 6.0 / 4.9 → 4.0 / 3.2 |
+| Green | `83E286` → `1D7C20` | `81E4A2` → `1B7E3C` | `40E778` | 1.6 / 1.4 → 1.5 / 1.4 | 4.0 / 3.2 → 4.1 / 3.3 |
+| Pink | `F877B8` → `880748` | `EC558D` → `AA134B` | `E93E7E` | 2.5 / 2.3 → 3.4 / 3.0 | 2.2 / 1.8 → 2.9 / 2.4 |
 
-- **The ink on a dark page** is the dark value: orange, pink and graphite are
+- **The ink on a dark page** is the dark value: pink and graphite are
   lifted from today's (pink from maroon to raspberry, graphite from 1.8:1 to
   2.6:1 on the panel), and yellow becomes a warm gold (hue about 90°, was 102°)
   instead of olive, darker than before so white text reads on it. A yellow that
@@ -143,9 +144,8 @@ about 4.5:1 (yellow 4.8, was 3.1:1 failing). Contrast is on page / on panel.
   function of the dark value: keep its hue, saturation at least 0.78 and
   lightness at least 0.58 in HSL; a grey stays grey at lightness 0.62. It works
   for a colour the reader adds, and has no storage. Measured against the bar
-  (`#3A3A3C`): 4.1 to 9.1:1.
-- The sheet's green face is the most saturated of the five (chroma 0.24); if it
-  reads neon on the iPad, lower the saturation floor.
+  (`#3A3A3C`): 2.9 (pink) to 7.3:1.
+- If a face reads neon on the iPad, lower the saturation floor.
 - **How PaperKit blends a highlighter** (multiply, plain alpha) wasn't
   measured; the sheet draws them opaque with the text on top. The first
   on-device look decides whether the highlighters need another pass.
@@ -236,8 +236,8 @@ Accent Colour), `InkingSettings`' remembered colours or anything else.
 
 With the pens unchanged, the two sets differ only in the highlighters:
 
-- **Both sets ship.** `InkColor.highlighterShades` becomes the Refined values;
-  today's move, unchanged, to `originalHighlighterShades` and stay pinned
+- **Both sets ship.** `InkColor.highlighterShades` becomes the Refined values (Orange
+  the same in both sets); today's move, unchanged, to `originalHighlighterShades` and stay pinned
   (`InkShadeTests` keeps its five old pairs as the Original set's). The pen
   table is shared. `shadeNames` covers both, so VoiceOver names for the old
   hexes still work. The starting highlighter colour follows the set
