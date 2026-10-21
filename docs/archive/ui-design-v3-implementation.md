@@ -29,7 +29,7 @@ size refactor are where that's most likely.
 
 Paste this, with N and the base branch filled in:
 
-> Implement Phase N of `docs/ui-design-v3-implementation.md` in the NoteCode
+> Implement Phase N of `docs/archive/ui-design-v3-implementation.md` in the NoteCode
 > repo. Read the brief's sections before "Phases", then Phase N, then
 > AGENTS.md in full. Branch `claude/v3-phase-N-<topic>` from `<base>`. Read the
 > canvas boards Phase N names. Stop at Phase N's "Done when": open the PR, but

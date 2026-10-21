@@ -2,7 +2,7 @@
 //  TypingStyleTests.swift
 //  NoteCodeTests
 //
-//  Text overhaul, phase 4 (docs/text-system-overhaul.md, decision 5): a
+//  Text overhaul, phase 4 (docs/archive/text-system-overhaul.md, decision 5): a
 //  button with no word to act on sets the typing style, and the next text
 //  typed is written with it.
 //
