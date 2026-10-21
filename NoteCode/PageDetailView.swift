@@ -32,6 +32,9 @@ struct PageDetailView: View {
     /// Closes the note and shows Home: the house beside the sidebar button.
     var onGoHome: (() -> Void)? = nil
 
+    /// Opens the app's Settings sheet, which the window owns: ••• › Settings.
+    var onShowSettings: (() -> Void)? = nil
+
     /// Whether to open with the title being renamed: a note just made, so
     /// its name can be typed straight away.
     var startsRenaming = false
@@ -153,12 +156,14 @@ struct PageDetailView: View {
         revealing: NoteSearch = NoteSearch(""),
         onDelete: (() -> Void)? = nil,
         onGoHome: (() -> Void)? = nil,
+        onShowSettings: (() -> Void)? = nil,
         startsRenaming: Bool = false
     ) {
         self.page = page
         self.revealing = revealing
         self.onDelete = onDelete
         self.onGoHome = onGoHome
+        self.onShowSettings = onShowSettings
         self.startsRenaming = startsRenaming
 #if canImport(UIKit)
         // Cheap: the ink is read when the page is made, not here. SwiftUI
@@ -420,6 +425,12 @@ struct PageDetailView: View {
             // same shortcut for when it isn't, and listed in the ⌘ overlay.
             .keyboardShortcut(.find)
 #endif
+
+            if let onShowSettings {
+                Divider()
+                Button("Settings", systemImage: "gearshape", action: onShowSettings)
+                    .accessibilityIdentifier("noteMenuSettings")
+            }
         } label: {
             Label("More", systemImage: "ellipsis")
         }

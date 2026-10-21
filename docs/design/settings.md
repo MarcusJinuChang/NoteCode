@@ -30,6 +30,10 @@ the version string, the licence text, the palette reset) are `AppSettings.swift`
   window's state, so the window in front hands it its sheet's binding through
   `focusedSceneValue`. The sheet is owned by `ContentView`, above the list,
   so ⌘, works with the list slid away over a note.
+  Since 21 Oct the note's ••• menu has Settings too, after a divider at its
+  foot (`PageDetailView.onShowSettings`, which `ContentView` points at the same
+  `showsSettings`; `HotbarUITests.testSettingsFromTheNoteMenu` taps it and
+  looks for the sheet). Not checked by hand on an iPhone.
 - **Open Note After Creating** (21 Oct, Settings › Notes beside New Notes; key
   `openNoteAfterCreating`, `NewNotes.opensAfterCreatingKey`, off by default).
   Off, the list's "+" tap, its hold menu (Portrait/Landscape Pages and From

@@ -164,4 +164,19 @@ final class HotbarUITests: XCTestCase {
     @MainActor func testReachDockedAtTheBottom() { checkReach(dock: .bottom) }
     @MainActor func testReachDockedLeft() { checkReach(dock: .left) }
     @MainActor func testReachDockedRight() { checkReach(dock: .right) }
+
+    // MARK: The note's menu
+
+    /// ••• › Settings opens the same sheet as Home's gear, over the note.
+    @MainActor
+    func testSettingsFromTheNoteMenu() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-debug-note", "empty"]
+        app.launch()
+        app.buttons["More"].firstMatch.tap()
+        let settings = app.buttons["noteMenuSettings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5), "the note's menu has no Settings entry")
+        settings.tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5), "the Settings sheet never opened")
+    }
 }

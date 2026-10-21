@@ -49,8 +49,8 @@ Roadmap step 5 (16 Oct, branch `claude/page-fills-window`, off `claude/drag-fold
   (`PageDetailView.onGoHome`, `homeButton`). The list's Home row is gone.
 - **Settings and Recently Deleted left the list's bottom bar**, which is gone.
   Settings is in the list's ••• and on Home's toolbar; ⌘, still works anywhere.
-  It is not in the note's •••, which is about the note (View, Run Code In,
-  Outline, Find, Add Page). Recently Deleted is the list's last row, shown
+  It was not in the note's ••• (View, Run Code In, Outline, Find, Add Page)
+  until 21 Oct, when a Settings entry went at its foot (see "Settings"). Recently Deleted is the list's last row, shown
   only when it holds something. Reaching Settings from a note: ☰ › ••• ›
   Settings, or Home › gear, or ⌘,.
 - **The note's header is Home, ☰, title on the left; lock (while locked),
