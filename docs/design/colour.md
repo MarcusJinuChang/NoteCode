@@ -55,7 +55,10 @@ The UI redesign's palette (7 Oct, phase 1 of `docs/archive/ui-design-v2-implemen
 From Marcus's 1.0 testing (feedback-plan.md, stream C): dark-mode colours too
 dull, light mode a little uncanny, the hotbar swatches need refining, the icons
 read as basic, and the original palette should be restorable. **Nothing here is
-in the app yet.** Look at `docs/design/colour-swatches.html` (current against
+in the app yet.** Revised 21 Oct after Marcus looked at the sheet: pens
+keep today's colours, the highlighters get the refined values, the swatch's
+selection ring is grey, and dark-mode highlighter swatches are made more vivid
+on the hotbar only (below). Look at `docs/design/colour-swatches.html` (current against
 proposed, light and dark, on the page and the code panel, at hotbar size)
 before the numbers. Marcus judges the taste; the numbers are there to explain
 each choice.
@@ -83,7 +86,10 @@ possible:
   PencilKit resolves the dark one; there is no slot for a third. IC applies to
   the swatch chrome and the accent only.
 
-### What is wrong with today's inks (WCAG 2 contrast; page `#FFFFFF`/`#000000`, panel `#F2F2F7`/`#1C1C1E`; OKLCH)
+### What was measured in today's inks
+
+Pens are kept by decision (below); the highlighters change. WCAG 2 contrast;
+page `#FFFFFF`/`#000000`, panel `#F2F2F7`/`#1C1C1E`; OKLCH.
 
 - **Light mode, "uncanny":** the seven pens are system-neon against paper.
   Chroma runs 0.16 to 0.23 and lightness 0.51 to 0.79, so purple and red shout
@@ -99,71 +105,62 @@ possible:
 - **The pen Orange is the accent** (`#FA8500`), so the swatch's selected state,
   a tint ring, has nothing to show against it.
 
-### Proposed inks
+### Decided from the sheet (21 Oct, Marcus)
 
-Stored light value, and what a dark page shows. Each pen is chosen so the light
-value is at least 4.5:1 on the page (3:1 for orange and yellow, which can't be
-darker without going brown) and the dark value is 4.5:1 or better on the panel;
-each highlighter so black text on the light value is 7:1 or better and white
-text on the dark value is about 4.5:1. Contrast is on page / on panel.
+- **Pens stay as they are**, on the page and on the hotbar: the current
+  colours are the more vibrant. Nothing in `penShades`, the pen palette or its
+  tests changes, and Ink stays `#000000`. (The deeper, softer pens in the first
+  version of this proposal are dropped.)
+- **Highlighters: the proposed values**, as seen behind text in the sheet.
+- **The hotbar's selected swatch ring is grey, not black**: black was too
+  jarring in light mode.
+- **Highlighters are marker chips** on the hotbar (28 by 18pt).
+- **In dark mode, a highlighter's hotbar face is more vivid than the ink it
+  draws**, on the hotbar only (the page, the palette settings list and
+  anything else that shows the ink keep the real dark value).
 
-| Ink | Today (stored → dark) | Proposed (stored → dark) | Light: page / panel | Dark: page / panel | Dark OKLCH L/C, was → now |
+### Proposed highlighters
+
+Stored light value, what a dark page shows, and the dark hotbar face. Black
+text on the light value is 7:1 or better, and white text on the dark value is
+about 4.5:1 (yellow 4.8, was 3.1:1 failing). Contrast is on page / on panel.
+
+| Highlighter | Today (stored → dark) | Proposed (stored → dark) | Dark hotbar face | Light: page / panel | Dark: page / panel |
 |---|---|---|---|---|---|
-| Ink | `000000` → `FFFFFF` | `1B1B1D` → `E2E2E4` | 21.0 / 18.8 → 17.2 / 15.4 | 21.0 / 17.0 → 16.2 / 13.2 | 1.00/0.00 → 0.91/0.00 |
-| Red | `DA101E` → `EF2533` | `A91E29` → `E15661` | 5.2 / 4.6 → 7.2 / 6.5 | 5.0 / 4.0 → 5.7 / 4.6 | 0.61/0.23 → 0.64/0.17 |
-| Orange | `FA8500` → `FF8A05` | `E75D13` → `EC6218` | 2.5 / 2.2 → 3.5 / 3.2 | 8.9 / 7.2 → 6.3 / 5.1 | 0.75/0.18 → 0.66/0.19 |
-| Yellow | `EBB000` → `FFC414` | `BC8D15` → `EABB43` | 2.0 / 1.8 → 3.0 / 2.7 | 13.2 / 10.7 → 11.7 / 9.5 | 0.85/0.17 → 0.81/0.14 |
-| Green | `27A551` → `5AD884` | `1D8752` → `78E2AD` | 3.2 / 2.9 → 4.5 / 4.1 | 11.6 / 9.4 → 13.3 / 10.8 | 0.79/0.16 → 0.83/0.13 |
-| Blue | `066EE5` → `1A82F9` | `1A59B7` → `4887E5` | 4.8 / 4.3 → 6.7 / 6.0 | 5.6 / 4.5 → 5.9 / 4.8 | 0.62/0.20 → 0.63/0.16 |
-| Purple | `8E22C3` → `A83CDD` | `672B94` → `A76BD4` | 6.6 / 5.9 → 8.9 / 8.0 | 4.4 / 3.5 → 5.7 / 4.6 | 0.58/0.24 → 0.63/0.16 |
+| Graphite | `B8B8B8` → `474747` | `9B9BA1` → `5E5E64` | `9B9BA1` | 2.0 / 1.8 → 2.8 / 2.5 | 2.3 / 1.8 → 3.3 / 2.6 |
+| Orange | `FFB866` → `995200` | `FA9242` → `BD5505` | `F97E1F` | 1.7 / 1.5 → 2.3 / 2.0 | 3.6 / 2.9 → 4.5 / 3.6 |
+| Yellow | `FFF066` → `998A00` | `FCDD79` → `866703` | `FAC61F` | 1.2 / 1.1 → 1.3 / 1.2 | 6.0 / 4.9 → 4.0 / 3.2 |
+| Green | `83E286` → `1D7C20` | `81E4A2` → `1B7E3C` | `25F46A` | 1.6 / 1.4 → 1.5 / 1.4 | 4.0 / 3.2 → 4.1 / 3.3 |
+| Pink | `F877B8` → `880748` | `EC558D` → `AA134B` | `F42572` | 2.5 / 2.3 → 3.4 / 3.0 | 2.2 / 1.8 → 2.9 / 2.4 |
 
-| Highlighter | Today (stored → dark) | Proposed (stored → dark) | Light: page / panel | Dark: page / panel | Dark OKLCH L/C, was → now |
-|---|---|---|---|---|---|
-| Graphite | `B8B8B8` → `474747` | `9B9BA1` → `5E5E64` | 2.0 / 1.8 → 2.8 / 2.5 | 2.3 / 1.8 → 3.3 / 2.6 | 0.40/0.00 → 0.48/0.01 |
-| Orange | `FFB866` → `995200` | `FA9242` → `BD5505` | 1.7 / 1.5 → 2.3 / 2.0 | 3.6 / 2.9 → 4.5 / 3.6 | 0.51/0.12 → 0.57/0.15 |
-| Yellow | `FFF066` → `998A00` | `FCDD79` → `866703` | 1.2 / 1.1 → 1.3 / 1.2 | 6.0 / 4.9 → 4.0 / 3.2 | 0.63/0.13 → 0.53/0.11 |
-| Green | `83E286` → `1D7C20` | `81E4A2` → `1B7E3C` | 1.6 / 1.4 → 1.5 / 1.4 | 4.0 / 3.2 → 4.1 / 3.3 | 0.51/0.15 → 0.52/0.13 |
-| Pink | `F877B8` → `880748` | `EC558D` → `AA134B` | 2.5 / 2.3 → 3.4 / 3.0 | 2.2 / 1.8 → 2.9 / 2.4 | 0.41/0.16 → 0.48/0.18 |
-
-Why each change:
-
-- **Pens are stored deeper** (HSL L 0.32 to 0.49, saturation 0.55 to 0.85) so
-  they read as pigment in light mode, not system neon, and flip to luminous,
-  evenly lit colours on a dark page: dark lightness 0.63 to 0.66 for red, blue,
-  purple, orange, and 0.81 to 0.83 for yellow and green (their
-  chroma is now 0.13 to 0.19 across the set, was 0.16 to 0.24). Every dark pen
-  is 4.6:1 or better on the panel, every light pen 4.5:1 on the page except
-  orange and yellow at 3.0 and 3.5.
-- **Ink is `#1B1B1D`**, not black: 17:1 on white, and a soft `#E2E2E4` on a dark
-  page instead of 21:1 glare. Notes drawn in the old black keep it; the two
-  look the same at a glance.
-- **Orange moves off the accent** (hue 21°, vermilion; the accent is 32°), which
-  frees the swatch ring.
-- **Highlighters**: orange, pink and graphite are lifted in dark mode (pink from
-  maroon to a raspberry, graphite from 1.8:1 to 2.6:1 on the panel), the three
-  hues keep their colour, and **yellow gets honest, not brighter**: it is
-  physically impossible for a yellow to be both a pale highlighter on white and
-  a bright one on black under a lightness flip. The new yellow is a warm gold
-  (hue about 90°, was 102°) rather than olive, and white text on it is 4.8:1 (was 3.1:1,
-  failing), at the price of being darker. If a bright dark-mode highlight
-  matters more than a pale light one, store them near L 0.55 and accept a
-  heavier light highlighter: the one dial there is.
+- **The ink on a dark page** is the dark value: orange, pink and graphite are
+  lifted from today's (pink from maroon to raspberry, graphite from 1.8:1 to
+  2.6:1 on the panel), and yellow becomes a warm gold (hue about 90°, was 102°)
+  instead of olive, darker than before so white text reads on it. A yellow that
+  is both a pale highlighter on white and a bright one on black can't exist
+  under a lightness flip.
+- **The hotbar face** (dark only; light uses the stored value) is a pure
+  function of the dark value: keep its hue, saturation at least 0.78 and
+  lightness at least 0.58 in HSL; a grey stays grey at lightness 0.62. It works
+  for a colour the reader adds, and has no storage. Measured against the bar
+  (`#3A3A3C`): 4.1 to 9.1:1.
+- The sheet's green face is the most saturated of the five (chroma 0.24); if it
+  reads neon on the iPad, lower the saturation floor.
 - **How PaperKit blends a highlighter** (multiply, plain alpha) wasn't
   measured; the sheet draws them opaque with the text on top. The first
   on-device look decides whether the highlighters need another pass.
-- **Folder colours and `TextColour` are not changed.** They share hexes with
-  today's pens (`FolderColor` says so, and `FolderAppearanceTests` pins it);
-  whether they follow is a question for Marcus (below).
+- **Folder colours and `TextColour` are unchanged** (they share hexes with the
+  pens, which don't change either).
 
 ### Accent: keep `#FA8500`
 
 Brand orange, in the icon and the Increase Contrast pair (`#B85900` light,
 `#FFAA33` dark). Measured: 8.9:1 on a dark page, 2.5:1 on white (so links use
-the text variant, as built), and a white label on it is 2.5:1 (the code's comment says 2.6), which the
-design accepts at 17pt semibold. A dark label (`#1D1D1F`) on the orange fill is
-6.7:1 and is the only change that would help; it would cost the white-on-orange
-look, so it is a question. `SyntaxTheme` needs nothing: every role is 4.5:1 or
-better on its panel (light 4.5 to 5.6, dark 5.2 to 9.6), tested.
+the text variant, as built), and a white label on it is 2.5:1 (the code's
+comment says 2.6), which the design accepts at 17pt semibold. A dark label
+(`#1D1D1F`) on the orange fill is 6.7:1; it would cost the white-on-orange
+look, so it stays a question. `SyntaxTheme` needs nothing: every role is
+4.5:1 or better on its panel (light 4.5 to 5.6, dark 5.2 to 9.6), tested.
 
 ### Hotbar swatch presentation
 
@@ -176,10 +173,10 @@ bar target and the row's 391pt width don't change.
 
 | | Proposed |
 |---|---|
-| Pen | 24pt disc, 1pt inner edge: label colour at 28% (light) and 34% (dark), so a pale or near-black face keeps its outline |
-| Highlighter | 28 by 18pt marker chip (6pt corners), so the two palettes read as different tools at a glance |
-| Selected | a 2pt ring in the label colour (black on light, white on dark) with a 2pt gap, 32pt outside; no tint disc. It works for every hue and doesn't depend on the accent |
-| Increase Contrast | ring 3pt, edge at 50% |
+| Pen | 24pt disc, same colours as today, 1pt inner edge: label colour at 28% (light) and 34% (dark), so a pale or near-black face keeps its outline |
+| Highlighter | 28 by 18pt marker chip (6pt corners); dark face as above |
+| Selected | a 2pt ring with a 2pt gap, 32pt outside (36 by 26 on a chip); no tint disc. Grey: `#8E8E93` in light, `#AEAEB2` in dark (3.3:1 against a light bar, 5:1 against a dark one). It works for every hue and doesn't depend on the accent. The dark grey is a guess: only light was complained about |
+| Increase Contrast | ring 3pt, `#636366` light and `#D1D1D6` dark, edge at 50% |
 | Disabled | 30% opacity, as now |
 | Pointer, drag, hold | unchanged (`.hoverEffect(.highlight)` on the button, context menu to remove) |
 
@@ -191,7 +188,7 @@ Neighbouring swatches are 6pt apart with a selected ring, 10pt otherwise.
 system chrome.** Marcus has asked for custom (feedback-plan, Answered 3), and
 restyling SF Symbols (weight, hierarchical or palette rendering, one optical
 size) is a cheap first step that doesn't change what the glyphs are, so it
-can't fix "basic".
+can't fix "basic". **Still open**: not answered since the first version.
 
 - **What is needed, counted from the source:** the hotbar and options rows are
   about 33 glyphs: undo, redo, text and draw (the toggle, two states), pen,
@@ -237,52 +234,46 @@ Today: Settings › Drawing › Reset Colours to Defaults
 already on pages. It doesn't cover the accent (its own Default in
 Accent Colour), `InkingSettings`' remembered colours or anything else.
 
-Once the redesign exists:
+With the pens unchanged, the two sets differ only in the highlighters:
 
-- **Both sets ship.** `InkColor.penShades` / `.highlighterShades` become the
-  Refined set; today's tables move, unchanged, to `originalPenShades` and
-  `originalHighlighterShades` and are pinned forever (`InkShadeTests` keeps its
-  twelve pairs as the Original set's). `shadeNames` covers both, so VoiceOver
-  names for the old hexes still work.
+- **Both sets ship.** `InkColor.highlighterShades` becomes the Refined values;
+  today's move, unchanged, to `originalHighlighterShades` and stay pinned
+  (`InkShadeTests` keeps its five old pairs as the Original set's). The pen
+  table is shared. `shadeNames` covers both, so VoiceOver names for the old
+  hexes still work. The starting highlighter colour follows the set
+  (`highlighterYellow`: `FCDD79` refined, `FFF066` original).
 - **One type, one `apply`** (the repo's rule): `InkPaletteSet` (`refined`,
-  `original`), key `inkPaletteSet`, holding the two tables, the starting pen
-  and highlighter colours (`InkingSettings.standard(for:)`) and
-  `apply(to:in:)` which writes both palettes and the two remembered colours.
-- **Settings › Drawing**: a Colour Set row (Refined, Original; shows Custom
-  when the palettes differ from either), picking one asks first, as Reset does,
-  and applies it. Reset Colours then resets to the chosen set. Each palette
-  page (Pens, Highlighters) gets a "Restore" for that palette only.
-- **Existing devices are not changed.** A device with a saved palette keeps it
-  (that is `@AppStorage`), reading as Original. Only a new install defaults to
-  Refined. The set picker is how the 1.0 testers get the new colours, and how
-  anyone goes back.
+  `original`), key `inkPaletteSet`, holding the two highlighter tables and
+  `apply(to:in:)`, which writes both palettes and the remembered highlighter
+  colour.
+- **Settings › Drawing**: a Colour Set row (Refined, Original; Custom when the
+  palettes differ from either), picking one asks first, as Reset does, and
+  applies it. Reset Colours then resets to the chosen set. Each palette page
+  (Pens, Highlighters) gets a "Restore" for that palette only.
+- **Existing devices are not changed.** A device with a saved highlighter
+  palette keeps it (that is `@AppStorage`), reading as Original. A device that
+  has saved neither palette, and a new install, gets Refined. The set picker is
+  how a tester goes either way.
 - **Ink already drawn never changes** with either set (stored light values).
 - **Not in scope for restore:** the accent (own Default), folder colours, text
   colours.
 
 ### Tests that pin today's values, to change in one commit with the palette
 
-- `InkPaletteTests.swift:147-161`: the pen and highlighter hex lists, the shade
-  names, `standard(for:)` against `standard`/`standardHighlighter`. Lines
-  187-191 (`shadeNames`: "Ink" for `000000`, "Orange" for `FA8500` and
-  `FFB866`) keep passing and become the Original names; add the new hexes.
-  Lines 236-241 pin the starting colours (pen `.black`, highlighter
-  `highlighterYellow`), 247-251 compare the default state.
-- `InkShadeTests` (`InkPaletteTests.swift:273-329`): the twelve light → dark
-  pairs, `tablesMatchPalettes`, and the colours in `toolCarriesSettings`
-  (`066EE5`, `83E286` are arbitrary and keep working). It becomes one table per
-  set, and gains a check of the flip rule on the new twelve (the proposal's dark
-  column is computed from it).
-- `SettingsTests.swift:91-96`: reset equals `standard(for:)`.
-- `EditorModeTests.swift:250`: reads `InkPalette.standard.colors` (fixed, not
-  dynamic); follows the new set.
-- `FolderAppearanceTests.swift:68`: "with the base colours of the ink palette"
-  pins the same hexes for folders; only changes if folders follow the pens.
-- Not changed unless the accent is: `AccentPaletteTests` (`FA8500`, its text
-  pair, the white label), `AppIconTests` and `AppIconChoice`
-  (`AppSettings.swift:89-104`), the colorset.
-- Not changed: `SyntaxThemeTests` (contrast 4.5:1 on the panel).
+- `InkPaletteTests.swift:154-161`: the highlighter names and hexes,
+  `standard(for:)` against `standardHighlighter`; lines 236-241 pin the
+  starting highlighter colour (`highlighterYellow`), 247-251 the default
+  state. The pen lines (147-148, 187-191) don't change.
+- `InkShadeTests` (`InkPaletteTests.swift:273-329`): the five highlighter pairs
+  and `tablesMatchPalettes` for `.highlighter` become one table per set, and it
+  gains a check of the flip rule on the new five (the dark column is computed
+  from it). Pens untouched; `toolCarriesSettings` keeps working (`83E286` is
+  arbitrary).
+- `SettingsTests.swift:91-96`: reset equals `standard(for:)`, per set.
+- Not changed: `EditorModeTests.swift:250`, `FolderAppearanceTests.swift:68`,
+  `AccentPaletteTests`, `AppIconTests`, `SyntaxThemeTests`.
 - No test measures the swatch face (`HotbarSwatch` has no unit test; the UI
   tests that reach a swatch use the cell frames, which don't change), so add
-  one for the ring and the chip, and a render check that a selected orange
-  swatch's ring isn't 1:1 against it.
+  tests for the vivid-face function (hue kept, lightness and saturation floors,
+  grey stays grey), the grey ring colours, and that a selected orange swatch's
+  ring isn't 1:1 against it.
