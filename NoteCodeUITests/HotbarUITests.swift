@@ -180,3 +180,26 @@ final class HotbarUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5), "the Settings sheet never opened")
     }
 }
+
+// MARK: - Autocorrect
+
+extension HotbarUITests {
+    /// With Settings › Writing › Autocorrect off, three hyphens typed on the
+    /// soft keyboard stay three (a rule). With it on, smart dashes turn the
+    /// second into an em dash and the result is "—-" (measured 21 Oct).
+    @MainActor
+    func testAutocorrectOffKeepsThreeHyphens() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-debug-note", "empty", "-autocorrectInProse", "NO"]
+        app.launch()
+        let text = app.textViews.firstMatch
+        XCTAssertTrue(text.waitForExistence(timeout: 5))
+        text.tap()
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 5), "no soft keyboard")
+        let hyphen = keyboard.keys["-"]
+        XCTAssertTrue(hyphen.waitForExistence(timeout: 3), "no hyphen key")
+        hyphen.tap(); hyphen.tap(); hyphen.tap()
+        XCTAssertEqual(text.value as? String, "---")
+    }
+}

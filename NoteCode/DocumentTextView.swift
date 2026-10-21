@@ -71,6 +71,10 @@ struct DocumentTextView: UIViewRepresentable {
     /// Settings › Code: indent width, the code-keys row, line numbers.
     var codeSettings = CodeEditorSettings()
 
+    /// Settings › Writing › Autocorrect: whether prose is autocorrected and
+    /// given smart punctuation (code never is).
+    var rewritesProse = TextRewritingPolicy.proseEnabledByDefault
+
     /// The note's text size (`Page.textSize`), which sets every font the
     /// note is laid out in.
     var typography = NoteTypography.standard
@@ -98,6 +102,7 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
         context.coordinator.setTypography(typography, in: textView)
         codeSettings.apply(to: context.coordinator, in: textView)
+        context.coordinator.setRewritesProse(rewritesProse, in: textView)
         textView.text = text
         context.coordinator.invalidateStyling()
         context.coordinator.restyle(textView)
@@ -212,6 +217,7 @@ struct DocumentTextView: UIViewRepresentable {
 
         /// The keyboard traits the text view has now: prose or code.
         private(set) var rewritingPolicy = TextRewritingPolicy.initial
+        private(set) var rewritesProse = TextRewritingPolicy.proseEnabledByDefault
 
         /// Where the code blocks are, for the layout delegate, or `nil` once
         /// the text has changed since they were worked out.
@@ -1056,7 +1062,9 @@ struct DocumentTextView: UIViewRepresentable {
             // after it's committed catches up.
             guard textView.markedTextRange == nil else { return }
 
-            let policy = TextRewritingPolicy.at(textView.selectedRange.location, in: source, blocks: blocks)
+            let policy = TextRewritingPolicy.at(
+                textView.selectedRange.location, in: source, blocks: blocks, rewritesProse: rewritesProse
+            )
             guard policy != rewritingPolicy else {
                 // The caret is in the same kind of text, but the row might
                 // not have been put there yet: the first tap into a note
@@ -1069,6 +1077,15 @@ struct DocumentTextView: UIViewRepresentable {
             // to code changes the traits and the row in a single redraw.
             _ = placeCodeKeys(in: textView)
             policy.apply(to: textView, reloadingInputViews: textView.isFirstResponder)
+        }
+
+        /// Settings › Writing › Autocorrect changed: prose takes the new
+        /// traits now, in the keyboard already up.
+        func setRewritesProse(_ enabled: Bool, in textView: UITextView) {
+            guard enabled != rewritesProse else { return }
+            rewritesProse = enabled
+            let source = (textView.text ?? "").nativeUTF8
+            applyRewritingPolicy(to: textView, source: source, blocks: documentCache.blocks(for: source))
         }
 
         // MARK: The code-keys row

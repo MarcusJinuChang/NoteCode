@@ -465,6 +465,8 @@ private struct NotesSettings: View {
 
 private struct WritingSettings: View {
     @AppStorage(ShowMarkdown.defaultsKey) private var showMarkdown = ShowMarkdown.whileEditing
+    @AppStorage(TextRewritingPolicy.proseDefaultsKey)
+    private var rewritesProse = TextRewritingPolicy.proseEnabledByDefault
 
     var body: some View {
         Form {
@@ -473,7 +475,13 @@ private struct WritingSettings: View {
                     ForEach(ShowMarkdown.allCases, id: \.self) { Text($0.title) }
                 }
             } footer: {
-                Text("Hashes and backticks show only on the heading or code block you're editing; Always shows them everywhere. Bold, italic, code and link marks stay hidden either way, and the toolbar shows which are on. Autocorrect and smart punctuation follow the keyboard settings in the Settings app, and are off inside code.")
+                Text("Hashes and backticks show only on the heading or code block you're editing; Always shows them everywhere. Bold, italic, code and link marks stay hidden either way, and the toolbar shows which are on.")
+            }
+
+            Section {
+                Toggle("Autocorrect", isOn: $rewritesProse)
+            } footer: {
+                Text("Autocorrect, automatic capitals, smart quotes and dashes and inline predictions while you type text. Turn it off to type exactly what you press. Always off inside code, whichever way this is set.")
             }
         }
         .navigationTitle("Writing")

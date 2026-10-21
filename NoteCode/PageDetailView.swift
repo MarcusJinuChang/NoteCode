@@ -109,6 +109,10 @@ struct PageDetailView: View {
     @AppStorage(LineNumbers.defaultsKey)
     private var lineNumbers = LineNumbers.enabledByDefault
 
+    /// Settings › Writing › Autocorrect.
+    @AppStorage(TextRewritingPolicy.proseDefaultsKey)
+    private var rewritesProse = TextRewritingPolicy.proseEnabledByDefault
+
     /// Whether the bar ticks as it lands on an edge (Settings › General).
     @AppStorage(SnapHaptic.defaultsKey)
     private var hapticOnSnap = SnapHaptic.isOnByDefault
@@ -486,6 +490,7 @@ struct PageDetailView: View {
                 showMarkdown: showMarkdown,
                 rendersMarkdown: true,
                 codeSettings: CodeEditorSettings(indentWidth: indentWidth, codeKeys: codeKeys, lineNumbers: lineNumbers),
+                rewritesProse: rewritesProse,
                 typography: NoteTypography(bodySize: page.textSize),
                 minimumPageCount: page.minimumPageCount,
                 onMinimumPageCountChanged: { [weak page] count in

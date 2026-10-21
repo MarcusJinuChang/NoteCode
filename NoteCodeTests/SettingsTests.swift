@@ -32,6 +32,7 @@ struct SettingsTests {
         #expect(LineNumbers.defaultsKey == "lineNumbers")
         #expect(NewNotes.defaultsKey == "newNoteOrientation")
         #expect(NewNotes.opensAfterCreatingKey == "openNoteAfterCreating")
+        #expect(TextRewritingPolicy.proseDefaultsKey == "autocorrectInProse")
     }
 
     @Test("Appearance round-trips through its stored text, and system is the default")

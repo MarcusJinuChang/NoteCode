@@ -46,6 +46,29 @@ the version string, the licence text, the palette reset) are `AppSettings.swift`
   pure and tested. **Not covered:** ⌘N, Home's New Note and From Template, and
   Import: those are explicit "make me a note and show it" commands made from a
   place where nothing visible would otherwise happen, so they still open.
+- **Autocorrect** (21 Oct, Settings › Writing; key `autocorrectInProse`,
+  `TextRewritingPolicy.proseDefaultsKey`, on by default). Off turns every
+  rewriting trait off in prose too (autocorrect, capitals, smart quotes and
+  dashes, smart insert/delete, inline predictions), as code always has them.
+  It is a third `TextRewritingPolicy` case, `.proseWithoutRewriting`, so the
+  type keeps its one `apply(to:)`: `at(_:in:blocks:rewritesProse:)` returns it
+  for prose when the setting is off, and code is still `.code` either way. It
+  is not code, so the code-keys row stays away from it. The coordinator
+  (`setRewritesProse`) re-applies the policy at once, in a keyboard already up.
+  The text view is handed the value by `PageDetailView`, which reads the
+  `@AppStorage`; `TextRewritingPolicyTests` and `SettingsTests.keysAreStable`
+  cover it, and `HotbarUITests.testAutocorrectOffKeepsThreeHyphens` types on
+  the soft keyboard with it off.
+  - **Three hyphens by hand, probed 21 Oct** (iPad Pro 13-inch simulator,
+    soft keyboard taps): with Autocorrect on, `---` types as "—-" (U+2014,
+    then a hyphen). The delegate sees the first two hyphens as ordinary
+    inserts (`range=1,0 text=-`); the second becomes an em dash *after* it is
+    in, with no `shouldChangeTextIn` for the replacement, so refusing it in
+    the delegate is impossible (a first attempt did, and did nothing). A fix
+    would have to undo the dash from `textViewDidChange`, fighting the
+    keyboard; not done. **So a rule can't be typed with smart dashes on**: use
+    Style ▾ › Horizontal Rule, paste, or turn Autocorrect off, where `---`
+    types as three hyphens (checked by the same test).
 - **Appearance is applied at the root of the scene** (`AppearanceModifier`,
   `preferredColorScheme`, on both the note view and the storage-unavailable
   view), so every window, the sheet and UIKit controllers presented from it
