@@ -1,11 +1,23 @@
 # The page fills the window
 Roadmap step 5 (16 Oct, branch `claude/page-fills-window`, off `claude/drag-folders`).
 
-- **The page fills its area.** `PageDetailView.pageInsets` is zero on every
-  edge but the one a bar is docked to. No 12pt gap above, no border, no
+- **The page fills its area.** `PageDetailView.pageInsets` was zero on every
+  edge but the one a bar is docked to (see the buffer below). No 12pt gap above, no border, no
   rounded corners (`PageView.outline` and `outlineCornerRadius` are gone). The
   surround still shows where the page is narrower than its area (the 1.25x cap
   on a wide screen) and in print layout between sheets.
+- **A buffer of `Hotbar.pageBuffer` (10pt) on every edge the bar doesn't take**
+  (23 Oct, feedback item 1: the page edge touched the screen edge). Top
+  included, under the nav bar; the bar's own side has its strip instead, and a
+  bar at the bottom floats over the page, so the bottom has none then
+  (`CanvasGeometry.areaInsets`, `PageDetailView.pageInsets`). The surround
+  shows in the gap. It is area, not text: the text container stays at the
+  pages' width, so nothing re-wraps and every mode paginates alike; the fit
+  scale drops by the buffer's share of the width (2.4% on an 11-inch in
+  portrait). 10 is a little under the bar's 12pt margin. `HotbarLayoutTests`
+  hosts the real page in portrait and landscape, with the bar on each edge,
+  and measures the gap to each screen edge from the nav bar and the safe areas
+  (fails with the buffer removed, checked). Not looked at on screen.
 - **A bar at the bottom floats over the page and moves nothing.** To let the
   note's last lines scroll clear of it, `PageView.restingClearance` insets the
   text view's bottom by `Hotbar.footprint` (the bar and the options row, in
@@ -59,3 +71,9 @@ Roadmap step 5 (16 Oct, branch `claude/page-fills-window`, off `claude/drag-fold
   text view's inset and the square corners; the strip, the floating bar, the
   header and the list were not looked at, nor were Reduce Motion, the Pencil
   or an 11-inch iPad.
+
+- **The list beside Home** (24 Oct, feedback #3): over a note nothing changes;
+  the list is still a slide-over, away until ☰. On Home, in a regular width,
+  the list is a column beside it (see "The app opens on Home" in
+  home-the-title-screen-thumbnails-reopening.md), so the page's own fit and
+  the hotbar's reserve never see the list.

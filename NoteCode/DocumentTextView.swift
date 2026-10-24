@@ -27,6 +27,9 @@ struct DocumentTextView: UIViewRepresentable {
     /// The note's page orientation and the device's view mode.
     var pageLayout = PageLayout()
 
+    /// The paper the note is ruled with: drawing only, it takes no room.
+    var paper = PaperSetup.blank
+
     /// Room to leave above the keyboard for a hotbar riding up with it. See
     /// `PageView.keyboardClearance`.
     var keyboardClearance: CGFloat = 0
@@ -63,6 +66,9 @@ struct DocumentTextView: UIViewRepresentable {
     /// show only while it is being edited, or always.
     var showMarkdown = ShowMarkdown.whileEditing
 
+    /// Settings › Writing › Markers: how dim the visible markers are.
+    var markerDimming = MarkerDimming.standard
+
     /// Whether the note's Markdown markers take no room on the page
     /// (`Page.markdownLayout == rendered`). A legacy note keeps them visible,
     /// because its ink was drawn against that layout.
@@ -84,6 +90,9 @@ struct DocumentTextView: UIViewRepresentable {
     var minimumPageCount = 1
     var onMinimumPageCountChanged: ((Int) -> Void)? = nil
 
+    /// Settings › Drawing › Add Pages While Drawing.
+    var addsPagesWhileDrawing = InkPageGrowth.defaultEnabled
+
     /// Told whenever the page scrolls, with the place it is scrolled to, for
     /// the page badge. Optional, like `editor`.
     var onScrolled: ((NoteMemory.Place) -> Void)? = nil
@@ -103,6 +112,7 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.setTypography(typography, in: textView)
         codeSettings.apply(to: context.coordinator, in: textView)
         context.coordinator.setRewritesProse(rewritesProse, in: textView)
+        markerDimming.apply(to: context.coordinator, in: textView)
         textView.text = text
         context.coordinator.invalidateStyling()
         context.coordinator.restyle(textView)
@@ -114,7 +124,9 @@ struct DocumentTextView: UIViewRepresentable {
         // canvas knob too, and the canvas is the page's.
         editor?.attach(textView, canvas: page.canvas, page: page)
         page.pageLayout = pageLayout
+        page.paper = paper
         page.minimumPageCount = minimumPageCount
+        page.addsPagesWhileDrawing = addsPagesWhileDrawing
         page.onMinimumPageCountChanged = onMinimumPageCountChanged
         page.keyboardClearance = keyboardClearance
         page.restingClearance = restingClearance
@@ -141,7 +153,9 @@ struct DocumentTextView: UIViewRepresentable {
     func updateUIView(_ page: PageView, context: Context) {
         let textView = page.textView
         page.pageLayout = pageLayout
+        page.paper = paper
         page.minimumPageCount = max(minimumPageCount, page.minimumPageCount)
+        page.addsPagesWhileDrawing = addsPagesWhileDrawing
         page.onMinimumPageCountChanged = onMinimumPageCountChanged
         page.keyboardClearance = keyboardClearance
         page.restingClearance = restingClearance
@@ -170,6 +184,7 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.showMarkdown = showMarkdown
         context.coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
         codeSettings.apply(to: context.coordinator, in: textView)
+        markerDimming.apply(to: context.coordinator, in: textView)
 
         // Only push text down when it actually differs. Assigning `.text`
         // unconditionally would reset the selection on every render and fight
@@ -231,6 +246,10 @@ struct DocumentTextView: UIViewRepresentable {
 
         /// Settings › Writing › Show Markdown, as `DocumentTextView` last had it.
         var showMarkdown = ShowMarkdown.whileEditing
+
+        /// Settings › Writing › Markers, as `DocumentTextView` last had it.
+        /// Changed through `setMarkerDimming`, which restyles.
+        var markerDimming = MarkerDimming.standard
 
         /// Settings › Code › Indent Width.
         var indentWidth = CodeIndent.defaultWidth
@@ -559,7 +578,8 @@ struct DocumentTextView: UIViewRepresentable {
                 blocks: blocks,
                 previousSignatures: styleSignatures,
                 rendered: rendersMarkdown,
-                typography: typography
+                typography: typography,
+                markers: markerDimming
             )
             DocumentStyler.applyTypingAttributes(
                 to: textView, source: source, blocks: blocks, rendered: rendersMarkdown, typography: typography
@@ -763,6 +783,14 @@ struct DocumentTextView: UIViewRepresentable {
                 guard let textView else { return }
                 Self.share(target.code, from: textView)
             })
+
+            // The on-device assistant. Left out when it is switched off or
+            // this iPad can never run it; otherwise the sheet says why not.
+            if let editor, editor.ai.offersFeatures, !target.isOutput {
+                actions.append(UIAction(title: "Explain Block", image: UIImage(systemName: AIAction.explainBlock.systemImage)) { [weak editor] _ in
+                    editor?.explain(target)
+                })
+            }
 
             return UIMenu(options: .displayInline, children: actions)
         }
@@ -1313,6 +1341,7 @@ extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
         if rendersMarkdown, let hashes = ProseLine.headingHashes(in: text, line: element) {
             let fragment = HeadingLayoutFragment(textElement: textElement, range: textElement.elementRange)
             fragment.hashes = hashes
+            fragment.markerColour = { [weak self] in self?.markerDimming.headingColour }
             fragment.showsMarker = { [weak self, weak fragment] in
                 guard let self, let fragment, let offset = self.offset(of: fragment) else { return false }
                 return self.headingVisibility.shows(headingAt: offset)
@@ -1324,6 +1353,7 @@ extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
             let fragment = ChecklistLayoutFragment(textElement: textElement, range: textElement.elementRange)
             fragment.isChecked = box.checked
             fragment.boxIndex = box.indent + 2
+            fragment.outlineColour = { [weak self] in self?.markerDimming.checkboxColour }
             fragment.collapsed = rendersMarkdown
             return fragment
         }

@@ -8,7 +8,8 @@
 import Foundation
 import PaperKit
 
-/// Reads and writes the bytes a page keeps its ink in.
+/// Reads and writes the bytes a page keeps its ink in: PaperKit's, alone or
+/// inside an `InkContainer` with the note's `InkObjectTable`.
 ///
 /// Reading never throws. What can't be read comes back as `.unreadable`, and
 /// the caller's job is then to leave the stored bytes exactly as they are:
@@ -25,6 +26,26 @@ nonisolated enum DrawingCodec {
     }
 
     static func decode(_ data: Data) -> Loaded {
+        decodeAll(data).loaded
+    }
+
+    /// The ink and the object table beside it. Bytes with no container have
+    /// an empty table: every note drawn before the table existed.
+    ///
+    /// A container this build can't read is `.unreadable`, like corrupt ink,
+    /// so the caller leaves the bytes as they are.
+    static func decodeAll(_ data: Data) -> (loaded: Loaded, table: InkObjectTable) {
+        switch InkContainer.unwrap(data) {
+        case .legacy(let paper):
+            return (decodePaper(paper), .empty)
+        case .container(let table, let paper):
+            return (decodePaper(paper), table)
+        case .unreadable(let reason):
+            return (.unreadable(reason: reason), .empty)
+        }
+    }
+
+    private static func decodePaper(_ data: Data) -> Loaded {
         // PaperKit throws for empty data, with the same error as corrupt
         // bytes, so "never drawn on" has to be told apart first.
         guard !data.isEmpty else { return .none }

@@ -119,8 +119,14 @@ Read the one that matches the area you are changing; do not read them all.
 | Obsidian's other marks and blocks | [docs/design/obsidian-s-other-marks-and-blocks.md](docs/design/obsidian-s-other-marks-and-blocks.md) |
 | Paste and copy with formatting | [docs/design/paste-and-copy-with-formatting.md](docs/design/paste-and-copy-with-formatting.md) |
 | Organising notes | [docs/design/organising-notes.md](docs/design/organising-notes.md) |
+| On-device assistant: Explain Code, Summarise Note | [docs/design/ai-features.md](docs/design/ai-features.md) |
 
-Planning docs: `docs/ROADMAP.md` (status and what is left); finished plans are in `docs/archive/`.
+What the app contains: [docs/features.md](docs/features.md) — every feature by type, how it
+works, and what is missing or planned. Read it before reading code to find out whether
+something exists, and update its rows in the same PR that adds, changes or removes a feature.
+
+Planning docs: `docs/ROADMAP.md` (status and what is left); `docs/feedback-plan.md` (the
+October testing feedback, the streams and their order); finished plans are in `docs/archive/`.
 
 ## The model
 
@@ -284,8 +290,10 @@ rebuilt copy of the app with logging.
 | `-debug-note pages\|code\|empty` | Opens a built-in note, in an in-memory store — the simulator's notes are untouched |
 | `-debug-note-file <path>` | Opens a note read from a file on the Mac |
 | `-debug-orientation portrait\|landscape` | The seeded note's pages |
+| `-debug-paper grid\|dots\|lined[/spacing[/strength]]` | The seeded note's paper |
 | `-debug-text-size 14\|15\|16\|17\|19\|21\|23` | The seeded note's text size |
 | `-debug-mode seamless\|compressed\|print` | Sets the view mode, in the saved setting the menu uses |
+| `-debug-ink-file <path>` | The seeded note's ink, read from a file on the Mac (`DrawingCodec` bytes), to look at a note with thousands of strokes |
 | `-debug-page <n>` | Scrolls to page n's top edge, counted from 1 |
 | `-debug-then-mode <mode>` | Switches mode once the page has settled |
 | `-debug-then-delay <seconds>` | Wait before that switch; default 1 |

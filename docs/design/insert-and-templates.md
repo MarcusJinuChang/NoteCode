@@ -39,7 +39,8 @@ v3 phase 5 (13 Oct, `docs/archive/ui-design-v3-implementation.md`).
     their middle's page, as before. Saving, a mode switch, undo and the PDF are
     tested with a shape, an ellipse, a text box and a photo
     (`survivesSavingAndPrinting`, `shapeFollowsTheModes`, `insertIsUndoable`).
-- **Paper is postponed until after v3** (14 Oct, decided by Marcus). Dots and
+- **Paper was postponed until after v3** (14 Oct, decided by Marcus) and is
+  built now, differently: see `paper-styles.md` (vector layers, not tiles). Dots and
   grid (a per-note `Page.paperStyle`, drawn behind text and ink in each page's
   body) were built and came out slightly offset or broken in compressed and
   print layout, so the whole system waits and none of it is in the app.

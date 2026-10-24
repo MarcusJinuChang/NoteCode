@@ -136,14 +136,17 @@ struct NestedFolderTests {
         #expect(sections.folders[0].children.isEmpty)
     }
 
-    @Test("Rows: an open folder shows its folders, then its notes; a closed one nothing")
+    @Test("Rows: an open folder shows what is in it, folders and notes together; a closed one nothing")
     func rowsFlatten() {
         let cs = folder("CS133"), labs = folder("Labs", in: cs), empty = folder("Empty")
         let lecture = note("Lecture", in: cs), lab = note("Lab 1", in: labs)
-        let sections = NoteListSections(pages: [lecture, lab], folders: everyFolder)
+        let sections = NoteListSections(
+            pages: [lecture, lab], folders: everyFolder,
+            sort: NoteSort(key: .title, ascending: true)
+        )
 
         func shape(_ closed: Set<PersistentIdentifier>) -> [String] {
-            NoteListRow.rows(for: sections.folders, closed: closed).map {
+            NoteListRow.rows(for: sections.items, closed: closed).map {
                 switch $0 {
                 case .folder(let s, let depth, _): "\(depth) folder \(s.folder.name)"
                 case .note(let p, let depth, _):   "\(depth) note \(p.title)"

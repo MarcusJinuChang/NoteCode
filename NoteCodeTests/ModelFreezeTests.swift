@@ -25,7 +25,7 @@ struct ModelFreezeTests {
     /// after it, a mismatch means a new version (NoteSchema.swift).
     static let versionOneHashes: [String: String] = [
         "Folder": "LHK0l8jTaJCqqayMNtUNEU0jBeLaqXq1jGVdCOzU45Q=",
-        "Page": "R0HJP7kdo9Hom5Ez0UGxwr9gHBUlOw3aDK23r5faCWU=",
+        "Page": "HM/SEuhmcQjhcE31ROGTXR8sCcfyuFAVhINstuPU0/g=",
     ]
 
     private static func hashes(of schema: Schema) throws -> [String: String] {
@@ -36,7 +36,7 @@ struct ModelFreezeTests {
     @Test("Version 1's shape is what it was frozen as")
     func versionOneIsFrozen() throws {
         let hashes = try Self.hashes(of: Schema(versionedSchema: NoteSchemaV1.self))
-        #expect(hashes == Self.versionOneHashes)
+        #expect(hashes == Self.versionOneHashes, "now \(hashes)")
     }
 
     @Test("The app opens stores with the plan, at its last version")

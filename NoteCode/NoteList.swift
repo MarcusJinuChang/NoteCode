@@ -11,9 +11,8 @@ import SwiftUI
 /// Every note, grouped into folders, in the sidebar the ☰ button opens.
 ///
 /// Folders open and close in place rather than leading to a list of their
-/// own. The list slides over the page, and a second column for folders would
-/// cover even more of it; with one level of folders, a disclosure row is all
-/// the navigation there is. What goes in which section, and in what order, is
+/// own, and are rows among the notes: one list, sorted by the reader's choice,
+/// with a Pinned section above it. What goes where, and in what order, is
 /// `NoteListSections`.
 struct NoteList: View {
     /// True when the on-disk store failed and edits live only in memory.
@@ -153,31 +152,24 @@ struct NoteList: View {
 
             if !search.isEmpty {
                 resultRows(results, for: search)
-            } else if !sections.hasPinned && sections.folders.isEmpty {
-                noteRows(sections.unfiled)
             } else {
                 if sections.hasPinned {
                     Section("Pinned") {
-                        folderTree(sections.pinnedFolders)
-                        noteRows(sections.pinnedNotes, showsFolder: true)
+                        itemRows(sections.pinnedItems, showsFolder: true)
                     }
                 }
 
-                // The headers are drop targets: a folder dropped on "Folders"
-                // goes to the top level, a note dropped on "Notes" out of its
-                // folder. So both show whenever there are folders.
-                Section {
-                    folderTree(sections.folders)
-                } header: {
-                    Text("Folders")
-                        .modifier(ListRowDrop(target: .topFolders, hoverID: .topFolders, drag: drag, folders: folders, perform: performDrop))
-                }
-
-                Section {
-                    noteRows(sections.unfiled)
-                } header: {
-                    Text("Notes")
-                        .modifier(ListRowDrop(target: .topNotes, hoverID: .topNotes, drag: drag, folders: folders, perform: performDrop))
+                if sections.hasPinned || !sections.folders.isEmpty {
+                    // The header is the drop target for the top level: a folder
+                    // dropped on it goes to the top, a note out of its folder.
+                    Section {
+                        itemRows(sections.items)
+                    } header: {
+                        Text("Library")
+                            .modifier(ListRowDrop(target: .topFolders, hoverID: .topFolders, drag: drag, folders: folders, perform: performDrop))
+                    }
+                } else {
+                    itemRows(sections.items)
                 }
             }
 
@@ -346,17 +338,6 @@ struct NoteList: View {
     /// board), Letter's proportions.
     private static let thumbnailSize = CGSize(width: 30, height: 39)
 
-    /// - Parameter showsFolder: whether each row names its folder, for the
-    ///   Pinned section, where notes from every folder sit together.
-    private func noteRows(_ notes: [Page], showsFolder: Bool = false) -> some View {
-        ForEach(notes) { page in
-            noteRow(page, depth: 0, showsFolder: showsFolder)
-        }
-        .onDelete { offsets in
-            deletePages(offsets.map { notes[$0] })
-        }
-    }
-
     /// How far a row is pushed in for each folder above it.
     private func indent(_ depth: Int) -> CGFloat {
         CGFloat(min(depth, 6)) * 18
@@ -446,10 +427,14 @@ struct NoteList: View {
         selection == page ? RowSelectionTint.color(isDark: colorScheme == .dark, accent: accent) : nil
     }
 
-    /// Folders and what is open in them, flattened into rows
-    /// (`NoteListRow`) so each can be dragged and dropped on.
-    private func folderTree(_ sections: [NoteListSections.FolderSection]) -> some View {
-        let rows = NoteListRow.rows(for: sections, closed: closedFolders)
+    /// Folders, the notes beside them and what is open in them, flattened into
+    /// rows (`NoteListRow`) so each can be dragged and dropped on.
+    ///
+    /// - Parameter showsFolder: whether the notes at this level name their
+    ///   folder, for the Pinned section, where notes from every folder sit
+    ///   together.
+    private func itemRows(_ items: [NoteListSections.Item], showsFolder: Bool = false) -> some View {
+        let rows = NoteListRow.rows(for: items, closed: closedFolders, showsFolder: showsFolder)
         return ForEach(rows) { row in
             switch row {
             case .folder(let section, let depth, let isOpen):

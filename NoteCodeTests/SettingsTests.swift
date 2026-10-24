@@ -24,15 +24,25 @@ struct SettingsTests {
         #expect(ShowMarkdown.defaultsKey == "showMarkdown")
         #expect(RunDestinationPreference.appDefaultKey == "runDestination.appDefault")
         #expect(NoteEditor.fingerDrawsKey == "fingerDraws")
+        #expect(NoteEditor.returnToPreviousToolKey == "returnToPreviousTool")
+        #expect(SelectionKind.defaultsKey == "selectionKind")
         #expect(EraserSettings.defaultsKey == "eraser")
         #expect(InkPalette.defaultsKey(for: .pen) == "inkPalette")
         #expect(InkPalette.defaultsKey(for: .highlighter) == "highlighterPalette")
         #expect(CodeIndent.widthKey == "indentWidth")
         #expect(CodeKeys.enabledKey == "codeKeys")
         #expect(LineNumbers.defaultsKey == "lineNumbers")
+        #expect(IconStyle.defaultsKey == "iconStyle")
         #expect(NewNotes.defaultsKey == "newNoteOrientation")
         #expect(NewNotes.opensAfterCreatingKey == "openNoteAfterCreating")
+        #expect(PaperSetup.defaultStyleKey == "defaultPaper")
+        #expect(PaperSetup.defaultSpacingKey == "defaultPaperSpacing")
+        #expect(PaperSetup.defaultStrengthKey == "defaultPaperStrength")
         #expect(TextRewritingPolicy.proseDefaultsKey == "autocorrectInProse")
+        #expect(MarkerDimming.headingsKey == "markerDimming.headings")
+        #expect(MarkerDimming.bulletsKey == "markerDimming.bullets")
+        #expect(MarkerDimming.checkboxesKey == "markerDimming.checkboxes")
+        #expect(MarkerDimming.fencesKey == "markerDimming.fences")
     }
 
     @Test("Appearance round-trips through its stored text, and system is the default")
@@ -80,9 +90,9 @@ struct SettingsTests {
         #expect(eraser.summary == "Object")
     }
 
-    @Test("Reset Colours puts both palettes back and touches nothing else")
-    func resetPalettes() throws {
-        let suite = "SettingsTests.reset"
+    @Test("Reset Colours puts both palettes back to the set's colours and touches nothing else", arguments: InkPaletteSet.allCases)
+    func resetPalettes(set: InkPaletteSet) throws {
+        let suite = "SettingsTests.reset.\(set.rawValue)"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
 
@@ -91,14 +101,27 @@ struct SettingsTests {
         defaults.set(custom.rawValue, forKey: InkPalette.defaultsKey(for: .highlighter))
         defaults.set("dark", forKey: AppAppearance.defaultsKey)
 
-        InkPalette.resetStoredPalettes(in: defaults)
+        InkPalette.resetStoredPalettes(to: set, in: defaults)
 
         let pen = defaults.string(forKey: InkPalette.defaultsKey(for: .pen)).flatMap(InkPalette.init(rawValue:))
         let marker = defaults.string(forKey: InkPalette.defaultsKey(for: .highlighter)).flatMap(InkPalette.init(rawValue:))
-        #expect(pen == InkPalette.standard(for: .pen))
-        #expect(marker == InkPalette.standard(for: .highlighter))
+        #expect(pen == set.palette(for: .pen))
+        #expect(marker == set.palette(for: .highlighter))
         #expect(pen != custom)
         #expect(defaults.string(forKey: AppAppearance.defaultsKey) == "dark")
+    }
+
+    @Test("Reset Colours with no set named goes to the device's own set")
+    func resetFollowsTheDevice() throws {
+        let suite = "SettingsTests.resetStored"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        defaults.set(InkPaletteSet.original.rawValue, forKey: InkPaletteSet.defaultsKey)
+        InkPalette.resetStoredPalettes(in: defaults)
+
+        let marker = defaults.string(forKey: InkPalette.defaultsKey(for: .highlighter)).flatMap(InkPalette.init(rawValue:))
+        #expect(marker == InkPaletteSet.original.palette(for: .highlighter))
     }
 }
 

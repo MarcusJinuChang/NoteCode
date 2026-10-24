@@ -64,6 +64,14 @@ struct Hotbar: View {
     /// Gap between the bar and the edges around it.
     static let margin: CGFloat = 12
 
+    /// The gap kept between the page and the screen's edge on every side the
+    /// bar doesn't take (feedback item 1, 23 Oct). 10pt: enough to read as a
+    /// margin of surround rather than a rendering glitch, a little under the
+    /// bar's own 12pt margin so a bar floating over the page's bottom still
+    /// sits inside it, and small enough that the fit scale moves about 2.4% on
+    /// an 11-inch iPad. See `CanvasGeometry.areaInsets`.
+    static let pageBuffer: CGFloat = 10
+
     /// How far the bar and its margin take in from the edge it's docked to.
     static var barFootprint: CGFloat { margin + thickness }
 
@@ -118,6 +126,11 @@ struct Hotbar: View {
         .accessibilityIdentifier("hotbar")
         .padding(Self.padding)
         .glassEffect(.regular, in: .rect(cornerRadius: Self.thickness / 2))
+        #if DEBUG
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+            SelectionProbe.log("hotbar frame \(frame)")
+        }
+        #endif
         // An overlay, so the row takes no room: it floats over the page and
         // leaves the bar's size alone, which is what keeps the page where it
         // is whichever mode, tool or edge the bar is on. Inside the offset,

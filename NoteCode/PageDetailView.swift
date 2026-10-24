@@ -99,6 +99,12 @@ struct PageDetailView: View {
     @AppStorage(ShowMarkdown.defaultsKey)
     private var showMarkdown: ShowMarkdown = .whileEditing
 
+    /// Settings › Writing › Markers: how dim each kind of visible marker is.
+    @AppStorage(MarkerDimming.headingsKey) private var headingMarkers = MarkerLevel.dim
+    @AppStorage(MarkerDimming.bulletsKey) private var bulletMarkers = MarkerLevel.dim
+    @AppStorage(MarkerDimming.checkboxesKey) private var checkboxMarkers = MarkerLevel.dim
+    @AppStorage(MarkerDimming.fencesKey) private var fenceMarkers = MarkerLevel.dim
+
     /// Settings › Code: the indent width, the row of code keys, line numbers.
     @AppStorage(CodeIndent.widthKey)
     private var indentWidth = CodeIndent.defaultWidth
@@ -112,10 +118,22 @@ struct PageDetailView: View {
     /// Settings › Writing › Autocorrect.
     @AppStorage(TextRewritingPolicy.proseDefaultsKey)
     private var rewritesProse = TextRewritingPolicy.proseEnabledByDefault
+    /// Settings › Writing › On-Device Assistant.
+    @AppStorage(AIFeatureSettings.enabledKey) private var aiEnabled = true
+    @AppStorage(AIFeatureSettings.lengthKey) private var aiLength = AIAnswerLength.standard.rawValue
+    @AppStorage(AIFeatureSettings.insertStyleKey) private var aiInsertStyle = AIInsertStyle.quote.rawValue
+
+    private var aiSettings: AIFeatureSettings {
+        AIFeatureSettings(isEnabled: aiEnabled, length: aiLength, insertStyle: aiInsertStyle)
+    }
 
     /// Whether the bar ticks as it lands on an edge (Settings › General).
     @AppStorage(SnapHaptic.defaultsKey)
     private var hapticOnSnap = SnapHaptic.isOnByDefault
+
+    /// Settings › Drawing › Add Pages While Drawing.
+    @AppStorage(InkPageGrowth.defaultsKey)
+    private var addsPagesWhileDrawing = InkPageGrowth.defaultEnabled
 
     /// Counts the bar's drops; each one is a snap for the haptic to follow.
     @State private var snaps = 0
@@ -215,6 +233,17 @@ struct PageDetailView: View {
             NoteInfoView(page: page, pageCount: openPageCount)
         }
         .runDestinationSiteAlert(isPresented: $isNamingCustomSite, pageSetting: $page.runDestination)
+#if canImport(UIKit)
+        .sheet(item: Binding(
+            get: { editor.ai.job },
+            set: { if $0 == nil { editor.ai.dismiss() } }
+        )) { job in
+            AIResultSheet(editor: editor, job: job)
+        }
+        .onChange(of: aiSettings, initial: true) { _, settings in
+            settings.apply(to: editor.ai)
+        }
+#endif
         .sheet(item: $editingFolder) { editing in
             FolderEditor(editing: editing)
         }
@@ -226,8 +255,12 @@ struct PageDetailView: View {
         .onChange(of: page.textSize, initial: true) { _, size in
             editor.syncTextSize(to: size)
         }
+        .onChange(of: page.lineSpacing, initial: true) { _, spacing in
+            editor.syncLineSpacing(to: spacing)
+        }
         .onAppear {
             editor.commitTextSize = { [weak page] size in page?.textSize = size }
+            editor.commitLineSpacing = { [weak page] spacing in page?.lineSpacing = spacing }
             editor.onBlockCopied = { [toasts] in toasts?.show("Copied") }
         }
         .alert("Change Text Size?", isPresented: Binding(
@@ -238,6 +271,15 @@ struct PageDetailView: View {
             Button("Change") { editor.confirmTextSize() }
         } message: {
             Text("The text re-flows to the new size. Ink stays where it was drawn, so it may no longer sit on its words.")
+        }
+        .alert("Change Line Spacing?", isPresented: Binding(
+            get: { editor.spacingAwaitingConfirmation != nil },
+            set: { _ in }
+        )) {
+            Button("Cancel", role: .cancel) { editor.cancelLineSpacing() }
+            Button("Change") { editor.confirmLineSpacing() }
+        } message: {
+            Text("The lines move to the new spacing. Ink stays where it was drawn, so it may no longer sit on its words.")
         }
         .alert("Change Text Size?", isPresented: Binding(
             get: { editor.selectionSizeAwaitingConfirmation != nil },
@@ -420,6 +462,8 @@ struct PageDetailView: View {
             }
             .disabled(editor.mode != .text || page.isTextLocked)
 
+            NotePaperMenu(page: page)
+
             Button("Outline", systemImage: "list.bullet.indent") { showsOutline = true }
 
             Button("Find in Note", systemImage: "magnifyingglass") {
@@ -428,6 +472,13 @@ struct PageDetailView: View {
             // The text view answers ⌘F itself while it's typing; this is the
             // same shortcut for when it isn't, and listed in the ⌘ overlay.
             .keyboardShortcut(.find)
+
+            if editor.ai.offersFeatures {
+                Button(AIAction.summariseNote.title, systemImage: AIAction.summariseNote.systemImage) {
+                    editor.summariseNote(title: page.title)
+                }
+                .disabled(editor.mode != .text)
+            }
 #endif
 
             if let onShowSettings {
@@ -472,9 +523,13 @@ struct PageDetailView: View {
                 ),
                 editor: editor,
                 pageLayout: PageLayout(orientation: page.orientation, mode: viewMode),
+                paper: page.paper,
                 keyboardClearance: keyboardClearance,
                 restingClearance: CanvasGeometry.restingClearance(dock: dock, footprint: Hotbar.footprint),
-                areaInsets: UIEdgeInsets(top: 0, left: pageInsets.leading, bottom: 0, right: pageInsets.trailing),
+                areaInsets: UIEdgeInsets(
+                    top: pageInsets.top, left: pageInsets.leading,
+                    bottom: pageInsets.bottom, right: pageInsets.trailing
+                ),
                 // The hotbar's own snap, so the two move as one.
                 areaAnimation: .snappy,
                 inkSaver: inkSaver,
@@ -488,14 +543,18 @@ struct PageDetailView: View {
                     }
                 },
                 showMarkdown: showMarkdown,
+                markerDimming: MarkerDimming(
+                    headings: headingMarkers, bullets: bulletMarkers, checkboxes: checkboxMarkers, fences: fenceMarkers
+                ),
                 rendersMarkdown: true,
                 codeSettings: CodeEditorSettings(indentWidth: indentWidth, codeKeys: codeKeys, lineNumbers: lineNumbers),
                 rewritesProse: rewritesProse,
-                typography: NoteTypography(bodySize: page.textSize),
+                typography: NoteTypography(bodySize: page.textSize, lineSpacing: page.lineSpacing),
                 minimumPageCount: page.minimumPageCount,
                 onMinimumPageCountChanged: { [weak page] count in
                     if let page, count > page.minimumPageCount { page.minimumPageCount = count }
                 },
+                addsPagesWhileDrawing: addsPagesWhileDrawing,
                 onScrolled: noteScrolled
             )
             // Square and unbordered: the page fills its area. Nothing clips
@@ -656,10 +715,11 @@ struct PageDetailView: View {
     }
 
     /// The area the page is drawn in: all of the window, less the strip a bar
-    /// docked to a side takes — see `CanvasGeometry.hotbarReserve`.
+    /// docked to a side takes and a small buffer on the other edges — see
+    /// `CanvasGeometry.areaInsets`.
     private var pageInsets: EdgeInsets {
-        let reserve = CanvasGeometry.hotbarReserve(dock: dock, side: Hotbar.footprint)
-        return EdgeInsets(top: 0, leading: reserve.left, bottom: 0, trailing: reserve.right)
+        let insets = CanvasGeometry.areaInsets(dock: dock, side: Hotbar.footprint, buffer: Hotbar.pageBuffer)
+        return EdgeInsets(top: insets.top, leading: insets.left, bottom: insets.bottom, trailing: insets.right)
     }
 
 #else
