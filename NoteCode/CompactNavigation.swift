@@ -37,6 +37,35 @@ nonisolated enum CompactScreen: Hashable, Sendable {
     }
 }
 
+/// Whether the split view shows the list (regular width), by what is open.
+///
+/// Home is the one place the list is always beside you: it has nothing to be
+/// covered. Over a note the list slides over the page and goes away when a
+/// note opens (see "The page fills the window" in AGENTS.md: opening it never
+/// re-wraps or rescales the note).
+nonisolated enum SidebarPlan {
+    /// Whether the list is showing when `noteOpen` changes or the window is
+    /// made: with Home up, yes; with a note open, only with storage failed,
+    /// whose warning is the list's.
+    static func showsList(noteOpen: Bool, storageFailed: Bool) -> Bool {
+        !noteOpen || storageFailed
+    }
+
+    /// Whether the split view shows the list once it takes over from a stack:
+    /// always on Home, and over a note only if the list was what the stack
+    /// showed.
+    static func showsList(unfoldingFrom path: [CompactScreen], noteOpen: Bool) -> Bool {
+        !noteOpen || CompactScreen.listShowing(in: path)
+    }
+
+    /// What the stack starts with when a split view folds into it: the list
+    /// only if it was over a note, since on Home the list is beside it and a
+    /// stack's Home is the root, not a list pushed on it.
+    static func stackShowsList(listShowing: Bool, noteOpen: Bool) -> Bool {
+        listShowing && noteOpen
+    }
+}
+
 /// A list row that opens its note on a tap in a compact width.
 ///
 /// The list's rows open by selection (`List(selection:)` and `.tag`), which
