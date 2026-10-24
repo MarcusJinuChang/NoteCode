@@ -93,7 +93,24 @@ struct HotbarLayoutTests {
                 }
                 return nil
             }
-            let bottom = bar(in: window).map { $0.convert($0.bounds, to: window).maxY } ?? 0
+            // The bar's row of buttons and title, not its whole frame: in a
+            // full run the first window's bar is sometimes laid out with the
+            // large title's 52pt below that row (prefersLargeTitles; its
+            // background reaches 138, the row ends at 86) though the page
+            // sets the inline title and SwiftUI lays the page out against
+            // the row. Seen four times in five full runs; never when the
+            // suite runs alone.
+            func row(in view: UIView) -> UIView? {
+                if String(describing: type(of: view)).hasSuffix("NavigationBarContentView") { return view }
+                for subview in view.subviews {
+                    if let found = row(in: subview) { return found }
+                }
+                return nil
+            }
+            let bottom = bar(in: window).map { bar in
+                let shown = row(in: bar) ?? bar
+                return shown.convert(shown.bounds, to: window).maxY
+            } ?? 0
             return max(bottom, window.safeAreaInsets.top)
         }
 
@@ -168,15 +185,12 @@ struct HotbarLayoutTests {
         let rig = try Rig(dock: dock, size: held.size)
         let screen = CGRect(origin: .zero, size: held.size)
         let buffer = Hotbar.pageBuffer
-        // Fails now and then in a full run (not when the suite runs alone):
-        // the room above the page reads 52pt taller than the page was laid
-        // out against, and stays so for seconds. Not yet explained; the
-        // label lists the navigation bars and the window's inset so the
-        // next failure shows where the 52pt is.
         let page = rig.geometry().page
         func bars(in view: UIView) -> [String] {
             var found: [String] = []
-            if let bar = view as? UINavigationBar { found.append("\(bar.convert(bar.bounds, to: rig.window))") }
+            if let bar = view as? UINavigationBar {
+                found.append("\(bar.convert(bar.bounds, to: rig.window)), large titles \(bar.prefersLargeTitles)")
+            }
             for subview in view.subviews { found += bars(in: subview) }
             return found
         }
