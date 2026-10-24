@@ -1,0 +1,205 @@
+# LaTeX
+
+Design note for ROADMAP "After the submission" item 3 (stream L), 23 Oct. Design
+and a spike only; nothing is built. **Unfinished: written when the usage limit
+hit.** What is measured is marked; the rest is reasoning. Every decision is
+**Provisional (Marcus to review)**. The spike is `scripts/spikes/latex-swiftmath/`
+(a scratch SwiftPM package, SwiftMath 1.7.3, run on the iPad Pro 11-inch
+simulator with `xcodebuild test -scheme LaTeXSpike-Package`; `SPIKE|` lines).
+
+## Syntax (Obsidian's)
+
+- **Inline `$…$`.** The opening `$` is followed by a non-space, the closing one
+  is preceded by a non-space and not followed by a digit (Pandoc's rule, which
+  Obsidian's follows). So `costs $5 and $10` and `$5–$10` stay text; no
+  formula can contain a newline.
+- **`\$` is a literal dollar**, in and out of math (it doesn't close one). The
+  parser has no escapes today; this is the only one, and the `\` is a hidden
+  marker like the others.
+- **Display `$$…$$` is a block when the line starts with `$$`**: one line
+  (`$$ x $$`) or `$$` … `$$` over lines (the closing line ends with `$$`).
+  `$$x$$` in mid-line is inline math in display style. **An unclosed `$$` is
+  text**, never a block running to the end of the note (a fence does that; a
+  hidden unclosed math block would make the rest of the note vanish while
+  typing). Closing within 50 lines or it is text.
+- **Code wins, left to right**: code spans and fences are found first, so
+  `` `$x$` `` is code. A math span is an atom: nothing in it is emphasis
+  (`$a*b*c$`, `$x_1+y_2$`). Math in a link's text is text.
+- Markdown export is unchanged (the note's bytes); Obsidian reads it.
+
+## Parsing
+
+- Pure and SwiftMath-free: `InlineMarkup.math(MathStyle)` as an opening/closing
+  pair around one text node, with `InlineAttributes.math`, found in the same
+  first pass as code spans and links; `BlockNode.Kind.math(MathBlock)` for
+  `$$` blocks, line-aligned like `.code` (there is already a
+  `// .math arrives with a later step` in `DocumentNode.swift`).
+- **Whether the TeX is valid is a separate question**, asked of
+  `MTMathListBuilder.build(fromString:error:)` (Foundation only, no UIKit),
+  through one cached `FormulaValidity` that both the styler and
+  `MarkdownLayout.runs` ask, so styling and layout can't disagree. An invalid
+  formula is not swapped and the styler paints its source `secondaryLabel`
+  (the error case: "shows its source dimmed"). An empty formula is invalid.
+  Measured: unbalanced braces, unknown commands and unknown environments fail
+  at parse with a message; typesetting never failed after a parse.
+
+## Drawing (decision)
+
+- **An `NSTextAttachment` swapped in by the layout delegate**, exactly as
+  markers are: `MarkdownLayout.Run.Kind.formula` covers the whole `$…$` and its
+  replacement is U+FFFC then word joiners, the same UTF-16 length, so every
+  offset still maps. Measured on a real TextKit 2 `UITextView`: the swap is
+  honoured (line `attributedString.length` equals the source's), a line grows
+  to the formula only when it is taller than the text (a fraction over a sum:
+  27.0pt against 20.29pt; a small `$x$` leaves the line at 20.29pt), and
+  **room is line height, never paragraph spacing**, as the rules say.
+- **A custom layout fragment can't reserve width in a line**, so it only suits
+  display; an image run is the same thing as an attachment. Rejected.
+- **Image attachment (bitmap) over a view provider (MTMathUILabel as the
+  view)**: the image variant laid out, aligned and drew in the probe; the
+  view variant laid out but drew nothing in an off-screen render (not
+  established on screen, so **unverified**; it would give vector sharpness
+  and a tap target for free). The bitmap is rendered at the page's draw scale
+  (as `DrawingCanvas.renderScale` does) and cached by latex, size, mode, scale
+  and resolved colour.
+- **Baseline (measured, image variant, "H" beside text at 17pt, 4x):** the
+  attachment's bounds are `y = -descent`, so ink sits on the text's baseline
+  to within 0.5pt; a descender hangs below it by the metric's descent to 0.2pt
+  at 14–36pt.
+- **Colour comes from the run, resolved before drawing.** SwiftMath takes a
+  concrete `UIColor` (measured: black, white and red all draw exactly), so a
+  dynamic colour must be resolved per appearance; the cache key carries it.
+  A `<span color>` round it works through the text's foreground colour.
+  **A template image did not take the text colour** in the probe (the
+  measurement was weak, redone in the last run, not read).
+- **Upside down:** SwiftMath's label layer is geometry-flipped, so rendering it
+  into a UIKit context needs one more flip. The first contact sheet came out
+  inverted; the baseline test now uses a descender.
+- **Display blocks**: the first line carries the attachment (centred by the
+  paragraph style), the source lines and the closing line are word joiners
+  with `minimumLineHeight = maximumLineHeight = 1`. **Measured: TextKit keeps a
+  1pt line (heights 20.29, 20.29, 1.00, 1.00, 20.29).** **Not working yet:**
+  the opening line stayed 20.29pt instead of growing to the 59.5pt formula,
+  and wasn't centred, though its line did hold the attachment; the probe was
+  being debugged (a log of `attachmentBounds` calls was added) when the usage
+  limit hit. Until that is understood the block layout is unproven. The
+  fallback is a fixed height on the opening line (min = max, glyph lift, as
+  the code fences' header does).
+- **A formula wider than the column** scales down to fit (the text container's
+  width is pinned per note, so this depends on the note alone); no floor.
+- **Editing: tap opens an editor popover** (a sheet in a compact width) with the
+  source in monospace and a live preview; Done writes back through
+  `replace(_:withText:)` (one undo step). Why this isn't caret-dependent: what
+  takes room is a function of the text alone, the same with the caret
+  anywhere; the editor is a separate surface, so no line ever re-wraps because
+  of the caret (revealing the source on entry, as Obsidian does, would, and
+  ink would drift). Caret stops treat a formula as one place; Backspace after
+  it deletes the whole span; a selection edge inside it snaps outwards. A
+  locked note opens the editor read-only. New formulas: Style ▾ gets Inline
+  Formula and Display Formula, inserted on Done.
+- **Size**: the formula's font size is the point size of the text at the
+  span (the styler already sizes runs and headings), times a scale. Measured
+  at 17pt: Latin Modern's x-height is 7.51pt against SF's 8.95 (84%) and its
+  cap height 11.5 against 11.98 (96%), so formulas look small at the same
+  size: **scale 1.1** (provisional), re-judged on screen.
+- Bold and italic mean nothing to a formula; colour and size apply to it.
+
+## PDF, thumbnails, search, copy, the Mac
+
+- **`NSTextLineFragment.draw` can't be trusted for formulas** (measured: the
+  view variant drew 0 pixels, the image variant 15 dark pixels of a fraction), so
+  `NotePDF.draw` draws each formula itself after its line, **as vectors**:
+  `MTMathUILabel.displayList.draw(_:)` into the PDF context works (public;
+  88KB for one formula with its embedded font subset, so the PDF stays text
+  plus paths), light, concrete black. Thumbnails take the PDF's path.
+  `NoteThumbnail.version` goes to 7.
+- **Search** reads the source (people search "log n"); no change. **Outline**
+  titles drop the `$`. **Get Info** skips words inside math.
+- **Copy**: plain text is the Markdown byte for byte (unchanged); the RTF
+  carries the source in Menlo, `$…$` included. **Paste** of rich text escapes
+  a `$` as `\$` only when the line would otherwise parse a math span the
+  source didn't have.
+- **The Mac editor is a plain `TextEditor`**: it shows the source. The pure
+  parser compiles there; SwiftMath links into both platforms and is unused on
+  the Mac.
+- **Ink**: typing a formula changes the line height, so the lines below move,
+  as any edit that re-wraps does.
+
+## What SwiftMath can't draw (measured, 56 probes at 17pt)
+
+- **Fail at parse**: `\operatorname`, `\underbrace`, `\overbrace`,
+  `\xrightarrow`, `\cancel`, `\boxed`, `\dfrac`, `\bmod`, `\pmod`, `\substack`,
+  `\overset`, `\tag`, `\newcommand`, `\implies`, `\varnothing`, `\not`,
+  `\sideset`, `\href`, `\hline`, `array`, `align*`.
+- **Draw**: `\frac`, `\sqrt`, `\sum`/`\prod`/`\int` with limits, matrices
+  (`pmatrix`, `bmatrix`), `cases`, `aligned`, `\binom`, `{n \choose k}`,
+  `\mathbb`, `\mathcal`, `\mathbf`, `\mathrm`, `\text`, `\left…\right`,
+  `\lceil`, `\lfloor`, `\overline`, `\hat`, `\vec`, `\tilde`, `\arg\min`,
+  `\max\limits`, `\displaystyle`, `\ldots`, `\cdots`, `\vdots`, `\color`.
+- **A small alias table in our own pure layer** covers the common failures
+  (`\dfrac`/`\tfrac` → `\frac`, `\implies` → `\Rightarrow`, `\varnothing` →
+  `\emptyset`, `\operatorname{x}` → `\mathrm{x}`, `align`/`align*` → `aligned`,
+  `\bmod`/`\pmod` → `\mathrm{mod}` forms); the rest show their source dimmed.
+- **App size**: the package copies a 7.1MB `mathFonts.bundle` (twelve fonts)
+  into the app; only Latin Modern is used. Pruning means a fork. Measured size
+  of the built bundle: not taken.
+
+## Measurements (simulator on this Mac, so Mac CPU; the iPad is slower)
+
+- Typeset: 0.2–2.3ms warm; the first call 33–44ms (font load), with outliers
+  of ~20ms. Bitmap at 2x: 0.1–1.3ms. Bitmap sizes at 2x: 10KB (`⌈log₂ n⌉` at
+  14pt) to 420KB (the quadratic at 36pt); 40KB for a typical 17pt line.
+  200 typesets of `\sum \frac{i}{i+1}`: 0.48ms each; 200 images: 0.27ms (2x),
+  0.22ms (3x). A note of 200 formulas typesets in about 100ms cold, so
+  prewarm off the main actor is not needed, but the cache is.
+- `MTMathUILabel` typesets twice per formula (once for `intrinsicContentSize`,
+  once in layout); the public API leaves no way round it.
+- SwiftMath's typesetter is internal; everything goes through
+  `MTMathUILabel.displayList` (public `ascent`, `descent`, `width`, `draw`).
+
+## Adding the package (Marcus, by hand; `project.pbxproj` is not touched here)
+
+In Xcode: File › Add Package Dependencies…,
+`https://github.com/mgriebling/SwiftMath.git`, Exact Version 1.7.3, add the
+`SwiftMath` product to the NoteCode target. That makes four edits in
+`project.pbxproj`, mirroring HighlightSwift's (ids illustrative):
+
+1. A `PBXBuildFile`: `AA000000000000000000AA11 /* SwiftMath in Frameworks */ =
+   {isa = PBXBuildFile; productRef = AA000000000000000000AA12 /* SwiftMath */; };`
+   and its line in the target's Frameworks phase `files`.
+2. A `packageProductDependencies` entry on the NoteCode target and an
+   `XCSwiftPackageProductDependency` (`productName = SwiftMath`).
+3. An `XCRemoteSwiftPackageReference` (`repositoryURL`
+   `https://github.com/mgriebling/SwiftMath.git`, `kind = exactVersion;
+   version = 1.7.3;`) listed in the project's `packageReferences`.
+4. `Package.resolved` (`xcshareddata/swiftpm`) gains the `swiftmath` pin.
+
+Also: add MIT (SwiftMath) and the Latin Modern font licence (GUST) to
+`Acknowledgements.txt` (a test checks it); check the privacy manifest (the
+spike found no required-reason API in SwiftMath's sources).
+
+## Build steps (one PR each; the first two need nothing but the parser)
+
+1. **Parser**: `InlineMarkup.math`, `BlockNode.Kind.math`, `\$`; files
+   `InlineParser.swift`, `DocumentNode.swift`, `DocumentParser.swift`; tests in a
+   new `MathParserTests` (currency, `\$`, code interplay, unclosed `$$`, the
+   50-line cap, a random-lines property test as `NestingInlineTests` has).
+2. **Validity + aliases**: `FormulaValidity`, `TeXAliases` (pure); tests over
+   the probe's lists above. Needs the package (step 0, Marcus).
+3. **Layout**: `MarkdownLayout.Run.Kind.formula`, `FormulaAttachment` and its
+   cache, inline only; the styler's dimming; `MarkdownLayoutTests` extended:
+   frames equal the same note with the source replaced by a box of the
+   formula's size, in seamless, print and landscape; pagination alike in the
+   three modes (`CodeBlockRoomTests.paginatesAlike`'s sweep).
+4. **Display blocks**: resolve the opening-line height first (see above).
+5. **Editing**: tap (`MarkerTaps`), the editor, caret stops, Backspace,
+   selection snapping, Style ▾ items.
+6. **PDF and thumbnails**: vector draw in `NotePDF.draw`, version 7.
+7. **Info, outline, copy, paste**: small, tests per rule.
+
+## Unverified
+
+On an iPad; the view-provider variant; display-block heights and centring;
+template-image colour; sharpness at zoom (the probe measured it, not read);
+`NSTextLineFragment.draw` with a formula in the PDF; a real tap; VoiceOver
+(label the attachment with its source).
