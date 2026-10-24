@@ -132,6 +132,7 @@ private struct ParagraphControls: View {
             .disabled(editor.caretFormatting.link)
         ColourMenu(editor: editor)
         HighlightMenu(editor: editor)
+        LineSpacingMenu(editor: editor)
     }
 }
 
@@ -239,6 +240,31 @@ private struct HighlightMenu: View {
     }
 }
 
+/// Line spacing (`NoteTypography.lineSpacings`): the note's, in points added to
+/// every prose line's height. Per note, so it asks first when the note has ink.
+private struct LineSpacingMenu: View {
+    @Bindable var editor: NoteEditor
+
+    var body: some View {
+        Menu {
+            ForEach(NoteTypography.lineSpacings, id: \.self) { points in
+                Toggle(isOn: Binding(get: { editor.lineSpacing == points }, set: { _ in editor.setLineSpacing(points) })) {
+                    Text(points == 0 ? "Default" : "+\(points) pt")
+                }
+            }
+        } label: {
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(editor.lineSpacing == 0 ? AnyShapeStyle(.primary) : AnyShapeStyle(.tint))
+                .hotbarTarget()
+        }
+        .modifier(HotbarMenuStyle())
+        .menuOrder(.fixed)
+        .accessibilityLabel("Line Spacing")
+        .accessibilityValue(editor.lineSpacing == 0 ? "Default" : "\(editor.lineSpacing) points")
+    }
+}
+
 /// A list item: the three kinds (the current one tinted), outdent and indent.
 private struct ListControls: View {
     @Bindable var editor: NoteEditor
@@ -252,6 +278,7 @@ private struct ListControls: View {
         IndentControls(editor: editor)
         ColourMenu(editor: editor)
         HighlightMenu(editor: editor)
+        LineSpacingMenu(editor: editor)
     }
 }
 

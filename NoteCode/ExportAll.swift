@@ -233,7 +233,7 @@ extension NoteExportJob {
             minimumPages: page.minimumPageCount,
             rendersMarkdown: true,
             lineNumbers: numbered,
-            typography: NoteTypography(bodySize: page.textSize)
+            typography: page.typography
         ))
         return data.isEmpty ? nil : data
     }

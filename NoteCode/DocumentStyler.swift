@@ -27,10 +27,15 @@ enum DocumentStyler {
     }
 
     static func proseAttributes(_ typography: NoteTypography = .standard) -> [NSAttributedString.Key: Any] {
-        [
+        var attributes: [NSAttributedString.Key: Any] = [
             .font: typography.prose,
             .foregroundColor: UIColor.label,
         ]
+        // Only with spacing, so a note with none is styled as it always was.
+        if typography.lineSpacing > 0 {
+            attributes[.paragraphStyle] = typography.lineStyle(for: typography.prose)
+        }
+        return attributes
     }
 
     /// No `.backgroundColor` here on purpose. That attribute paints per glyph,
@@ -67,10 +72,15 @@ enum DocumentStyler {
     }
 
     static func headingAttributes(level: Int, typography: NoteTypography = .standard) -> [NSAttributedString.Key: Any] {
-        [
-            .font: typography.heading(level: level),
+        let font = typography.heading(level: level)
+        var attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
             .foregroundColor: UIColor.label,
         ]
+        if typography.lineSpacing > 0 {
+            attributes[.paragraphStyle] = typography.lineStyle(for: font)
+        }
+        return attributes
     }
 
     /// Markdown markers stay visible but recede, so the text reads as formatted
@@ -106,7 +116,7 @@ enum DocumentStyler {
         rendered: Bool = false,
         typography: NoteTypography = .standard
     ) -> NSParagraphStyle {
-        let style = NSMutableParagraphStyle()
+        let style = typography.lineStyle(for: typography.prose)
         let depth = block.listDepth ?? 0
         let levelIndent = CGFloat(depth) * listIndentPerLevel
 
@@ -273,7 +283,7 @@ enum DocumentStyler {
                 // Indented past its bar, which its fragment draws. Whole
                 // paragraphs, as a list item's style is: the storage makes a
                 // paragraph's characters share its first one's.
-                styled.addAttribute(.paragraphStyle, value: ProseBlockMetrics.quoteParagraphStyle(depth: depth), range: layout.range)
+                styled.addAttribute(.paragraphStyle, value: ProseBlockMetrics.quoteParagraphStyle(depth: depth, typography: typography), range: layout.range)
                 apply(layout.inlines, over: typography.prose, to: styled)
                 for marker in layout.blockMarkers {
                     styled.addAttribute(.foregroundColor, value: markerColor, range: marker)
@@ -737,7 +747,7 @@ enum DocumentStyler {
         case .blockQuote(let depth, _):
             // The indent carries, or a quote's new line starts at the margin.
             var attributes = proseAttributes(typography)
-            attributes[.paragraphStyle] = ProseBlockMetrics.quoteParagraphStyle(depth: depth)
+            attributes[.paragraphStyle] = ProseBlockMetrics.quoteParagraphStyle(depth: depth, typography: typography)
             textView.typingAttributes = attributes
         case .listItem:
             // Carry the indent, or text typed into a wrapped list line jumps

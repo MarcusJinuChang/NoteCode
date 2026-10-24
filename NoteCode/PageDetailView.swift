@@ -217,8 +217,12 @@ struct PageDetailView: View {
         .onChange(of: page.textSize, initial: true) { _, size in
             editor.syncTextSize(to: size)
         }
+        .onChange(of: page.lineSpacing, initial: true) { _, spacing in
+            editor.syncLineSpacing(to: spacing)
+        }
         .onAppear {
             editor.commitTextSize = { [weak page] size in page?.textSize = size }
+            editor.commitLineSpacing = { [weak page] spacing in page?.lineSpacing = spacing }
             editor.onBlockCopied = { [toasts] in toasts?.show("Copied") }
         }
         .alert("Change Text Size?", isPresented: Binding(
@@ -229,6 +233,15 @@ struct PageDetailView: View {
             Button("Change") { editor.confirmTextSize() }
         } message: {
             Text("The text re-flows to the new size. Ink stays where it was drawn, so it may no longer sit on its words.")
+        }
+        .alert("Change Line Spacing?", isPresented: Binding(
+            get: { editor.spacingAwaitingConfirmation != nil },
+            set: { _ in }
+        )) {
+            Button("Cancel", role: .cancel) { editor.cancelLineSpacing() }
+            Button("Change") { editor.confirmLineSpacing() }
+        } message: {
+            Text("The lines move to the new spacing. Ink stays where it was drawn, so it may no longer sit on its words.")
         }
         .alert("Change Text Size?", isPresented: Binding(
             get: { editor.selectionSizeAwaitingConfirmation != nil },
@@ -475,7 +488,7 @@ struct PageDetailView: View {
                 showMarkdown: showMarkdown,
                 rendersMarkdown: true,
                 codeSettings: CodeEditorSettings(indentWidth: indentWidth, codeKeys: codeKeys, lineNumbers: lineNumbers),
-                typography: NoteTypography(bodySize: page.textSize),
+                typography: NoteTypography(bodySize: page.textSize, lineSpacing: page.lineSpacing),
                 minimumPageCount: page.minimumPageCount,
                 onMinimumPageCountChanged: { [weak page] count in
                     if let page, count > page.minimumPageCount { page.minimumPageCount = count }

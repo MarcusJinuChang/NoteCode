@@ -76,8 +76,9 @@ nonisolated enum NoteThumbnail {
     /// A note's layout is part of the name too: hiding its Markdown markers
     /// (the title menu) isn't an edit and leaves `modifiedAt` alone, but the
     /// first page looks different afterwards. So is its text size
-    /// (`Page.textSize`), which isn't an edit either; the default adds
-    /// nothing, so a note nobody resized keeps the name it had.
+    /// (`Page.textSize`) and its line spacing (`Page.lineSpacing`), which
+    /// aren't edits either; the defaults add nothing, so a note nobody
+    /// changed keeps the name it had.
     static func cacheName(
         for id: PersistentIdentifier,
         modifiedAt: Date,
@@ -88,8 +89,9 @@ nonisolated enum NoteThumbnail {
         let digest = SHA256.hash(data: Data(key.utf8))
         let owner = digest.prefix(8).map { String(format: "%02x", $0) }.joined()
         let milliseconds = Int((modifiedAt.timeIntervalSince1970 * 1000).rounded())
-        let size = typography.isStandard ? "" : "-t\(typography.bodySize)"
-        return "\(owner)-\(milliseconds)\(rendersMarkdown ? "-r" : "")\(size).png"
+        let size = typography.bodySize == NoteTypography.defaultSize ? "" : "-t\(typography.bodySize)"
+        let spacing = typography.lineSpacing == 0 ? "" : "-s\(typography.lineSpacing)"
+        return "\(owner)-\(milliseconds)\(rendersMarkdown ? "-r" : "")\(size)\(spacing).png"
     }
 
     /// The part of a cache name that is the note's alone, to find the older
@@ -235,7 +237,7 @@ final class ThumbnailStore {
             orientation: page.orientation,
             drawingData: page.drawingData,
             rendersMarkdown: true,
-            typography: NoteTypography(bodySize: page.textSize)
+            typography: page.typography
         )
         guard let image = await NoteThumbnail.render(source) else { return nil }
         rendered += 1
@@ -253,7 +255,7 @@ final class ThumbnailStore {
             for: id,
             modifiedAt: page.modifiedAt,
             rendersMarkdown: true,
-            typography: NoteTypography(bodySize: page.textSize)
+            typography: page.typography
         )
     }
 
@@ -334,6 +336,7 @@ struct NoteThumbnailView: View {
     private struct Picture: Hashable {
         var modifiedAt: Date
         var textSize: Int?
+        var lineSpacing: Int?
     }
 
     /// How long the note must be left alone before its new picture is made.
@@ -355,7 +358,7 @@ struct NoteThumbnailView: View {
 #if canImport(UIKit)
             // `modifiedAt` as the id: a new date is a new picture. So is a
             // new text size, which leaves the date alone.
-            .task(id: Picture(modifiedAt: page.modifiedAt, textSize: page.textSize)) { await refresh() }
+            .task(id: Picture(modifiedAt: page.modifiedAt, textSize: page.textSize, lineSpacing: page.lineSpacing)) { await refresh() }
 #endif
     }
 
