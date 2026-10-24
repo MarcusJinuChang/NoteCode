@@ -495,6 +495,7 @@ struct PageDetailView: View {
                 ),
                 editor: editor,
                 pageLayout: PageLayout(orientation: page.orientation, mode: viewMode),
+                paper: page.paper,
                 keyboardClearance: keyboardClearance,
                 restingClearance: CanvasGeometry.restingClearance(dock: dock, footprint: Hotbar.footprint),
                 areaInsets: UIEdgeInsets(

@@ -27,6 +27,9 @@ struct DocumentTextView: UIViewRepresentable {
     /// The note's page orientation and the device's view mode.
     var pageLayout = PageLayout()
 
+    /// The paper the note is ruled with: drawing only, it takes no room.
+    var paper = PaperSetup.blank
+
     /// Room to leave above the keyboard for a hotbar riding up with it. See
     /// `PageView.keyboardClearance`.
     var keyboardClearance: CGFloat = 0
@@ -121,6 +124,7 @@ struct DocumentTextView: UIViewRepresentable {
         // canvas knob too, and the canvas is the page's.
         editor?.attach(textView, canvas: page.canvas, page: page)
         page.pageLayout = pageLayout
+        page.paper = paper
         page.minimumPageCount = minimumPageCount
         page.addsPagesWhileDrawing = addsPagesWhileDrawing
         page.onMinimumPageCountChanged = onMinimumPageCountChanged
@@ -149,6 +153,7 @@ struct DocumentTextView: UIViewRepresentable {
     func updateUIView(_ page: PageView, context: Context) {
         let textView = page.textView
         page.pageLayout = pageLayout
+        page.paper = paper
         page.minimumPageCount = max(minimumPageCount, page.minimumPageCount)
         page.addsPagesWhileDrawing = addsPagesWhileDrawing
         page.onMinimumPageCountChanged = onMinimumPageCountChanged
