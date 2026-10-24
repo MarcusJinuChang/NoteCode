@@ -533,7 +533,7 @@ struct ContentView: View {
     /// After the Welcome note's check, not before: a store whose only notes
     /// were deleted has been used, and the Welcome note's check counts them.
     private func purgeExpiredNotes() {
-        try? Page.purgeExpired(in: modelContext)
+        _ = try? Page.purgeExpired(in: modelContext)
     }
 
     /// Closes the open note and moves it to Recently Deleted.

@@ -337,7 +337,7 @@ struct DocumentTextView: UIViewRepresentable {
             var id: CodeBlockID
             var language: String
 
-            init(block: CodeBlock) {
+            nonisolated init(block: CodeBlock) {
                 id = block.id
                 language = block.infoString.split(separator: " ").first.map { $0.lowercased() } ?? ""
             }

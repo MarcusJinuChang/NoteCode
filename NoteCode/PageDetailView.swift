@@ -259,8 +259,8 @@ struct PageDetailView: View {
             editor.syncLineSpacing(to: spacing)
         }
         .onAppear {
-            editor.commitTextSize = { [weak page] size in page?.textSize = size }
-            editor.commitLineSpacing = { [weak page] spacing in page?.lineSpacing = spacing }
+            editor.commitTextSize = { [weak page = self.page] size in page?.textSize = size }
+            editor.commitLineSpacing = { [weak page = self.page] spacing in page?.lineSpacing = spacing }
             editor.onBlockCopied = { [toasts] in toasts?.show("Copied") }
         }
         .alert("Change Text Size?", isPresented: Binding(

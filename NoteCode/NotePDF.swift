@@ -132,7 +132,7 @@ enum NotePDF {
     }
 
     /// Pixels per page point for ink on paper: 288 dots per inch.
-    static let inkPixelsPerPagePoint: CGFloat = 3
+    nonisolated static let inkPixelsPerPagePoint: CGFloat = 3
 
     /// Draws the ink on one sheet, into a context whose origin is the
     /// sheet's top left, in page points.

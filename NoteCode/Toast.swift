@@ -36,7 +36,7 @@ struct Toast: Identifiable, Equatable {
 @Observable
 final class ToastCenter {
     /// How long a toast stays: four seconds.
-    static let defaultDuration: Duration = .seconds(4)
+    nonisolated static let defaultDuration: Duration = .seconds(4)
 
     private(set) var current: Toast?
 

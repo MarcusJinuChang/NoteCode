@@ -505,7 +505,7 @@ nonisolated enum MarkdownFormatting {
 
 // MARK: - Quotes and rules
 
-extension MarkdownFormatting {
+nonisolated extension MarkdownFormatting {
 
     /// How many `>`s a quote line has and how long its marker is, as the
     /// parser reads it.

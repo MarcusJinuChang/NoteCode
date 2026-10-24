@@ -316,7 +316,7 @@ extension RichPaste {
     }
 
     /// `0xRRGGBB` for a colour that is mostly opaque, or `nil`.
-    private static func hex(of colour: UIColor) -> Int? {
+    private nonisolated static func hex(of colour: UIColor) -> Int? {
         var (red, green, blue, alpha) = (CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0))
         guard colour.getRed(&red, green: &green, blue: &blue, alpha: &alpha), alpha > 0.5 else { return nil }
         func byte(_ value: CGFloat) -> Int { Int((min(max(value, 0), 1) * 255).rounded()) }

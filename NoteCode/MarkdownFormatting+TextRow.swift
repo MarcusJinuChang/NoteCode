@@ -10,7 +10,7 @@
 
 import Foundation
 
-extension MarkdownFormatting {
+nonisolated extension MarkdownFormatting {
 
     // MARK: Link
 
