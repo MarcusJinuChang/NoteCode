@@ -13,7 +13,7 @@ import UIKit
 ///
 /// Passed in rather than read inside the highlighter so the decision happens
 /// once, on the main actor, alongside everything else that reads traits.
-enum HighlightAppearance: Equatable {
+nonisolated enum HighlightAppearance: Equatable {
     case light
     case dark
 
@@ -24,7 +24,7 @@ enum HighlightAppearance: Equatable {
 
 /// A span of code to paint, with offsets relative to the code string that was
 /// handed in — not to the document. The caller adds the block's offset.
-struct ColorRun: Equatable {
+nonisolated struct ColorRun: Equatable {
     var range: NSRange
     var color: UIColor
 }
@@ -35,7 +35,7 @@ struct ColorRun: Equatable {
 /// implementations, or dropping highlighting entirely, means changing which
 /// object gets constructed — the editor keeps working either way, falling back
 /// to the plain monospace styling that DocumentStyler already applies.
-protocol SyntaxHighlighter {
+nonisolated protocol SyntaxHighlighter {
     /// - Parameter languageTag: the fence's tag exactly as typed — `cpp`,
     ///   `rust`, `sql`. Deliberately a String rather than `CodeLanguage`:
     ///   that enum lists the languages NoteCode can *run*, which is a much
