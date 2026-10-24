@@ -276,10 +276,10 @@ struct InkSettingsTests {
         #expect(state.pen.width == .bold)
     }
 
-    @Test("The lasso is the one tool with no options row")
+    @Test("Every tool has an options row: the Select tool's is its shape and, with a selection, its commands")
     func optionsRow() {
         for kind in InkToolKind.allCases {
-            #expect(InkToolState(kind: kind).hasOptions == (kind != .lasso))
+            #expect(InkToolState(kind: kind).hasOptions, "\(kind)")
         }
     }
 }
