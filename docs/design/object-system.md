@@ -490,54 +490,59 @@ a small edit to the step named.
 | 7 | Scale/rotate | Move, delete, duplicate, recolour and a corner-handle scale; rotation through PaperKit's "Edit" | steps 3, 6 |
 | 8 | iPad probe first | Not waited for: step 0 is built and its probe is in; the hotbar cause is the one thing that needs the log, so it is the last step and the note says what to read | step 6 |
 
-## Build state (23 Oct, usage limit reached; read this first)
+## Build state (24 Oct)
 
-Branch `claude/o-object-system-design-617825`, nothing pushed.
+Branch `claude/o-object-system-design-617825`, nothing pushed, `integration-oct`
+merged in. Steps 0 to 6 are built and tested on the simulator (`NC-object`,
+iPad Pro 13-inch, iOS 27.0); nothing is verified on the iPad.
 
-- **Step 0: done, tested** (90d4357). Probe not yet run on the iPad.
-- **Step 1: done, tested** (50921a0). `InkContainerTests` plus the scheduler,
-  codec and `ModelFreezeTests` pass (27 tests). No model change, hashes
-  untouched. Mutation check (writer always wraps → `emptyTableIsLegacy` fails)
-  **not run**.
-- **Step 2: written, last run 6 of 11 pass.** `InkObjects.swift`,
-  `InkObjectCommandTests`. The 5 failures were wrong test expectations (the
-  set orders strokes before shapes, so tests now compare against the
-  original order); fixed, **not re-run**. `ShapeMarkup` has no `elementID`
-  member; use `ElementID(shape.id)`. The 5,000-stroke `cost` test passed
-  once; mutation check (per-element `updateOrAppend`) not run.
-- **Step 3: written, never compiled together with its tests.** Files:
-  `InkSelection.swift`, `InkSelectionOverlay.swift`, `SelectionOptions.swift`;
-  edits in `PageView` (overlay slot, `setSelecting`, `selection.clear()` after
-  `forgetUndo`), `NoteEditor` (`applySelecting`, `selection`, clears on
-  leaving the lasso or ink mode), `DrawingCanvas` (`replaceMarkup`,
-  `showPreview`), `InkTool` (`SelectionKind`, `InkToolState.selectionKind`,
-  `hasOptions` now always true), `InkToolbar` (lasso row, persistence),
-  `InkCapture` (stroke `inkSignature` so a recolour is stored; hidden overflow
-  recoloured with its shown piece). `InkSelectionTests` has 12 tests incl.
-  recolour capture. Last build error was `RowGroupBackground` being private
-  (removed). Expect small compile fixes next.
-- **Next step, exactly:** run
-  `scratchpad/runtests.sh s3 InkObjectCommandTests InkSelectionTests InkToolHandoverTests NoteEditorTests`
-  (runner: builds on simulator `NC-object`, kills only its own child), fix
-  compile or test failures, then check `HotbarLayoutTests`,
-  `NarrowOptionsRowTests`, `HotbarUITests` (the lasso now has an options row,
-  which they may assume absent) and the cost tests in `PageViewTests`
-  (`InkContent.fingerprint` now hashes every stroke's colour on each capture).
-  Then mutation-check, commit step 2 and step 3 separately.
-- **Not started:** step 4 (text range selection and recolour: the probe showed
-  `replace(_:withText:)` works with `isEditable == false`), step 5 (tool-switch
-  rules done in part: selection clears on tool or mode change; the
-  `returnToPreviousTool` setting, `InkSelection.onEnded` is the hook, is not
-  built), step 6 (drop `PKLassoTool` from `pencilKitTool`, `insertIntoInk`'s
-  lasso, delegate clearing of foreign selection, "Edit" bridge) and the hotbar
-  displacement, which needs the step 0 log.
-- **Deviation from decision 4:** the first build keeps `InkCapture`'s diff of
-  the canvas as the path into storage (commands change the canvas; capture
-  stores the net change) rather than commands acting on stored ink. Undo is a
-  markup snapshot per command (`DrawingCanvas.replaceMarkup`). Scaling a stroke
-  that crosses a break moves its hidden part by translation only.
-- **Unverified on device:** everything in step 3 (touches, drag preview cost at
-  zoom, the overlay above the canvas in print layout, the Pencil).
+| Step | Commit | Tests |
+|---|---|---|
+| 0 selection clears on leaving the lasso; probe | 90d4357 | `NoteEditorTests` (3 new) |
+| 1 container in `drawingData`, object table | 50921a0 | `InkContainerTests` (8); `ModelFreezeTests` unchanged |
+| 2 hit testing and commands | 16a03b3, b9996db | `InkObjectCommandTests` (11) |
+| 3 Select tool: overlay, options row, undo, storing a recolour | 16a03b3, b9996db | `InkSelectionTests` (17) |
+| 4 text under the shape, one colour control | b9996db | `TextRegionSelectionTests` (7) |
+| 5 previous-tool rule and setting; Insert selects | b9996db | `InkSelectionTests`, `SettingsTests` (keys) |
+| 6 PaperKit selection removed | b9996db | `PaperKitSelectionRemovalTests` (5) |
+
+- **Mutation-checked** (24 Oct, nine breakages in one build, each failed the
+  test named): wrap always (`emptyTableIsLegacy`); per-element move (`cost`,
+  3.0s against the 2s bound); no stroke fingerprint (`recolourIsCaptured`);
+  PaperKit's foreign selection kept (`foreignSelectionIsCleared`); previous tool
+  never returned (`returnsAfterTheSelectionEnds`); text not recoloured
+  (`recoloursText`, `greyTakesItOff`); no family expansion
+  (`familySelectsTogether`); overlay never active (`inputOwnership`);
+  selection surviving a tool switch (`letsGo`).
+- **Measured on the way:** PaperKit's delegate is told of a *programmatic*
+  selection on the same call, so clearing it in `…DidChangeSelection` leaves it
+  empty when the assignment returns. **Not known: the same for a selection
+  PaperKit makes from a touch**, which is the real tap-to-highlight, and
+  whether it flashes.
+- **Built differently from decision 4:** commands change the canvas and
+  `InkCapture`'s diff still stores the net change (strokes now fingerprint their
+  ink, and a stroke's hidden overflow is recoloured with its shown piece);
+  undo is a markup snapshot per command. Scaling a stroke across a break moves
+  its hidden part by translation only. Duplicating copies only what the
+  canvas shows.
+- **Kept PKLassoTool as the canvas's tool while Select is current** (the
+  hover mark shows a lasso), with PaperKit's views out of the touch path
+  (`suspendsPaperKitInput`) and the overlay in front. Only one shape or image
+  can be handed to PaperKit ("Edit", then "Done Editing").
+- **Text recolour from ink mode** puts its edit on the text view's undo stack,
+  which the hotbar's ink-mode arrows don't reach: undo it after switching to
+  text mode. Unlocked notes only; a locked note selects no text. Code lines
+  are never selected.
+- **Unverified on device:** all touch handling (overlay: draw, tap, move,
+  scale, two fingers, Pencil-only lock); the live drag preview's cost at 5,000
+  strokes and at zoom (`controller.markup =` per frame, throttled to 30/s);
+  the overlay above the canvas in print layout; PaperKit's touch-made selection
+  and the probe's log; the hotbar displacement; the options row's width with
+  the new buttons (`HotbarUITests` not run); text selection by a drag over
+  hidden markers (`TextRegion.visibleLines` is checked in a rig that doesn't
+  hide them).
+- **Not done:** a hotbar/Settings icon pass (C's); the rotate handle; text
+  boxes; anchored ink (the table has room for it).
 
 ## Questions for Marcus (with a recommendation)
 
