@@ -1,13 +1,14 @@
 # LaTeX
 
-Design note for ROADMAP "After the submission" item 3 (stream L), 23 Oct. Design
-and a spike only; nothing is built. **Unfinished: written when the usage limit
-hit.** What is measured is marked; the rest is reasoning. Every decision is
-**Provisional (Marcus to review)**. The spike is `scripts/spikes/latex-swiftmath/`
+Design note for ROADMAP "After the submission" item 3 (stream L), 23–24 Oct.
+Design and a spike only; nothing is built. What is measured is marked; the rest
+is reasoning. **Every decision below is Provisional (Marcus to review)**: the
+tag is on each section heading, and a decision that overrides one it gives is
+said so. The spike is `scripts/spikes/latex-swiftmath/`
 (a scratch SwiftPM package, SwiftMath 1.7.3, run on the iPad Pro 11-inch
 simulator with `xcodebuild test -scheme LaTeXSpike-Package`; `SPIKE|` lines).
 
-## Syntax (Obsidian's)
+## Syntax (Obsidian's) — Provisional (Marcus to review)
 
 - **Inline `$…$`.** The opening `$` is followed by a non-space, the closing one
   is preceded by a non-space and not followed by a digit (Pandoc's rule, which
@@ -27,7 +28,7 @@ simulator with `xcodebuild test -scheme LaTeXSpike-Package`; `SPIKE|` lines).
   (`$a*b*c$`, `$x_1+y_2$`). Math in a link's text is text.
 - Markdown export is unchanged (the note's bytes); Obsidian reads it.
 
-## Parsing
+## Parsing — Provisional (Marcus to review)
 
 - Pure and SwiftMath-free: `InlineMarkup.math(MathStyle)` as an opening/closing
   pair around one text node, with `InlineAttributes.math`, found in the same
@@ -43,7 +44,7 @@ simulator with `xcodebuild test -scheme LaTeXSpike-Package`; `SPIKE|` lines).
   Measured: unbalanced braces, unknown commands and unknown environments fail
   at parse with a message; typesetting never failed after a parse.
 
-## Drawing (decision)
+## Drawing (decision) — Provisional (Marcus to review)
 
 - **An `NSTextAttachment` swapped in by the layout delegate**, exactly as
   markers are: `MarkdownLayout.Run.Kind.formula` covers the whole `$…$` and its
@@ -56,35 +57,46 @@ simulator with `xcodebuild test -scheme LaTeXSpike-Package`; `SPIKE|` lines).
 - **A custom layout fragment can't reserve width in a line**, so it only suits
   display; an image run is the same thing as an attachment. Rejected.
 - **Image attachment (bitmap) over a view provider (MTMathUILabel as the
-  view)**: the image variant laid out, aligned and drew in the probe; the
-  view variant laid out but drew nothing in an off-screen render (not
-  established on screen, so **unverified**; it would give vector sharpness
-  and a tap target for free). The bitmap is rendered at the page's draw scale
-  (as `DrawingCanvas.renderScale` does) and cached by latex, size, mode, scale
-  and resolved colour.
+  view)**: the image variant laid out, aligned, took the colour and drew in
+  the probe; the view variant laid out but drew nothing (or nothing the
+  right colour) in an off-screen `layer.render`, which says nothing about
+  a real screen, so **unverified**; it would give vector sharpness and a tap
+  target for free, and is the thing to try if the bitmap's sharpness at zoom
+  disappoints. The bitmap is rendered at the page's draw scale (as
+  `DrawingCanvas.renderScale` does) and cached by latex, size, mode and scale.
+  **Sharpness at zoom is not established**: the probe's measure (share of soft
+  pixels) read 1.000 at 1x and 0.989 at 4x for the bitmap, which is too blunt
+  to say anything.
 - **Baseline (measured, image variant, "H" beside text at 17pt, 4x):** the
   attachment's bounds are `y = -descent`, so ink sits on the text's baseline
   to within 0.5pt; a descender hangs below it by the metric's descent to 0.2pt
   at 14–36pt.
-- **Colour comes from the run, resolved before drawing.** SwiftMath takes a
-  concrete `UIColor` (measured: black, white and red all draw exactly), so a
-  dynamic colour must be resolved per appearance; the cache key carries it.
-  A `<span color>` round it works through the text's foreground colour.
-  **A template image did not take the text colour** in the probe (the
-  measurement was weak, redone in the last run, not read).
+- **Colour comes from the run.** SwiftMath's own drawing takes a concrete
+  `UIColor` (measured: black, white and red all draw exactly), so a dynamic
+  colour must be resolved per appearance. **Better, measured: a template
+  image (`.alwaysTemplate`) drawn by the text view takes the run's foreground
+  colour**: red text gave ink at (232, 92, 97), white text on black gave
+  (226, 226, 226). So one bitmap per latex, size, mode and scale serves both
+  appearances and every `<span color>`, and the colour is not in the cache key.
+  The PDF resolves its own colour (light, black).
 - **Upside down:** SwiftMath's label layer is geometry-flipped, so rendering it
   into a UIKit context needs one more flip. The first contact sheet came out
   inverted; the baseline test now uses a descender.
 - **Display blocks**: the first line carries the attachment (centred by the
   paragraph style), the source lines and the closing line are word joiners
   with `minimumLineHeight = maximumLineHeight = 1`. **Measured: TextKit keeps a
-  1pt line (heights 20.29, 20.29, 1.00, 1.00, 20.29).** **Not working yet:**
-  the opening line stayed 20.29pt instead of growing to the 59.5pt formula,
-  and wasn't centred, though its line did hold the attachment; the probe was
-  being debugged (a log of `attachmentBounds` calls was added) when the usage
-  limit hit. Until that is understood the block layout is unproven. The
-  fallback is a fixed height on the opening line (min = max, glyph lift, as
-  the code fences' header does).
+  1pt line (heights 20.29, 20.29, 1.00, 1.00, 20.29), so the source lines can
+  be made to take no room.** **Not working, measured:** `attachmentBounds` was
+  called once for the opening line with `(0, −26.5, 34, 60)` (a 17pt `\sum`
+  plus an 8pt gap each side) yet the line stayed 20.29pt and wasn't centred
+  (`typographicBounds` x = 0, width 34), where an inline fraction grew its line
+  to 27.0pt. Both an inline bounds with `y ≈ −descent` and a taller display
+  one went through the same swap, so the cause is something this probe changes
+  (the 8pt gap's negative `y`, `.center`, or the tiny paragraphs after it);
+  not isolated. **Step 4's first task** is to vary those three one at a time.
+  The fallback that needs no TextKit surprise is what the code fences'
+  header does: a fixed height on the opening line (min = max, formula height
+  plus gap) with the attachment lifted by `baselineOffset`.
 - **A formula wider than the column** scales down to fit (the text container's
   width is pinned per note, so this depends on the note alone); no floor.
 - **Editing: tap opens an editor popover** (a sheet in a compact width) with the
@@ -104,7 +116,7 @@ simulator with `xcodebuild test -scheme LaTeXSpike-Package`; `SPIKE|` lines).
   size: **scale 1.1** (provisional), re-judged on screen.
 - Bold and italic mean nothing to a formula; colour and size apply to it.
 
-## PDF, thumbnails, search, copy, the Mac
+## PDF, thumbnails, search, copy, the Mac — Provisional (Marcus to review)
 
 - **`NSTextLineFragment.draw` can't be trusted for formulas** (measured: the
   view variant drew 0 pixels, the image variant 15 dark pixels of a fraction), so
@@ -178,8 +190,9 @@ Also: add MIT (SwiftMath) and the Latin Modern font licence (GUST) to
 `Acknowledgements.txt` (a test checks it); check the privacy manifest (the
 spike found no required-reason API in SwiftMath's sources).
 
-## Build steps (one PR each; the first two need nothing but the parser)
+## Build steps (one PR each) — Provisional (Marcus to review)
 
+0. **Marcus: the package** (above). Steps 2 onwards need it.
 1. **Parser**: `InlineMarkup.math`, `BlockNode.Kind.math`, `\$`; files
    `InlineParser.swift`, `DocumentNode.swift`, `DocumentParser.swift`; tests in a
    new `MathParserTests` (currency, `\$`, code interplay, unclosed `$$`, the
@@ -191,15 +204,33 @@ spike found no required-reason API in SwiftMath's sources).
    frames equal the same note with the source replaced by a box of the
    formula's size, in seamless, print and landscape; pagination alike in the
    three modes (`CodeBlockRoomTests.paginatesAlike`'s sweep).
-4. **Display blocks**: resolve the opening-line height first (see above).
-5. **Editing**: tap (`MarkerTaps`), the editor, caret stops, Backspace,
-   selection snapping, Style ▾ items.
-6. **PDF and thumbnails**: vector draw in `NotePDF.draw`, version 7.
-7. **Info, outline, copy, paste**: small, tests per rule.
+4. **Display blocks**: resolve the opening-line height first (see above);
+   `MarkdownLayout.swift`, the styler's paragraph styles for the block's
+   lines; tests: the lines' heights, and the three modes paginate a block
+   across a page break alike (the `paginatesAlike` sweep with a block in it).
+5. **Editing**: `MarkerTaps.swift` (a third gesture), a new
+   `FormulaEditor.swift` (popover or sheet, live preview), caret stops in
+   `MarkdownFormatting+Markers.swift` (a formula is one stretch), Backspace
+   there, selection snapping in `DocumentUITextView`, Style ▾ items in
+   `MarkdownFormatting` and `NoteShortcut`; **undo**: the editor and Backspace
+   both go through `replace(_:withText:)`, so one undo step each, tested as
+   `TextRowEditorTests` tests undo (separate turns of the run loop). Tests:
+   tap lands on a formula (finds the point in the note with the source
+   replaced, as `LinkTapTests` does), Backspace, snapping, undo.
+6. **PDF and thumbnails**: vector draw in `NotePDF.draw` after each line,
+   `NoteThumbnail.version` 7; tests: `NotePDFTests` with a formula (ink in
+   the sheet where the line is; the source text isn't printed), light on a
+   dark device.
+7. **Info, outline, copy, paste**: `NoteInfo.swift` (skip math), 
+   `NoteOutline.swift` (titles without `$`), `RichCopy.swift` (source in
+   Menlo), `RichPaste.swift` (escape an accidental `$`), `SpanStyle.swift`'s
+   search masking left alone; tests per rule.
 
 ## Unverified
 
-On an iPad; the view-provider variant; display-block heights and centring;
-template-image colour; sharpness at zoom (the probe measured it, not read);
-`NSTextLineFragment.draw` with a formula in the PDF; a real tap; VoiceOver
-(label the attachment with its source).
+On an iPad; the view-provider variant; display-block heights and centring
+(see above, failed in the probe); sharpness at zoom; the 1.1 scale by eye;
+`NSTextLineFragment.draw` with a formula in the PDF (the vector draw into a PDF
+context ran and wrote 88KB, but the page wasn't looked at); a real tap;
+VoiceOver (label the attachment with its source); the built app's size with
+the font bundle.
