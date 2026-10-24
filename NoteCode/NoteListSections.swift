@@ -24,7 +24,8 @@ import SwiftData
 ///   again in its parent.
 ///
 /// `folders`, `unfiled`, and a section's `notes` and `children` are the same
-/// rows grouped by kind, each in sort order.
+/// rows grouped by kind: folders in the reader's hand order (`Folder.arranged`,
+/// name order until arranged), notes in the sort's.
 ///
 /// Notes in Recently Deleted are left out of all of it (`Page.isLive`), so the
 /// list can be handed every note and show only the ones the reader has.
@@ -132,7 +133,7 @@ struct NoteListSections {
             return FolderSection(
                 folder: folder,
                 notes: notes,
-                children: children.sorted { areInOrder(.folder($0), .folder($1)) },
+                children: children,
                 items: ordered(children, notes)
             )
         }
@@ -143,10 +144,10 @@ struct NoteListSections {
         let isRoot = { (folder: Folder) in folder.parent.map { !$0.isLive } ?? true }
         let pinnedSections = Folder.arranged(live.filter(\.isPinned)).map(section)
         let rootSections = Folder.arranged(live.filter { isRoot($0) && !$0.isPinned }).map(section)
-        self.pinnedFolders = pinnedSections.sorted { areInOrder(.folder($0), .folder($1)) }
+        self.pinnedFolders = pinnedSections
         self.pinnedNotes = pinnedNotes
         self.pinnedItems = ordered(pinnedSections, pinnedNotes)
-        self.folders = rootSections.sorted { areInOrder(.folder($0), .folder($1)) }
+        self.folders = rootSections
         self.unfiled = unfiled
         self.items = ordered(rootSections, unfiled)
         self.allFolders = live.sorted {

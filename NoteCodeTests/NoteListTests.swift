@@ -173,7 +173,7 @@ struct NoteListTests {
         // CS133's newest note is day 9, in Labs, so it is above Middle (day 5).
         #expect(shape(sections.items) == ["folder CS133", "note Middle"])
         // Inside it, Labs (day 9) is above Old (day 2).
-        guard case .folder(let top) = sections.items[0] else { return Issue.record("expected a folder") }
+        guard case .folder(let top) = sections.items[0] else { Issue.record("expected a folder"); return }
         #expect(shape(top.items) == ["folder Labs", "note Old"])
 
         // A later edit to Middle moves it above the folder.
@@ -217,7 +217,7 @@ struct NoteListTests {
         )
         #expect(shape(sections.pinnedItems) == ["note Mid", "folder Zed"])
         #expect(shape(sections.items) == ["folder CS133"])
-        guard case .folder(let top) = sections.items[0] else { return Issue.record("expected a folder") }
+        guard case .folder(let top) = sections.items[0] else { Issue.record("expected a folder"); return }
         #expect(shape(top.items) == ["note Lecture"], "the pinned note isn't repeated in its folder")
     }
 
