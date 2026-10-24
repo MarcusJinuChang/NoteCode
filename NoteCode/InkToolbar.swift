@@ -629,7 +629,7 @@ struct HotbarIcon: View {
 
     @ViewBuilder private var face: some View {
         if let drawn {
-            NoteIconView(icon: drawn.icon, weight: drawn.weight)
+            NoteIconView(icon: drawn.icon, weight: drawn.weight, isTinted: isSelected)
                 .frame(width: Self.drawnSize, height: Self.drawnSize)
         } else {
             Image(systemName: systemImage)

@@ -7,6 +7,11 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#else
+import AppKit
+#endif
 
 /// Whether the bar's icons are NoteCode's own or the system's, and how heavy
 /// the drawn ones are. Per device, stored as one string (`drawn.regular`).
@@ -51,6 +56,21 @@ extension IconWeight {
 struct NoteIconView: View {
     var icon: NoteIcon
     var weight = IconWeight.regular
+    /// Whether the icon is drawn in the tint (selected) or the label colour.
+    var isTinted = false
+
+    /// A colour the canvas can draw with, never the environment's foreground
+    /// style: inside a plain button on the bar, `.foreground` resolved to the
+    /// hierarchical `.primary` and drew nothing, so every unselected icon was
+    /// invisible on an iPad while the tinted, selected one showed.
+    private var shading: GraphicsContext.Shading {
+        if isTinted { return .style(.tint) }
+#if canImport(UIKit)
+        return .color(Color(uiColor: .label))
+#else
+        return .color(Color(nsColor: .labelColor))
+#endif
+    }
 
     var body: some View {
         Canvas { context, size in
@@ -62,14 +82,14 @@ struct NoteIconView: View {
                 let path = Path(layer.path)
                 switch layer.kind {
                 case .stroke:
-                    drawing.stroke(path, with: .foreground, style: StrokeStyle(
+                    drawing.stroke(path, with: shading, style: StrokeStyle(
                         lineWidth: weight.lineWidth * layer.weight, lineCap: .round, lineJoin: .round))
                 case .solid:
-                    drawing.fill(path, with: .foreground)
+                    drawing.fill(path, with: shading)
                 case .soft:
                     var soft = drawing
                     soft.opacity = IconLayer.softOpacity
-                    soft.fill(path, with: .foreground)
+                    soft.fill(path, with: shading)
                 }
             }
         }
