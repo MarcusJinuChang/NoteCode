@@ -100,3 +100,23 @@ are `CodeBlockRoom`'s.
   checked:** the iPad, the Pencil, taps on Run, Copy and the language name,
   typing a fence open and closed, a caret on a fence line, light print
   layout, landscape, other text sizes on screen.
+- **"Return in a code block gets a thin extra space"** (21 Oct, a report from
+  1.0): not reproduced on main, in light and dark. Through the coordinator's
+  Return path, every line is 22.0pt after one to three Returns mid-block, at a
+  block's last line, in an unclosed block, in prose, after a heading and after
+  a closing fence; the fences keep 52 and 24; the text below moves exactly one
+  line per Return (`ReturnAndBackspaceTests.returnAddsOneLine`, `unclosedBlock`).
+  The caret is 19.4pt in code and 23.5pt in prose before and after. A panel
+  column rendered at 1x, 2x and 3x showed only 1/255 steps at line joins, and
+  the fragment views stay in descending order. A burst of 11 Returns in the
+  simulator grew a block by exactly 11 lines. The tested build already had this
+  section's work and the caret fix, so the cause is unknown; not covered: print
+  or compressed layout near a page break, a zoomed page (render tests ignore
+  the transform), a device's pixel grid, a hardware keyboard.
+  - **Side finding, no fix:** the note's empty last line is 22pt while the
+    caret is at the note's end and 13.8pt after an edit with the caret
+    elsewhere (TextKit's extra line fragment takes the typing attributes only
+    when the selection is at the end). Only the document's end changes, so ink
+    is unaffected. A blank paragraph is laid out as one zero-width space with no
+    newline, so a note ending in "\n\n" has no extra-line fragment after it;
+    counting fragments reads one short.

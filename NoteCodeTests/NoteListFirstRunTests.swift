@@ -84,6 +84,28 @@ struct NoteListFirstRunTests {
         #expect(next.orientation == .landscape)
     }
 
+    @Test("Open Note After Creating is off until chosen, and off leaves the open note open")
+    func openAfterCreating() {
+        let defaults = freshDefaults()
+        #expect(defaults.object(forKey: NewNotes.opensAfterCreatingKey) == nil)
+        #expect(NewNotes.opensAfterCreatingByDefault == false)
+
+        let open = Page.create(orientation: .portrait, context: context)
+        let made = Page.create(orientation: .portrait, context: context)
+
+        #expect(NewNotes.selection(afterCreating: made, current: open, opens: false) == open)
+        #expect(NewNotes.selection(afterCreating: made, current: nil, opens: false) == nil)
+        #expect(NewNotes.selection(afterCreating: made, current: open, opens: true) == made)
+    }
+
+    @Test("The toast names the folder a note was added to")
+    func addedMessage() {
+        let folder = Folder(name: "CS133")
+        context.insert(folder)
+        #expect(NewNotes.addedMessage(in: folder) == "Note added to CS133")
+        #expect(NewNotes.addedMessage(in: nil) == "Note added")
+    }
+
     // MARK: Welcome note
 
     @Test("The first launch makes the Welcome note, with the brief's title and text")

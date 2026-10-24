@@ -52,6 +52,19 @@ struct DebugLaunchOptionsTests {
         #expect(options.note == .file("/tmp/note.md"))
     }
 
+    @Test("An ink file seeds the note's ink")
+    @MainActor func inkFile() throws {
+        let path = NSTemporaryDirectory() + "debug-ink-\(UUID().uuidString).bin"
+        let bytes = Data([1, 2, 3, 4])
+        try bytes.write(to: URL(fileURLWithPath: path))
+        defer { try? FileManager.default.removeItem(atPath: path) }
+
+        let options = DebugLaunchOptions.parse([app, "-debug-note", "empty", "-debug-ink-file", path])
+        #expect(options.inkFile == path)
+        let seeded = try #require(DebugLaunch.seededStorage(options, session: DebugSession(options: options)))
+        #expect(seeded.page.drawingData == bytes)
+    }
+
     @Test("Values that don't exist are reported, not silently ignored", arguments: [
         ["-debug-note", "novel"],
         ["-debug-mode", "carousel"],

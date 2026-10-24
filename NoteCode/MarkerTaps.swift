@@ -48,6 +48,12 @@ final class MarkerGestures: NSObject, UIGestureRecognizerDelegate, UIEditMenuInt
     private var menu: UIEditMenuInteraction?
     private var menuTarget: (url: URL, destination: String)?
 
+    /// A tap in the empty space after the note's end (`CaretAnywhere`): its
+    /// own recogniser, which begins only there.
+    private(set) var emptySpaceTap: UITapGestureRecognizer?
+    var isEmptySpace: ((CGPoint) -> Bool)?
+    var didTapEmptySpace: ((CGPoint) -> Void)?
+
     /// What a tap landed on, asked of the coordinator.
     var targetAt: ((CGPoint) -> MarkerTapTarget?)?
     var didTap: ((MarkerTapTarget) -> Void)?
@@ -60,6 +66,12 @@ final class MarkerGestures: NSObject, UIGestureRecognizerDelegate, UIEditMenuInt
         tap.delegate = self
         textView.addGestureRecognizer(tap)
         self.tap = tap
+
+        let emptySpaceTap = UITapGestureRecognizer(target: self, action: #selector(tappedEmptySpace(_:)))
+        emptySpaceTap.cancelsTouchesInView = false
+        emptySpaceTap.delegate = self
+        textView.addGestureRecognizer(emptySpaceTap)
+        self.emptySpaceTap = emptySpaceTap
 
         let hold = UILongPressGestureRecognizer(target: self, action: #selector(held(_:)))
         hold.minimumPressDuration = 0.45
@@ -80,6 +92,11 @@ final class MarkerGestures: NSObject, UIGestureRecognizerDelegate, UIEditMenuInt
         didTap?(target)
     }
 
+    @objc private func tappedEmptySpace(_ recognizer: UITapGestureRecognizer) {
+        guard recognizer.state == .ended, let textView else { return }
+        didTapEmptySpace?(recognizer.location(in: textView))
+    }
+
     @objc private func held(_ recognizer: UILongPressGestureRecognizer) {
         guard recognizer.state == .began, let textView else { return }
         heldThisTouch = true
@@ -94,6 +111,7 @@ final class MarkerGestures: NSObject, UIGestureRecognizerDelegate, UIEditMenuInt
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         guard let textView else { return false }
         let point = gestureRecognizer.location(in: textView)
+        if gestureRecognizer === emptySpaceTap { return isEmptySpace?(point) == true }
         guard let target = targetAt?(point) else { return false }
         // A hold is for links: a box has no menu.
         if gestureRecognizer === hold, case .checkbox = target { return false }
@@ -212,6 +230,14 @@ extension DocumentTextView.Coordinator {
         gestures.didTap = { [weak self, weak textView] target in
             guard let self, let textView else { return }
             handleMarkerTap(target, in: textView)
+        }
+        gestures.isEmptySpace = { [weak self, weak textView] point in
+            guard let self, let textView else { return false }
+            return isEmptySpace(at: point, in: textView)
+        }
+        gestures.didTapEmptySpace = { [weak self, weak textView] point in
+            guard let self, let textView else { return }
+            extendNote(toReach: point, in: textView)
         }
         textView.touchTarget = { [weak gestures] point in gestures?.targetAt?(point) != nil }
         textView.outdentHandler = { [weak self, weak textView] in

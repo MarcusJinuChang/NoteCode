@@ -229,7 +229,7 @@ struct OutputBlockTests {
         #expect(colour("def f") == UIColor.label, "sql has no def, so python's colour must not be left on it")
     }
 
-    @Test("The language menu groups the languages, then Output and Plain Text, and SQL says Copy only")
+    @Test("The language menu groups the languages, then Output and Code, and SQL says Copy only")
     func menuGroups() throws {
         let button = CodeBlockLanguageButton(frame: .zero)
         button.configure(label: "Output", kind: .output, isOutput: true, isEnabled: true)
@@ -238,7 +238,7 @@ struct OutputBlockTests {
         #expect(groups.count == 2)
         #expect(groups.allSatisfy { $0.options.contains(.displayInline) }, "a divider, not a submenu")
         #expect(groups[0].children.map(\.title) == ["C++", "Java", "Python", "C", "JavaScript", "Rust", "Go", "SQL"])
-        #expect(groups[1].children.map(\.title) == ["Output", "Plain Text"])
+        #expect(groups[1].children.map(\.title) == ["Output", "Code"])
 
         let actions = button.choices()
         #expect(actions.first { $0.title == "SQL" }?.subtitle == "Copy only")

@@ -127,3 +127,42 @@ v3 phase 6 (14 Oct, `docs/archive/ui-design-v3-implementation.md`).
   ⌘+ and ⌘− and ⌃⌘O with a real keyboard, Reduce Motion, light mode and the
   Pencil. `HotbarUITests` (seven tests, the reach and the ink row beside the
   bar on every edge) ran with the text row in place and pass.
+
+- **Line spacing** (23 Oct, feedback item 2; `LineSpacingTests`). A menu after Highlight
+  in the text row's prose and list controls: Default, +2, +4, +6, +8, +12 points
+  (`NoteTypography.lineSpacings`), added to the height of every prose line.
+  - **Line height only, never paragraph spacing**, so the three view modes
+    still paginate alike: a line is pushed across a page break whole, space
+    between paragraphs isn't (the rule in "Code blocks: room around and inside").
+    `paginatesAlike` sweeps a block across the first page break at 6 and 12pt
+    in all three modes, and fails with the same points as
+    `paragraphSpacingBefore` (checked).
+  - **How:** `NoteTypography.lineStyle(for:)`, a paragraph style whose
+    `minimumLineHeight` is the block's font's line height plus the spacing.
+    TextKit adds the font's leading to a minimum on top (measured: a minimum of
+    28 gave a 29.7pt line), so the minimum leaves the leading out and a 17pt
+    paragraph is 22 + n. It is a *floor* under the block's own font: a heading
+    grows by n too, a line holding larger sized text is as tall as that text
+    makes it. Applied in `proseAttributes`, `headingAttributes`,
+    `listParagraphStyle` and `quoteParagraphStyle`, so blank lines, typing
+    attributes and the PDF follow; at 0 the styles are as they were (no
+    attribute written, the restyle stays no edit). Code lines and fences keep
+    their fixed heights (`CodeBlockRoom`), the output panel too.
+  - **Per note, not per device** (decided here): it moves every line under the
+    ink drawn on it, as the text size does, and a per-device value would lay one
+    note out differently on two iPads. So it is stored: `Page.lineSpacing`
+    (`Int?`, `nil` for none), part of `NoteTypography` with the size, which
+    reaches the styler, the PDF, thumbnails (`-s<n>` in the cache name) and
+    Export All through `Page.typography`. **This changed the model's hash**:
+    `ModelFreezeTests.versionOneHashes` has a new `Page` entry (`Folder` is
+    unchanged), as the notes on the model allow before the release. A device
+    that already has a store from a build before it (TestFlight 1.0) may not
+    open it, and the testers reinstall.
+  - **Asks first on a note with ink**, as the text size does, once each time
+    the note is opened, and shares its answer (`NoteEditor.setLineSpacing`,
+    `spacingAwaitingConfirmation`). A pick applies at once: it is one action,
+    with no run of taps to wait out. Off in ink mode and for a locked note.
+    Not an edit: `modifiedAt` and the undo stack stay as they are.
+  - **Not checked:** the Pencil, ink on a note whose spacing changed, print
+    and compressed layout on screen, the menu's look in dark mode, a note
+    with sized text at a large spacing, the PDF in the share sheet.

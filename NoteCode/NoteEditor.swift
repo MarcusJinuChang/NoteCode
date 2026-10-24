@@ -67,6 +67,18 @@ final class NoteEditor {
         inkTool.kind = previousInkKind
     }
 
+    /// The Pencil's double tap or squeeze while the text has the page: goes to
+    /// ink mode so the gesture has something to act on, then does what the
+    /// reader set it to. Nothing when the setting is off or a shortcut the
+    /// system runs itself, since switching mode for a gesture that then does
+    /// nothing would only surprise. Whether the mode changed.
+    @discardableResult
+    func enterInkForPencil(_ response: PencilResponse) -> Bool {
+        guard mode == .text, response != .nothing else { return false }
+        setMode(.ink)
+        return true
+    }
+
     /// Picks a tool from the keyboard (P, H, E, L). Ink mode only: in text
     /// mode these are letters.
     func selectTool(_ kind: InkToolKind) {
@@ -1007,7 +1019,7 @@ final class NoteEditor {
     private(set) var appliedTextSize = NoteTypography.defaultSize
 
     /// The note's typography as it is now, for a PDF made of it.
-    var typography: NoteTypography { NoteTypography(bodySize: appliedTextSize) }
+    var typography: NoteTypography { NoteTypography(bodySize: appliedTextSize, lineSpacing: appliedLineSpacing) }
 
     /// A size waiting for the reader's yes, because the note has ink: the
     /// text re-flows and ink stays where it was drawn. `nil` unless the alert
@@ -1076,6 +1088,60 @@ final class NoteEditor {
     func cancelTextSize() {
         sizeAwaitingConfirmation = nil
         textSize = appliedTextSize
+    }
+
+    // MARK: The note's line spacing
+
+    /// The points of line spacing the note is laid out with, from
+    /// `Page.lineSpacing`, and as the text row's menu shows them. A pick is
+    /// one action, so it applies at once (no `settleDelay`); a note with ink
+    /// asks first, once each time it is opened, with the text size's answer.
+    private(set) var lineSpacing = 0
+    private(set) var appliedLineSpacing = 0
+
+    /// A spacing waiting for the reader's yes, because the note has ink.
+    private(set) var spacingAwaitingConfirmation: Int?
+
+    /// Writes the spacing into the note (`Page.lineSpacing`). Not an edit.
+    @ObservationIgnored var commitLineSpacing: ((Int?) -> Void)?
+
+    /// Follows the note's stored spacing, as the page opens and whenever
+    /// something else changes it.
+    func syncLineSpacing(to stored: Int?) {
+        let spacing = NoteTypography(lineSpacing: stored).lineSpacing
+        appliedLineSpacing = spacing
+        if spacingAwaitingConfirmation == nil { lineSpacing = spacing }
+    }
+
+    /// A spacing picked from the text row. Text mode only, and not for a
+    /// locked note.
+    func setLineSpacing(_ points: Int) {
+        guard mode == .text, !isTextLocked, spacingAwaitingConfirmation == nil else { return }
+        let spacing = NoteTypography(lineSpacing: points).lineSpacing
+        guard spacing != appliedLineSpacing else { return }
+        if hasInk, !inkQuestionAnswered {
+            spacingAwaitingConfirmation = spacing
+        } else {
+            commitLineSpacing?(NoteTypography(lineSpacing: spacing).storedLineSpacing)
+            appliedLineSpacing = spacing
+            lineSpacing = spacing
+        }
+    }
+
+    /// The alert's Change.
+    func confirmLineSpacing() {
+        guard let spacing = spacingAwaitingConfirmation else { return }
+        inkQuestionAnswered = true
+        spacingAwaitingConfirmation = nil
+        commitLineSpacing?(NoteTypography(lineSpacing: spacing).storedLineSpacing)
+        appliedLineSpacing = spacing
+        lineSpacing = spacing
+    }
+
+    /// The alert's Cancel.
+    func cancelLineSpacing() {
+        spacingAwaitingConfirmation = nil
+        lineSpacing = appliedLineSpacing
     }
 
     /// Whether the note has any ink. The page's own copy, so strokes drawn

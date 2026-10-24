@@ -397,6 +397,7 @@ private struct NotesSettings: View {
     var onExportFinished: (Int) -> Void
 
     @AppStorage(NewNotes.defaultsKey) private var newNotes = PageOrientation.default
+    @AppStorage(NewNotes.opensAfterCreatingKey) private var opensAfterCreating = NewNotes.opensAfterCreatingByDefault
     @AppStorage(PageViewMode.defaultsKey) private var viewMode = PageViewMode.default
     @AppStorage(NoteSort.defaultsKey) private var sort = NoteSort.default
 
@@ -406,8 +407,9 @@ private struct NotesSettings: View {
                 Picker("New Notes", selection: $newNotes) {
                     ForEach(PageOrientation.allCases, id: \.self) { Text($0.title) }
                 }
+                Toggle("Open Note After Creating", isOn: $opensAfterCreating)
             } footer: {
-                Text("Which way up the + button's tap makes a note's pages. Hold + to choose the other for one note. A note keeps its orientation once it's made.")
+                Text("Which way up the + button's tap makes a note's pages. Hold + to choose the other for one note. A note keeps its orientation once it's made. With Open Note After Creating off, a new note is added to the list and a message offers to open it.")
             }
 
             Section {
@@ -463,6 +465,12 @@ private struct NotesSettings: View {
 
 private struct WritingSettings: View {
     @AppStorage(ShowMarkdown.defaultsKey) private var showMarkdown = ShowMarkdown.whileEditing
+    @AppStorage(TextRewritingPolicy.proseDefaultsKey)
+    private var rewritesProse = TextRewritingPolicy.proseEnabledByDefault
+    @AppStorage(MarkerDimming.headingsKey) private var headingMarkers = MarkerLevel.dim
+    @AppStorage(MarkerDimming.bulletsKey) private var bulletMarkers = MarkerLevel.dim
+    @AppStorage(MarkerDimming.checkboxesKey) private var checkboxMarkers = MarkerLevel.dim
+    @AppStorage(MarkerDimming.fencesKey) private var fenceMarkers = MarkerLevel.dim
 
     var body: some View {
         Form {
@@ -471,10 +479,35 @@ private struct WritingSettings: View {
                     ForEach(ShowMarkdown.allCases, id: \.self) { Text($0.title) }
                 }
             } footer: {
-                Text("Hashes and backticks show only on the heading or code block you're editing; Always shows them everywhere. Bold, italic, code and link marks stay hidden either way, and the toolbar shows which are on. Autocorrect and smart punctuation follow the keyboard settings in the Settings app, and are off inside code.")
+                Text("Hashes and backticks show only on the heading or code block you're editing; Always shows them everywhere. Bold, italic, code and link marks stay hidden either way, and the toolbar shows which are on.")
+            }
+
+            Section {
+                Toggle("Autocorrect", isOn: $rewritesProse)
+            } footer: {
+                Text("Autocorrect, automatic capitals, smart quotes and dashes and inline predictions while you type text. Turn it off to type exactly what you press. Always off inside code, whichever way this is set.")
+            }
+
+            Section {
+                markerPicker("Heading Marks", selection: $headingMarkers)
+                markerPicker("List Bullets", selection: $bulletMarkers)
+                markerPicker("Checkboxes", selection: $checkboxMarkers)
+                markerPicker("Code Fences", selection: $fenceMarkers)
+            } header: {
+                Text("Markers")
+            } footer: {
+                Text("How the marks that stay visible look: Dim is the quiet grey they have always had, Full is the text's own colour, and Off hides them without moving any line. Heading marks are the hashes shown beside the heading you're editing; List Bullets covers numbers too; a ticked checkbox always shows. These are for this device.")
             }
         }
         .navigationTitle("Writing")
+    }
+}
+
+extension WritingSettings {
+    fileprivate func markerPicker(_ title: String, selection: Binding<MarkerLevel>) -> some View {
+        Picker(title, selection: selection) {
+            ForEach(MarkerLevel.allCases, id: \.self) { Text($0.title) }
+        }
     }
 }
 

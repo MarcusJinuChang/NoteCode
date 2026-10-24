@@ -247,6 +247,74 @@ struct TextRewritingPolicyTests {
         #expect(coordinator.rewritingPolicy == .prose)
         #expect(textView.autocapitalizationType == .sentences)
     }
+
+    // MARK: Settings › Writing › Autocorrect
+
+    @Test("With Autocorrect off, prose rewrites nothing but is not code")
+    func proseWithoutRewriting() {
+        let textView = UITextView()
+        TextRewritingPolicy.prose.apply(to: textView)
+        TextRewritingPolicy.proseWithoutRewriting.apply(to: textView)
+
+        #expect(textView.autocorrectionType == .no)
+        #expect(textView.autocapitalizationType == .none)
+        #expect(textView.smartQuotesType == .no)
+        #expect(textView.smartDashesType == .no)
+        #expect(textView.smartInsertDeleteType == .no)
+        #expect(textView.inlinePredictionType == .no)
+        #expect(textView.spellCheckingType == .no)
+
+        #expect(TextRewritingPolicy.proseDefaultsKey == "autocorrectInProse")
+        #expect(TextRewritingPolicy.proseEnabledByDefault)
+        // Not code, so no row of code keys.
+        #expect(CodeKeys.keys(for: .proseWithoutRewriting).isEmpty)
+    }
+
+    @Test("The setting only changes prose: code stays code")
+    func settingOnlyChangesProse() {
+        func policy(_ marked: String) -> TextRewritingPolicy {
+            let caret = marked.range(of: "|")!
+            let offset = NSRange(caret, in: marked).location
+            let source = marked.replacingCharacters(in: caret, with: "")
+            return TextRewritingPolicy.at(offset, in: source, blocks: DocumentParser.parse(source), rewritesProse: false)
+        }
+        #expect(policy("the pointer| holds") == .proseWithoutRewriting)
+        #expect(policy("|") == .proseWithoutRewriting)
+        #expect(policy("Before\n```cpp\nint lo| = 0;\n```\nAfter") == .code)
+        #expect(policy("use `int l|o` now") == .code)
+    }
+
+    @Test("Turning Autocorrect off reaches a keyboard that is already showing prose")
+    func editorFollowsTheSetting() {
+        final class Box { var value = "" }
+        let box = Box()
+        let coordinator = DocumentTextView.Coordinator(text: Binding(get: { box.value }, set: { box.value = $0 }))
+        let textView = DocumentTextView.makeConfiguredTextView()
+        textView.delegate = coordinator
+        textView.text = "Lecture notes\n```cpp\nint lo = 0;\n```\nMore notes"
+
+        textView.selectedRange = NSRange(location: 5, length: 0)
+        coordinator.textViewDidChangeSelection(textView)
+        #expect(textView.autocorrectionType == .yes)
+
+        coordinator.setRewritesProse(false, in: textView)
+        #expect(coordinator.rewritingPolicy == .proseWithoutRewriting)
+        #expect(textView.autocorrectionType == .no)
+        #expect(textView.autocapitalizationType == .none)
+
+        // Moving through code and back keeps it off.
+        textView.selectedRange = NSRange(location: 24, length: 0)
+        coordinator.textViewDidChangeSelection(textView)
+        #expect(coordinator.rewritingPolicy == .code)
+        textView.selectedRange = NSRange(location: (textView.text as NSString).length, length: 0)
+        coordinator.textViewDidChangeSelection(textView)
+        #expect(coordinator.rewritingPolicy == .proseWithoutRewriting)
+        #expect(textView.smartDashesType == .no)
+
+        coordinator.setRewritesProse(true, in: textView)
+        #expect(coordinator.rewritingPolicy == .prose)
+        #expect(textView.autocorrectionType == .yes)
+    }
 }
 
 #endif

@@ -259,6 +259,7 @@ struct ContentView: View {
                 revealing: openedSearch,
                 onDelete: { delete(page) },
                 onGoHome: houseButtonAction,
+                onShowSettings: { showsSettings = true },
                 startsRenaming: page == newPage
             )
                 // A fresh editor per note. Reusing one would carry the last

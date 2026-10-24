@@ -184,10 +184,10 @@ struct CodeLanguagesTests {
 
     // MARK: The menu
 
-    @Test("The menu lists the languages, then Output, then Plain Text")
+    @Test("The menu lists the languages, then Output, then Code")
     func menu() {
         #expect(CodeBlockKind.menu.map(\.displayName) ==
-            ["C++", "Java", "Python", "C", "JavaScript", "Rust", "Go", "SQL", "Output", "Plain Text"])
+            ["C++", "Java", "Python", "C", "JavaScript", "Rust", "Go", "SQL", "Output", "Code"])
     }
 
     @Test("Only SQL carries a subtitle, and the two groups are the menu")

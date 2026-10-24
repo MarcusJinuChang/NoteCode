@@ -164,4 +164,42 @@ final class HotbarUITests: XCTestCase {
     @MainActor func testReachDockedAtTheBottom() { checkReach(dock: .bottom) }
     @MainActor func testReachDockedLeft() { checkReach(dock: .left) }
     @MainActor func testReachDockedRight() { checkReach(dock: .right) }
+
+    // MARK: The note's menu
+
+    /// ••• › Settings opens the same sheet as Home's gear, over the note.
+    @MainActor
+    func testSettingsFromTheNoteMenu() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-debug-note", "empty"]
+        app.launch()
+        app.buttons["More"].firstMatch.tap()
+        let settings = app.buttons["noteMenuSettings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5), "the note's menu has no Settings entry")
+        settings.tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5), "the Settings sheet never opened")
+    }
+}
+
+// MARK: - Autocorrect
+
+extension HotbarUITests {
+    /// With Settings › Writing › Autocorrect off, three hyphens typed on the
+    /// soft keyboard stay three (a rule). With it on, smart dashes turn the
+    /// second into an em dash and the result is "—-" (measured 21 Oct).
+    @MainActor
+    func testAutocorrectOffKeepsThreeHyphens() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-debug-note", "empty", "-autocorrectInProse", "NO"]
+        app.launch()
+        let text = app.textViews.firstMatch
+        XCTAssertTrue(text.waitForExistence(timeout: 5))
+        text.tap()
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 5), "no soft keyboard")
+        let hyphen = keyboard.keys["-"]
+        XCTAssertTrue(hyphen.waitForExistence(timeout: 3), "no hyphen key")
+        hyphen.tap(); hyphen.tap(); hyphen.tap()
+        XCTAssertEqual(text.value as? String, "---")
+    }
 }

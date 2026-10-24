@@ -14,6 +14,7 @@ import UIKit
 struct DrawingSettings: View {
     @AppStorage(NoteEditor.fingerDrawsKey) private var fingerDraws = true
     @AppStorage(EraserSettings.defaultsKey) private var eraser = EraserSettings()
+    @AppStorage(InkPageGrowth.defaultsKey) private var addsPages = InkPageGrowth.defaultEnabled
     @State private var confirmsReset = false
 
     var body: some View {
@@ -22,6 +23,12 @@ struct DrawingSettings: View {
                 Toggle("Finger Draws", isOn: $fingerDraws)
             } footer: {
                 Text("Where a note starts. The hotbar's hand button switches it, and the device keeps the last choice.")
+            }
+
+            Section {
+                Toggle("Add Pages While Drawing", isOn: $addsPages)
+            } footer: {
+                Text("A stroke that ends near the bottom of the last page adds a page in print layout and compressed view. Continuous view always keeps a blank page below your ink.")
             }
 
             Section {

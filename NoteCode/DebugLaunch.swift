@@ -105,6 +105,9 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
     var textSize: Int?
     /// A page to scroll to, counted from 1 as pages are on screen.
     var page: Int?
+    /// A file on the Mac holding a note's ink, as `DrawingCodec` stores it,
+    /// for looking at a note with a lot of ink without drawing it.
+    var inkFile: String?
     /// A view mode to switch to once the page has settled.
     var thenMode: PageViewMode?
     /// Seconds to wait after settling before switching.
@@ -192,6 +195,8 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
                         options.problems.append("\(flag): \"\(raw)\" isn't a page number from 1")
                     }
                 }
+            case "-debug-ink-file":
+                options.inkFile = value(for: flag)
             case "-debug-then-mode":
                 options.thenMode = choice(value(for: flag), for: flag)
             case "-debug-then-delay":
@@ -433,6 +438,13 @@ enum DebugLaunch {
         }
         if let size = options.textSize {
             page.textSize = NoteTypography(bodySize: size).storedSize
+        }
+        if let path = options.inkFile {
+            if let data = FileManager.default.contents(atPath: path) {
+                page.drawingData = data
+            } else {
+                session.record("couldn't read ink from \(path)")
+            }
         }
         container.mainContext.insert(page)
         return (.persistent(container), page)

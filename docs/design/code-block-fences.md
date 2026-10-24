@@ -37,7 +37,7 @@ phase 5 of `docs/archive/ui-design-v2-implementation.md`). Pure rules are in
   delegate) and zero text-storage edits. TextKit's viewport-layout callback
   still fires about once per in-and-out; nothing is laid out.
 - **The opening fence, away** has the language's name (`CodeBlockLanguageButton`,
-  C++, Java, Python, or the tag as typed, Plain Text for a bare fence) where
+  C++, Java, Python, or the tag as typed, Code for a bare fence, renamed from Plain Text on 21 Oct) where
   the glyphs were, and a menu that retags through `replace(_:withText:)`
   (`FenceTag.retag`, pure): undoable, Run follows. It is an action-bar
   control: the overlay keeps it beneath the canvas, in `containsInteractiveElement`,

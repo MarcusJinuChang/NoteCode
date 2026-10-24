@@ -22,7 +22,7 @@ struct LastCodeLanguageTests {
         #expect(LastCodeLanguage.read(from: freshDefaults()) == .cpp)
     }
 
-    @Test("Each language, and Plain Text, is remembered")
+    @Test("Each language, and Code (no language), is remembered")
     func remembers() {
         let defaults = freshDefaults()
         for language in CodeLanguage.allCases {
@@ -43,5 +43,15 @@ struct LastCodeLanguageTests {
     @Test("The stored name is stable")
     func key() {
         #expect(LastCodeLanguage.defaultsKey == "lastCodeLanguage")
+    }
+
+    @Test("Code (no language) is still stored as plain, as devices saved it before the rename")
+    func plainKeyStays() {
+        let defaults = freshDefaults()
+        LastCodeLanguage.store(nil, in: defaults)
+        #expect(defaults.string(forKey: LastCodeLanguage.defaultsKey) == "plain")
+        defaults.set("plain", forKey: LastCodeLanguage.defaultsKey)
+        #expect(LastCodeLanguage.read(from: defaults) == nil)
+        #expect(CodeBlockKind.plain.displayName == "Code")
     }
 }

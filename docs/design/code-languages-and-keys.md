@@ -3,7 +3,7 @@ v3 phase 4 (13 Oct, `docs/archive/ui-design-v3-implementation.md`).
 
 - **Eight languages** (`CodeLanguage`): C++, Java, Python, then C, JavaScript,
   Rust, Go and SQL, in that order in every menu (`CodeBlockKind.menu`: the
-  languages, a divider, Output, Plain Text). Each has its tags (`js`, `golang`,
+  languages, a divider, Output, Code; "Code" was "Plain Text" until 21 Oct, the stored key stays `plain`). Each has its tags (`js`, `golang`,
   `rs`, `postgres`, …), `displayName`, `canonicalName` (Compiler Explorer's own
   language id), `highlightName` (what highlight.js is asked for, so `golang` and
   `js` colour without depending on its aliases) and `canRun`. The raw value is

@@ -286,6 +286,7 @@ rebuilt copy of the app with logging.
 | `-debug-orientation portrait\|landscape` | The seeded note's pages |
 | `-debug-text-size 14\|15\|16\|17\|19\|21\|23` | The seeded note's text size |
 | `-debug-mode seamless\|compressed\|print` | Sets the view mode, in the saved setting the menu uses |
+| `-debug-ink-file <path>` | The seeded note's ink, read from a file on the Mac (`DrawingCodec` bytes), to look at a note with thousands of strokes |
 | `-debug-page <n>` | Scrolls to page n's top edge, counted from 1 |
 | `-debug-then-mode <mode>` | Switches mode once the page has settled |
 | `-debug-then-delay <seconds>` | Wait before that switch; default 1 |

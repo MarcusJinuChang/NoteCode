@@ -33,6 +33,15 @@ nonisolated enum TextRewritingPolicy: Equatable, Sendable {
     case prose
     /// Everything off — correct inside a fenced code block.
     case code
+    /// Prose with everything off, for a reader who turned off Settings ›
+    /// Writing › Autocorrect. Traits are as in code; it is not code, so the
+    /// code-keys row stays away.
+    case proseWithoutRewriting
+
+    /// Settings › Writing › Autocorrect: whether prose is autocorrected,
+    /// capitalised and given smart punctuation. Per device, on until turned off.
+    static let proseDefaultsKey = "autocorrectInProse"
+    static let proseEnabledByDefault = true
 
     /// What a new editor starts with, before the caret has been placed.
     ///
@@ -48,7 +57,16 @@ nonisolated enum TextRewritingPolicy: Equatable, Sendable {
     /// in a line of prose. An unclosed fence or backtick counts too, since the
     /// closing one is typed last: `int lo` would be corrected before it came.
     /// So does the word just after a closing backtick, until a space ends it.
-    static func at(_ utf16Offset: Int, in source: String, blocks: [BlockNode]) -> TextRewritingPolicy {
+    ///
+    /// - Parameter rewritesProse: Settings › Writing › Autocorrect. Off, prose
+    ///   is `.proseWithoutRewriting` and code is still `.code`.
+    static func at(
+        _ utf16Offset: Int,
+        in source: String,
+        blocks: [BlockNode],
+        rewritesProse: Bool = proseEnabledByDefault
+    ) -> TextRewritingPolicy {
+        let prose: TextRewritingPolicy = rewritesProse ? .prose : .proseWithoutRewriting
         guard let caret = Range(NSRange(location: utf16Offset, length: 0), in: source)?.lowerBound else {
             return .code
         }
@@ -72,10 +90,10 @@ nonisolated enum TextRewritingPolicy: Equatable, Sendable {
             block = blocks.first { $0.range.contains(caret) }
         }
 
-        guard let block else { return .prose }
+        guard let block else { return prose }
         if block.isCode { return .code }
         if endsWordTouchingBacktick(caret, in: source) { return .code }
-        return isInInlineCode(caret, block: block, source: source) ? .code : .prose
+        return isInInlineCode(caret, block: block, source: source) ? .code : prose
     }
 
     /// Whether the word that ends at `caret` has a backtick in it.

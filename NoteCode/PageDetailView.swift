@@ -32,6 +32,9 @@ struct PageDetailView: View {
     /// Closes the note and shows Home: the house beside the sidebar button.
     var onGoHome: (() -> Void)? = nil
 
+    /// Opens the app's Settings sheet, which the window owns: ••• › Settings.
+    var onShowSettings: (() -> Void)? = nil
+
     /// Whether to open with the title being renamed: a note just made, so
     /// its name can be typed straight away.
     var startsRenaming = false
@@ -96,6 +99,12 @@ struct PageDetailView: View {
     @AppStorage(ShowMarkdown.defaultsKey)
     private var showMarkdown: ShowMarkdown = .whileEditing
 
+    /// Settings › Writing › Markers: how dim each kind of visible marker is.
+    @AppStorage(MarkerDimming.headingsKey) private var headingMarkers = MarkerLevel.dim
+    @AppStorage(MarkerDimming.bulletsKey) private var bulletMarkers = MarkerLevel.dim
+    @AppStorage(MarkerDimming.checkboxesKey) private var checkboxMarkers = MarkerLevel.dim
+    @AppStorage(MarkerDimming.fencesKey) private var fenceMarkers = MarkerLevel.dim
+
     /// Settings › Code: the indent width, the row of code keys, line numbers.
     @AppStorage(CodeIndent.widthKey)
     private var indentWidth = CodeIndent.defaultWidth
@@ -106,9 +115,17 @@ struct PageDetailView: View {
     @AppStorage(LineNumbers.defaultsKey)
     private var lineNumbers = LineNumbers.enabledByDefault
 
+    /// Settings › Writing › Autocorrect.
+    @AppStorage(TextRewritingPolicy.proseDefaultsKey)
+    private var rewritesProse = TextRewritingPolicy.proseEnabledByDefault
+
     /// Whether the bar ticks as it lands on an edge (Settings › General).
     @AppStorage(SnapHaptic.defaultsKey)
     private var hapticOnSnap = SnapHaptic.isOnByDefault
+
+    /// Settings › Drawing › Add Pages While Drawing.
+    @AppStorage(InkPageGrowth.defaultsKey)
+    private var addsPagesWhileDrawing = InkPageGrowth.defaultEnabled
 
     /// Counts the bar's drops; each one is a snap for the haptic to follow.
     @State private var snaps = 0
@@ -153,12 +170,14 @@ struct PageDetailView: View {
         revealing: NoteSearch = NoteSearch(""),
         onDelete: (() -> Void)? = nil,
         onGoHome: (() -> Void)? = nil,
+        onShowSettings: (() -> Void)? = nil,
         startsRenaming: Bool = false
     ) {
         self.page = page
         self.revealing = revealing
         self.onDelete = onDelete
         self.onGoHome = onGoHome
+        self.onShowSettings = onShowSettings
         self.startsRenaming = startsRenaming
 #if canImport(UIKit)
         // Cheap: the ink is read when the page is made, not here. SwiftUI
@@ -217,8 +236,12 @@ struct PageDetailView: View {
         .onChange(of: page.textSize, initial: true) { _, size in
             editor.syncTextSize(to: size)
         }
+        .onChange(of: page.lineSpacing, initial: true) { _, spacing in
+            editor.syncLineSpacing(to: spacing)
+        }
         .onAppear {
             editor.commitTextSize = { [weak page] size in page?.textSize = size }
+            editor.commitLineSpacing = { [weak page] spacing in page?.lineSpacing = spacing }
             editor.onBlockCopied = { [toasts] in toasts?.show("Copied") }
         }
         .alert("Change Text Size?", isPresented: Binding(
@@ -229,6 +252,15 @@ struct PageDetailView: View {
             Button("Change") { editor.confirmTextSize() }
         } message: {
             Text("The text re-flows to the new size. Ink stays where it was drawn, so it may no longer sit on its words.")
+        }
+        .alert("Change Line Spacing?", isPresented: Binding(
+            get: { editor.spacingAwaitingConfirmation != nil },
+            set: { _ in }
+        )) {
+            Button("Cancel", role: .cancel) { editor.cancelLineSpacing() }
+            Button("Change") { editor.confirmLineSpacing() }
+        } message: {
+            Text("The lines move to the new spacing. Ink stays where it was drawn, so it may no longer sit on its words.")
         }
         .alert("Change Text Size?", isPresented: Binding(
             get: { editor.selectionSizeAwaitingConfirmation != nil },
@@ -420,6 +452,12 @@ struct PageDetailView: View {
             // same shortcut for when it isn't, and listed in the ⌘ overlay.
             .keyboardShortcut(.find)
 #endif
+
+            if let onShowSettings {
+                Divider()
+                Button("Settings", systemImage: "gearshape", action: onShowSettings)
+                    .accessibilityIdentifier("noteMenuSettings")
+            }
         } label: {
             Label("More", systemImage: "ellipsis")
         }
@@ -459,7 +497,10 @@ struct PageDetailView: View {
                 pageLayout: PageLayout(orientation: page.orientation, mode: viewMode),
                 keyboardClearance: keyboardClearance,
                 restingClearance: CanvasGeometry.restingClearance(dock: dock, footprint: Hotbar.footprint),
-                areaInsets: UIEdgeInsets(top: 0, left: pageInsets.leading, bottom: 0, right: pageInsets.trailing),
+                areaInsets: UIEdgeInsets(
+                    top: pageInsets.top, left: pageInsets.leading,
+                    bottom: pageInsets.bottom, right: pageInsets.trailing
+                ),
                 // The hotbar's own snap, so the two move as one.
                 areaAnimation: .snappy,
                 inkSaver: inkSaver,
@@ -473,13 +514,18 @@ struct PageDetailView: View {
                     }
                 },
                 showMarkdown: showMarkdown,
+                markerDimming: MarkerDimming(
+                    headings: headingMarkers, bullets: bulletMarkers, checkboxes: checkboxMarkers, fences: fenceMarkers
+                ),
                 rendersMarkdown: true,
                 codeSettings: CodeEditorSettings(indentWidth: indentWidth, codeKeys: codeKeys, lineNumbers: lineNumbers),
-                typography: NoteTypography(bodySize: page.textSize),
+                rewritesProse: rewritesProse,
+                typography: NoteTypography(bodySize: page.textSize, lineSpacing: page.lineSpacing),
                 minimumPageCount: page.minimumPageCount,
                 onMinimumPageCountChanged: { [weak page] count in
                     if let page, count > page.minimumPageCount { page.minimumPageCount = count }
                 },
+                addsPagesWhileDrawing: addsPagesWhileDrawing,
                 onScrolled: noteScrolled
             )
             // Square and unbordered: the page fills its area. Nothing clips
@@ -605,6 +651,8 @@ struct PageDetailView: View {
     /// - Parameter anchor: where the Pencil is hovering over the page, if it
     ///   is — where the ink tools show. Without it, they show by the hotbar.
     private func respond(to response: PencilResponse, at anchor: UnitPoint?) {
+        // From text mode the gesture first switches to ink, then acts.
+        editor.enterInkForPencil(response)
         guard editor.mode == .ink else { return }
         switch response {
         case .toggleEraser:
@@ -638,10 +686,11 @@ struct PageDetailView: View {
     }
 
     /// The area the page is drawn in: all of the window, less the strip a bar
-    /// docked to a side takes — see `CanvasGeometry.hotbarReserve`.
+    /// docked to a side takes and a small buffer on the other edges — see
+    /// `CanvasGeometry.areaInsets`.
     private var pageInsets: EdgeInsets {
-        let reserve = CanvasGeometry.hotbarReserve(dock: dock, side: Hotbar.footprint)
-        return EdgeInsets(top: 0, leading: reserve.left, bottom: 0, trailing: reserve.right)
+        let insets = CanvasGeometry.areaInsets(dock: dock, side: Hotbar.footprint, buffer: Hotbar.pageBuffer)
+        return EdgeInsets(top: insets.top, leading: insets.left, bottom: insets.bottom, trailing: insets.right)
     }
 
 #else

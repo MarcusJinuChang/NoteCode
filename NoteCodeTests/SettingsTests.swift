@@ -30,6 +30,13 @@ struct SettingsTests {
         #expect(CodeIndent.widthKey == "indentWidth")
         #expect(CodeKeys.enabledKey == "codeKeys")
         #expect(LineNumbers.defaultsKey == "lineNumbers")
+        #expect(NewNotes.defaultsKey == "newNoteOrientation")
+        #expect(NewNotes.opensAfterCreatingKey == "openNoteAfterCreating")
+        #expect(TextRewritingPolicy.proseDefaultsKey == "autocorrectInProse")
+        #expect(MarkerDimming.headingsKey == "markerDimming.headings")
+        #expect(MarkerDimming.bulletsKey == "markerDimming.bullets")
+        #expect(MarkerDimming.checkboxesKey == "markerDimming.checkboxes")
+        #expect(MarkerDimming.fencesKey == "markerDimming.fences")
     }
 
     @Test("Appearance round-trips through its stored text, and system is the default")

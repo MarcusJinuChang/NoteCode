@@ -422,7 +422,7 @@ nonisolated enum MarkdownFormatting {
     }
 
     /// `insertCodeBlock(language:in:selection:)` for any kind of block,
-    /// Output and Plain Text included.
+    /// Output and Code included.
     static func insertCodeBlock(kind: CodeBlockKind, in text: String, selection: NSRange) -> TextEdit {
         insertCodeBlock(tag: kind.tag, in: text, selection: selection)
     }

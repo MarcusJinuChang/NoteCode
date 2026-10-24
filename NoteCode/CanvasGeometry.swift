@@ -55,6 +55,28 @@ nonisolated enum CanvasGeometry {
         )
     }
 
+    /// The whole space the page is inset from the window: the hotbar's strip
+    /// on its side (`hotbarReserve`), and a small `buffer` on every other
+    /// edge, so the page's edge never touches the screen's (23 Oct, feedback
+    /// item 1).
+    ///
+    /// A bar at the bottom floats over the page and takes that edge itself, so
+    /// the bottom has no buffer then; the bar's own margin is the gap.
+    ///
+    /// The buffer narrows the area the page is fitted to, so it changes the
+    /// drawn scale by a fraction of a percent and nothing else: lines wrap at
+    /// the page's own width and every mode paginates alike, as they do when the
+    /// bar moves.
+    static func areaInsets(dock: HotbarDock, side: CGFloat, buffer: CGFloat) -> PageInsets {
+        let reserve = hotbarReserve(dock: dock, side: side)
+        return PageInsets(
+            top: buffer,
+            left: dock == .left ? reserve.left : buffer,
+            right: dock == .right ? reserve.right : buffer,
+            bottom: dock == .bottom ? 0 : buffer
+        )
+    }
+
     /// How far the bottom of the text is kept above the area's edge, in screen
     /// points, so the last lines can be scrolled out from under a bar that
     /// floats over the bottom of the page.
@@ -260,6 +282,7 @@ nonisolated enum CanvasGeometry {
 
 /// Insets without UIKit, so the geometry stays testable on its own.
 nonisolated struct PageInsets: Equatable, Sendable {
+    var top: CGFloat = 0
     var left: CGFloat
     var right: CGFloat
     var bottom: CGFloat
