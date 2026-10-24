@@ -133,6 +133,21 @@ Laid out from the 12 September mockup.
     and the UIColor conversions are behind `canImport(UIKit)`. Declaring
     `init(hex:)` inside `InkColor` removed its memberwise initialiser, so it is
     in an extension.
+- **The hover mark and a tool change** (23 Oct, feedback item 17; nothing
+  changed, measured only). The app draws no hover mark: there is no hover
+  recogniser or view of ours, and in the canvas's view tree (probe, simulator)
+  none of PaperKit's views is a preview, and none appears or changes when the
+  tool is set. The mark is PaperKit's, drawn from `drawingTool`. Ours is
+  synchronous: `NoteEditor.inkTool`'s `didSet` assigns `canvas.tool` before the
+  change returns, for a kind, a colour, a width and the Pencil's double tap
+  (`InkToolHandoverTests`), so no turn of the run loop and no SwiftUI render
+  sits between a tap and PaperKit holding the new tool. If the mark still
+  shows the old tool until the Pencil moves, PaperKit redraws it on the next
+  hover event, not on a tool change. The simulator has no hover, so this is
+  not seen on a device. Options if it is: nudge the tool again on the first
+  hover after a change (needs our own hover recogniser alongside PaperKit's),
+  or hand tool changes to a `PKToolPicker`, which the app dropped (see
+  docs/archive/phase-drawing-layer.md).
 - **Pencil double tap and squeeze** do what the reader set in Settings ›
   Apple Pencil (`PencilResponse`), in ink mode only: swap to the eraser and
   back, swap to the previous tool, or show the ink tools beside the Pencil.

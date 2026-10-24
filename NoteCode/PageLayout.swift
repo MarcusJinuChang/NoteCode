@@ -123,6 +123,19 @@ nonisolated struct PageLayout: Equatable, Sendable {
 
     // MARK: Pages
 
+    /// The part of the last page's body a stroke can end in to add a page
+    /// (`InkPageGrowth`): from here to the page's bottom.
+    func growthBandTop(ofPage index: Int) -> CGFloat {
+        bodyTop(ofPage: index) + bodyHeight * (1 - InkPageGrowth.bandShare)
+    }
+
+    /// Whether a stroke ending at `y` is in the foot of the last of
+    /// `pageCount` pages. Below the body counts: print layout and compressed
+    /// take no ink there, but a seamless stroke can end on it.
+    func endsInGrowthBand(y: CGFloat, pageCount: Int) -> Bool {
+        y >= growthBandTop(ofPage: max(pageCount, 1) - 1)
+    }
+
     func bodyTop(ofPage index: Int) -> CGFloat {
         firstBodyTop + CGFloat(index) * pitch
     }
@@ -276,4 +289,16 @@ nonisolated struct PageLayout: Equatable, Sendable {
             ? sheet(ofPage: index).minY - Self.printSheetGap / 2
             : bodyTop(ofPage: index) - gap / 2
     }
+}
+
+/// Adding pages as the reader draws down (feedback item 8, 23 Oct): a stroke
+/// that ends in the last page's foot adds a page, through Add Page's path.
+nonisolated enum InkPageGrowth {
+    /// Settings › Drawing › Add Pages While Drawing; on until turned off.
+    static let defaultsKey = "addPagesWhileDrawing"
+    static let defaultEnabled = true
+
+    /// The share of a page's body, from the bottom, that counts as its foot:
+    /// about 1.4 inches of a Letter page, three or four lines of handwriting.
+    static let bandShare: CGFloat = 0.15
 }

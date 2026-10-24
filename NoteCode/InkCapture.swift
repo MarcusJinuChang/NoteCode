@@ -80,6 +80,11 @@ nonisolated enum InkCapture {
         /// piece only, in its coordinates: drawn or moved across a border in
         /// compressed or print layout, which don't show overflow.
         var reshow: [PKStroke] = []
+        /// Where each stroke the reader just drew ended, in the canvas's
+        /// coordinates: strokes with no record in `State.shown`. Moved, erased
+        /// and undone ink has one, so it is never in here, which is what keeps
+        /// ink moved into a page's foot from adding a page (`PageView`).
+        var drawnEnds: [CGPoint] = []
     }
 
     /// `canvas` taken into `state`.
@@ -95,6 +100,7 @@ nonisolated enum InkCapture {
         var frames: [ElementID: CGRect] = [:]
         var contents: [ElementID: Int] = [:]
         var touched: [any Markup] = []
+        var drawnEnds: [CGPoint] = []
         var bottom: CGFloat?
         for element in canvas.subelements {
             let id = element.elementID
@@ -113,6 +119,9 @@ nonisolated enum InkCapture {
             // which its missing frame already catches.
             if state.shown[id] != frame {
                 touched.append(element)
+                if state.shown[id] == nil, let stroke = element as? PKStroke, let last = stroke.path.last {
+                    drawnEnds.append(last.location.applying(stroke.transform))
+                }
             } else if let fingerprint, let known = state.contents[id], known != fingerprint {
                 touched.append(element)
             }
@@ -262,7 +271,8 @@ nonisolated enum InkCapture {
             state: State(ink: updated, shown: frames, contents: contents, wholeOnCanvas: whole, specked: specked, buried: buried),
             changed: true,
             inkBottom: bottom,
-            reshow: reshow
+            reshow: reshow,
+            drawnEnds: drawnEnds
         )
     }
 

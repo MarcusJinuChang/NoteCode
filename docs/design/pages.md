@@ -148,8 +148,55 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   - No button on the page itself: print layout and compressed leave no room
     below the last page that the canvas doesn't own, so the menu has it. A
     page-foot button would be its own piece of work.
+  - **Adding pages as the reader draws down** (23 Oct, feedback item 8). In
+    compressed and print layout, a stroke the reader draws that *ends* in the
+    last page's foot (the bottom 15% of its body, `InkPageGrowth.bandShare`;
+    `PageLayout.endsInGrowthBand`) adds a page through `raiseMinimum`, the
+    path Add Page takes. Seamless already keeps a page below any ink on the
+    last page. Settings › Drawing › Add Pages While Drawing, on by default
+    (`addPagesWhileDrawing`).
+    - **Only strokes drawn now.** `InkCapture.Result.drawnEnds` holds the end
+      point of every stroke with no record in `State.shown`; ink that was
+      loaded, shown again for a mode switch, moved by the lasso or erased has
+      one, so none of it adds a page. An undone erase has none and may count,
+      but its page was added when it was first drawn and the count never
+      shrinks, so it is no longer the last page's foot.
+    - **No ink save of its own.** It runs in `apply(_:)` after `onInkChanged`
+      for the stroke, and raising the minimum is the note's page count, not
+      ink; the test counts `onInkChanged` and sees one call, not two.
+    - Decided: end point, not start (a stroke running from the middle of the
+      page into its foot adds one).
   - Not checked on screen or with the Pencil: Add Page from the menu, the
     buffer while drawing.
+- **Blank ink after a jump between pages** (23 Oct, feedback item 27; measured,
+  not fixed). The canvas covers only the screen (`DrawingCanvas.cover`, so a
+  long note never makes a texture past Metal's limit) and each layout pass
+  tells PaperKit which part of the note it is over (`contentVisibleFrame`).
+  A region PaperKit has not drawn yet is drawn then, asynchronously and in
+  tiles: the text, which is views, is there at once and the ink fills in.
+  Measured on the iPad Pro 11-inch simulator (Mac GPU) by recording the screen
+  while lldb set the text view's offset, and counting ink and text pixels in
+  every 30fps frame (`-debug-ink-file`; probe and numbers in the session notes):
+  - **3,000 strokes** (150 points each, about 375 a page): jumping to a page
+    not yet seen, ink absent for 100 to 200ms (print layout 200, seamless
+    130), then filling in over about 300ms. Going back to a page already seen
+    showed its ink in the very next frame, so PaperKit keeps what it drew.
+  - **400 strokes** (60 points): ink and text changed in the same frame; no
+    blank frame.
+  - So the gap grows with the strokes in the region exposed, and a device
+    GPU with a Pencil's textured strokes is slower than the simulator. "A few
+    seconds" is not reproduced here and is not ruled out: it needs the same
+    probe on the iPad with Marcus's note. Main-thread work isn't the cost
+    (frames kept coming during the fill); nothing in `PageView` redraws ink
+    on a scroll except moving `contentVisibleFrame`.
+  - **Options, none tried:** (1) cover a window of the note taller than the
+    screen, one screen above and below, so the next page is drawn before it
+    is reached; the texture limit allows it (3 screens at 1.25x on a 2x
+    screen is about 9,000px of 16,384) but the live stroke's buffer follows
+    the canvas's size, so Pencil latency has to be measured first. (2) After
+    a jump settles, walk `contentVisibleFrame` over the neighbouring pages
+    once to warm PaperKit's cache. (3) Nothing, if the iPad's numbers are
+    near the simulator's.
 - **Print layout** fits its sheets inside a 24pt border of the surround
   (`CanvasGeometry.printGutter`), so they read as paper rather than one slab
   with grey bars across it. Text is a little smaller there than in the

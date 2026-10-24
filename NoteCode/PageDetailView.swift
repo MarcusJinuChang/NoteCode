@@ -123,6 +123,10 @@ struct PageDetailView: View {
     @AppStorage(SnapHaptic.defaultsKey)
     private var hapticOnSnap = SnapHaptic.isOnByDefault
 
+    /// Settings › Drawing › Add Pages While Drawing.
+    @AppStorage(InkPageGrowth.defaultsKey)
+    private var addsPagesWhileDrawing = InkPageGrowth.defaultEnabled
+
     /// Counts the bar's drops; each one is a snap for the haptic to follow.
     @State private var snaps = 0
 
@@ -493,7 +497,10 @@ struct PageDetailView: View {
                 pageLayout: PageLayout(orientation: page.orientation, mode: viewMode),
                 keyboardClearance: keyboardClearance,
                 restingClearance: CanvasGeometry.restingClearance(dock: dock, footprint: Hotbar.footprint),
-                areaInsets: UIEdgeInsets(top: 0, left: pageInsets.leading, bottom: 0, right: pageInsets.trailing),
+                areaInsets: UIEdgeInsets(
+                    top: pageInsets.top, left: pageInsets.leading,
+                    bottom: pageInsets.bottom, right: pageInsets.trailing
+                ),
                 // The hotbar's own snap, so the two move as one.
                 areaAnimation: .snappy,
                 inkSaver: inkSaver,
@@ -518,6 +525,7 @@ struct PageDetailView: View {
                 onMinimumPageCountChanged: { [weak page] count in
                     if let page, count > page.minimumPageCount { page.minimumPageCount = count }
                 },
+                addsPagesWhileDrawing: addsPagesWhileDrawing,
                 onScrolled: noteScrolled
             )
             // Square and unbordered: the page fills its area. Nothing clips
@@ -678,10 +686,11 @@ struct PageDetailView: View {
     }
 
     /// The area the page is drawn in: all of the window, less the strip a bar
-    /// docked to a side takes — see `CanvasGeometry.hotbarReserve`.
+    /// docked to a side takes and a small buffer on the other edges — see
+    /// `CanvasGeometry.areaInsets`.
     private var pageInsets: EdgeInsets {
-        let reserve = CanvasGeometry.hotbarReserve(dock: dock, side: Hotbar.footprint)
-        return EdgeInsets(top: 0, leading: reserve.left, bottom: 0, trailing: reserve.right)
+        let insets = CanvasGeometry.areaInsets(dock: dock, side: Hotbar.footprint, buffer: Hotbar.pageBuffer)
+        return EdgeInsets(top: insets.top, leading: insets.left, bottom: insets.bottom, trailing: insets.right)
     }
 
 #else

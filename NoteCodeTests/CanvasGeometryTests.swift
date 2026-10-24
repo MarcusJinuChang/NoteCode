@@ -47,6 +47,27 @@ struct CanvasGeometryTests {
         #expect(CanvasGeometry.restingClearance(dock: .right, footprint: 116) == 0)
     }
 
+    @Test("The buffer is on every edge but the one the bar takes, top included")
+    func bufferOnTheFreeEdges() {
+        let buffer: CGFloat = 10
+        let left = CanvasGeometry.areaInsets(dock: .left, side: reserve, buffer: buffer)
+        #expect(left == PageInsets(top: buffer, left: reserve, right: buffer, bottom: buffer))
+        let right = CanvasGeometry.areaInsets(dock: .right, side: reserve, buffer: buffer)
+        #expect(right == PageInsets(top: buffer, left: buffer, right: reserve, bottom: buffer))
+        let bottom = CanvasGeometry.areaInsets(dock: .bottom, side: reserve, buffer: buffer)
+        #expect(bottom == PageInsets(top: buffer, left: buffer, right: buffer, bottom: 0))
+    }
+
+    @Test("The buffer is small beside the bar's own margin, and costs the fit scale under 3% on an 11-inch iPad in portrait")
+    func bufferIsSmall() {
+        #expect(Hotbar.pageBuffer > 0 && Hotbar.pageBuffer <= Hotbar.margin)
+        let width: CGFloat = 834 // portrait
+        let page = PageLayout(orientation: .portrait).pageSize.width
+        let with = CanvasGeometry.fitScale(areaWidth: width - Hotbar.pageBuffer * 2, pageWidth: page)
+        let without = CanvasGeometry.fitScale(areaWidth: width, pageWidth: page)
+        #expect(with < without && with / without > 0.97)
+    }
+
     @Test("The footprint covers the bar, its margin and the options row beside it")
     func footprint() {
         #expect(Hotbar.footprint == Hotbar.margin + Hotbar.thickness + Hotbar.optionsGap
