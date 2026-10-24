@@ -17,9 +17,9 @@ struct ContentView: View {
     /// opening.
     @State private var selection: Page?
 
-    /// The app opens on Home with the list away; ☰ brings the list over it,
-    /// as it does over a note.
-    @State private var columnVisibility: NavigationSplitViewVisibility = .detailOnly
+    /// The app opens on Home with the list beside it (`SidebarPlan`); over a
+    /// note the list is away until ☰ brings it over the page.
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     /// In a compact width (an iPhone, a folded Duo) there is no room for the
     /// list over the page, so the window is a stack instead: Home at its root,
@@ -99,8 +99,10 @@ struct ContentView: View {
         self.storageIsEphemeral = storageIsEphemeral
         opensDebugNote = openedPage != nil
         _selection = State(initialValue: openedPage)
-        // With storage failed the warning is the list's, so the list shows.
-        _columnVisibility = State(initialValue: storageIsEphemeral ? .all : .detailOnly)
+        // The list is away for the first layout and comes in right after it
+        // (`SidebarPlan.launchDelay`), on Home, or over a note when storage
+        // failed and the warning is the list's.
+        _columnVisibility = State(initialValue: .detailOnly)
         _compactPath = State(initialValue: openedPage != nil ? [.note] : storageIsEphemeral ? [.list] : [])
     }
 
@@ -151,6 +153,10 @@ struct ContentView: View {
             isCovered: showsSettings || showsWelcomeScreen
         ))
         .task {
+            try? await Task.sleep(for: SidebarPlan.launchDelay)
+            if SidebarPlan.showsList(noteOpen: selection != nil, storageFailed: storageIsEphemeral) {
+                columnVisibility = .all
+            }
             syncOpenNoteClaim()
             claimWelcomeScreenOnFirstLaunch()
             makeWelcomeNoteOnFirstLaunch()
@@ -163,6 +169,9 @@ struct ContentView: View {
             if let selection {
                 NoteMemory().rememberOpened(selection)
                 withAnimation { columnVisibility = .detailOnly }
+            } else {
+                // A note closed: Home, with the list beside it.
+                withAnimation { columnVisibility = .all }
             }
             if isCompact { syncCompactPath(toSelection: selection) }
         }
@@ -190,25 +199,33 @@ struct ContentView: View {
         if isCompact {
             compactStack
         } else {
-            NavigationSplitView(columnVisibility: $columnVisibility) {
-                noteList(showsToasts: columnVisibility != .detailOnly)
-            } detail: {
-                Group {
-                    if selection != nil {
-                        noteDetail
-                    } else {
-                        home
-                    }
-                }
-                .overlay(alignment: .bottom) {
-                    if columnVisibility == .detailOnly {
-                        ToastOverlay(center: toasts, bottomInset: selection == nil ? 16 : pageToastInset)
-                    }
+            if selection == nil {
+                // Home: the list is a column beside it, as in any split view.
+                splitView.navigationSplitViewStyle(.balanced)
+            } else {
+                // A note: the list slides over the page instead of pushing it
+                // narrower, so opening it never rescales the note underneath.
+                splitView.navigationSplitViewStyle(.prominentDetail)
+            }
+        }
+    }
+
+    private var splitView: some View {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            noteList(showsToasts: columnVisibility != .detailOnly)
+        } detail: {
+            Group {
+                if selection != nil {
+                    noteDetail
+                } else {
+                    home
                 }
             }
-            // The list slides over the page instead of pushing it narrower, so
-            // opening it never re-wraps the note underneath.
-            .navigationSplitViewStyle(.prominentDetail)
+            .overlay(alignment: .bottom) {
+                if columnVisibility == .detailOnly {
+                    ToastOverlay(center: toasts, bottomInset: selection == nil ? 16 : pageToastInset)
+                }
+            }
         }
     }
 
@@ -301,9 +318,12 @@ struct ContentView: View {
     /// what the other was showing.
     private func carryPlace(toCompact compact: Bool) {
         if compact {
-            compactPath = CompactScreen.path(listShowing: columnVisibility != .detailOnly, noteOpen: selection != nil)
+            compactPath = CompactScreen.path(
+                listShowing: SidebarPlan.stackShowsList(listShowing: columnVisibility != .detailOnly, noteOpen: selection != nil),
+                noteOpen: selection != nil
+            )
         } else {
-            columnVisibility = CompactScreen.listShowing(in: compactPath) ? .all : .detailOnly
+            columnVisibility = SidebarPlan.showsList(unfoldingFrom: compactPath, noteOpen: selection != nil) ? .all : .detailOnly
         }
     }
 
@@ -411,11 +431,11 @@ struct ContentView: View {
         selection = page
     }
 
-    /// Closes the open note and shows Home, with the list away: the Home row
-    /// at the top of the list, and ⇧⌘H.
+    /// Closes the open note and shows Home, with the list beside it: the
+    /// house in a note's header, and ⇧⌘H.
     private func goHome() {
         selection = nil
-        withAnimation { columnVisibility = .detailOnly }
+        withAnimation { columnVisibility = .all }
         compactPath = []
     }
 

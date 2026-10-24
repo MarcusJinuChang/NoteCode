@@ -10,12 +10,38 @@ v3 phase 2 (12 Oct, `docs/archive/ui-design-v3-implementation.md`).
   spending the turn, when storage is in memory or a debug launch opened a note.
   Settings › Help and About › Welcome Screen shows it again, dismissing
   Settings first.
-- **The app opens on Home** (`HomeView`): `ContentView`'s detail is Home
-  whenever `selection` is nil, with the list away (`.detailOnly`); ☰ brings
-  it over, as over a note. With storage failed the list starts open, since
-  its warning is the list's. The house button beside ☰ in a note's header and
-  ⇧⌘H (`goHome`) clear the selection and send the list away. (The list's Home
-  row went on 16 Oct: Home isn't a place in the list.)
+- **The app opens on Home** (`HomeView`) **with the list beside it** (24 Oct,
+  feedback #3; `SidebarPlan`): in a regular width `ContentView`'s detail is Home
+  whenever `selection` is nil, and the split view is `.balanced` there, so the
+  list is a column, not a slide-over. Opening a note switches the style to
+  `.prominentDetail` and the list goes away (`.detailOnly`); ☰ brings it over
+  the page as before, so opening it never rescales a note. The house button
+  beside ☰ in a note's header, ⇧⌘H (`goHome`), Delete and closing a note all
+  bring Home back with the list showing. The compact stack (iPhone, a folded
+  Duo) is unchanged: Home at its root. Folding a Duo from Home gives Home, and
+  unfolding onto Home gives the list beside it (`SidebarPlan.showsList`,
+  `.stackShowsList`).
+  - **The list comes in 400ms after launch** (`SidebarPlan.launchDelay`). A
+    split view that *started* with its sidebar visible pinned the main thread
+    at 100% CPU, with a blank screen, in the iPad Pro 11-inch simulator (iOS
+    27.0 debug build; sampled: AttributeGraph walking a type's layout
+    descriptor, and `NoteList.body` re-run from toolbar updates). The unmodified
+    build was fine, and so was the list brought in after launch, or over Home
+    by ☰. With the list shown after the first layout, `-debug-home` and
+    `-debug-first-launch` load at 0% CPU. **The cause isn't understood**; the
+    delay is a workaround, and slow hardware may need longer. Storage failed
+    takes the same route.
+  - **Provisional (Marcus to review):** the sidebar is *shown* on Home, not
+    locked: the system's sidebar button (or ⌃⌘S) can still hide it, and it comes
+    back on the next Home. In portrait it takes about 320pt of 834 and Home's
+    Continue card gets cramped; narrowing the sidebar is the lever. Switching
+    style when a note opens rebuilds the split view, so the list's open and
+    closed folders reset then (they are `NoteList` state). Checked in the
+    simulator, portrait and landscape: Home with the list, a note opened from
+    the list, the house button. Not checked: a Duo folding, Stage Manager or a
+    narrow Split View, Reduce Motion. No hosted test: a split view in a test
+    window showed one navigation bar either way, so the wiring is checked on
+    screen and `SidebarOnHomeTests` holds the rules.
   - **Sections are `HomeSections`**, pure, handed every note. Continue is the
     note opened last; with none recorded, or it gone (deleted), the note edited
     last, so Home always has a way back in. Recent is the next 8 by
