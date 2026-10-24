@@ -119,6 +119,7 @@ Read the one that matches the area you are changing; do not read them all.
 | Obsidian's other marks and blocks | [docs/design/obsidian-s-other-marks-and-blocks.md](docs/design/obsidian-s-other-marks-and-blocks.md) |
 | Paste and copy with formatting | [docs/design/paste-and-copy-with-formatting.md](docs/design/paste-and-copy-with-formatting.md) |
 | Organising notes | [docs/design/organising-notes.md](docs/design/organising-notes.md) |
+| On-device assistant: Explain Code, Summarise Note | [docs/design/ai-features.md](docs/design/ai-features.md) |
 
 What the app contains: [docs/features.md](docs/features.md) — every feature by type, how it
 works, and what is missing or planned. Read it before reading code to find out whether

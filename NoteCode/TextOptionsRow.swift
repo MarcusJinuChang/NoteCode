@@ -315,6 +315,9 @@ private struct CodeControls: View {
         if kind != .output {
             RowWord("+ Output", label: "Add Output Block", isSelected: false, along: 66) { editor.addOutputBlock() }
                 .disabled(!isClosed)
+            if editor.ai.offersFeatures {
+                RowWord("Explain", label: "Explain Code Block", isSelected: false, along: 58) { editor.explainBlockAtCaret?() }
+            }
         }
     }
 

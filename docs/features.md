@@ -61,6 +61,7 @@ reading code, and to find the design note that has the detail.
 | Caret on empty space | A tap below the last line adds the blank lines needed and puts the caret there, one undo step; gaps between sheets in print and compressed are not handled | built (feedback #7) | |
 | Outline and page badge | Headings list jumps to a heading; "2 / 5" shows the page | built | `navigation-and-the-text-options-row.md` |
 | Find in note | System find | built | `the-note-page.md` |
+| Summarise Note | ••• › Summarise Note: an on-device summary in a sheet (long notes in up to 4 pieces); Copy or Insert Below | built; unverified on device | `ai-features.md` |
 | LaTeX | | planned, design note done (`docs/design/latex.md`), needs SwiftMath package added by Marcus | `latex.md` |
 | Free text boxes | PaperKit has one through Insert; a text-box tool is not designed | idea (feedback #18) | |
 
@@ -81,6 +82,7 @@ reading code, and to find the design note that has the detail.
 | Line numbers | Setting, off by default | built | `code-languages-and-keys.md` |
 | Wrapped lines | Continue past their indentation, with a mark | built | `code-blocks-room-around-and-inside.md` |
 | Return in a block | A thin extra gap after Return was reported on 1.0 | not reproduced on `main` (feedback #14, #31); retest on the iPad | `code-blocks-room-around-and-inside.md` |
+| Explain Code | Edit menu › Explain Block, or the Explain chip in the text row, on a block: Apple's on-device model explains it in a sheet; Copy, or Insert Below as a quote or output block (undoable) | built; unverified on device | `ai-features.md` |
 | Running code in the app | Out of scope on purpose | not planned | `AGENTS.md` |
 
 ## 4. Drawing and ink
@@ -155,7 +157,7 @@ Sheet with General, Notes, Writing, Code, Drawing and About
 |---|---|---|
 | General | Appearance, Accent Colour, Toolbar Position, Haptic on Snap, App Icon, Toolbar Icons and Icon Weight | whole-app palette reset |
 | Notes | New Notes orientation, Open Note After Creating, View, Sort By and Order, Recently Deleted, Export All | |
-| Writing | Show Markdown, Autocorrect, Markers (four rows) | |
+| Writing | Show Markdown, Autocorrect, Markers (four rows), On-Device Assistant (switch, Answer Length, Insert As) | |
 | Code | Run Code In, Code Keys, Indent Width, Line Numbers | |
 | Drawing | Finger Draws, Erases, Size, Colour Set, Pens and Highlighters palettes, Pencil actions, Add Pages While Drawing, Return to Previous Tool, Reset Colours | |
 | About | Version, licences, tip jar, privacy and feedback rows once set | |
@@ -168,4 +170,4 @@ Sheet with General, Notes, Writing, Code, Drawing and About
 | App icon | Drawn by a script; Default, Dark, Tinted plus two alternates | built | `AGENTS.md` › Shipping |
 | Privacy | Nothing collected; manifest lists UserDefaults only | built; pages not hosted | `AGENTS.md` › Shipping |
 | Storage | SwiftData, schema version 1 frozen by hashes; falls back to memory with a warning | built | `AGENTS.md` › The model |
-| AI features, ads and Pro, group notes | | planned or idea (stream L) | ROADMAP |
+| Ads and Pro, group notes | | planned or idea (stream L) | ROADMAP |
