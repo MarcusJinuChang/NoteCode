@@ -59,3 +59,9 @@ Roadmap step 5 (16 Oct, branch `claude/page-fills-window`, off `claude/drag-fold
   text view's inset and the square corners; the strip, the floating bar, the
   header and the list were not looked at, nor were Reduce Motion, the Pencil
   or an 11-inch iPad.
+
+- **The list beside Home** (24 Oct, feedback #3): over a note nothing changes;
+  the list is still a slide-over, away until ☰. On Home, in a regular width,
+  the list is a column beside it (see "The app opens on Home" in
+  home-the-title-screen-thumbnails-reopening.md), so the page's own fit and
+  the hotbar's reserve never see the list.

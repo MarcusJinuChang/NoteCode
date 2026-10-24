@@ -10,6 +10,31 @@ so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
 - **Folders open and close in place** in the list (`NoteList`), rather than
   leading to a column of their own: the list slides over the page, and a
   second column would cover more of it. Open state is per launch.
+- **One list: a folder is a row among the notes** (24 Oct, feedback #13).
+  `NoteListSections.items` is the top level and a section's `items` is what a
+  folder holds, folders and notes sorted *together* by the reader's `NoteSort`
+  (`NoteListRow.rows(for: items…)` flattens them). The Folders and Notes
+  headers are gone.
+  - **Provisional (Marcus to review):** nothing puts folders first. A folder is
+    dated by its newest note anywhere under it (its own creation date when
+    empty) for Date Modified, by its own creation for Date Created, by its name
+    for Title; editing a note moves its folder up. Pinned stays a section on
+    top, one mixed list of pinned folders and notes (a pinned note isn't listed
+    again in its folder). Folders and notes aren't aligned in a column: a
+    folder's chevron sits where a note's thumbnail does.
+  - **Provisional:** one "Library" header sits above the main list when there
+    are folders or a Pinned section, and is the top-level drop target (a note
+    dropped on it leaves its folder, a folder goes to the top: the old
+    `.topFolders` rule, which handles both). With no folders and nothing
+    pinned there is no header.
+  - **Provisional, a loss to know about:** hand-arranged folder order
+    (`Folder.sortIndex`, dropping a folder on another's top or bottom edge) no
+    longer shows, since the sort orders folders. The drop rules, `Folder.move`
+    and the tests are untouched and still renumber the level;
+    `NoteListSections.folders`, `pinnedFolders` and `children` keep that order.
+    A "Manual" sort key would bring it back.
+  - Drop reception is unchanged (`ListRowDrop`, `ListDrop.resolve`); only what
+    the rows are changed. Still unverified on a real iPad.
 - **Folders nest, are arranged by hand and can be dragged** (16 Oct, roadmap
   step 8, decided by Marcus: a folder can go inside another, a note dropped on
   a folder is filed in it, and folders can be rearranged). This reverses
@@ -83,7 +108,7 @@ so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
 - **Sorting is per device** (`NoteSort`, `@AppStorage`, 3 Oct): date
   modified, date created or title, either way round, and picking a key picks
   the way round that reads naturally — newest first, A to Z. It orders notes
-  in every section; folders stay in the reader's order. Rows show the date the list
+  in every section and, since 24 Oct, folders among them (see "One list"). Rows show the date the list
   is sorted by. Ties fall back to title, then creation, so the order never
   shuffles between launches.
 - **The list's toolbar holds two items**, ••• and +. Edit and Sort By share
