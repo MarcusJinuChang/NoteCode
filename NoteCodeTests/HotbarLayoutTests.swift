@@ -168,19 +168,19 @@ struct HotbarLayoutTests {
         let rig = try Rig(dock: dock, size: held.size)
         let screen = CGRect(origin: .zero, size: held.size)
         let buffer = Hotbar.pageBuffer
-        // Under load (a full run, another build on the Mac) the top inset the
-        // test reads is sometimes 52pt taller than the one SwiftUI laid the
-        // page out with, for a moment (twice in about 25 runs; the page was
-        // at the right place each time). So the room above the page is read
-        // again, up to 3s, until it is the one the page was laid out against;
-        // the same expectations then run on what is read last, so a page
-        // that is really in the wrong place still fails.
-        let deadline = Date(timeIntervalSinceNow: 3)
-        while abs(rig.geometry().page.minY - rig.contentTop - buffer) >= 0.5, Date() < deadline {
-            rig.settle(0.3)
-        }
+        // Fails now and then in a full run (not when the suite runs alone):
+        // the room above the page reads 52pt taller than the page was laid
+        // out against, and stays so for seconds. Not yet explained; the
+        // label lists the navigation bars and the window's inset so the
+        // next failure shows where the 52pt is.
         let page = rig.geometry().page
-        let label = "\(dock) bar, \(held): page \(page) in \(screen)"
+        func bars(in view: UIView) -> [String] {
+            var found: [String] = []
+            if let bar = view as? UINavigationBar { found.append("\(bar.convert(bar.bounds, to: rig.window))") }
+            for subview in view.subviews { found += bars(in: subview) }
+            return found
+        }
+        let label = "\(dock) bar, \(held): page \(page) in \(screen); navigation bars \(bars(in: rig.window)), window top inset \(rig.window.safeAreaInsets.top)"
 
         // Sanity: the page is really laid out, so a zero rect can't pass.
         #expect(page.width > 300 && page.height > 300, "\(label)")
