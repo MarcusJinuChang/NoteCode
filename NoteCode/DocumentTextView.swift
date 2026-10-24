@@ -1046,12 +1046,14 @@ struct DocumentTextView: UIViewRepresentable {
         func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
             if editor?.isFormatting != true, !isApplyingMarkerEdit { editor?.typingTextWillChange(range: range) }
 
-            // A formatting edit's text is what its button meant. UIKit runs
+            // A formatting edit's text is what its button meant (and so is a
+            // paste or marker edit the coordinator makes: a window in a scene
+            // showed their quotes going curly too). UIKit runs
             // smart punctuation over it as if it had been typed, as edits of
             // their own inside the replace, and turned a colour tag's quotes
             // curly, so it was a tag no longer and showed as text (seen 17
             // Oct, two one-character edits while the colour was applied).
-            if editor?.isFormatting == true, range.length > 0, NSMaxRange(range) <= (textView.text as NSString).length,
+            if editor?.isFormatting == true || isApplyingMarkerEdit, range.length > 0, NSMaxRange(range) <= (textView.text as NSString).length,
                TextRewritingPolicy.isSmartPunctuation(replacing: (textView.text as NSString).substring(with: range), with: text) {
                 return false
             }
