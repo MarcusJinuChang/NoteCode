@@ -33,4 +33,8 @@ list had arrived with the phase that needed it; this one filled what was left.
   suite reads the real `GCKeyboard.coalesced`, so a hardware keyboard attached
   to the Mac, which the simulator inherits, would take the row away. Not proven
   to be that. The other 1,124 tests pass.
+  - **Fixed 23 Oct:** it was that. With `HardwareKeyboard.isConnected` forced to
+    "attached", the suite fails the same way (8 tests); the suite now pins it to
+    "not attached" in its `init()`, so it passes with or without a keyboard on
+    the Mac. The one test that attaches one puts the closure back as it found it.
 - **Not checked on screen:** any of the above. The macOS build compiles.
