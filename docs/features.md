@@ -21,11 +21,11 @@ reading code, and to find the design note that has the detail.
 
 | Feature | How it works | Status | Detail |
 |---|---|---|---|
-| Home | App opens here; Continue card for the last note, sections of recent notes with thumbnails, folders, Import and From Template; title screen on first launch | built | `home-the-title-screen-thumbnails-reopening.md` |
-| Note list | Sidebar list over the page; pinned first; sort and order per device; search; swipe actions | built | `organising-notes.md` |
-| Notes and folders as one list | Folders are a separate section from notes today | missing (feedback #13) | |
-| Sidebar on Home | Home opens with the list hidden by design | missing (feedback #3) | `ContentView` |
-| Folders | One folder per note, nested, drag to arrange, colour and symbol, pin, delete asks about contents | built | `organising-notes.md`, `recently-deleted-and-folder-faces.md` |
+| Home | App opens here, with the list beside it in a regular width; Continue card for the last note, sections of recent notes with thumbnails, folders, Import and From Template; title screen on first launch | built | `home-the-title-screen-thumbnails-reopening.md` |
+| Note list | Sidebar list over the page; pinned first; folders and notes are sorted together; sort and order per device; search; swipe actions | built | `organising-notes.md` |
+| Notes and folders as one list | One list holds folders and notes, sorted together | built (feedback #13) | |
+| Sidebar on Home | The list sits beside Home in a regular width | built (feedback #3) | `ContentView` |
+| Folders | One folder per note, nested, drag to arrange (the arrangement is kept but hidden by the sort), colour and symbol, pin, delete asks about contents | built | `organising-notes.md`, `recently-deleted-and-folder-faces.md` |
 | Drag and drop of notes and folders | Built as rules plus the menu route; never delivered by the simulator | partial: unchecked on the iPad | ROADMAP |
 | New note "+" | Tap makes a note and, per the Open Note After Creating setting (default off), shows a toast with Open instead of opening it; hold picks orientation; files in the open note's folder | built (feedback #12) | `WelcomeNote.swift` |
 | Templates | Lecture, Problem and Lab; text only | built | `insert-and-templates.md` |
@@ -61,7 +61,7 @@ reading code, and to find the design note that has the detail.
 | Caret on empty space | A tap below the last line adds the blank lines needed and puts the caret there, one undo step; gaps between sheets in print and compressed are not handled | built (feedback #7) | |
 | Outline and page badge | Headings list jumps to a heading; "2 / 5" shows the page | built | `navigation-and-the-text-options-row.md` |
 | Find in note | System find | built | `the-note-page.md` |
-| LaTeX | | planned (stream L) | ROADMAP |
+| LaTeX | | planned, design note done (`docs/design/latex.md`), needs SwiftMath package added by Marcus | `latex.md` |
 | Free text boxes | PaperKit has one through Insert; a text-box tool is not designed | idea (feedback #18) | |
 
 ## 3. Code blocks
