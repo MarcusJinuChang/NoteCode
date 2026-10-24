@@ -166,9 +166,20 @@ struct HotbarLayoutTests {
           arguments: HotbarDock.allCases, holds)
     func pageKeepsOffTheEdges(dock: HotbarDock, held: Held) throws {
         let rig = try Rig(dock: dock, size: held.size)
-        let page = rig.geometry().page
         let screen = CGRect(origin: .zero, size: held.size)
         let buffer = Hotbar.pageBuffer
+        // Under load (a full run, another build on the Mac) the top inset the
+        // test reads is sometimes 52pt taller than the one SwiftUI laid the
+        // page out with, for a moment (twice in about 25 runs; the page was
+        // at the right place each time). So the room above the page is read
+        // again, up to 3s, until it is the one the page was laid out against;
+        // the same expectations then run on what is read last, so a page
+        // that is really in the wrong place still fails.
+        let deadline = Date(timeIntervalSinceNow: 3)
+        while abs(rig.geometry().page.minY - rig.contentTop - buffer) >= 0.5, Date() < deadline {
+            rig.settle(0.3)
+        }
+        let page = rig.geometry().page
         let label = "\(dock) bar, \(held): page \(page) in \(screen)"
 
         // Sanity: the page is really laid out, so a zero rect can't pass.
