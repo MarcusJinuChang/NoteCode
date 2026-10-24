@@ -139,6 +139,11 @@ struct InkToolPersistence: ViewModifier {
             .onChange(of: fingerDraws) { _, stored in
                 if editor.fingerDraws != stored { editor.fingerDraws = stored }
             }
+            // Choosing a colour set rewrites the highlighter's remembered
+            // colour from Settings, over the open note.
+            .onChange(of: highlighter) { _, stored in
+                if editor.inkTool.highlighter != stored { editor.inkTool.highlighter = stored }
+            }
     }
 }
 
@@ -331,13 +336,14 @@ struct InkSwatches: View {
         let isSelected = selected == color
         // The colour as the ink will look on this page, so black doesn't
         // disappear into a dark bar.
-        let shown = Color(uiColor: color.displayColor(for: style))
+        // (A highlighter on a dark bar is shown more vividly than it draws.)
+        let shown = Color(uiColor: color.swatchFace(for: style, kind: kind))
         let canRemove = palette.colors.count > 1
 
         return Button {
             selected = color
         } label: {
-            HotbarSwatch(color: shown, isSelected: isSelected)
+            HotbarSwatch(color: shown, isSelected: isSelected, isMarker: kind == .highlighter)
         }
         .buttonStyle(.plain)
         // The pointer lifts the control it is over.
@@ -353,7 +359,7 @@ struct InkSwatches: View {
             dragged = color
             return NSItemProvider(object: color.dragName as NSString)
         } preview: {
-            HotbarSwatch(color: shown, isSelected: false)
+            HotbarSwatch(color: shown, isSelected: false, isMarker: kind == .highlighter)
         }
         .onDrop(of: [.plainText], delegate: SwatchDrop(target: color, palette: $palette, dragged: $dragged))
         .accessibilityLabel(color.name)
@@ -613,22 +619,49 @@ struct HotbarIcon: View {
 struct HotbarSwatch: View {
     var color: Color
     var isSelected: Bool
+    /// A highlighter's swatch is a marker chip, so the two palettes read as
+    /// different tools at a glance; a pen's is a disc.
+    var isMarker = false
 
     @Environment(\.isEnabled) private var isEnabled
 
+    /// A chip's size. Its ring (3pt out) is 32pt wide, so it fits a 34pt cell
+    /// beside its neighbours' rings.
+    static let chipSize = CGSize(width: 26, height: 18)
+    private static let chipRadius: CGFloat = 6
+
     var body: some View {
-        Circle()
-            .fill(color)
-            .overlay { Circle().strokeBorder(.primary.opacity(0.2), lineWidth: 1) }
-            .frame(width: 22, height: 22)
-            .padding(4)
+        face
+            .padding(isMarker ? 3 : 4)
             .overlay {
                 if isSelected {
-                    Circle().strokeBorder(.tint, lineWidth: 2)
+                    ring
                 }
             }
             .opacity(isEnabled ? 1 : 0.3)
             .hotbarTarget()
+    }
+
+    @ViewBuilder private var face: some View {
+        if isMarker {
+            RoundedRectangle(cornerRadius: Self.chipRadius)
+                .fill(color)
+                .overlay { RoundedRectangle(cornerRadius: Self.chipRadius).strokeBorder(.primary.opacity(0.2), lineWidth: 1) }
+                .frame(width: Self.chipSize.width, height: Self.chipSize.height)
+        } else {
+            Circle()
+                .fill(color)
+                .overlay { Circle().strokeBorder(.primary.opacity(0.2), lineWidth: 1) }
+                .frame(width: 22, height: 22)
+        }
+    }
+
+    @ViewBuilder private var ring: some View {
+        if isMarker {
+            RoundedRectangle(cornerRadius: Self.chipRadius + 3).strokeBorder(.tint, lineWidth: 2)
+        } else {
+            Circle().strokeBorder(.tint, lineWidth: 2)
+        }
     }
 }
 

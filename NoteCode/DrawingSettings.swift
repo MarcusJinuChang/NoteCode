@@ -15,7 +15,23 @@ struct DrawingSettings: View {
     @AppStorage(NoteEditor.fingerDrawsKey) private var fingerDraws = true
     @AppStorage(EraserSettings.defaultsKey) private var eraser = EraserSettings()
     @AppStorage(InkPageGrowth.defaultsKey) private var addsPages = InkPageGrowth.defaultEnabled
+    @AppStorage(InkPalette.defaultsKey) private var pen = InkPalette.standard
+    @AppStorage(InkPalette.highlighterDefaultsKey) private var highlighter = InkPalette.standardHighlighter
+    @AppStorage(InkPaletteSet.defaultsKey) private var chosenSet = ""
     @State private var confirmsReset = false
+    /// The set the reader picked, until they have said yes to losing their
+    /// own colours.
+    @State private var pendingSet: InkPaletteSet?
+
+    /// The set the palettes are exactly, or `nil` once they are the reader's.
+    private var matchingSet: InkPaletteSet? {
+        InkPaletteSet.matching(pen: pen, highlighter: highlighter)
+    }
+
+    /// What Reset Colours resets to: the device's set.
+    private var resetSet: InkPaletteSet {
+        InkPaletteSet(rawValue: chosenSet) ?? InkPaletteSet.stored()
+    }
 
     var body: some View {
         Form {
@@ -29,6 +45,22 @@ struct DrawingSettings: View {
                 Toggle("Add Pages While Drawing", isOn: $addsPages)
             } footer: {
                 Text("A stroke that ends near the bottom of the last page adds a page in print layout and compressed view. Continuous view always keeps a blank page below your ink.")
+            }
+
+            Section {
+                Menu {
+                    ForEach(InkPaletteSet.allCases, id: \.self) { set in
+                        Button {
+                            pendingSet = set
+                        } label: {
+                            if matchingSet == set { Label(set.title, systemImage: "checkmark") } else { Text(set.title) }
+                        }
+                    }
+                } label: {
+                    LabeledContent("Colour Set", value: matchingSet?.title ?? "Custom")
+                }
+            } footer: {
+                Text("Refined lifts the highlighters so they read on a dark page. Original is how they were. The pens are the same in both.")
             }
 
             Section {
@@ -50,14 +82,24 @@ struct DrawingSettings: View {
         }
         .navigationTitle("Drawing")
         .confirmationDialog(
-            "Reset the pen and highlighter palettes to their original colours?",
+            "Reset the pen and highlighter palettes to the \(resetSet.title) colours?",
             isPresented: $confirmsReset,
             titleVisibility: .visible
         ) {
             Button("Reset Colours", role: .destructive) {
-                InkPalette.resetStoredPalettes()
+                InkPalette.resetStoredPalettes(to: resetSet)
             }
         } message: {
+            Text("Colours you added are removed. Ink already on a page keeps its colour.")
+        }
+        .confirmationDialog(
+            "Switch to the \(pendingSet?.title ?? "") colours?",
+            isPresented: Binding(get: { pendingSet != nil }, set: { if !$0 { pendingSet = nil } }),
+            titleVisibility: .visible,
+            presenting: pendingSet
+        ) { set in
+            Button("Use \(set.title) Colours", role: .destructive) { set.apply() }
+        } message: { _ in
             Text("Colours you added are removed. Ink already on a page keeps its colour.")
         }
     }
@@ -103,6 +145,14 @@ private struct PaletteSettings: View {
                     colors.move(fromOffsets: source, toOffset: destination)
                     palette = InkPalette(colors)
                 }
+            }
+
+            Section {
+                Button("Restore \(kind == .highlighter ? "Highlighter" : "Pen") Colours", role: .destructive) {
+                    InkPaletteSet.stored().resetPalette(for: kind)
+                }
+            } footer: {
+                Text("Puts this palette back to the \(InkPaletteSet.stored().title) colours.")
             }
 
             Section {

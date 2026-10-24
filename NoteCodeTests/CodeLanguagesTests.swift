@@ -107,9 +107,9 @@ struct CodeLanguagesTests {
     }
 
     @Test("Compiler Explorer takes C, C++, Python, Rust and Go in the link, with the pinned compilers", arguments: [
-        (CodeLanguage.cpp, "c++", "g142"),
-        (.python, "python", "python313"),
-        (.c, "c", "cg152"),
+        (CodeLanguage.cpp, "c++", "g162"),
+        (.python, "python", "python314"),
+        (.c, "c", "cg162"),
         (.rust, "rust", "r1990"),
         (.go, "go", "gl1260"),
     ])

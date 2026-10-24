@@ -172,15 +172,20 @@ extension EraserSettings {
 }
 
 extension InkPalette {
-    /// Puts the pen's and the highlighter's palettes back to the design's
-    /// colours, in the defaults the hotbar reads them from.
+    /// Puts the pen's and the highlighter's palettes back to the colours of
+    /// `set` (the device's own by default), in the defaults the hotbar reads
+    /// them from.
     ///
     /// Only the palettes: the colour each tool is drawing in is left alone,
     /// and falls back to the palette's first colour on its own if the reset
-    /// took it away (`InkSwatches`).
-    nonisolated static func resetStoredPalettes(in defaults: UserDefaults = .standard) {
+    /// took it away (`InkSwatches`). Choosing a set is `InkPaletteSet.apply`.
+    nonisolated static func resetStoredPalettes(
+        to set: InkPaletteSet? = nil,
+        in defaults: UserDefaults = .standard
+    ) {
+        let set = set ?? .stored(in: defaults)
         for kind in [InkToolKind.pen, .highlighter] {
-            defaults.set(standard(for: kind).rawValue, forKey: defaultsKey(for: kind))
+            set.resetPalette(for: kind, in: defaults)
         }
     }
 }

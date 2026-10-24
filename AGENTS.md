@@ -120,7 +120,12 @@ Read the one that matches the area you are changing; do not read them all.
 | Paste and copy with formatting | [docs/design/paste-and-copy-with-formatting.md](docs/design/paste-and-copy-with-formatting.md) |
 | Organising notes | [docs/design/organising-notes.md](docs/design/organising-notes.md) |
 
-Planning docs: `docs/ROADMAP.md` (status and what is left); finished plans are in `docs/archive/`.
+What the app contains: [docs/features.md](docs/features.md) — every feature by type, how it
+works, and what is missing or planned. Read it before reading code to find out whether
+something exists, and update its rows in the same PR that adds, changes or removes a feature.
+
+Planning docs: `docs/ROADMAP.md` (status and what is left); `docs/feedback-plan.md` (the
+October testing feedback, the streams and their order); finished plans are in `docs/archive/`.
 
 ## The model
 

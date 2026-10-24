@@ -12,33 +12,32 @@ import UniformTypeIdentifiers
 
 /// A folder for `fileExporter` to write out.
 ///
-/// **`FileDocument` is deprecated in iOS 27**, in favour of `WritableDocument`
-/// (a class with a snapshot and a writer) or `Transferable`. It is used
-/// anyway: a directory `FileWrapper` is the long-standing way to export a
-/// folder, and neither replacement was found to say what happens to a folder.
-/// The plural-`contentTypes` overload is the one with a cancellation callback.
-///
-/// SwiftUI's exporter takes a document, and a document that is a folder is a
-/// directory `FileWrapper`. The wrapper here points at files already written
-/// to a temporary directory and reads them as the exporter copies them, so a
-/// semester of PDFs isn't held in memory at once.
-struct ExportFolderDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.folder] }
+/// A `WritableDocument` (the iOS 27 replacement for `FileDocument`, which is
+/// deprecated). Its snapshot is a directory `FileWrapper` made from the folder
+/// the job wrote to a temporary directory, and its writer is SwiftUI's
+/// `FileWrapperDocumentWriter`, which writes that wrapper to where the reader
+/// chose. The wrapper reads the files as they are copied, so a semester of PDFs
+/// isn't held in memory at once, and it is made when asked for, since a
+/// `FileWrapper` is not `Sendable` and the snapshot is handed across.
+/// The exporter takes one content type (`.folder`) and a cancellation callback.
+final class ExportFolderDocument: WritableDocument {
     static var writableContentTypes: [UTType] { [.folder] }
 
-    var wrapper: FileWrapper
+    /// The folder to export, or none: an empty directory, which is what the
+    /// exporter is given before the job has written anything.
+    let folder: URL?
 
-    init(wrapper: FileWrapper = FileWrapper(directoryWithFileWrappers: [:])) {
-        self.wrapper = wrapper
+    init(folder: URL? = nil) {
+        self.folder = folder
     }
 
-    /// Never opened: the exporter only writes.
-    init(configuration: ReadConfiguration) throws {
-        throw CocoaError(.fileReadUnsupportedScheme)
+    func writer(configuration: sending WriteConfiguration) -> sending FileWrapperDocumentWriter<FileWrapper> {
+        FileWrapperDocumentWriter(configuration) { snapshot, _ in snapshot }
     }
 
-    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        wrapper
+    func snapshot(contentType: UTType) async throws -> sending FileWrapper {
+        guard let folder else { return FileWrapper(directoryWithFileWrappers: [:]) }
+        return try FileWrapper(url: folder, options: [])
     }
 }
 
@@ -163,7 +162,7 @@ final class NoteExportJob {
             }
             try checkStillWanted(run)
 
-            document = ExportFolderDocument(wrapper: try FileWrapper(url: root, options: []))
+            document = ExportFolderDocument(folder: root)
             state = .ready(notes: plan.entries.count)
         } catch {
             try? FileManager.default.removeItem(at: work)
@@ -315,7 +314,7 @@ struct ExportAllView: View {
         .fileExporter(
             isPresented: $showsExporter,
             document: job.document,
-            contentTypes: [.folder],
+            contentType: .folder,
             defaultFilename: job.rootName,
             onCompletion: finish,
             onCancellation: { job.cleanUp() }

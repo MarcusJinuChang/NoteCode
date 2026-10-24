@@ -1,6 +1,8 @@
 # NoteCode roadmap
 
 Source of truth for status and what is left. Revised 19 October 2026.
+What the app contains, feature by feature, is `docs/features.md`; the current
+working plan is `docs/feedback-plan.md`.
 Feature-by-feature design notes are in `docs/design/` (index in AGENTS.md);
 finished plans are in `docs/archive/`. The long per-branch history this file
 used to carry is in git (`git log -p docs/ROADMAP.md`).

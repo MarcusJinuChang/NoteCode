@@ -12,8 +12,10 @@ v3 phase 4 (13 Oct, `docs/archive/ui-design-v3-implementation.md`).
     a database of their own, so a Run would only open a page. No destination
     lists it; the menu says "Copy only" under it.
   - **Run mapping, checked on the live sites on 13 Oct.** Compiler Explorer
-    ids are pinned: C `cg152` (`-O2 -std=c17`), Rust `r1990` (`-O`), Go `gl1260`,
-    beside `g142` and `python313`. Each was compiled and run through
+    ids are pinned: C `cg162` (`-O2 -std=c17`), Rust `r1990` (`-O`), Go `gl1260`,
+    beside `g162` and `python314` (re-checked 23 Oct: nothing was retired, but
+    gcc 16.2 and Python 3.14 were out, so those three moved up from `cg152`,
+    `g142` and `python313`, each compiled and run through the API). Each was compiled and run through
     `/api/compiler/<id>/compile` with `execute` on, and a `clientstate` link
     for each of C, Rust and Go was opened in a browser and landed on "Program
     returned: 0" with the program's output (Go's first compile took 17s cold).
