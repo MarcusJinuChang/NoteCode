@@ -27,7 +27,7 @@ reading code, and to find the design note that has the detail.
 | Sidebar on Home | Home opens with the list hidden by design | missing (feedback #3) | `ContentView` |
 | Folders | One folder per note, nested, drag to arrange, colour and symbol, pin, delete asks about contents | built | `organising-notes.md`, `recently-deleted-and-folder-faces.md` |
 | Drag and drop of notes and folders | Built as rules plus the menu route; never delivered by the simulator | partial: unchecked on the iPad | ROADMAP |
-| New note "+" | Tap makes a note and, per the Open Note After Creating setting (default off), shows a toast with Open instead of opening it; hold picks orientation; files in the open note's folder | built, branch s-settings (feedback #12) | `WelcomeNote.swift` |
+| New note "+" | Tap makes a note and, per the Open Note After Creating setting (default off), shows a toast with Open instead of opening it; hold picks orientation; files in the open note's folder | built (feedback #12) | `WelcomeNote.swift` |
 | Templates | Lecture, Problem and Lab; text only | built | `insert-and-templates.md` |
 | Welcome note | First launch note | built | `organising-notes.md` |
 | Recently Deleted | Delete moves a note there with an Undo toast; restore; purged after a period; folders go with their notes | built | `recently-deleted-and-folder-faces.md` |
@@ -50,15 +50,15 @@ reading code, and to find the design note that has the detail.
 | Nested formatting | A real parser, not spans; bold inside colour inside italic | built | `inline-nesting.md` |
 | Text colour | Colour menu in the text options row, written as an Obsidian-compatible span | built | `coloured-and-sized-text.md` |
 | Text size | Seven steps (14 to 23) plus any size per run with `+` and `−` | built | `coloured-and-sized-text.md`, `navigation-and-the-text-options-row.md` |
-| Line spacing presets (pt) | Menu in the text row: Default, +2, +4, +6, +8, +12 pt; line height only; stored per note (`Page.lineSpacing`, so ModelFreezeTests' hash changed) | built, branch t-text-bugs (feedback #2) | `navigation-and-the-text-options-row.md` |
+| Line spacing presets (pt) | Menu in the text row: Default, +2, +4, +6, +8, +12 pt; line height only; stored per note (`Page.lineSpacing`, so ModelFreezeTests' hash changed) | built (feedback #2) | `navigation-and-the-text-options-row.md` |
 | Lists | Bulleted, numbered, checklist; Return continues, Tab and Shift-Tab indent, Backspace unwinds | built | `writing-hidden-…md` |
 | Checklists | `- [ ]` boxes you tap | built | `MarkerTaps.swift` |
 | Links | Markdown links, tappable | built | `writing-hidden-…md` |
 | Quotes, rules | `>` quotes up to a depth, `---` rules | built | `obsidian-s-other-marks-and-blocks.md` |
 | Paste and copy with formatting | Rich paste becomes Markdown with colours, sizes, code and lists; copy writes RTF and HTML as well | built | `paste-and-copy-with-formatting.md` |
-| Autocorrect | On in prose, off in code; Settings › Writing › Autocorrect turns prose off. Smart dashes turn `---` into "—-" while on | built, branch s-settings (feedback #19) | `the-note-page.md` |
-| Marker dimming | Settings › Writing › Markers: heading marks, list bullets, checkboxes, code fences each Off / Dim (default) / Full | built, branch t-text-bugs (feedback #9) | `settings.md` |
-| Caret on empty space | A tap below the last line adds the blank lines needed and puts the caret there, one undo step; gaps between sheets in print and compressed are not handled | built, branch t-text-bugs (feedback #7) | |
+| Autocorrect | On in prose, off in code; Settings › Writing › Autocorrect turns prose off. Smart dashes turn `---` into "—-" while on | built (feedback #19) | `the-note-page.md` |
+| Marker dimming | Settings › Writing › Markers: heading marks, list bullets, checkboxes, code fences each Off / Dim (default) / Full | built (feedback #9) | `settings.md` |
+| Caret on empty space | A tap below the last line adds the blank lines needed and puts the caret there, one undo step; gaps between sheets in print and compressed are not handled | built (feedback #7) | |
 | Outline and page badge | Headings list jumps to a heading; "2 / 5" shows the page | built | `navigation-and-the-text-options-row.md` |
 | Find in note | System find | built | `the-note-page.md` |
 | LaTeX | | planned (stream L) | ROADMAP |
@@ -70,7 +70,7 @@ reading code, and to find the design note that has the detail.
 |---|---|---|---|
 | Fenced blocks | Triple backticks anywhere become a block; detected while typing, before the closing fence | built | `code-block-fences.md` |
 | Languages | C++, Java, Python, C, JavaScript, Rust, Go, SQL; chosen from the hotbar or the block's name button | built | `code-languages-and-keys.md` |
-| Unmarked blocks | Shown as "Code" (stored key unchanged); plain styling | built, branch s-settings (feedback #15) | |
+| Unmarked blocks | Shown as "Code" (stored key unchanged); plain styling | built (feedback #15) | |
 | Output blocks | An `output` fence for a program's result | built | `code-languages-and-keys.md` |
 | Syntax highlighting | HighlightSwift with a custom theme; each role 4.5:1 | built | `colour.md` |
 | Block header | Name, Run and Copy buttons in the block's corner | built | `code-blocks-room-around-and-inside.md` |
@@ -93,12 +93,12 @@ reading code, and to find the design note that has the detail.
 | Finger Draws | Finger draws or is ignored, per device | built | `the-note-page.md` |
 | Ink undo | Separate from text undo | built | `the-note-page.md` |
 | Insert | Photo, shapes, text box through PaperKit's popover | built; dragging them unchecked on the iPad | `insert-and-templates.md` |
-| Pencil double tap and squeeze | Swap to eraser, swap to previous tool, or show the ink tools; in text mode they switch to ink first | built, branch s-settings; unchecked with a Pencil (feedback #23) | `the-note-page.md` |
+| Pencil double tap and squeeze | Swap to eraser, swap to previous tool, or show the ink tools; in text mode they switch to ink first | built; unchecked with a Pencil (feedback #23) | `the-note-page.md` |
 | Ink across pages | Ink cut cleanly at page breaks | built | `pages.md` |
 | Ink in the PDF | Printed as a picture at 288 dpi | built | `pages.md` |
 | Rectangular selection | Only PaperKit's lasso | planned, object system (feedback #6) | |
 | Recolour text with the lasso | | planned (feedback #26) | |
-| Add pages while drawing down | In compressed and print layout a stroke ending in the last page's bottom 15% adds a page; Settings › Drawing › Add Pages While Drawing | built, branch p-page-ink (feedback #8) | |
+| Add pages while drawing down | In compressed and print layout a stroke ending in the last page's bottom 15% adds a page; Settings › Drawing › Add Pages While Drawing | built (feedback #8) | |
 | Selection behaviour | Lasso stays selected on a tool switch, a tap highlights a cluster, the hotbar can be displaced after a move | bugs, planned with the object system (feedback #24, #29, #30) | |
 | Return to previous tool after a selection | | planned, a setting (feedback #16) | |
 | Hover mark follows the tool | The Pencil hover mark lags a tool or property change; the app draws no mark, PaperKit does | measured, PaperKit's; options in `pages.md` (feedback #17) | |
@@ -112,7 +112,7 @@ reading code, and to find the design note that has the detail.
 | View modes | Seamless, compressed (dashed breaks), print layout (separate sheets) | built | `pages.md` |
 | Zoom | Pinch to zoom; zoom does not re-wrap text | built | `page-geometry-orientation-and-zoom.md` |
 | Add Page | Appends a page | built | `pages.md` |
-| The page fills the window | The hotbar floats over the page or takes a strip at a side | built; 10pt edge buffer on branch p-page-ink (feedback #1) | `the-page-fills-the-window.md` |
+| The page fills the window | The hotbar floats over the page or takes a strip at a side | built, with a 10pt edge buffer (feedback #1) | `the-page-fills-the-window.md` |
 | Scrolling | The text view scrolls; the page handles zoom and pan | built | `who-owns-scrolling.md` |
 | A4, side-by-side pages, infinite canvas | | idea | ROADMAP |
 | Paper styles (dots, grid) | Postponed after breaking page geometry | planned (stream L) | `insert-and-templates.md` |
@@ -125,14 +125,14 @@ reading code, and to find the design note that has the detail.
 | Header | Home, list, editable title with menu, Share, ••• | built | `the-note-page.md` |
 | Hotbar | Docks left, bottom or right; undo, redo, text/draw toggle, then the mode's tools | built | `the-note-page.md` |
 | Options rows | Text row (size, colour, and so on) and ink row (palette, widths, eraser mode) beside the bar | built | `navigation-and-the-text-options-row.md` |
-| Settings inside a note | Settings at the foot of the note's ••• menu | built, branch s-settings (feedback #11) | |
+| Settings inside a note | Settings at the foot of the note's ••• menu | built (feedback #11) | |
 | Keyboard shortcuts | One table: formatting, headings, tools, view modes, run and copy block, find, print, new note and folder, home, settings | built; unchecked with a real keyboard | `keyboard-edit-menu-…md` |
 | Edit menu | Format entries on selection | built | `keyboard-edit-menu-…md` |
 | Pointer | Hover effects on controls | built | `keyboard-edit-menu-…md` |
 | Toasts, empty states | One toast at a time with Undo; empty states use the mark | built | `recently-deleted-…md`, `settings-toasts-polish-v3-phase-8.md` |
 | Accessibility | VoiceOver labels, Reduce Motion, Increase Contrast; the note body ignores Dynamic Type | built; sweeps unchecked | `settings-toasts-polish-…md` |
 | iPhone and Duo | Compact stack, fold avoidance; the target is still iPad-only | partial: not turned on | `iphone-and-the-duo.md` |
-| Colour and icons | Accent editable; Settings › Drawing › Colour Set picks Refined or Original highlighters; highlighter swatches are marker chips, vivid on dark bars; icons are still SF Symbols | partial: palettes built on branch c-colour-proposal, icons planned (feedback #4, #5, #28) | `colour.md` |
+| Colour and icons | Accent editable; Settings › Drawing › Colour Set picks Refined or Original highlighters; highlighter swatches are marker chips, vivid on dark bars; icons are still SF Symbols | partial: palettes built, icons planned (feedback #4, #5, #28) | `colour.md` |
 | macOS | Builds; the editor is a plain `TextEditor` with no fences or ink | partial | ROADMAP |
 
 ## 7. Sharing, import and export
