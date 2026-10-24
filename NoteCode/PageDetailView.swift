@@ -96,6 +96,12 @@ struct PageDetailView: View {
     @AppStorage(ShowMarkdown.defaultsKey)
     private var showMarkdown: ShowMarkdown = .whileEditing
 
+    /// Settings › Writing › Markers: how dim each kind of visible marker is.
+    @AppStorage(MarkerDimming.headingsKey) private var headingMarkers = MarkerLevel.dim
+    @AppStorage(MarkerDimming.bulletsKey) private var bulletMarkers = MarkerLevel.dim
+    @AppStorage(MarkerDimming.checkboxesKey) private var checkboxMarkers = MarkerLevel.dim
+    @AppStorage(MarkerDimming.fencesKey) private var fenceMarkers = MarkerLevel.dim
+
     /// Settings › Code: the indent width, the row of code keys, line numbers.
     @AppStorage(CodeIndent.widthKey)
     private var indentWidth = CodeIndent.defaultWidth
@@ -486,6 +492,9 @@ struct PageDetailView: View {
                     }
                 },
                 showMarkdown: showMarkdown,
+                markerDimming: MarkerDimming(
+                    headings: headingMarkers, bullets: bulletMarkers, checkboxes: checkboxMarkers, fences: fenceMarkers
+                ),
                 rendersMarkdown: true,
                 codeSettings: CodeEditorSettings(indentWidth: indentWidth, codeKeys: codeKeys, lineNumbers: lineNumbers),
                 typography: NoteTypography(bodySize: page.textSize, lineSpacing: page.lineSpacing),

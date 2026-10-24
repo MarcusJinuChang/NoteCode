@@ -63,6 +63,9 @@ struct DocumentTextView: UIViewRepresentable {
     /// show only while it is being edited, or always.
     var showMarkdown = ShowMarkdown.whileEditing
 
+    /// Settings › Writing › Markers: how dim the visible markers are.
+    var markerDimming = MarkerDimming.standard
+
     /// Whether the note's Markdown markers take no room on the page
     /// (`Page.markdownLayout == rendered`). A legacy note keeps them visible,
     /// because its ink was drawn against that layout.
@@ -98,6 +101,7 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
         context.coordinator.setTypography(typography, in: textView)
         codeSettings.apply(to: context.coordinator, in: textView)
+        markerDimming.apply(to: context.coordinator, in: textView)
         textView.text = text
         context.coordinator.invalidateStyling()
         context.coordinator.restyle(textView)
@@ -165,6 +169,7 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.showMarkdown = showMarkdown
         context.coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
         codeSettings.apply(to: context.coordinator, in: textView)
+        markerDimming.apply(to: context.coordinator, in: textView)
 
         // Only push text down when it actually differs. Assigning `.text`
         // unconditionally would reset the selection on every render and fight
@@ -225,6 +230,10 @@ struct DocumentTextView: UIViewRepresentable {
 
         /// Settings › Writing › Show Markdown, as `DocumentTextView` last had it.
         var showMarkdown = ShowMarkdown.whileEditing
+
+        /// Settings › Writing › Markers, as `DocumentTextView` last had it.
+        /// Changed through `setMarkerDimming`, which restyles.
+        var markerDimming = MarkerDimming.standard
 
         /// Settings › Code › Indent Width.
         var indentWidth = CodeIndent.defaultWidth
@@ -553,7 +562,8 @@ struct DocumentTextView: UIViewRepresentable {
                 blocks: blocks,
                 previousSignatures: styleSignatures,
                 rendered: rendersMarkdown,
-                typography: typography
+                typography: typography,
+                markers: markerDimming
             )
             DocumentStyler.applyTypingAttributes(
                 to: textView, source: source, blocks: blocks, rendered: rendersMarkdown, typography: typography
@@ -1296,6 +1306,7 @@ extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
         if rendersMarkdown, let hashes = ProseLine.headingHashes(in: text, line: element) {
             let fragment = HeadingLayoutFragment(textElement: textElement, range: textElement.elementRange)
             fragment.hashes = hashes
+            fragment.markerColour = { [weak self] in self?.markerDimming.headingColour }
             fragment.showsMarker = { [weak self, weak fragment] in
                 guard let self, let fragment, let offset = self.offset(of: fragment) else { return false }
                 return self.headingVisibility.shows(headingAt: offset)
@@ -1307,6 +1318,7 @@ extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
             let fragment = ChecklistLayoutFragment(textElement: textElement, range: textElement.elementRange)
             fragment.isChecked = box.checked
             fragment.boxIndex = box.indent + 2
+            fragment.outlineColour = { [weak self] in self?.markerDimming.checkboxColour }
             fragment.collapsed = rendersMarkdown
             return fragment
         }
