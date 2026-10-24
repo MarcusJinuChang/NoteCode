@@ -44,6 +44,14 @@ nonisolated enum CompactScreen: Hashable, Sendable {
 /// note opens (see "The page fills the window" in AGENTS.md: opening it never
 /// re-wraps or rescales the note).
 nonisolated enum SidebarPlan {
+    /// How long after launch the list is brought in beside Home. A split view
+    /// that *starts* with its sidebar visible pinned the main thread at 100%
+    /// CPU in the iPad simulator (a layout-descriptor walk in AttributeGraph,
+    /// sampled 24 Oct, iOS 27.0 debug build): the unmodified build was fine
+    /// with the list shown later, over Home by ☰, and so is this. Showing it
+    /// after the first layout avoids it; the cause is not understood.
+    static let launchDelay = Duration.milliseconds(400)
+
     /// Whether the list is showing when `noteOpen` changes or the window is
     /// made: with Home up, yes; with a note open, only with storage failed,
     /// whose warning is the list's.

@@ -99,9 +99,10 @@ struct ContentView: View {
         self.storageIsEphemeral = storageIsEphemeral
         opensDebugNote = openedPage != nil
         _selection = State(initialValue: openedPage)
-        // Home has the list beside it; a note opened at launch has it away,
-        // unless storage failed, when the warning is the list's.
-        _columnVisibility = State(initialValue: storageIsEphemeral ? .all : .detailOnly)
+        // The list is away for the first layout and comes in right after it
+        // (`SidebarPlan.launchDelay`), on Home, or over a note when storage
+        // failed and the warning is the list's.
+        _columnVisibility = State(initialValue: .detailOnly)
         _compactPath = State(initialValue: openedPage != nil ? [.note] : storageIsEphemeral ? [.list] : [])
     }
 
@@ -152,8 +153,10 @@ struct ContentView: View {
             isCovered: showsSettings || showsWelcomeScreen
         ))
         .task {
-            try? await Task.sleep(for: .milliseconds(400))
-            if selection == nil { columnVisibility = .all }
+            try? await Task.sleep(for: SidebarPlan.launchDelay)
+            if SidebarPlan.showsList(noteOpen: selection != nil, storageFailed: storageIsEphemeral) {
+                columnVisibility = .all
+            }
             syncOpenNoteClaim()
             claimWelcomeScreenOnFirstLaunch()
             makeWelcomeNoteOnFirstLaunch()
