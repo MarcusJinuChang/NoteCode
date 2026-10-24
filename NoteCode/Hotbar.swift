@@ -208,18 +208,27 @@ struct Hotbar: View {
         }
     }
 
+    /// One control for the two modes, in a single slot: it shows the icon of
+    /// the mode the note is in (the text cursor in text mode, the pencil in
+    /// ink mode) and a tap switches. Not `pencil.tip`, which is the pen tool
+    /// that sits beside it in ink mode.
     private var modeToggle: some View {
-        stack {
-            button("Text", "character.cursor.ibeam", isSelected: editor.mode == .text) {
-                editor.setMode(.text)
+        let isInk = editor.mode == .ink
+        return Button {
+            editor.toggleMode()
+        } label: {
+            ZStack {
+                HotbarIcon(systemImage: "character.cursor.ibeam").opacity(isInk ? 0 : 1)
+                HotbarIcon(systemImage: "pencil.and.scribble").opacity(isInk ? 1 : 0)
             }
-            // Not `pencil.tip`: that is the pen tool, which sits beside this
-            // in ink mode.
-            button("Draw", "pencil.and.scribble", isSelected: editor.mode == .ink) {
-                editor.setMode(.ink)
-            }
+            // A quick cross-fade between the two faces; none under Reduce Motion.
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: isInk)
         }
-        .background(.quaternary, in: .capsule)
+        .buttonStyle(.plain)
+        .accessibilityLabel("Mode")
+        .accessibilityValue(isInk ? "Draw mode" : "Text mode")
+        .accessibilityHint(isInk ? "Switches to Text" : "Switches to Draw")
+        .accessibilityIdentifier("modeToggle")
     }
 
     @ViewBuilder
