@@ -289,7 +289,8 @@ final class NoteEditor {
             minimumPages: page.minimumPageCount,
             rendersMarkdown: rendersMarkdown,
             lineNumbers: showsLineNumbers,
-            typography: typography
+            typography: typography,
+            paper: page.paper
         ))
     }
 

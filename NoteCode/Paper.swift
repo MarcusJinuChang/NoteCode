@@ -274,6 +274,30 @@ nonisolated struct PaperSetup: Equatable, Sendable {
     var dash: [CGFloat]? { style == .dots ? [0, spacing.points] : nil }
 }
 
+extension PaperSetup {
+
+    /// Draws the pattern for a printed sheet or a thumbnail: filled rules and
+    /// dots, so the file stays vector, in the light tone at
+    /// `printAlphaShare` of the screen's alpha (a printout isn't grey).
+    ///
+    /// - Parameter body: the page body's rectangle in the context's
+    ///   coordinates, where the pattern starts at its top left, as on screen.
+    func draw(in context: CGContext, body: CGRect) {
+        guard let tone = tone(dark: false) else { return }
+        let shapes = self.shapes(in: body.size)
+        context.saveGState()
+        context.clip(to: body)
+        context.translateBy(x: body.minX, y: body.minY)
+        context.setFillColor(tone.scaled(alphaBy: Self.printAlphaShare).cgColor)
+        context.fill(shapes.rules)
+        let radius = Self.dotDiameter / 2
+        for dot in shapes.dots {
+            context.fillEllipse(in: CGRect(x: dot.x - radius, y: dot.y - radius, width: radius * 2, height: radius * 2))
+        }
+        context.restoreGState()
+    }
+}
+
 /// Filled rectangles for rules and the centres of dots: the pattern as a
 /// list, for the PDF and for tests.
 nonisolated struct PaperShapes: Equatable, Sendable {
