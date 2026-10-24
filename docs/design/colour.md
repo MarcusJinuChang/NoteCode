@@ -50,15 +50,15 @@ The UI redesign's palette (7 Oct, phase 1 of `docs/archive/ui-design-v2-implemen
 - **Run is the accent**, not green: `CodeBlockActionBar` tints it
   `UIColor.tintColor`. The copy button's green tick stays.
 
-## Proposal: a refined palette, swatches, icons, restore (21 Oct, not built)
+## Colour sets, highlighters and the hotbar swatch (21 to 23 Oct)
 
 From Marcus's 1.0 testing (feedback-plan.md, stream C): dark-mode colours too
 dull, light mode a little uncanny, the hotbar swatches need refining, the icons
-read as basic, and the original palette should be restorable. **Nothing here is
-in the app yet.** Revised 21 Oct after Marcus looked at the sheet: pens
-keep today's colours, the highlighters get the refined values, the swatch's
-selection ring is grey, and dark-mode highlighter swatches are made more vivid
-on the hotbar only (below). Look at `docs/design/colour-swatches.html` (current against
+read as basic, and the original palette should be restorable. **Built 23 Oct** (branch `claude/c-colour-proposal-50a2d1`): highlighters
+and the swatch, as below; icons are not built. Revised after Marcus looked at
+the sheet: pens keep today's colours, the highlighters get the refined values
+except Orange, the swatch's selection ring stays the accent ring, and
+dark-mode highlighter swatches are more vivid on the hotbar only. Look at `docs/design/colour-swatches.html` (current against
 proposed, light and dark, on the page and the code panel, at hotbar size)
 before the numbers. Marcus judges the taste; the numbers are there to explain
 each choice.
@@ -113,14 +113,16 @@ page `#FFFFFF`/`#000000`, panel `#F2F2F7`/`#1C1C1E`; OKLCH.
   version of this proposal are dropped.)
 - **Highlighters: the proposed values**, as seen behind text in the sheet,
   **except Orange, which keeps today's** (`FFB866`, dark `995200`).
-- **The hotbar's selected swatch ring is grey, not black**: black was too
-  jarring in light mode.
-- **Highlighters are marker chips** on the hotbar (28 by 18pt).
+- **The selected swatch's ring stays the original accent ring** (2pt, tint).
+  A black ring was too jarring and a grey one was drawn; Marcus kept the
+  original. Known cost: on pen Orange, and a little on Yellow, the ring is
+  nearly the swatch's own colour. Not changed.
+- **Highlighters are marker chips** on the hotbar (26 by 18pt, ring 32 by 24).
 - **In dark mode, a highlighter's hotbar face is more vivid than the ink it
   draws**, on the hotbar only (the page, the palette settings list and
   anything else that shows the ink keep the real dark value).
 
-### Proposed highlighters
+### The highlighters (built)
 
 Stored light value, what a dark page shows, and the dark hotbar face. Black
 text on the light value is 7:1 or better, and white text on the dark value is
@@ -152,7 +154,7 @@ about 4.5:1 (yellow 4.8, was 3.1:1 failing). Contrast is on page / on panel.
 - **Folder colours and `TextColour` are unchanged** (they share hexes with the
   pens, which don't change either).
 
-### Accent: keep `#FA8500`
+### Accent: kept at `#FA8500`
 
 Brand orange, in the icon and the Increase Contrast pair (`#B85900` light,
 `#FFAA33` dark). Measured: 8.9:1 on a dark page, 2.5:1 on white (so links use
@@ -162,25 +164,23 @@ comment says 2.6), which the design accepts at 17pt semibold. A dark label
 look, so it stays a question. `SyntaxTheme` needs nothing: every role is
 4.5:1 or better on its panel (light 4.5 to 5.6, dark 5.2 to 9.6), tested.
 
-### Hotbar swatch presentation
+### Hotbar swatch presentation (built)
 
-Today (`HotbarSwatch`): a 22pt disc, a 1pt ring at 20% of the label colour, 4pt
-padding; selected adds a 2pt ring in the tint and an 18% tint disc behind
-(36pt). Measured problems: the selected ring is the accent, so on pen Orange it
-is 1:1 against the swatch and on yellow 1.3:1; and the tint disc is a second
-selection mark that also lands on a pale swatch. The 34 by 40pt cell, the 44pt
-bar target and the row's 391pt width don't change.
+`HotbarSwatch` (InkToolbar.swift) is unchanged for a pen: a 22pt disc, a 1pt
+ring at 20% of the label colour, 4pt padding, and a 2pt tint ring when
+selected (no tint disc: `hotbarTarget()` is called without a highlight, which
+the first version of this note got wrong). A highlighter's swatch is a
+marker chip, `isMarker`: 26 by 18pt with 6pt corners, 3pt padding, and a ring
+32 by 24pt. The 34 by 40pt cell, the 44pt bar target and the row's 391pt
+width don't change, and a selected chip's ring is 2pt clear of its
+neighbours'.
 
-| | Proposed |
-|---|---|
-| Pen | 24pt disc, same colours as today, 1pt inner edge: label colour at 28% (light) and 34% (dark), so a pale or near-black face keeps its outline |
-| Highlighter | 28 by 18pt marker chip (6pt corners); dark face as above |
-| Selected | a 2pt ring with a 2pt gap, 32pt outside (36 by 26 on a chip); no tint disc. Grey: `#8E8E93` in light, `#AEAEB2` in dark (3.3:1 against a light bar, 5:1 against a dark one). It works for every hue and doesn't depend on the accent. The dark grey is a guess: only light was complained about |
-| Increase Contrast | ring 3pt, `#636366` light and `#D1D1D6` dark, edge at 50% |
-| Disabled | 30% opacity, as now |
-| Pointer, drag, hold | unchanged (`.hoverEffect(.highlight)` on the button, context menu to remove) |
-
-Neighbouring swatches are 6pt apart with a selected ring, 10pt otherwise.
+**The dark face is vivid** (`InkColor.vividFace`, `swatchFace(for:kind:)`):
+only a highlighter, only on a dark appearance, and only on the hotbar (the
+Palette settings list, the page and the PDF show the real ink). Pure
+function of what a dark page shows: hue kept, HSL saturation at least 0.78,
+lightness at least 0.58; a grey stays grey at 0.62. It has no storage and
+works for a colour the reader adds. Light mode shows the stored value.
 
 ### Icons: decision
 
@@ -226,54 +226,68 @@ can't fix "basic". **Still open**: not answered since the first version.
   and weight, and a filled variant for the selected state. Half a session, no
   assets, and still "SF Symbols" to a keen eye.
 
-### Restore the original palette
+### Restore the original palette (built)
 
-Today: Settings › Drawing › Reset Colours to Defaults
-(`InkPalette.resetStoredPalettes`) rewrites the two ink palettes to
-`InkPalette.standard(for:)`, asks first, removes added colours and leaves ink
-already on pages. It doesn't cover the accent (its own Default in
-Accent Colour), `InkingSettings`' remembered colours or anything else.
+`InkPaletteSet` (InkTool.swift; `refined`, `original`; key `inkPaletteSet`):
+one type for what moves together. `apply(to:)` writes the choice, both
+palettes and the highlighter's remembered colour (keeping its width);
+`resetPalette(for:)` puts one palette back; `matching(pen:highlighter:)`
+says which set the palettes are exactly, or `nil` (Custom) once a colour is
+added, removed or moved. The pens are one table for both sets, so the sets
+differ only in the highlighters: `InkColor.highlighterShades` is Refined,
+`originalHighlighterShades` is today's, pinned (`InkShadeTests` keeps its
+five old pairs). Orange is the same in both. The names for both sets' hexes
+are in `shadeNames`, so VoiceOver still reads a saved Original palette.
 
-With the pens unchanged, the two sets differ only in the highlighters:
+- **Settings › Drawing**: a Colour Set menu (checkmark on the matching set,
+  "Custom" when none), which asks first, as Reset does, and applies; Reset
+  Colours resets to the device's set; each palette page has a Restore for that
+  palette. An open note's editor follows the highlighter's new remembered
+  colour (`InkToolPersistence`).
+- **Which set a device is on** (`InkPaletteSet.stored`): its choice; failing
+  that, Original if it saved either palette before sets existed (those
+  highlighters are the old ones), Refined if it saved none. A new install is
+  Refined. Nothing changes under a device that has saved palettes.
+- Ink already drawn never changes with either set.
+- Not in the set: the accent (own Default), folder colours, text colours.
 
-- **Both sets ship.** `InkColor.highlighterShades` becomes the Refined values (Orange
-  the same in both sets); today's move, unchanged, to `originalHighlighterShades` and stay pinned
-  (`InkShadeTests` keeps its five old pairs as the Original set's). The pen
-  table is shared. `shadeNames` covers both, so VoiceOver names for the old
-  hexes still work. The starting highlighter colour follows the set
-  (`highlighterYellow`: `FCDD79` refined, `FFF066` original).
-- **One type, one `apply`** (the repo's rule): `InkPaletteSet` (`refined`,
-  `original`), key `inkPaletteSet`, holding the two highlighter tables and
-  `apply(to:in:)`, which writes both palettes and the remembered highlighter
-  colour.
-- **Settings › Drawing**: a Colour Set row (Refined, Original; Custom when the
-  palettes differ from either), picking one asks first, as Reset does, and
-  applies it. Reset Colours then resets to the chosen set. Each palette page
-  (Pens, Highlighters) gets a "Restore" for that palette only.
-- **Existing devices are not changed.** A device with a saved highlighter
-  palette keeps it (that is `@AppStorage`), reading as Original. A device that
-  has saved neither palette, and a new install, gets Refined. The set picker is
-  how a tester goes either way.
-- **Ink already drawn never changes** with either set (stored light values).
-- **Not in scope for restore:** the accent (own Default), folder colours, text
-  colours.
+### Highlighter ink across a code panel (23 Oct, from T's report)
 
-### Tests that pin today's values, to change in one commit with the palette
+T found the "awkward border where ink crosses a code block" is the
+highlighter's blend (docs/design/pages.md): PencilKit's marker blends with
+what is under it, so its colour steps where the page becomes the panel
+(`#F2F2F7` / `#1C1C1E`), and on a dark page it hides the code beneath. The
+swatch sheet's section 5 models it (light as multiply, dark as opaque: modelled,
+not measured). Under multiply the light step is the panel's 5% (F2/FF), the
+same on every highlighter.
 
-- `InkPaletteTests.swift:154-161`: the highlighter names and hexes,
-  `standard(for:)` against `standardHighlighter`; lines 236-241 pin the
-  starting highlighter colour (`highlighterYellow`), 247-251 the default
-  state. The pen lines (147-148, 187-191) don't change.
-- `InkShadeTests` (`InkPaletteTests.swift:273-329`): the five highlighter pairs
-  and `tablesMatchPalettes` for `.highlighter` become one table per set, and it
-  gains a check of the flip rule on the new five (the dark column is computed
-  from it). Pens untouched; `toolCarriesSettings` keeps working (`83E286` is
-  arbitrary).
-- `SettingsTests.swift:91-96`: reset equals `standard(for:)`, per set.
-- Not changed: `EditorModeTests.swift:250`, `FolderAppearanceTests.swift:68`,
-  `AccentPaletteTests`, `AppIconTests`, `SyntaxThemeTests`.
-- No test measures the swatch face (`HotbarSwatch` has no unit test; the UI
-  tests that reach a swatch use the cell frames, which don't change), so add
-  tests for the vivid-face function (hue kept, lightness and saturation floors,
-  grey stays grey), the grey ring colours, and that a selected orange swatch's
-  ring isn't 1:1 against it.
+The three options, and what I recommend:
+
+1. **Panel colour closer to the page**: it only shrinks the step (a panel at
+   `#F7F7FA` is 3%) and costs the panel's separation from the page, which is
+   what marks a block as code. The contrast tests would pass (syntax roles are
+   4.5:1 or better on the panel and a lighter light panel only raises them;
+   Output has its own), but it doesn't remove the step, and in dark it does
+   nothing for the hiding. **Not changed.**
+2. **A normal blend for the highlighter, if PaperKit allows it**: removes the
+   step and, with a translucent colour, the hiding. Unknown whether
+   `PKInkingTool` or PaperKit exposes the blend for a marker; **recommended
+   as the first thing to try**, a spike of an hour: set the tool's ink type or
+   a PaperKit render option and look at a stroke across a panel's edge. If the
+   marker's look depends on the multiply (text visible through it in light),
+   a normal blend would need the colour to carry alpha.
+3. **Draw the highlighter under the code text**: the real fix for the dark
+   hiding, but ink is one canvas above the text view, so it means a second
+   layer or per-block masking: not small. Only if option 2 fails.
+
+### Tests that pinned today's values (changed in one commit with the code)
+
+- `InkPaletteTests.swift`: `highlighterDefaults` (Refined hexes) and a new
+  `originalHighlighters`; `names` (both sets' names); `startsInItsPalette`;
+  `InkShadeTests` (the five Refined pairs, the five Original pairs kept,
+  `tablesMatchPalettes`, `originalTableMatches`); new suites `Colour sets`
+  and `The hotbar's swatch faces`.
+- `SettingsTests.resetPalettes`: per set, and `resetFollowsTheDevice`.
+- Not changed: `EditorModeTests`, `FolderAppearanceTests`, `AccentPaletteTests`,
+  `AppIconTests`, `SyntaxThemeTests` (the pens, folders, accent and syntax
+  colours are all unchanged).
