@@ -136,6 +136,24 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   - No button on the page itself: print layout and compressed leave no room
     below the last page that the canvas doesn't own, so the menu has it. A
     page-foot button would be its own piece of work.
+  - **Adding pages as the reader draws down** (23 Oct, feedback item 8). In
+    compressed and print layout, a stroke the reader draws that *ends* in the
+    last page's foot (the bottom 15% of its body, `InkPageGrowth.bandShare`;
+    `PageLayout.endsInGrowthBand`) adds a page through `raiseMinimum`, the
+    path Add Page takes. Seamless already keeps a page below any ink on the
+    last page. Settings › Drawing › Add Pages While Drawing, on by default
+    (`addPagesWhileDrawing`).
+    - **Only strokes drawn now.** `InkCapture.Result.drawnEnds` holds the end
+      point of every stroke with no record in `State.shown`; ink that was
+      loaded, shown again for a mode switch, moved by the lasso or erased has
+      one, so none of it adds a page. An undone erase has none and may count,
+      but its page was added when it was first drawn and the count never
+      shrinks, so it is no longer the last page's foot.
+    - **No ink save of its own.** It runs in `apply(_:)` after `onInkChanged`
+      for the stroke, and raising the minimum is the note's page count, not
+      ink; the test counts `onInkChanged` and sees one call, not two.
+    - Decided: end point, not start (a stroke running from the middle of the
+      page into its foot adds one).
   - Not checked on screen or with the Pencil: Add Page from the menu, the
     buffer while drawing.
 - **Print layout** fits its sheets inside a 24pt border of the surround

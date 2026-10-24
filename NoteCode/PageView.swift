@@ -110,6 +110,10 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// Told the new minimum when this view raises it, so the note keeps it.
     var onMinimumPageCountChanged: ((Int) -> Void)?
 
+    /// Whether a stroke the reader ends in the last page's foot adds a page
+    /// (`InkPageGrowth`). Seamless keeps a blank page below ink regardless.
+    var addsPagesWhileDrawing = InkPageGrowth.defaultEnabled
+
     /// How many pages the text currently has bands for.
     private var bandedPageCount = 0
 
@@ -1190,6 +1194,23 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             textView.setNeedsLayout()
         }
         keepPageBelowInk()
+        growPageForStroke(endingAt: result.drawnEnds)
+    }
+
+    /// A stroke the reader just drew that ends in the last page's foot adds a
+    /// page, as Add Page does (`raiseMinimum`), so they can go on writing.
+    ///
+    /// Only strokes drawn now count (`InkCapture.Result.drawnEnds`): not ink
+    /// that was loaded, moved by the lasso or shown again for a mode switch.
+    /// It runs after the stroke has been taken in and told onward, and the
+    /// page it adds is the note's minimum, not ink: nothing here calls
+    /// `onInkChanged`, so growing never saves ink of its own. Seamless adds
+    /// its page from `keepPageBelowInk` as soon as ink reaches the last page.
+    private func growPageForStroke(endingAt ends: [CGPoint]) {
+        guard addsPagesWhileDrawing, pageLayout.mode != .seamless else { return }
+        let last = pageCount
+        guard ends.contains(where: { pageLayout.endsInGrowthBand(y: $0.y, pageCount: last) }) else { return }
+        raiseMinimum(to: last + 1)
     }
 
     /// Swaps strokes the canvas holds whole for the piece on the page each

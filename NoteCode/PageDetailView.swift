@@ -110,6 +110,10 @@ struct PageDetailView: View {
     @AppStorage(SnapHaptic.defaultsKey)
     private var hapticOnSnap = SnapHaptic.isOnByDefault
 
+    /// Settings › Drawing › Add Pages While Drawing.
+    @AppStorage(InkPageGrowth.defaultsKey)
+    private var addsPagesWhileDrawing = InkPageGrowth.defaultEnabled
+
     /// Counts the bar's drops; each one is a snap for the haptic to follow.
     @State private var snaps = 0
 
@@ -483,6 +487,7 @@ struct PageDetailView: View {
                 onMinimumPageCountChanged: { [weak page] count in
                     if let page, count > page.minimumPageCount { page.minimumPageCount = count }
                 },
+                addsPagesWhileDrawing: addsPagesWhileDrawing,
                 onScrolled: noteScrolled
             )
             // Square and unbordered: the page fills its area. Nothing clips

@@ -80,6 +80,9 @@ struct DocumentTextView: UIViewRepresentable {
     var minimumPageCount = 1
     var onMinimumPageCountChanged: ((Int) -> Void)? = nil
 
+    /// Settings › Drawing › Add Pages While Drawing.
+    var addsPagesWhileDrawing = InkPageGrowth.defaultEnabled
+
     /// Told whenever the page scrolls, with the place it is scrolled to, for
     /// the page badge. Optional, like `editor`.
     var onScrolled: ((NoteMemory.Place) -> Void)? = nil
@@ -110,6 +113,7 @@ struct DocumentTextView: UIViewRepresentable {
         editor?.attach(textView, canvas: page.canvas, page: page)
         page.pageLayout = pageLayout
         page.minimumPageCount = minimumPageCount
+        page.addsPagesWhileDrawing = addsPagesWhileDrawing
         page.onMinimumPageCountChanged = onMinimumPageCountChanged
         page.keyboardClearance = keyboardClearance
         page.restingClearance = restingClearance
@@ -137,6 +141,7 @@ struct DocumentTextView: UIViewRepresentable {
         let textView = page.textView
         page.pageLayout = pageLayout
         page.minimumPageCount = max(minimumPageCount, page.minimumPageCount)
+        page.addsPagesWhileDrawing = addsPagesWhileDrawing
         page.onMinimumPageCountChanged = onMinimumPageCountChanged
         page.keyboardClearance = keyboardClearance
         page.restingClearance = restingClearance
