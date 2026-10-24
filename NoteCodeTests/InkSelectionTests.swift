@@ -24,7 +24,7 @@ struct InkSelectionTests {
     /// The page, its editor and the canvas, in a window, in ink mode.
     @MainActor
     private final class Rig {
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
         let textView = DocumentTextView.makeConfiguredTextView()
         let editor = NoteEditor()
         let page: PageView
@@ -98,7 +98,7 @@ struct InkSelectionTests {
         #expect(rig.selection.select(.rectangle(CGRect(x: 120, y: 90, width: 30, height: 20))))
 
         #expect(rig.selection.ids == [a.elementID])
-        let box = try? #require(rig.selection.bounds)
+        let box = rig.selection.bounds
         #expect(box == a.renderFrame)
         #expect(!rig.selection.select(.rectangle(CGRect(x: 500, y: 500, width: 10, height: 10))))
     }

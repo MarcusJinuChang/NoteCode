@@ -209,7 +209,7 @@ private extension ModelContext {
 struct DebugReportTests {
 
     private func open(_ text: String, layout: PageLayout) -> (UIWindow, PageView) {
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1024, height: 1366))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 1024, height: 1366))
         let textView = DocumentTextView.makeConfiguredTextView()
         textView.text = text
         let page = PageView(textView: textView)

@@ -148,7 +148,7 @@ struct TextRowEditorTests {
     @MainActor
     final class Harness {
         var stored: String
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 900, height: 700))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 900, height: 700))
         let textView = DocumentTextView.makeConfiguredTextView()
         let editor = NoteEditor()
         let page: PageView

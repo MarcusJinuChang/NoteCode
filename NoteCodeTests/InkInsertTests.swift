@@ -108,7 +108,7 @@ struct InkInsertTests {
 
     @MainActor
     private final class CanvasHarness {
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
         let textView = DocumentTextView.makeConfiguredTextView()
         let canvas = DrawingCanvas(pageSize: CGSize(width: 816, height: 4224))
 
@@ -213,7 +213,7 @@ struct InkInsertTests {
 
     @MainActor
     private final class Harness {
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1400, height: 1400))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 1400, height: 1400))
         let page: PageView
 
         init(layout: PageLayout) {

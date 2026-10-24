@@ -17,9 +17,9 @@ import UIKit
 @MainActor
 struct MarkdownLayoutTests {
 
-    static let long = " for more on why this long line has to wrap more than once on the page, since a marker that took room would move the break."
+    nonisolated static let long = " for more on why this long line has to wrap more than once on the page, since a marker that took room would move the break."
 
-    static let note = [
+    nonisolated static let note = [
         "# Hashing a string",
         "Keep the **load factor** low, hash with `h % m`, skip ~~linear probing~~ and see [the notes](https://example.com/notes)" + long,
         "## Collisions",
@@ -341,7 +341,7 @@ struct MarkdownLayoutTests {
 @MainActor
 struct HiddenMarkerHookTests {
 
-    static let bold = "Keep **load factor** low"
+    nonisolated static let bold = "Keep **load factor** low"
 
     private func harness(_ text: String = bold) -> CodeFenceDisplayTests.Harness {
         MarkdownLayoutTests.fresh(text)

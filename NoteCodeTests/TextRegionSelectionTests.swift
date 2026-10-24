@@ -11,6 +11,7 @@
 import Foundation
 import PaperKit
 import PencilKit
+import SwiftUI
 import Testing
 import UIKit
 @testable import NoteCode
@@ -77,13 +78,22 @@ struct TextRegionSelectionTests {
 
     @MainActor
     private final class Rig {
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 900))
+        let window = makeSceneLessTestWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 900))
         let textView = DocumentTextView.makeConfiguredTextView()
         let editor = NoteEditor()
         let page: PageView
+        /// The text view's delegate, as in the app: it turns away the keyboard's
+        /// smart punctuation during an edit the app makes, which otherwise
+        /// curls a colour tag's quotes whenever other tests have left a scene
+        /// active.
+        private let coordinator: DocumentTextView.Coordinator
         var selection: InkSelection { page.selection }
 
         init(_ text: String, locked: Bool = false) {
+            let box = PageSettlingTests.Box()
+            coordinator = DocumentTextView.Coordinator(text: Binding(get: { box.value }, set: { box.value = $0 }))
+            coordinator.editor = editor
+            textView.delegate = coordinator
             textView.text = text
             page = PageView(textView: textView)
             page.frame = window.bounds

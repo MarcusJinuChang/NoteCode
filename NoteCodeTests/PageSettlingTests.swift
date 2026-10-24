@@ -23,7 +23,7 @@ struct PageSettlingTests {
     final class Box { var value = "" }
 
     /// About five portrait pages: prose, wrapped paragraphs, headings, code.
-    static let note: String = (1...120).flatMap { index -> [String] in
+    nonisolated static let note: String = (1...120).flatMap { index -> [String] in
         if index % 25 == 1 { return ["## Lecture section \(index / 25 + 1): gjpqy invariants"] }
         if index % 25 == 9 { return ["```cpp", "int query(gap g) {", "    return g.jump(); // descenders: gjpqy", "}", "```"] }
         if index % 4 == 0 {
@@ -52,7 +52,7 @@ struct PageSettlingTests {
 
         let page = PageView(textView: textView)
         page.pageLayout = layout
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1024, height: 1366))
+        let window = makeSceneLessTestWindow(frame: CGRect(x: 0, y: 0, width: 1024, height: 1366))
         page.frame = CGRect(x: 76, y: 137, width: 872, height: 1100)
         window.addSubview(page)
         window.makeKeyAndVisible()
@@ -149,7 +149,7 @@ struct PageSettlingTests {
 
         let page = PageView(textView: textView)
         page.pageLayout = print
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1024, height: 1366))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 1024, height: 1366))
         page.frame = CGRect(x: 76, y: 137, width: 872, height: 1100)
         window.addSubview(page)
         window.makeKeyAndVisible()
@@ -205,7 +205,7 @@ struct PageSettlingTests {
 
         let page = PageView(textView: textView)
         page.pageLayout = seamless
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1024, height: 1366))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 1024, height: 1366))
         page.frame = CGRect(x: 76, y: 137, width: 872, height: 1100)
         window.addSubview(page)
         window.makeKeyAndVisible()
@@ -293,7 +293,7 @@ struct PageSettlingTests {
         // landscape note 36pt down, its top margin scrolled out of view.
         let page = PageView(textView: textView)
         page.pageLayout = PageLayout(orientation: .landscape, mode: mode)
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1024, height: 1366))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 1024, height: 1366))
         page.frame = CGRect(x: 76, y: 137, width: 872, height: 1100)
         window.addSubview(page)
         window.makeKeyAndVisible()

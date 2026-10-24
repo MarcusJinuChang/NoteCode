@@ -30,13 +30,7 @@ struct HotbarLayoutTests {
     /// A window in the test host's own scene, which is what gives SwiftUI a
     /// display link to update on. One made without a scene never re-renders.
     static func makeWindow(size: CGSize = window) -> UIWindow {
-        let frame = CGRect(origin: .zero, size: size)
-        guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else {
-            return UIWindow(frame: frame)
-        }
-        let window = UIWindow(windowScene: scene)
-        window.frame = frame
-        return window
+        makeTestWindow(frame: CGRect(origin: .zero, size: size))
     }
 
     /// A note page in a window, driven from outside through its editor.

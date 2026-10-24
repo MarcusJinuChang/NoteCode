@@ -19,8 +19,9 @@ import UIKit
 @MainActor
 struct PaperLayerTests {
 
+    @MainActor
     private final class Harness {
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1400, height: 1400))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 1400, height: 1400))
         let page: PageView
 
         init(text: String, pages: Int = 3, area: CGSize = CGSize(width: 1300, height: 900), layout: PageLayout = PageLayout()) {

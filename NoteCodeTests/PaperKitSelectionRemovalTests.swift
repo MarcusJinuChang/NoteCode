@@ -21,7 +21,7 @@ struct PaperKitSelectionRemovalTests {
 
     @MainActor
     private final class Rig {
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
         let textView = DocumentTextView.makeConfiguredTextView()
         let editor = NoteEditor()
         let page: PageView

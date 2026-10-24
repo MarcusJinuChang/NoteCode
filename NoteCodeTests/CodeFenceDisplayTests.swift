@@ -18,13 +18,13 @@ import UIKit
 @MainActor
 struct CodeFenceDisplayTests {
 
-    static let note = "Prose before\n```cpp\nint value = query(gap);\nint other = 2;\n```\nProse after the block\nand more text\n"
+    nonisolated static let note = "Prose before\n```cpp\nint value = query(gap);\nint other = 2;\n```\nProse after the block\nand more text\n"
 
     /// A text view wired the way `DocumentTextView` wires it, in its page.
     @MainActor
     final class Harness {
         var stored: String
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1100, height: 1400))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 1100, height: 1400))
         let textView = DocumentTextView.makeConfiguredTextView()
         let editor = NoteEditor()
         let page: PageView

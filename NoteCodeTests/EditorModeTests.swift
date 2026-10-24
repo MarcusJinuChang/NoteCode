@@ -19,7 +19,7 @@ struct EditorModeTests {
     /// the page. Off-window, first-responder changes don't happen at all.
     @MainActor
     private final class Harness {
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
         let textView = DocumentTextView.makeConfiguredTextView()
 
         init(_ text: String = "binary search invariant") {

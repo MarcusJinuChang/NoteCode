@@ -119,7 +119,7 @@ struct CodeBlockPanelTests {
         let box = Box()
         let coordinator = DocumentTextView.Coordinator(text: Binding(get: { box.value }, set: { box.value = $0 }))
 
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1100, height: 1400))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 1100, height: 1400))
         let textView = DocumentTextView.makeConfiguredTextView()
         textView.delegate = coordinator
         textView.textLayoutManager?.delegate = coordinator
@@ -223,7 +223,7 @@ struct CodeBlockPanelTests {
         let box = Box()
         let coordinator = DocumentTextView.Coordinator(text: Binding(get: { box.value }, set: { box.value = $0 }))
 
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1100, height: 1400))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 1100, height: 1400))
         let textView = DocumentTextView.makeConfiguredTextView()
         textView.delegate = coordinator
         textView.textLayoutManager?.delegate = coordinator

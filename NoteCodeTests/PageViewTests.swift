@@ -16,7 +16,7 @@ import UIKit
 struct PageViewTests {
 
     /// Lines that wrap on a portrait page and fit on a landscape one.
-    private static let longProse = (0..<40)
+    private nonisolated static let longProse = (0..<40)
         .map { "Line \($0): an invariant holds before and after every iteration of the loop, which is what the proof rests on." }
         .joined(separator: "\n")
 
@@ -139,7 +139,7 @@ struct PageViewTests {
 
     @MainActor
     private final class Harness {
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1400, height: 1400))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 1400, height: 1400))
         let page: PageView
 
         init(text: String = PageViewTests.longProse, area: CGSize = CGSize(width: 880, height: 1100), layout: PageLayout = PageLayout()) {

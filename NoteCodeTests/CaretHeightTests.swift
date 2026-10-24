@@ -34,7 +34,7 @@ struct CaretHeightTests {
     }
 
     static func carets(_ harness: CodeFenceDisplayTests.Harness, at needle: String, plus delta: Int) throws -> Carets {
-        let textView = try #require(harness.textView as? DocumentUITextView)
+        let textView = harness.textView
         let offset = harness.offset(of: needle) + delta
         let position = try #require(textView.position(from: textView.beginningOfDocument, offset: offset))
         let font = try #require(textView.textStorage.attribute(.font, at: offset - 1, effectiveRange: nil) as? UIFont)

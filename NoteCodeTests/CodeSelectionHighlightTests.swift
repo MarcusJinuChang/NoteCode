@@ -53,7 +53,7 @@ struct CodeSelectionHighlightTests {
     private func makeEditor(style: UIUserInterfaceStyle) -> (DocumentUITextView, DocumentTextView.Coordinator, UIWindow, PageView, Box) {
         let box = Box()
         let coordinator = DocumentTextView.Coordinator(text: Binding(get: { box.value }, set: { box.value = $0 }))
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1100, height: 1400))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 1100, height: 1400))
         window.overrideUserInterfaceStyle = style
         let textView = DocumentTextView.makeConfiguredTextView()
         textView.delegate = coordinator
