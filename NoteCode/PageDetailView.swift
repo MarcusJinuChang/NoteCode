@@ -118,6 +118,14 @@ struct PageDetailView: View {
     /// Settings › Writing › Autocorrect.
     @AppStorage(TextRewritingPolicy.proseDefaultsKey)
     private var rewritesProse = TextRewritingPolicy.proseEnabledByDefault
+    /// Settings › Writing › On-Device Assistant.
+    @AppStorage(AIFeatureSettings.enabledKey) private var aiEnabled = true
+    @AppStorage(AIFeatureSettings.lengthKey) private var aiLength = AIAnswerLength.standard.rawValue
+    @AppStorage(AIFeatureSettings.insertStyleKey) private var aiInsertStyle = AIInsertStyle.quote.rawValue
+
+    private var aiSettings: AIFeatureSettings {
+        AIFeatureSettings(isEnabled: aiEnabled, length: aiLength, insertStyle: aiInsertStyle)
+    }
 
     /// Whether the bar ticks as it lands on an edge (Settings › General).
     @AppStorage(SnapHaptic.defaultsKey)
@@ -225,6 +233,17 @@ struct PageDetailView: View {
             NoteInfoView(page: page, pageCount: openPageCount)
         }
         .runDestinationSiteAlert(isPresented: $isNamingCustomSite, pageSetting: $page.runDestination)
+#if canImport(UIKit)
+        .sheet(item: Binding(
+            get: { editor.ai.job },
+            set: { if $0 == nil { editor.ai.dismiss() } }
+        )) { job in
+            AIResultSheet(editor: editor, job: job)
+        }
+        .onChange(of: aiSettings, initial: true) { _, settings in
+            settings.apply(to: editor.ai)
+        }
+#endif
         .sheet(item: $editingFolder) { editing in
             FolderEditor(editing: editing)
         }
@@ -451,6 +470,13 @@ struct PageDetailView: View {
             // The text view answers ⌘F itself while it's typing; this is the
             // same shortcut for when it isn't, and listed in the ⌘ overlay.
             .keyboardShortcut(.find)
+
+            if editor.ai.offersFeatures {
+                Button(AIAction.summariseNote.title, systemImage: AIAction.summariseNote.systemImage) {
+                    editor.summariseNote(title: page.title)
+                }
+                .disabled(editor.mode != .text)
+            }
 #endif
 
             if let onShowSettings {

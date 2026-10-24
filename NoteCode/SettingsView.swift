@@ -486,6 +486,9 @@ private struct WritingSettings: View {
     @AppStorage(MarkerDimming.bulletsKey) private var bulletMarkers = MarkerLevel.dim
     @AppStorage(MarkerDimming.checkboxesKey) private var checkboxMarkers = MarkerLevel.dim
     @AppStorage(MarkerDimming.fencesKey) private var fenceMarkers = MarkerLevel.dim
+    @AppStorage(AIFeatureSettings.enabledKey) private var aiEnabled = true
+    @AppStorage(AIFeatureSettings.lengthKey) private var aiLength = AIAnswerLength.standard.rawValue
+    @AppStorage(AIFeatureSettings.insertStyleKey) private var aiInsertStyle = AIInsertStyle.quote.rawValue
 
     var body: some View {
         Form {
@@ -513,8 +516,35 @@ private struct WritingSettings: View {
             } footer: {
                 Text("How the marks that stay visible look: Dim is the quiet grey they have always had, Full is the text's own colour, and Off hides them without moving any line. Heading marks are the hashes shown beside the heading you're editing; List Bullets covers numbers too; a ticked checkbox always shows. These are for this device.")
             }
+
+            assistantSection
         }
         .navigationTitle("Writing")
+    }
+
+    /// Explain Code and Summarise Note, on Apple's on-device model.
+    private var assistantSection: some View {
+        Section {
+            Toggle("Assistant", isOn: $aiEnabled)
+            Picker("Answer Length", selection: $aiLength) {
+                ForEach(AIAnswerLength.allCases) { Text($0.title).tag($0.rawValue) }
+            }
+            Picker("Insert As", selection: $aiInsertStyle) {
+                ForEach(AIInsertStyle.allCases) { Text($0.title).tag($0.rawValue) }
+            }
+        } header: {
+            Text("On-Device Assistant")
+        } footer: {
+            Text(assistantFooter)
+        }
+    }
+
+    private var assistantFooter: String {
+        let base = "Explain a code block and summarise a note with Apple Intelligence. It runs on this iPad: nothing is sent anywhere and nothing is kept."
+        if case .unavailable(let reason) = AIAssistant.systemClient.availability {
+            return base + " " + reason.message
+        }
+        return base
     }
 }
 

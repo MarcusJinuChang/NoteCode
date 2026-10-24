@@ -20,6 +20,9 @@ final class FakeTextModel: TextModelClient, @unchecked Sendable {
         case fail([String], AIClientError)
         /// Streams these, then waits until cancelled.
         case hang([String])
+        /// Streams the first, waits 150ms, then streams the second and finishes:
+        /// a snapshot that arrives after the reader pressed Stop.
+        case late(String, String)
     }
 
     var availability = AIAvailability.available
@@ -39,6 +42,11 @@ final class FakeTextModel: TextModelClient, @unchecked Sendable {
                 case .fail(let snapshots, let error):
                     snapshots.forEach { continuation.yield($0) }
                     continuation.finish(throwing: error)
+                case .late(let early, let later):
+                    continuation.yield(early)
+                    try? await Task.sleep(for: .milliseconds(150))
+                    continuation.yield(later)
+                    continuation.finish()
                 case .hang(let snapshots):
                     snapshots.forEach { continuation.yield($0) }
                     try? await Task.sleep(for: .seconds(60))
@@ -287,14 +295,14 @@ struct AIAssistantTests {
     @Test("Cancelling stops the run, goes idle, and a late snapshot changes nothing")
     func cancel() async {
         let model = FakeTextModel()
-        model.script = { _ in .hang(["Half"]) }
+        model.script = { _ in .late("Half", "Half an answer, arriving after Stop") }
         let ai = assistant(model)
         ai.begin(job())
         await wait { if case .generating(let p) = ai.state { !p.partial.isEmpty } else { false } }
 
         ai.cancel()
         #expect(ai.state == .idle)
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(400))
         #expect(ai.state == .idle)
         #expect(ai.job != nil)
     }

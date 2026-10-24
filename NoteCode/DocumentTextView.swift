@@ -779,6 +779,14 @@ struct DocumentTextView: UIViewRepresentable {
                 Self.share(target.code, from: textView)
             })
 
+            // The on-device assistant. Left out when it is switched off or
+            // this iPad can never run it; otherwise the sheet says why not.
+            if let editor, editor.ai.offersFeatures, !target.isOutput {
+                actions.append(UIAction(title: "Explain Block", image: UIImage(systemName: AIAction.explainBlock.systemImage)) { [weak editor] _ in
+                    editor?.explain(target)
+                })
+            }
+
             return UIMenu(options: .displayInline, children: actions)
         }
 
