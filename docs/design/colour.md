@@ -291,3 +291,76 @@ The three options, and what I recommend:
 - Not changed: `EditorModeTests`, `FolderAppearanceTests`, `AccentPaletteTests`,
   `AppIconTests`, `SyntaxThemeTests` (the pens, folders, accent and syntax
   colours are all unchanged).
+
+### Highlighter blend over a code panel: the spike (23 Oct)
+
+Measured with `InkBlendTests` (prints; PaperKit's own draw path, as the PDF
+draws, light-page values only), a `FCDD79` stroke over four backdrops:
+
+| Ink | white | panel `F2F2F7` | black | dark panel `1C1C1E` |
+|---|---|---|---|---|
+| `.marker` | `FCDD7A` | `EFD276` | `000000` | `1C180E` |
+| `.pen` | `FCDD79` | `FCDD79` | `FCDD79` | `FCDD79` |
+| `.pen`, colour at 50% | `FEEEBE` | `F7E7BA` | `7B6B3B` | `89794A` |
+
+- **The marker multiplies**: it takes the backdrop's colour into its own, so
+  the panel's 5% step is the multiply, and on black it vanishes (this path is
+  not how a dark page is shown on screen; the on-screen dark behaviour was
+  **not measured**, since driving ink mode in the simulator didn't work).
+- **A normal blend exists only as another ink type** (`.pen` or `.monoline`
+  with a translucent colour), which changes the highlighter's look and leaves
+  old `.marker` strokes as they are. **It doesn't remove the step**: any
+  translucent stroke over two backdrops differs by (1 − alpha) times the
+  difference between them (the table's 50% row still steps by 7). An opaque
+  stroke has no step and hides the text under it.
+- **Drawing it under the code text is not feasible without a redesign**: the
+  panel is an opaque fill painted by the text view's fragments (and "can't go
+  translucent", Pages › selection note), and ink is one canvas above the text
+  view, so ink below the text would be hidden by the panel, and a second
+  canvas below it means a second owner of touches. Not built, on purpose.
+- **Conclusion: nothing small fixes it.** Leave the panel and the marker as
+  they are. If the step matters, the realistic options are a panel colour
+  nearer the page (shrinks, never removes it) or accepting it.
+
+### Icons: state at the usage limit (23 Oct) and what is left
+
+**Done, committed, not wired and not built in the app target**:
+`NoteCode/NoteIconGeometry.swift` is 28 icons as paths on a 24-unit grid
+(pure CoreGraphics; `IconWeight` light/regular/bold; layers of stroke, solid
+and soft fill), with `NoteIcon.replacing(systemName:)` mapping each SF symbol
+name the hotbar uses to its drawn icon, so call sites need no change.
+`scripts/icon-sheet/main.swift` draws every icon at 22pt light and dark and at
+44pt in three weights to a PNG:
+`swiftc NoteCode/NoteIconGeometry.swift scripts/icon-sheet/main.swift -o /tmp/icon-sheet && /tmp/icon-sheet out.png`.
+The file compiled and drew on the Mac; it hasn't been compiled in the app
+target.
+
+**Next steps**
+1. A `NoteIconView` (SwiftUI `Canvas` over `NoteIcon.layers`, stroke width
+   `weight.lineWidth × layer.weight`, soft fill at 24% opacity) and an
+   `IconStyle` (drawn or system, plus weight), stored under `iconStyle`.
+2. `HotbarIcon` draws the replacement when `replacing(systemName:)` has one
+   and the style is drawn; the bar's `Menu` labels use `HotbarIcon` already.
+   Settings › General gets one row for it (SettingsView.swift: the stream
+   that owns it should place it) and `SettingsTests.keysAreStable` pins the key.
+3. Tests: every `NoteIcon` has layers inside the grid; every mapped name is
+   unique; the weights run light < regular < bold.
+4. Review the sheet. Known weak glyphs: Text (reads as "AI"), Object Eraser,
+   Strikethrough's S.
+5. The lasso, rectangle and selection icons stay SF Symbols until the object
+   system's tool set is final (TODO).
+
+### Provisional (Marcus to review)
+
+- Icons: drawn on a 24 grid, strokes 1.5 / 1.8 / 2.2 for light / regular /
+  bold, round caps and joins, a 24% soft second tone on the tool bodies.
+- Bold's B is drawn at 1.35 times the weight; the quote's bar the same, to
+  match the bar the page draws beside a quote.
+- Insert is drawn as a square overlapping a circle (shapes), not a plus.
+- Finger Draws is a pointing hand.
+- Menu items inside menus stay SF Symbols for now.
+
+### Still to do from the colour work
+
+- On-screen look at the highlighter swatches and the Colour Set row on an iPad
+  (the checklist in the report); the dark-mode blend on screen.
