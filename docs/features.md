@@ -88,7 +88,7 @@ reading code, and to find the design note that has the detail.
 | Feature | How it works | Status | Detail |
 |---|---|---|---|
 | Ink layer | PaperKit canvas over the page; the toggle gives touch ownership to text or ink | built | `AGENTS.md`, `archive/phase-drawing-layer.md` |
-| Tools | Pen, highlighter, eraser (pixel or object), lasso | built | `the-note-page.md` |
+| Tools | Pen, highlighter, eraser (pixel or object), Select (lasso or rectangle; the button is still the lasso's) | built; Select unverified on the iPad | `object-system.md` |
 | Palettes | Seven pen colours and five highlighters; editable; per-tool width (fine, medium, bold) and colour remembered | built | `the-note-page.md`, `settings.md` |
 | Finger Draws | Finger draws or is ignored, per device | built | `the-note-page.md` |
 | Ink undo | Separate from text undo | built | `the-note-page.md` |
@@ -96,11 +96,12 @@ reading code, and to find the design note that has the detail.
 | Pencil double tap and squeeze | Swap to eraser, swap to previous tool, or show the ink tools; in text mode they switch to ink first | built; unchecked with a Pencil (feedback #23) | `the-note-page.md` |
 | Ink across pages | Ink cut cleanly at page breaks | built | `pages.md` |
 | Ink in the PDF | Printed as a picture at 288 dpi | built | `pages.md` |
-| Rectangular selection | Only PaperKit's lasso | planned, object system (feedback #6) | |
-| Recolour text with the lasso | | planned (feedback #26) | |
+| Rectangular selection | Select tool, Rectangle or Lasso: move, scale from a corner, recolour, duplicate, delete; touching, not containing | built (24 Oct), unverified on the iPad (feedback #6) | `object-system.md` |
+| Recolour text with the lasso | The shape also covers text, a range per line (never code); one colour control recolours ink and text | built (24 Oct), unverified on the iPad (feedback #26) | `object-system.md` |
 | Add pages while drawing down | In compressed and print layout a stroke ending in the last page's bottom 15% adds a page; Settings › Drawing › Add Pages While Drawing | built (feedback #8) | |
-| Selection behaviour | Lasso stays selected on a tool switch, a tap highlights a cluster, the hotbar can be displaced after a move | bugs, planned with the object system (feedback #24, #29, #30) | |
-| Return to previous tool after a selection | | planned, a setting (feedback #16) | |
+| Selection behaviour | Selection clears on a tool or mode switch; PaperKit's own selection is let go of (one shape or image can be handed to it to Edit) | built (24 Oct); tap-to-highlight and the hotbar displacement not located, needs the probe log on the iPad (feedback #24, #29, #30) | `object-system.md` |
+| Return to previous tool after a selection | Settings › Drawing › Return to Previous Tool, off by default; after Delete or a tap on empty space | built (24 Oct) (feedback #16) | `object-system.md` |
+| Ink storage | `drawingData` is plain PaperKit bytes or an `NCOB` container with an object table (anchors, groups); empty table writes the plain bytes | built (24 Oct) | `object-system.md` |
 | Hover mark follows the tool | The Pencil hover mark lags a tool or property change; the app draws no mark, PaperKit does | measured, PaperKit's; options in `pages.md` (feedback #17) | |
 | Text-anchored ink, more shapes, logic gates | | planned (stream L) | ROADMAP |
 
