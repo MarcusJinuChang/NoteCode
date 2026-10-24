@@ -77,16 +77,39 @@ so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
     note keeps its date. The drag carries only a marker
     (`ListDrop.payload`, own-process, the type declared in Info.plist); which
     row was lifted is `ListDragState.item`, so a drop from elsewhere is refused.
-  - **NOT TRIED: the drops themselves.** In the simulator a drag lifts and its
-    preview follows the touch, but neither `.onDrop(of:delegate:)` (on rows and
-    on the whole list) nor `.dropDestination` was ever called, for a custom type,
-    `.item` or plain text (synthesised touches: the drag started at the lift,
-    which logged twice, and never reached a target). So whether a drop lands,
-    and the line or outline `ListRowDrop` draws for where, is unverified on
-    screen and on the iPad. The rules behind it are tested, and the menus
-    do the same moves. If the drops don't work on the iPad, the first thing to
-    try is `dropDestination(for:)` with a `Transferable` token, which reports
-    only the whole row (no before or after) and would want separate edge views.
+  - **How a drop reaches the list** (24 Oct, read on Marcus's iPad Pro 11-inch
+    on iOS 27.0.1, by a real press and drag from `ListDragUITests` and the
+    `-debug-probe` log, `DebugProbe.swift`). The first build put an
+    `.onDrop(of:delegate:)` on every row, and **nothing on a row was ever
+    called**: the drag lifted and the drop did nothing. The same row-level
+    delegate on a row of a `LazyVStack` was called (validate, entered,
+    perform), and `.dropDestination` on a stack's view too. Inside a `List`
+    none of these was: `.onDrop` on a row or on the list, `.dropDestination`
+    on a row, `ForEach.dropDestination`, `onInsert`, with plain text, a
+    custom type or `public.data`. A `List` is a `UICollectionView` whose drag
+    and drop delegate is SwiftUI's own (`CollectionViewListDragAndDropController`),
+    which lifts a row for `.onDrag` and is deaf to those modifiers. The
+    collection view's `dropDelegate` is public API, though: a replacement
+    that logged was called with `canHandle`, `dropSessionDidUpdate` and
+    `performDropWith`.
+  - **So the list takes the drop as a whole** (`ListDropBridge`, behind the
+    `List` in `NoteList`): it wraps the collection view's drop delegate, answers
+    a drag of ours (`ListDrop.type`) from where the rows are, and forwards any
+    other to SwiftUI's. Rows only record their frame in the window and draw the
+    indicator (`ListRowDrop`); `ListDropHit` (pure, tested) finds the row and
+    the zone from the finger's height. What is being dragged is read where
+    the drag begins (`ListDragSource`, which wraps the collection view's drag
+    delegate the same way): SwiftUI asks for a row's provider when it likes,
+    and on the iPad asked for a *folder's* after a note's drag had begun, so
+    a drag started by `onDrag`'s closure was sometimes a folder's.
+  - **On macOS there is no drop** (the bridge is UIKit): its list drag is
+    unchecked and the menus do the same moves.
+  - **Checked on the iPad**: a note dropped on a folder files it, and on the
+    Library header takes it out of its folder (`ListDragUITests`, which skip
+    on the simulator, where no drop is delivered: a drag lifts and follows
+    the touch and nothing is entered). **Not checked**: the hover outline and
+    edge lines drawn while dragging, folder arranging by the top and bottom
+    edge, and dragging near the list's edge to scroll.
   - **A press on a row** shows its context menu; a drag lifts it after about
     half a second if the finger moves at once. A hold that stays still gets the
     menu.

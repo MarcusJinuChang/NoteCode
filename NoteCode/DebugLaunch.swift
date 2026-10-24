@@ -122,6 +122,9 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
     /// Home, over a store of sample notes and folders in memory, with the
     /// title screen already seen.
     var home = false
+    /// Leave the saved flags and remembered places alone, which `-debug-home`
+    /// otherwise clears: for a run on a device with someone's own notes.
+    var keepsDefaults = false
     /// The tip jar with stand-in tips, so its row and sheet can be looked at
     /// without the products in App Store Connect (`DebugTipStore`).
     var tipJar = false
@@ -217,6 +220,8 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
                 options.firstLaunch = true
             case "-debug-home":
                 options.home = true
+            case "-debug-keep-defaults":
+                options.keepsDefaults = true
             case "-debug-tip-jar":
                 options.tipJar = true
             default:
@@ -490,13 +495,20 @@ enum DebugLaunch {
             return nil
         }
 
-        for key in [WelcomeScreen.shownKey, WelcomeNote.madeKey, NoteMemory.lastOpenedKey, NoteMemory.placesKey] {
-            defaults.removeObject(forKey: key)
+        if !options.keepsDefaults {
+            for key in [WelcomeScreen.shownKey, WelcomeNote.madeKey, NoteMemory.lastOpenedKey, NoteMemory.placesKey] {
+                defaults.removeObject(forKey: key)
+            }
+            if options.home {
+                defaults.set(true, forKey: WelcomeScreen.shownKey)
+                defaults.set(true, forKey: WelcomeNote.madeKey)
+            }
         }
         if options.home {
-            defaults.set(true, forKey: WelcomeScreen.shownKey)
-            defaults.set(true, forKey: WelcomeNote.madeKey)
-            seedHome(in: container.mainContext, session: session, defaults: defaults)
+            // The sample notes are remembered as the last opened: into a
+            // scratch suite when the real flags are to be left alone.
+            let remembered = options.keepsDefaults ? UserDefaults(suiteName: "notecode.debug.scratch") ?? defaults : defaults
+            seedHome(in: container.mainContext, session: session, defaults: remembered)
         }
         return .persistent(container)
     }
