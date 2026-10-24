@@ -42,11 +42,11 @@ v3 phase 7 (14 Oct, `docs/archive/ui-design-v3-implementation.md`). The pure par
     clearing a newer run's folder; **no test fails without it** (tried: the
     guard removed, `restartAfterCancel` still passed), so it is reasoning, not
     proof.
-  - **`FileDocument` is deprecated in iOS 27** (the SDK says to conform to
-    `WritableDocument` or `Transferable`). `ExportFolderDocument` is a
-    `FileDocument` anyway: a directory wrapper is the long-standing way to
-    export a folder. The plural-`contentTypes` overload is the one with an
-    `onCancellation` callback (the singular one has none). Whether the
+  - **`ExportFolderDocument` is a `WritableDocument`** (23 Oct; `FileDocument`
+    is deprecated in iOS 27). Its snapshot is a directory `FileWrapper` made
+    from the temporary folder when asked for (a wrapper isn't `Sendable`), and
+    its writer is `FileWrapperDocumentWriter`; `fileExporter` takes the one
+    `.folder` content type and has an `onCancellation` callback. Whether the
     iPadOS Files picker writes the whole folder is not checked (below).
   - Toast "Exported N notes" after the reader has chosen where; Settings
     dismisses itself first (`onExportFinished`) so the toast isn't under it.
