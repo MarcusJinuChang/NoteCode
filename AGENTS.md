@@ -127,6 +127,8 @@ something exists, and update its rows in the same PR that adds, changes or remov
 
 Planning docs: `docs/ROADMAP.md` (status and what is left); `docs/feedback-plan.md` (the
 October testing feedback, the streams and their order); finished plans are in `docs/archive/`.
+Everything still to see on a real iPad, in the order of a walk through the app:
+[docs/ipad-test-checklist.md](docs/ipad-test-checklist.md).
 
 ## The model
 

@@ -2,7 +2,8 @@
 
 What NoteCode contains, how each part works, and what is missing, by type of
 feature. For Marcus and for agents: read this to learn what exists before
-reading code, and to find the design note that has the detail.
+reading code, and to find the design note that has the detail. What is still to
+be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-checklist.md).
 
 - **Status:** *built* (merged to `main`), *partial* (built, with a named gap),
   *missing* (wanted, not built), *planned* (scheduled in `docs/feedback-plan.md`),
