@@ -473,6 +473,23 @@ Steps 1 and 2 are file-disjoint from every other stream. Step 3 touches
   The hotbar lines (`hotbar frame`) beside `keyboard…` lines and a changed
   `firstResponder` or `textView inset` say which of the hypotheses above holds.
 
+## Provisional (Marcus to review)
+
+Marcus asked for the work to go on without him (23 Oct), so each question below
+was answered with its recommendation and built that way. Anything he changes is
+a small edit to the step named.
+
+| # | Question | Taken | Where it lands |
+|---|---|---|---|
+| 1 | Storage | **A**, container in `drawingData`. **No `ModelFreezeTests` hash change**, though the brief expected one: nothing in the model changes, which is the point of A | step 1 |
+| 2 | PaperKit the renderer | Yes; its selection UI only for an explicit single-object "Edit" | steps 3, 6 |
+| 3 | Rectangle over text | The characters inside it, one range per line | step 4 |
+| 4 | Recolour | One control; ink palette mapped to the nearest text colour | step 4 |
+| 5 | Previous tool | Setting off by default; returns after Delete or a tap on empty space, never after a move or a tool switch; Insert too | step 5 |
+| 6 | Rectangle selects | What it touches | step 2 |
+| 7 | Scale/rotate | Move, delete, duplicate, recolour and a corner-handle scale; rotation through PaperKit's "Edit" | steps 3, 6 |
+| 8 | iPad probe first | Not waited for: step 0 is built and its probe is in; the hotbar cause is the one thing that needs the log, so it is the last step and the note says what to read | step 6 |
+
 ## Questions for Marcus (with a recommendation)
 
 1. **Storage: container inside `drawingData` (A) or a new attribute (B)?**
