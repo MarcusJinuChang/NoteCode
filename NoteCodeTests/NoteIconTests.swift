@@ -9,6 +9,7 @@
 import CoreGraphics
 import Foundation
 import Testing
+@testable import NoteCode
 
 @Suite("Drawn icons")
 struct NoteIconTests {
