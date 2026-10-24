@@ -173,9 +173,12 @@ extension NoteIcon {
 
         case .text:
             return [
-                L(path: G.line(p(3.6, 19), p(8.8, 6), p(14, 19)), kind: .stroke),
-                L(path: G.line(p(5.4, 14.6), p(12.2, 14.6)), kind: .stroke),
-                L(path: G.line(p(19.2, 4.5), p(19.2, 19.5)), kind: .stroke, weight: 0.85),
+                L(path: G.line(p(8, 4.6), p(8, 19.4)), kind: .stroke),
+                L(path: G.line(p(5.4, 4.6), p(10.6, 4.6)), kind: .stroke),
+                L(path: G.line(p(5.4, 19.4), p(10.6, 19.4)), kind: .stroke),
+                L(path: G.line(p(14, 8.5), p(21, 8.5)), kind: .stroke),
+                L(path: G.line(p(14, 12.5), p(21, 12.5)), kind: .stroke),
+                L(path: G.line(p(14, 16.5), p(18.5, 16.5)), kind: .stroke),
             ]
 
         case .draw:

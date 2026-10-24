@@ -322,43 +322,68 @@ draws, light-page values only), a `FCDD79` stroke over four backdrops:
   they are. If the step matters, the realistic options are a panel colour
   nearer the page (shrinks, never removes it) or accepting it.
 
-### Icons: state at the usage limit (23 Oct) and what is left
+### Icons: built (24 Oct)
 
-**Done, committed, not wired and not built in the app target**:
-`NoteCode/NoteIconGeometry.swift` is 28 icons as paths on a 24-unit grid
-(pure CoreGraphics; `IconWeight` light/regular/bold; layers of stroke, solid
-and soft fill), with `NoteIcon.replacing(systemName:)` mapping each SF symbol
-name the hotbar uses to its drawn icon, so call sites need no change.
-`scripts/icon-sheet/main.swift` draws every icon at 22pt light and dark and at
-44pt in three weights to a PNG:
-`swiftc NoteCode/NoteIconGeometry.swift scripts/icon-sheet/main.swift -o /tmp/icon-sheet && /tmp/icon-sheet out.png`.
-The file compiled and drew on the Mac; it hasn't been compiled in the app
-target.
+`NoteCode/NoteIconGeometry.swift`: 32 icons as paths on a 24-unit grid (pure
+CoreGraphics; layers of stroke, solid and a 24% soft second tone;
+`IconWeight` light / regular / bold at 1.5 / 1.8 / 2.2). `NoteIcon.replacing(systemName:)`
+maps each SF symbol name the bar hands to `HotbarIcon` to its drawn icon, so
+no call site changed and accessibility labels are untouched (the drawn view
+is hidden from VoiceOver; the button's label speaks). `HotbarIcon` draws it in
+a 22pt box inside the same 44pt target (`HotbarLayoutTests` passes), with the
+selected tint and the disabled 30% as before.
 
-**Next steps**
-1. A `NoteIconView` (SwiftUI `Canvas` over `NoteIcon.layers`, stroke width
-   `weight.lineWidth × layer.weight`, soft fill at 24% opacity) and an
-   `IconStyle` (drawn or system, plus weight), stored under `iconStyle`.
-2. `HotbarIcon` draws the replacement when `replacing(systemName:)` has one
-   and the style is drawn; the bar's `Menu` labels use `HotbarIcon` already.
-   Settings › General gets one row for it (SettingsView.swift: the stream
-   that owns it should place it) and `SettingsTests.keysAreStable` pins the key.
-3. Tests: every `NoteIcon` has layers inside the grid; every mapped name is
-   unique; the weights run light < regular < bold.
-4. Review the sheet. Known weak glyphs: Text (reads as "AI"), Object Eraser,
-   Strikethrough's S.
-5. The lasso, rectangle and selection icons stay SF Symbols until the object
-   system's tool set is final (TODO).
+The set: undo, redo, text, draw, pen, highlighter, eraser, pixel eraser,
+object eraser, finger draws, insert, add colour, style, bold, italic, underline,
+strikethrough, inline code, list, code block, quote, link, plus, minus, indent,
+outdent, and the Select tool's: lasso, rectangle, done, adjust (Edit), delete,
+duplicate.
+
+**Setting** (Settings › General): Toolbar Icons (NoteCode or System) and, for
+NoteCode's, Icon Weight (light, regular, bold). One stored string under
+`iconStyle` (`IconStyle`), read by `HotbarIcon`; no `apply(to:)`, since nothing
+else moves with it. **Increase Contrast** draws one weight heavier
+(`IconStyle.increased`). System shows the SF Symbols as before, which is the
+way back.
+
+**Sheet**: `swiftc NoteCode/NoteIconGeometry.swift scripts/icon-sheet/main.swift -o /tmp/icon-sheet && /tmp/icon-sheet out.png`
+draws every icon at 22pt in light and dark and at 44pt in three weights.
+
+**Still SF Symbols**: every `Label(…, systemImage:)` inside a menu (Style's,
+List's and Code Block's items, the note and folder menus, swipe actions), the
+text row's Highlight menu face (`Image(systemName: "highlighter")`), the ink
+colour menu's rings, and the eraser's size dots. A menu item takes an image,
+not a view, so drawn icons there mean the custom-symbol asset route (an
+`.symbolset` per icon, the template's weights still to be checked by a spike):
+not done, and not needed for the bar.
+
+**Tests** (`NoteIconTests`, 6, all pass; mutation-checked: dropping a name's
+mapping, an icon with no stroke, light weight equal to regular, and Increase
+Contrast not heavier each fail them). They check that every symbol the bar
+names has an icon, each icon is used once, every icon has a stroke and sits
+inside its grid, inks between 3% and 50% of a 22pt box (readable, not a slab),
+heavier weights ink more, and the style round-trips.
+
+**Not seen**: the bar in ink mode (the Select, pen and eraser rows) on the
+simulator (driving ink mode failed twice); the text bar and its row were seen
+on the 13-inch in dark. Not checked on an iPad: light mode, Increase Contrast
+on screen, the Pencil.
 
 ### Provisional (Marcus to review)
 
+- Icons (24 Oct, built): the Text toggle is an I-beam beside lines of text
+  (an A with a caret read as "AI"); Delete is a trash can, Duplicate two
+  overlapping squares, Adjust (Edit) three sliders, Done a check, Select
+  Lasso a dashed loop with a tail, Select Rectangle a dashed box.
 - Icons: drawn on a 24 grid, strokes 1.5 / 1.8 / 2.2 for light / regular /
   bold, round caps and joins, a 24% soft second tone on the tool bodies.
 - Bold's B is drawn at 1.35 times the weight; the quote's bar the same, to
   match the bar the page draws beside a quote.
 - Insert is drawn as a square overlapping a circle (shapes), not a plus.
 - Finger Draws is a pointing hand.
-- Menu items inside menus stay SF Symbols for now.
+- Menu items inside menus stay SF Symbols (see above).
+- The setting is a Toolbar Icons choice plus a weight, not a set of styles:
+  cheap, and System is the way back.
 
 ### Still to do from the colour work
 
