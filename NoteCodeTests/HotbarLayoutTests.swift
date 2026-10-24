@@ -22,10 +22,10 @@ import UIKit
 struct HotbarLayoutTests {
 
     /// An 11-inch iPad in landscape, the size the design fits the ink bar to.
-    private static let window = CGSize(width: 1194, height: 834)
+    nonisolated private static let window = CGSize(width: 1194, height: 834)
 
     /// The same iPad held upright.
-    private static let portraitWindow = CGSize(width: 834, height: 1194)
+    nonisolated private static let portraitWindow = CGSize(width: 834, height: 1194)
 
     /// A window in the test host's own scene, which is what gives SwiftUI a
     /// display link to update on. One made without a scene never re-renders.
