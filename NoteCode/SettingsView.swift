@@ -427,6 +427,8 @@ private struct NotesSettings: View {
                 Text("Which way up the + button's tap makes a note's pages. Hold + to choose the other for one note. A note keeps its orientation once it's made. With Open Note After Creating off, a new note is added to the list and a message offers to open it.")
             }
 
+            DefaultPaperSection()
+
             Section {
                 Picker("View", selection: $viewMode) {
                     ForEach(PageViewMode.allCases, id: \.self) { Text($0.title) }

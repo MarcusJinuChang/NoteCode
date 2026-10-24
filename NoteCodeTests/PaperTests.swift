@@ -110,6 +110,15 @@ struct PaperTests {
         #expect(template.paper == preferred, "templates go through Page.create")
     }
 
+    @Test("The default is written as one value and read back as it was")
+    func defaultRoundTrip() throws {
+        let defaults = try #require(UserDefaults(suiteName: "PaperTests-\(UUID().uuidString)"))
+        for setup in Self.everySetup {
+            setup.apply(to: defaults)
+            #expect(PaperSetup.preferred(in: defaults) == setup)
+        }
+    }
+
     // MARK: Geometry
 
     @Test("Rules and dots fall on multiples of the spacing, none on the edge")

@@ -443,6 +443,8 @@ struct PageDetailView: View {
             }
             .disabled(editor.mode != .text || page.isTextLocked)
 
+            NotePaperMenu(page: page)
+
             Button("Outline", systemImage: "list.bullet.indent") { showsOutline = true }
 
             Button("Find in Note", systemImage: "magnifyingglass") {
