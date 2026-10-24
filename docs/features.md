@@ -88,7 +88,7 @@ reading code, and to find the design note that has the detail.
 | Feature | How it works | Status | Detail |
 |---|---|---|---|
 | Ink layer | PaperKit canvas over the page; the toggle gives touch ownership to text or ink | built | `AGENTS.md`, `archive/phase-drawing-layer.md` |
-| Tools | Pen, highlighter, eraser (pixel or object), Select (lasso or rectangle; the button is still the lasso's) | built; Select unverified on the iPad | `object-system.md` |
+| Tools | Pen, highlighter, eraser (pixel or object), Select (lasso or rectangle; the button is still the lasso's) | built; Select, with its options row (shape, then commands once something is selected), unverified on the iPad | `object-system.md` |
 | Palettes | Seven pen colours and five highlighters; editable; per-tool width (fine, medium, bold) and colour remembered | built | `the-note-page.md`, `settings.md` |
 | Finger Draws | Finger draws or is ignored, per device | built | `the-note-page.md` |
 | Ink undo | Separate from text undo | built | `the-note-page.md` |
@@ -133,7 +133,7 @@ reading code, and to find the design note that has the detail.
 | Toasts, empty states | One toast at a time with Undo; empty states use the mark | built | `recently-deleted-…md`, `settings-toasts-polish-v3-phase-8.md` |
 | Accessibility | VoiceOver labels, Reduce Motion, Increase Contrast; the note body ignores Dynamic Type | built; sweeps unchecked | `settings-toasts-polish-…md` |
 | iPhone and Duo | Compact stack, fold avoidance; the target is still iPad-only | partial: not turned on | `iphone-and-the-duo.md` |
-| Colour and icons | Accent editable; Settings › Drawing › Colour Set picks Refined or Original highlighters; highlighter swatches are marker chips, vivid on dark bars; icons are still SF Symbols | partial: palettes built, icons planned (feedback #4, #5, #28) | `colour.md` |
+| Colour and icons | Accent editable; Settings › Drawing › Colour Set picks Refined or Original highlighters; highlighter swatches are marker chips, vivid on dark bars; Settings › General › Toolbar Icons picks NoteCode's drawn icons or the system's, with an Icon Weight | built (feedback #4, #5, #28) | `colour.md` |
 | macOS | Builds; the editor is a plain `TextEditor` with no fences or ink | partial | ROADMAP |
 
 ## 7. Sharing, import and export
@@ -153,11 +153,11 @@ Sheet with General, Notes, Writing, Code, Drawing and About
 
 | Page | Contains | Missing |
 |---|---|---|
-| General | Appearance, Accent Colour, Toolbar Position, Haptic on Snap, App Icon | whole-app palette reset |
+| General | Appearance, Accent Colour, Toolbar Position, Haptic on Snap, App Icon, Toolbar Icons and Icon Weight | whole-app palette reset |
 | Notes | New Notes orientation, Open Note After Creating, View, Sort By and Order, Recently Deleted, Export All | |
 | Writing | Show Markdown, Autocorrect, Markers (four rows) | |
 | Code | Run Code In, Code Keys, Indent Width, Line Numbers | |
-| Drawing | Finger Draws, Erases, Size, Colour Set, Pens and Highlighters palettes, Pencil actions, Add Pages While Drawing, Reset Colours | return to previous tool |
+| Drawing | Finger Draws, Erases, Size, Colour Set, Pens and Highlighters palettes, Pencil actions, Add Pages While Drawing, Return to Previous Tool, Reset Colours | |
 | About | Version, licences, tip jar, privacy and feedback rows once set | |
 
 ## 9. Shell and release
