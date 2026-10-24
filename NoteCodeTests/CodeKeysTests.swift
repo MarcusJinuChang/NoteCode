@@ -102,6 +102,15 @@ struct CodeEditingInTheEditorTests {
 
     private typealias Harness = CodeFenceDisplayTests.Harness
 
+    /// No keyboard attached, whatever is plugged into the Mac: the simulator
+    /// inherits it, `GCKeyboard.coalesced` then answers non-nil, and the row
+    /// (rightly) stays away, which failed every test here that expects it.
+    /// Each test makes a new instance, so each starts from this; the one test
+    /// that attaches a keyboard puts it back as it found it.
+    init() {
+        HardwareKeyboard.isConnected = { false }
+    }
+
     /// A keystroke the way UIKit offers it to the delegate: `false` means the
     /// coordinator made the edit itself, `true` that the text view goes on to
     /// insert it.

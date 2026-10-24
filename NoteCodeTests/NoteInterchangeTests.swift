@@ -8,6 +8,7 @@
 import Foundation
 import SwiftData
 import Testing
+import UniformTypeIdentifiers
 @testable import NoteCode
 
 // MARK: - File names
@@ -417,17 +418,18 @@ struct NoteExportJobTests {
             try await Task.sleep(for: .milliseconds(10))
         }
         guard case .ready = job.state else { throw CocoaError(.fileNoSuchFile) }
-        return try #require(Self.root(of: job))
+        return try #require(await Self.root(of: job))
     }
 
-    /// The folder the document points at, found through the wrapper.
-    private static func root(of job: NoteExportJob) -> URL? {
+    /// The folder the document points at, found through its snapshot.
+    private static func root(of job: NoteExportJob) async -> URL? {
         // A wrapper made from a URL keeps no path, so the job's folder is read
-        // by writing the wrapper out, as the exporter does.
+        // by writing the snapshot out, as the exporter does.
         let destination = FileManager.default.temporaryDirectory
             .appending(path: "ExportRead \(UUID().uuidString)", directoryHint: .isDirectory)
         do {
-            try job.document.wrapper.write(to: destination, options: .atomic, originalContentsURL: nil)
+            let snapshot = try await job.document.snapshot(contentType: .folder)
+            try snapshot.write(to: destination, options: .atomic, originalContentsURL: nil)
             return destination
         } catch {
             return nil
@@ -473,6 +475,23 @@ struct NoteExportJobTests {
         defer { try? FileManager.default.removeItem(at: root); job.cleanUp() }
 
         #expect(try names(in: root) == ["Kept.md"])
+    }
+
+    @Test("The exported folder is a WritableDocument whose snapshot is a directory")
+    func documentSnapshot() async throws {
+        #expect(ExportFolderDocument.writableContentTypes == [.folder])
+        let empty = try await ExportFolderDocument().snapshot(contentType: .folder)
+        #expect(empty.isDirectory)
+        #expect(empty.fileWrappers?.isEmpty == true)
+
+        let folder = FileManager.default.temporaryDirectory
+            .appending(path: "Snapshot \(UUID().uuidString)", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try Data("hello".utf8).write(to: folder.appending(path: "a.md"))
+        let wrapper = try await ExportFolderDocument(folder: folder).snapshot(contentType: .folder)
+        #expect(wrapper.isDirectory)
+        #expect(wrapper.fileWrappers?["a.md"]?.regularFileContents == Data("hello".utf8))
     }
 
     @Test("Cancelling removes what was written and leaves the job idle")
