@@ -13,6 +13,7 @@ import UIKit
 
 struct DrawingSettings: View {
     @AppStorage(NoteEditor.fingerDrawsKey) private var fingerDraws = true
+    @AppStorage(NoteEditor.returnToPreviousToolKey) private var returnsToPreviousTool = false
     @AppStorage(EraserSettings.defaultsKey) private var eraser = EraserSettings()
     @AppStorage(InkPageGrowth.defaultsKey) private var addsPages = InkPageGrowth.defaultEnabled
     @AppStorage(InkPalette.defaultsKey) private var pen = InkPalette.standard
@@ -39,6 +40,12 @@ struct DrawingSettings: View {
                 Toggle("Finger Draws", isOn: $fingerDraws)
             } footer: {
                 Text("Where a note starts. The hotbar's hand button switches it, and the device keeps the last choice.")
+            }
+
+            Section {
+                Toggle("Return to Previous Tool", isOn: $returnsToPreviousTool)
+            } footer: {
+                Text("After a selection ends, by Delete or by tapping empty space, go back to the tool you had before Select. Choosing another tool never does this.")
             }
 
             Section {

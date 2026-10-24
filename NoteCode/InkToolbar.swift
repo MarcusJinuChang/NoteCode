@@ -116,6 +116,9 @@ struct InkToolPersistence: ViewModifier {
     @AppStorage(SelectionKind.defaultsKey)
     private var selectionKind = SelectionKind.lasso
 
+    @AppStorage(NoteEditor.returnToPreviousToolKey)
+    private var returnsToPreviousTool = false
+
     func body(content: Content) -> some View {
         content
             .onAppear {
@@ -124,12 +127,14 @@ struct InkToolPersistence: ViewModifier {
                 editor.inkTool.eraser = eraser
                 editor.fingerDraws = fingerDraws
                 editor.inkTool.selectionKind = selectionKind
+                editor.returnsToPreviousTool = returnsToPreviousTool
             }
             .onChange(of: editor.inkTool.pen) { _, changed in pen = changed }
             .onChange(of: editor.inkTool.highlighter) { _, changed in highlighter = changed }
             .onChange(of: editor.inkTool.eraser) { _, changed in eraser = changed }
             .onChange(of: editor.fingerDraws) { _, changed in fingerDraws = changed }
             .onChange(of: editor.inkTool.selectionKind) { _, changed in selectionKind = changed }
+            .onChange(of: returnsToPreviousTool) { _, stored in editor.returnsToPreviousTool = stored }
             // Settings changes these from a sheet over the open note, whose
             // editor was set from them as it appeared. Guarded by equality
             // so the editor's own change, written above, isn't echoed back.

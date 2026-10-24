@@ -48,6 +48,7 @@ final class InkSelectionOverlay: UIView {
     private let trailLayer = CAShapeLayer()
     private let boxLayer = CAShapeLayer()
     private let handleLayer = CAShapeLayer()
+    private let textLayer = CAShapeLayer()
 
     init(selection: InkSelection) {
         self.selection = selection
@@ -56,7 +57,7 @@ final class InkSelectionOverlay: UIView {
         isUserInteractionEnabled = false
         isMultipleTouchEnabled = true
 
-        for layer in [trailLayer, boxLayer, handleLayer] {
+        for layer in [textLayer, trailLayer, boxLayer, handleLayer] {
             layer.fillColor = nil
             layer.lineWidth = 1.5
             self.layer.addSublayer(layer)
@@ -109,6 +110,7 @@ final class InkSelectionOverlay: UIView {
         let point = touch.location(in: self)
         switch SelectionTouch.decide(at: point, selection: selection.bounds, canScale: selection.canScale) {
         case .draw:
+            hadSelection = !selection.isEmpty
             selection.clear()
             gesture = .drawing(start: point)
             trail = [point]
@@ -143,9 +145,7 @@ final class InkSelectionOverlay: UIView {
         let point = touch.location(in: self)
         switch gesture {
         case .drawing(let start):
-            if let shape = shape(from: start, to: point) {
-                selection.select(shape)
-            }
+            completeDrawing(with: shape(from: start, to: point))
         case .moving(let start):
             // The last position, whatever the throttle skipped.
             selection.previewMove(by: CGSize(width: point.x - start.x, height: point.y - start.y))
@@ -177,6 +177,24 @@ final class InkSelectionOverlay: UIView {
         }
     }
 
+    private var hadSelection = false
+
+    /// For tests, which can't make a touch: as if one had landed on empty
+    /// space with a selection up.
+    func beginsDrawingForTest() {
+        hadSelection = !selection.isEmpty
+        selection.clear()
+    }
+
+    /// A drawn shape is done: select what it covers. Where something was
+    /// selected and the shape covers nothing, the selection has ended by the
+    /// reader's choice (a tap on empty space), which `onEnded` reports.
+    func completeDrawing(with shape: SelectionShape?) {
+        let covered = shape.map { selection.select($0) } ?? false
+        if hadSelection && !covered { selection.onEnded?() }
+        hadSelection = false
+    }
+
     static let tapDistance: CGFloat = 8
     static let tapSize: CGFloat = 8
 
@@ -205,12 +223,14 @@ final class InkSelectionOverlay: UIView {
     private func redraw() {
         let tint = (tintColor ?? .systemBlue).cgColor
         trailLayer.strokeColor = tint
+        textLayer.fillColor = UIColor(cgColor: tint).withAlphaComponent(0.25).cgColor
+        textLayer.strokeColor = nil
         boxLayer.strokeColor = tint
         handleLayer.strokeColor = UIColor.white.cgColor
         handleLayer.fillColor = tint
 
         guard isActive else {
-            trailLayer.path = nil; boxLayer.path = nil; handleLayer.path = nil
+            trailLayer.path = nil; boxLayer.path = nil; handleLayer.path = nil; textLayer.path = nil
             return
         }
 
@@ -227,6 +247,12 @@ final class InkSelectionOverlay: UIView {
         } else {
             trailLayer.path = nil
         }
+
+        let highlight = UIBezierPath()
+        for piece in selection.textPieces {
+            highlight.append(UIBezierPath(roundedRect: piece.rect, cornerRadius: 3))
+        }
+        textLayer.path = selection.textPieces.isEmpty ? nil : highlight.cgPath
 
         if let box = selection.bounds {
             boxLayer.path = UIBezierPath(roundedRect: box.insetBy(dx: -6, dy: -6), cornerRadius: 6).cgPath

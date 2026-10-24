@@ -189,8 +189,10 @@ struct InkSelectionTests {
         rig.selection.endAdjusting(actionName: "Resize")
 
         let after = try! #require(rig.selection.bounds)
-        #expect(abs(after.minX - box.minX) < 1 && abs(after.minY - box.minY) < 1)
-        #expect(abs(after.width - box.width * 2) < 2)
+        // Scaled about the corner of its frame, give or take the ink's own
+        // thickness, which isn't exactly proportional.
+        #expect(abs(after.minX - box.minX) < 3 && abs(after.minY - box.minY) < 3)
+        #expect(after.width > box.width * 1.8 && after.width < box.width * 2.2)
     }
 
     @Test("Recolour, duplicate and delete are each one undo step, and delete ends the selection")
@@ -350,6 +352,67 @@ struct InkSelectionTests {
         let kept = self.stored(result.state.ink)
         #expect(kept.count == 2)
         #expect(kept.allSatisfy { colour(of: $0) > 0.9 }, "the hidden piece must change colour with the shown one")
+    }
+
+    // MARK: Previous tool
+
+    @Test("With the setting on, Delete and a tap on empty space go back to the tool before Select")
+    func returnsAfterTheSelectionEnds() {
+        let rig = Rig()
+        let a = Self.stroke(from: CGPoint(x: 100, y: 100), to: CGPoint(x: 200, y: 100))
+        rig.put([a])
+        rig.editor.returnsToPreviousTool = true
+        rig.editor.inkTool.kind = .highlighter
+        rig.editor.inkTool.kind = .lasso
+
+        rig.selection.select(.rectangle(CGRect(x: 120, y: 90, width: 30, height: 20)))
+        rig.selection.delete()
+        #expect(rig.editor.inkTool.kind == .highlighter)
+
+        rig.editor.undo()
+        rig.editor.inkTool.kind = .lasso
+        rig.selection.select(.rectangle(CGRect(x: 120, y: 90, width: 30, height: 20)))
+        rig.page.selectionOverlay.beginsDrawingForTest()
+        rig.page.selectionOverlay.completeDrawing(with: .rectangle(CGRect(x: 600, y: 600, width: 8, height: 8)))
+        #expect(rig.editor.inkTool.kind == .highlighter, "a tap on empty space ends the selection")
+    }
+
+    @Test("Off, nothing returns; and a tool switch, a move or a recolour never does")
+    func neverReturnsOtherwise() {
+        let rig = Rig()
+        let a = Self.stroke(from: CGPoint(x: 100, y: 100), to: CGPoint(x: 200, y: 100))
+        rig.put([a])
+        rig.editor.inkTool.kind = .highlighter
+        rig.editor.inkTool.kind = .lasso
+        rig.selection.select(.rectangle(CGRect(x: 120, y: 90, width: 30, height: 20)))
+        rig.selection.delete()
+        #expect(rig.editor.inkTool.kind == .lasso, "setting off: the Select tool stays")
+
+        rig.editor.returnsToPreviousTool = true
+        rig.editor.undo()
+        rig.selection.select(.rectangle(CGRect(x: 120, y: 90, width: 30, height: 20)))
+        rig.selection.move(by: CGSize(width: 10, height: 10))
+        rig.selection.recolour(to: .red)
+        rig.selection.duplicate()
+        #expect(rig.editor.inkTool.kind == .lasso)
+
+        rig.editor.inkTool.kind = .eraser
+        #expect(rig.editor.inkTool.kind == .eraser, "the reader chose the eraser")
+    }
+
+    @Test("Insert hands what it inserted to the Select tool")
+    func insertSelects() throws {
+        let rig = Rig()
+
+        _ = rig.editor.insertIntoInk(extent: CGSize(width: 100, height: 80)) { controller in
+            var markup = controller.markup ?? PaperMarkup(bounds: CGRect(x: 0, y: 0, width: 816, height: 1056))
+            markup.insertNewShape(configuration: ShapeConfiguration(type: .rectangle), frame: CGRect(x: 100, y: 100, width: 100, height: 80))
+            controller.markup = markup
+        }
+
+        #expect(rig.editor.inkTool.kind == .lasso)
+        #expect(rig.selection.ids.count == 1)
+        #expect(rig.canvas.controller.selection.isEmpty, "PaperKit's own selection is let go")
     }
 }
 

@@ -24,6 +24,8 @@ struct SettingsTests {
         #expect(ShowMarkdown.defaultsKey == "showMarkdown")
         #expect(RunDestinationPreference.appDefaultKey == "runDestination.appDefault")
         #expect(NoteEditor.fingerDrawsKey == "fingerDraws")
+        #expect(NoteEditor.returnToPreviousToolKey == "returnToPreviousTool")
+        #expect(SelectionKind.defaultsKey == "selectionKind")
         #expect(EraserSettings.defaultsKey == "eraser")
         #expect(InkPalette.defaultsKey(for: .pen) == "inkPalette")
         #expect(InkPalette.defaultsKey(for: .highlighter) == "highlighterPalette")

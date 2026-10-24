@@ -134,6 +134,38 @@ final class DrawingCanvas: UIView {
         show { controller.markup = preview }
     }
 
+    /// Whether PaperKit may keep a selection of its own. Never, except for
+    /// the one shape or image the reader chose to Edit
+    /// (`beginPaperKitEdit`); a selection it makes otherwise is let go of.
+    private(set) var allowsPaperKitSelection = false
+
+    /// Takes PaperKit's views out of the touch path, for as long as the Select
+    /// tool owns the page: PaperKit then can't select, highlight or drag
+    /// anything, whatever its tool. The canvas's own view stays as it is.
+    var suspendsPaperKitInput = false {
+        didSet {
+            guard suspendsPaperKitInput != oldValue, !allowsPaperKitSelection else { return }
+            controller.view.isUserInteractionEnabled = !suspendsPaperKitInput
+        }
+    }
+
+    /// Hands one shape or image to PaperKit's own selection, with its
+    /// handles, for what the Select tool doesn't do: rotating, a text box's
+    /// text, a line's ends. The lasso is PaperKit's tool until it ends.
+    func beginPaperKitEdit(_ id: MarkupOrderedSet.ElementID) {
+        allowsPaperKitSelection = true
+        controller.view.isUserInteractionEnabled = true
+        controller.drawingTool = PKLassoTool()
+        controller.selection = [id]
+    }
+
+    func endPaperKitEdit() {
+        guard allowsPaperKitSelection else { return }
+        allowsPaperKitSelection = false
+        controller.selection = []
+        controller.view.isUserInteractionEnabled = !suspendsPaperKitInput
+    }
+
     /// Lets go of whatever PaperKit has selected.
     ///
     /// The selection belongs to the controller, not to the tool, so changing
@@ -478,10 +510,17 @@ extension DrawingCanvas: PaperMarkupViewController.Delegate {
         onUndoDidChange?()
     }
 
-    #if DEBUG
     func paperMarkupViewControllerDidChangeSelection(_ paperMarkupViewController: PaperMarkupViewController) {
+        #if DEBUG
         probeDelegate("PaperKit selection changed")
+        #endif
+        // The app's selection is the Select tool's. Whatever PaperKit selects
+        // on its own (a tap on a cluster of strokes) is let go of at once.
+        guard !allowsPaperKitSelection, !paperMarkupViewController.selection.isEmpty else { return }
+        paperMarkupViewController.selection = []
     }
+
+    #if DEBUG
 
     func paperMarkupViewControllerDidBeginDrawing(_ paperMarkupViewController: PaperMarkupViewController) {
         probeDelegate("PaperKit began drawing")

@@ -376,7 +376,9 @@ struct NoteEditorTests {
         )
         harness.canvas.markup = markup
         let id = try #require(harness.canvas.markup.subelements.first?.elementID)
-        harness.canvas.controller.selection = [id]
+        // As the Edit bridge does: PaperKit's delegate lets go of any other
+        // selection the moment it is made (`PaperKitSelectionRemovalTests`).
+        harness.canvas.beginPaperKitEdit(id)
         try #require(harness.canvas.controller.selection.count == 1, "the harness can't hold a PaperKit selection, so the tests below prove nothing")
     }
 

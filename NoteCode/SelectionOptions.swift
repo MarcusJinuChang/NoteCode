@@ -24,12 +24,20 @@ struct SelectOptions: View {
                 }
             }
 
-            if let selection = editor.selection, !selection.isEmpty {
+            if let selection = editor.selection, selection.isEditingInPaperKit {
+                HotbarDivider(isVertical: isVertical)
+                HotbarButton("Done Editing", "checkmark") { selection.finishEditingInPaperKit() }
+            } else if let selection = editor.selection, !selection.isEmpty {
                 HotbarDivider(isVertical: isVertical)
                 SelectionSwatches(selection: selection, isVertical: isVertical)
-                HotbarDivider(isVertical: isVertical)
-                HotbarButton("Duplicate", "plus.square.on.square") { selection.duplicate() }
-                HotbarButton("Delete", "trash") { selection.delete() }
+                if selection.canEditInPaperKit {
+                    HotbarButton("Edit", "slider.horizontal.3") { selection.editInPaperKit() }
+                }
+                if selection.hasInk {
+                    HotbarDivider(isVertical: isVertical)
+                    HotbarButton("Duplicate", "plus.square.on.square") { selection.duplicate() }
+                    HotbarButton("Delete", "trash") { selection.delete() }
+                }
             }
         }
     }

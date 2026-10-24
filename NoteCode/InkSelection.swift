@@ -54,7 +54,21 @@ final class InkSelection {
     /// Where they are on the note, for the box drawn round them.
     private(set) var bounds: CGRect?
 
-    var isEmpty: Bool { ids.isEmpty }
+    /// The text the shape covered, a range per line, with where each is drawn.
+    private(set) var textPieces: [TextRegion.Piece] = []
+
+    /// Nothing selected, ink or text.
+    var isEmpty: Bool { ids.isEmpty && textPieces.isEmpty }
+
+    /// Whether any ink is selected: what moves, duplicates and deletes.
+    var hasInk: Bool { !ids.isEmpty }
+
+    /// Reads the text a shape covers. Set by the page.
+    @ObservationIgnored var textPiecesFor: ((SelectionShape) -> [TextRegion.Piece])?
+
+    /// Recolours text ranges (`nil`: takes colour off). Set by the editor,
+    /// which owns the text; returns whether it did.
+    @ObservationIgnored var recolourText: (([NSRange], Int?) -> Void)?
 
     @ObservationIgnored weak var canvas: DrawingCanvas?
 
@@ -86,12 +100,52 @@ final class InkSelection {
     @discardableResult
     func select(_ shape: SelectionShape) -> Bool {
         guard let canvas else { return false }
+        textPieces = textPiecesFor?(shape) ?? []
         set(InkObjects.select(shape, in: canvas.markup))
-        return !ids.isEmpty
+        return !isEmpty
+    }
+
+    /// Whether one shape or image is selected: the case PaperKit's own
+    /// selection can finish what the Select tool doesn't.
+    var canEditInPaperKit: Bool {
+        guard ids.count == 1, let canvas, let id = ids.first else { return false }
+        for element in canvas.markup.subelements where element.elementID == id {
+            return !(element is PKStroke)
+        }
+        return false
+    }
+
+    private(set) var isEditingInPaperKit = false
+
+    func editInPaperKit() {
+        guard canEditInPaperKit, let canvas, let id = ids.first else { return }
+        isEditingInPaperKit = true
+        canvas.beginPaperKitEdit(id)
+        onEditingChange?()
+    }
+
+    func finishEditingInPaperKit() {
+        guard isEditingInPaperKit else { return }
+        isEditingInPaperKit = false
+        canvas?.endPaperKitEdit()
+        refresh()
+        onEditingChange?()
+    }
+
+    /// Called when PaperKit's editing starts or ends, so the page can give it
+    /// the touches and take them back.
+    @ObservationIgnored var onEditingChange: (() -> Void)?
+
+    /// Selects these elements, when the app chose them (what Insert added).
+    func select(ids new: Set<ElementID>) {
+        textPieces = []
+        set(new)
     }
 
     func clear() {
-        guard !ids.isEmpty else { return }
+        finishEditingInPaperKit()
+        guard !isEmpty else { return }
+        textPieces = []
         set([])
     }
 
@@ -196,14 +250,23 @@ final class InkSelection {
         set(ids)
     }
 
+    /// Recolours the ink as `color` and the text as the nearest text colour
+    /// (none for a grey): one control for both.
     func recolour(to color: UIColor) {
-        guard let canvas, !ids.isEmpty else { return }
-        canvas.replaceMarkup(with: InkCommands.recoloured(canvas.markup, ids: ids, to: color), actionName: "Colour")
-        set(ids)
+        if let canvas, !ids.isEmpty {
+            canvas.replaceMarkup(with: InkCommands.recoloured(canvas.markup, ids: ids, to: color), actionName: "Colour")
+            set(ids)
+        }
+        if !textPieces.isEmpty {
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            color.getRed(&r, green: &g, blue: &b, alpha: &a)
+            recolourText?(textPieces.map(\.range), TextColour.nearest(red: r, green: g, blue: b)?.hex)
+        }
     }
 
     func delete() {
         guard let canvas, !ids.isEmpty else { return }
+        textPieces = []
         canvas.replaceMarkup(with: InkCommands.deleted(canvas.markup, ids: ids), actionName: "Delete")
         set([])
         onEnded?()
