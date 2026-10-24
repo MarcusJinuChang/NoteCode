@@ -35,6 +35,11 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// two in step.
     let canvas: DrawingCanvas
 
+    /// The Select tool: what is selected on the canvas, and the view that
+    /// owns touches while it is the tool (docs/design/object-system.md).
+    let selection: InkSelection
+    let selectionOverlay: InkSelectionOverlay
+
     /// Sheets in print layout, break lines in compressed. Behind the text.
     let decorations = PageDecorationView()
 
@@ -195,6 +200,9 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             width: layout.pageSize.width,
             height: layout.noteHeight(pageCount: 1)
         ))
+        let selection = InkSelection()
+        self.selection = selection
+        self.selectionOverlay = InkSelectionOverlay(selection: selection)
         self.inkState = InkCapture.State(ink: PaperMarkup(bounds: CGRect(
             origin: .zero,
             size: CGSize(
@@ -246,6 +254,9 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         }
         textView.addSubview(canvas)
         textView.insertSubview(covers, aboveSubview: canvas)
+        selection.canvas = canvas
+        selectionOverlay.takesTouch = canvas.takesTouch
+        textView.insertSubview(selectionOverlay, aboveSubview: covers)
 
         pinch.addTarget(self, action: #selector(handlePinch(_:)))
         pinch.delegate = self
@@ -960,12 +971,15 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
 
         let noteHeight = pageLayout.noteHeight(pageCount: pageCount)
         canvas.noteSize = CGSize(width: pageLayout.pageSize.width, height: noteHeight)
-        canvas.cover(Self.visiblePart(
+        let visible = Self.visiblePart(
             ofNoteHeight: noteHeight,
             width: pageLayout.pageSize.width,
             scrolledTo: textView.contentOffset.y,
             viewHeight: textView.bounds.height
-        ))
+        )
+        canvas.cover(visible)
+        selectionOverlay.cover(visible)
+        selection.regions = pageLayout.inkRegions(pageCount: pageCount)
         decorations.update(layout: pageLayout, pageCount: pageCount, height: noteHeight)
         covers.update(layout: pageLayout, pageCount: pageCount, height: noteHeight)
     }
@@ -1086,6 +1100,8 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         // Ink just moved under whatever the undo stack was holding: its
         // actions restore strokes to the mode they were drawn in.
         canvas.forgetUndo()
+        // Ids and the box belong to the layout that is gone.
+        selection.clear()
 
         // The canvas holds exactly the stored elements this mode shows now,
         // pieces included, and nothing is left to undo.
@@ -1119,6 +1135,12 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// of a page's body, so it fits one page.
     var insertionMaxHeight: CGFloat {
         min(canvas.coveredPart.height, pageLayout.bodyHeight) * InkInsertion.photoWidthShare
+    }
+
+    /// Hands touches to the Select tool's overlay, or back to the canvas.
+    func setSelecting(_ selecting: Bool, allowsFingers: Bool) {
+        selectionOverlay.allowsFingers = allowsFingers
+        selectionOverlay.isActive = selecting
     }
 
     /// Takes what the reader just drew, erased or moved into the stored ink,
@@ -1391,7 +1413,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// has a touch: a second finger joins whatever gesture the first began.
     func touchWillLand(on view: UIView?) {
         guard pans.allSatisfy({ $0.numberOfTouches == 0 }) else { return }
-        let onCanvas = view?.isDescendant(of: canvas) ?? false
+        let onCanvas = (view?.isDescendant(of: canvas) ?? false) || (view?.isDescendant(of: selectionOverlay) ?? false)
         let rule = onCanvas ? scrolling : scrolling.offCanvas
         for pan in pans {
             rule.apply(to: pan)

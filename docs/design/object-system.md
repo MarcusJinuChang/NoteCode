@@ -490,6 +490,55 @@ a small edit to the step named.
 | 7 | Scale/rotate | Move, delete, duplicate, recolour and a corner-handle scale; rotation through PaperKit's "Edit" | steps 3, 6 |
 | 8 | iPad probe first | Not waited for: step 0 is built and its probe is in; the hotbar cause is the one thing that needs the log, so it is the last step and the note says what to read | step 6 |
 
+## Build state (23 Oct, usage limit reached; read this first)
+
+Branch `claude/o-object-system-design-617825`, nothing pushed.
+
+- **Step 0: done, tested** (90d4357). Probe not yet run on the iPad.
+- **Step 1: done, tested** (50921a0). `InkContainerTests` plus the scheduler,
+  codec and `ModelFreezeTests` pass (27 tests). No model change, hashes
+  untouched. Mutation check (writer always wraps → `emptyTableIsLegacy` fails)
+  **not run**.
+- **Step 2: written, last run 6 of 11 pass.** `InkObjects.swift`,
+  `InkObjectCommandTests`. The 5 failures were wrong test expectations (the
+  set orders strokes before shapes, so tests now compare against the
+  original order); fixed, **not re-run**. `ShapeMarkup` has no `elementID`
+  member; use `ElementID(shape.id)`. The 5,000-stroke `cost` test passed
+  once; mutation check (per-element `updateOrAppend`) not run.
+- **Step 3: written, never compiled together with its tests.** Files:
+  `InkSelection.swift`, `InkSelectionOverlay.swift`, `SelectionOptions.swift`;
+  edits in `PageView` (overlay slot, `setSelecting`, `selection.clear()` after
+  `forgetUndo`), `NoteEditor` (`applySelecting`, `selection`, clears on
+  leaving the lasso or ink mode), `DrawingCanvas` (`replaceMarkup`,
+  `showPreview`), `InkTool` (`SelectionKind`, `InkToolState.selectionKind`,
+  `hasOptions` now always true), `InkToolbar` (lasso row, persistence),
+  `InkCapture` (stroke `inkSignature` so a recolour is stored; hidden overflow
+  recoloured with its shown piece). `InkSelectionTests` has 12 tests incl.
+  recolour capture. Last build error was `RowGroupBackground` being private
+  (removed). Expect small compile fixes next.
+- **Next step, exactly:** run
+  `scratchpad/runtests.sh s3 InkObjectCommandTests InkSelectionTests InkToolHandoverTests NoteEditorTests`
+  (runner: builds on simulator `NC-object`, kills only its own child), fix
+  compile or test failures, then check `HotbarLayoutTests`,
+  `NarrowOptionsRowTests`, `HotbarUITests` (the lasso now has an options row,
+  which they may assume absent) and the cost tests in `PageViewTests`
+  (`InkContent.fingerprint` now hashes every stroke's colour on each capture).
+  Then mutation-check, commit step 2 and step 3 separately.
+- **Not started:** step 4 (text range selection and recolour: the probe showed
+  `replace(_:withText:)` works with `isEditable == false`), step 5 (tool-switch
+  rules done in part: selection clears on tool or mode change; the
+  `returnToPreviousTool` setting, `InkSelection.onEnded` is the hook, is not
+  built), step 6 (drop `PKLassoTool` from `pencilKitTool`, `insertIntoInk`'s
+  lasso, delegate clearing of foreign selection, "Edit" bridge) and the hotbar
+  displacement, which needs the step 0 log.
+- **Deviation from decision 4:** the first build keeps `InkCapture`'s diff of
+  the canvas as the path into storage (commands change the canvas; capture
+  stores the net change) rather than commands acting on stored ink. Undo is a
+  markup snapshot per command (`DrawingCanvas.replaceMarkup`). Scaling a stroke
+  that crosses a break moves its hidden part by translation only.
+- **Unverified on device:** everything in step 3 (touches, drag preview cost at
+  zoom, the overlay above the canvas in print layout, the Pencil).
+
 ## Questions for Marcus (with a recommendation)
 
 1. **Storage: container inside `drawingData` (A) or a new attribute (B)?**

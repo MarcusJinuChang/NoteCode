@@ -315,6 +315,28 @@ extension InkingSettings: RawRepresentable {
     }
 }
 
+/// How the reader draws the Select tool's shape.
+nonisolated enum SelectionKind: String, CaseIterable, Sendable {
+    case lasso
+    case rectangle
+
+    static let defaultsKey = "selectionKind"
+
+    var title: String {
+        switch self {
+        case .lasso:     "Lasso"
+        case .rectangle: "Rectangle"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .lasso:     "lasso"
+        case .rectangle: "rectangle.dashed"
+        }
+    }
+}
+
 // MARK: - Selection
 
 /// What the hotbar has selected in ink mode: the tool, and what each tool is
@@ -324,6 +346,8 @@ nonisolated struct InkToolState: Equatable, Sendable {
     var pen = InkingSettings.standard(for: .pen)
     var highlighter = InkingSettings.standard(for: .highlighter)
     var eraser = EraserSettings()
+    /// How the Select tool (`.lasso`) draws its shape.
+    var selectionKind = SelectionKind.lasso
 
     /// The settings of the pen or the highlighter. The eraser and lasso have
     /// none; asked, they answer with the pen's, which is what a swatch row
@@ -339,9 +363,10 @@ nonisolated struct InkToolState: Equatable, Sendable {
         }
     }
 
-    /// Whether the selected tool has anything to set. The lasso doesn't.
+    /// Whether the selected tool has anything to set. Every tool does: the
+    /// Select tool has its shape and, with a selection, its commands.
     var hasOptions: Bool {
-        kind != .lasso
+        true
     }
 
     /// Moves the selected tool one width thinner (`-1`) or thicker (`1`),

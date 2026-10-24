@@ -102,6 +102,38 @@ final class DrawingCanvas: UIView {
         return takesTouch(convert(point, to: superview))
     }
 
+    /// Puts `after` on the canvas as the reader's own change: told to the
+    /// delegate (so `InkCapture` takes it in and it is saved) and undoable as
+    /// one step.
+    ///
+    /// The Select tool's commands go through here (docs/design/object-system.md).
+    /// Assigning a markup registers no undo of its own (pages.md), so the
+    /// action restores the markup as it was, and registers its own inverse for
+    /// redo. A markup is a value, so keeping both costs a copy-on-write.
+    func replaceMarkup(with after: PaperMarkup, actionName: String) {
+        let before = markup
+        controller.markup = after
+        registerReplacement(from: before, to: after, actionName: actionName)
+    }
+
+    private func registerReplacement(from before: PaperMarkup, to after: PaperMarkup, actionName: String) {
+        inkUndoManager.registerUndo(withTarget: self) { canvas in
+            canvas.controller.markup = before
+            canvas.registerReplacement(from: after, to: before, actionName: actionName)
+        }
+        if !inkUndoManager.isUndoing && !inkUndoManager.isRedoing {
+            inkUndoManager.setActionName(actionName)
+        }
+        onUndoDidChange?()
+    }
+
+    /// Shows `preview` without telling anyone, for a drag in progress: the
+    /// stored ink and its record of what was shown stay as they were, so
+    /// the one change that follows is the net move.
+    func showPreview(_ preview: PaperMarkup) {
+        show { controller.markup = preview }
+    }
+
     /// Lets go of whatever PaperKit has selected.
     ///
     /// The selection belongs to the controller, not to the tool, so changing

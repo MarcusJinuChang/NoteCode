@@ -31,7 +31,8 @@ struct InkToolButtons: View {
 }
 
 /// What the selected tool can be set to: colours and a width for the pen and
-/// highlighter, mode and size for the eraser, nothing for the lasso.
+/// highlighter, mode and size for the eraser, and for the Select tool its shape
+/// and, with something selected, what to do to it.
 ///
 /// The content only. The hotbar floats it beside itself in a glass capsule
 /// (`Hotbar.optionsRow`), and the Pencil's palette lays it under the tools.
@@ -55,7 +56,7 @@ struct InkOptions: View {
         case .eraser:
             EraserOptions(editor: editor, isVertical: isVertical)
         case .lasso:
-            EmptyView()
+            SelectOptions(editor: editor, isVertical: isVertical)
         }
     }
 }
@@ -112,6 +113,9 @@ struct InkToolPersistence: ViewModifier {
     @AppStorage(NoteEditor.fingerDrawsKey)
     private var fingerDraws = true
 
+    @AppStorage(SelectionKind.defaultsKey)
+    private var selectionKind = SelectionKind.lasso
+
     func body(content: Content) -> some View {
         content
             .onAppear {
@@ -119,11 +123,13 @@ struct InkToolPersistence: ViewModifier {
                 editor.inkTool.highlighter = highlighter
                 editor.inkTool.eraser = eraser
                 editor.fingerDraws = fingerDraws
+                editor.inkTool.selectionKind = selectionKind
             }
             .onChange(of: editor.inkTool.pen) { _, changed in pen = changed }
             .onChange(of: editor.inkTool.highlighter) { _, changed in highlighter = changed }
             .onChange(of: editor.inkTool.eraser) { _, changed in eraser = changed }
             .onChange(of: editor.fingerDraws) { _, changed in fingerDraws = changed }
+            .onChange(of: editor.inkTool.selectionKind) { _, changed in selectionKind = changed }
             // Settings changes these from a sheet over the open note, whose
             // editor was set from them as it appeared. Guarded by equality
             // so the editor's own change, written above, isn't echoed back.

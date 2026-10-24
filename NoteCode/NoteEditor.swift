@@ -38,14 +38,26 @@ final class NoteEditor {
                 previousInkKind = oldValue.kind
             }
             canvas?.tool = inkTool.pencilKitTool
+            page?.selection.kind = inkTool.selectionKind
+            applySelecting()
             // The selection is the canvas controller's, not the tool's, so it
             // outlived the lasso (reported 21 Oct). Only *leaving* the lasso
             // clears it: `insertIntoInk` selects what it inserted and then
             // switches to the lasso, and that must keep the selection.
             if oldValue.kind == .lasso, inkTool.kind != .lasso {
                 canvas?.clearPaperKitSelection()
+                page?.selection.clear()
             }
         }
+    }
+
+    /// The Select tool's selection, once the page exists.
+    var selection: InkSelection? { page?.selection }
+
+    /// Gives touches to the Select tool's overlay while it is the tool in ink
+    /// mode, and to the canvas otherwise.
+    private func applySelecting() {
+        page?.setSelecting(mode == .ink && inkTool.kind == .lasso, allowsFingers: !isPencilOnly)
     }
 
     /// The tool in use before the current one, for the Pencil's double tap
@@ -109,6 +121,7 @@ final class NoteEditor {
         didSet {
             guard isPencilOnly != oldValue else { return }
             canvas?.allowsFingerDrawing = !isPencilOnly
+            applySelecting()
             applyScrolling()
         }
     }
@@ -286,8 +299,14 @@ final class NoteEditor {
         clearTypingStyle()
         canvas?.tool = inkTool.pencilKitTool
         canvas?.allowsFingerDrawing = !isPencilOnly
-        canvas?.onUndoDidChange = { [weak self] in self?.refreshUndoState() }
+        canvas?.onUndoDidChange = { [weak self] in
+            self?.refreshUndoState()
+            // Undo can bring back or remove what is selected.
+            self?.page?.selection.refresh()
+        }
+        page?.selection.kind = inkTool.selectionKind
         savedSession = mode.apply(to: textView, canvas: canvas, saved: nil, textLocked: isTextLocked)
+        applySelecting()
         applyScrolling()
         refreshUndoState()
     }
@@ -300,6 +319,8 @@ final class NoteEditor {
             savedSession = newMode.apply(to: textView, canvas: canvas, saved: savedSession, textLocked: isTextLocked)
         }
         applyScrolling()
+        if newMode != .ink { page?.selection.clear() }
+        applySelecting()
         refreshUndoState()
         modeDidChange?()
     }
