@@ -10,28 +10,46 @@ import SwiftData
 ///
 /// Pure, so the list's order is tested without SwiftUI.
 ///
-/// - **Pinned** comes first: pinned folders, then pinned notes from anywhere.
-///   A pinned note is listed there and not again in its folder, so no note
-///   has two rows, and a folder's count is the notes under its own row.
-/// - **Folders** are in the reader's order (`Folder.arranged`): the order they
-///   were dragged into, or, for a level nobody has arranged, name order, with
-///   numbers compared as numbers so "CS 9" comes before "CS 133". The note
-///   sort doesn't move them, so they stay where the reader left them. They
-///   nest: a folder's `children` are the folders in it, and a pinned folder is
-///   listed in Pinned and not again in its parent.
-/// - **Notes** in no folder come last.
+/// One list, not two: at every level a folder is a row among the notes, and
+/// the reader's `NoteSort` orders them together (`items`). Nothing puts
+/// folders first, so by date a folder sits where its newest note puts it.
 ///
-/// Notes are in the reader's `NoteSort` order everywhere.
+/// - **Pinned** comes first: pinned folders and pinned notes from anywhere,
+///   sorted together (`pinnedItems`). A pinned note is listed there and not
+///   again in its folder, so no note has two rows, and a folder's count is the
+///   notes under its own row.
+/// - **The rest** (`items`) are the folders at the top and the notes in no
+///   folder, sorted together. A folder's own `items` are the folders and notes
+///   in it, sorted together, and a pinned folder is listed in Pinned and not
+///   again in its parent.
+///
+/// `folders`, `unfiled`, and a section's `notes` and `children` are the same
+/// rows grouped by kind, each in sort order.
 ///
 /// Notes in Recently Deleted are left out of all of it (`Page.isLive`), so the
 /// list can be handed every note and show only the ones the reader has.
 struct NoteListSections {
+    /// A row of the list at one level: a folder or a note.
+    enum Item: Identifiable {
+        case folder(FolderSection)
+        case note(Page)
+
+        var id: NoteListRow.ID {
+            switch self {
+            case .folder(let section): .folder(section.id)
+            case .note(let page):      .note(page.persistentModelID)
+            }
+        }
+    }
+
     struct FolderSection: Identifiable {
         let folder: Folder
         /// The folder's own notes, less any that are pinned.
         let notes: [Page]
-        /// The folders in it, arranged, less any that are pinned.
+        /// The folders in it, less any that are pinned.
         let children: [FolderSection]
+        /// Both, sorted together: what the folder shows when it is open.
+        let items: [Item]
         var id: PersistentIdentifier { folder.persistentModelID }
 
         /// The notes under this row and the rows below it, which is what a
@@ -42,11 +60,17 @@ struct NoteListSections {
     let pinnedFolders: [FolderSection]
     let pinnedNotes: [Page]
 
+    /// The Pinned section's rows: pinned folders and notes, sorted together.
+    let pinnedItems: [Item]
+
     /// Folders that aren't pinned.
     let folders: [FolderSection]
 
     /// Notes in no folder and not pinned.
     let unfiled: [Page]
+
+    /// The list's top level: `folders` and `unfiled`, sorted together.
+    let items: [Item]
 
     /// Whether anything is pinned, which is when the Pinned section shows.
     var hasPinned: Bool { !pinnedFolders.isEmpty || !pinnedNotes.isEmpty }
@@ -73,11 +97,43 @@ struct NoteListSections {
         }
 
         let live = folders.live
+
+        // A folder's date is its newest note's, anywhere under it, or its own
+        // creation when it holds none, so sorting by date moves a folder when
+        // a note in it is edited.
+        var newest: [PersistentIdentifier: Date] = [:]
+        func lastModified(_ folder: Folder) -> Date {
+            if let known = newest[folder.persistentModelID] { return known }
+            var latest = folder.livePages.map(\.modifiedAt).max() ?? folder.createdAt
+            for child in (folder.subfolders ?? []).live {
+                latest = max(latest, lastModified(child))
+            }
+            newest[folder.persistentModelID] = latest
+            return latest
+        }
+        func areInOrder(_ a: Item, _ b: Item) -> Bool {
+            func keys(_ item: Item) -> (title: String, modified: Date, created: Date) {
+                switch item {
+                case .folder(let section):
+                    (section.folder.name, lastModified(section.folder), section.folder.createdAt)
+                case .note(let page):
+                    (page.title, page.modifiedAt, page.createdAt)
+                }
+            }
+            return sort.areInIncreasingOrder(keys(a), keys(b))
+        }
+        func ordered(_ sections: [FolderSection], _ notes: [Page]) -> [Item] {
+            (sections.map(Item.folder) + notes.map(Item.note)).sorted(by: areInOrder)
+        }
+
         func section(_ folder: Folder) -> FolderSection {
-            FolderSection(
+            let notes = notesByFolder[folder.persistentModelID] ?? []
+            let children = Folder.arranged((folder.subfolders ?? []).live.filter { !$0.isPinned }).map(section)
+            return FolderSection(
                 folder: folder,
-                notes: notesByFolder[folder.persistentModelID] ?? [],
-                children: Folder.arranged((folder.subfolders ?? []).live.filter { !$0.isPinned }).map(section)
+                notes: notes,
+                children: children.sorted { areInOrder(.folder($0), .folder($1)) },
+                items: ordered(children, notes)
             )
         }
 
@@ -85,10 +141,14 @@ struct NoteListSections {
         // can see (a parent only leaves while its folders go with it, but a
         // store written some other way shouldn't lose one).
         let isRoot = { (folder: Folder) in folder.parent.map { !$0.isLive } ?? true }
-        self.pinnedFolders = Folder.arranged(live.filter(\.isPinned)).map(section)
+        let pinnedSections = Folder.arranged(live.filter(\.isPinned)).map(section)
+        let rootSections = Folder.arranged(live.filter { isRoot($0) && !$0.isPinned }).map(section)
+        self.pinnedFolders = pinnedSections.sorted { areInOrder(.folder($0), .folder($1)) }
         self.pinnedNotes = pinnedNotes
-        self.folders = Folder.arranged(live.filter { isRoot($0) && !$0.isPinned }).map(section)
+        self.pinnedItems = ordered(pinnedSections, pinnedNotes)
+        self.folders = rootSections.sorted { areInOrder(.folder($0), .folder($1)) }
         self.unfiled = unfiled
+        self.items = ordered(rootSections, unfiled)
         self.allFolders = live.sorted {
             $0.path.localizedStandardCompare($1.path) == .orderedAscending
         }
@@ -130,23 +190,32 @@ enum NoteListRow: Identifiable {
         }
     }
 
-    /// The rows for `sections` starting at `depth`: each folder, then if it is
-    /// open the folders in it, then its notes (or "No Notes").
+    /// The rows for `items` starting at `depth`: each folder, then if it is
+    /// open what is in it (its own `items`, or "No Notes"), one level down.
+    ///
+    /// - Parameter showsFolder: whether the notes at this level name their
+    ///   folder, for the Pinned section, where notes from every folder sit
+    ///   together. Notes inside an open folder never do.
     static func rows(
-        for sections: [NoteListSections.FolderSection],
+        for items: [NoteListSections.Item],
         closed: Set<PersistentIdentifier>,
-        depth: Int = 0
+        depth: Int = 0,
+        showsFolder: Bool = false
     ) -> [NoteListRow] {
-        sections.flatMap { section -> [NoteListRow] in
-            let isOpen = !closed.contains(section.id)
-            var rows: [NoteListRow] = [.folder(section, depth: depth, isOpen: isOpen)]
-            guard isOpen else { return rows }
-            rows += Self.rows(for: section.children, closed: closed, depth: depth + 1)
-            rows += section.notes.map { .note($0, depth: depth + 1, showsFolder: false) }
-            if section.children.isEmpty && section.notes.isEmpty {
-                rows.append(.empty(section.folder, depth: depth + 1))
+        items.flatMap { item -> [NoteListRow] in
+            switch item {
+            case .note(let page):
+                return [.note(page, depth: depth, showsFolder: showsFolder)]
+            case .folder(let section):
+                let isOpen = !closed.contains(section.id)
+                var rows: [NoteListRow] = [.folder(section, depth: depth, isOpen: isOpen)]
+                guard isOpen else { return rows }
+                rows += Self.rows(for: section.items, closed: closed, depth: depth + 1)
+                if section.items.isEmpty {
+                    rows.append(.empty(section.folder, depth: depth + 1))
+                }
+                return rows
             }
-            return rows
         }
     }
 }

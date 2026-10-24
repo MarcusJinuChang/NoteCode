@@ -130,6 +130,109 @@ struct NoteListTests {
         let byModified = NoteListSections(pages: [b, a], folders: [cs133], sort: .default)
         #expect(byModified.folders[0].notes.map(\.title) == ["B", "A"])
     }
+
+    // MARK: One list
+
+    private func shape(_ items: [NoteListSections.Item]) -> [String] {
+        items.map {
+            switch $0 {
+            case .folder(let section): "folder \(section.folder.name)"
+            case .note(let page):      "note \(page.title)"
+            }
+        }
+    }
+
+    @Test("Folders are rows among the notes, sorted together by the chosen key")
+    func foldersAndNotesSortTogether() {
+        let beta = folder("Beta")
+        let alpha = note("Alpha")
+        let gamma = note("Gamma")
+        let sections = NoteListSections(
+            pages: [gamma, alpha], folders: [beta],
+            sort: NoteSort(key: .title, ascending: true)
+        )
+        #expect(shape(sections.items) == ["note Alpha", "folder Beta", "note Gamma"])
+
+        let reversed = NoteListSections(
+            pages: [gamma, alpha], folders: [beta],
+            sort: NoteSort(key: .title, ascending: false)
+        )
+        #expect(shape(reversed.items) == ["note Gamma", "folder Beta", "note Alpha"])
+    }
+
+    @Test("By date modified a folder is as new as the newest note under it, nested ones too")
+    func folderTakesItsNewestNotesDate() {
+        let cs = folder("CS133")
+        let labs = folder("Labs")
+        labs.parent = cs
+        let old = note("Old", created: 1, modified: 2, in: cs)
+        let deep = note("Deep", created: 1, modified: 9, in: labs)
+        let middle = note("Middle", created: 1, modified: 5)
+        let sections = NoteListSections(pages: [old, deep, middle], folders: [cs, labs], sort: .default)
+
+        // CS133's newest note is day 9, in Labs, so it is above Middle (day 5).
+        #expect(shape(sections.items) == ["folder CS133", "note Middle"])
+        // Inside it, Labs (day 9) is above Old (day 2).
+        guard case .folder(let top) = sections.items[0] else { return Issue.record("expected a folder") }
+        #expect(shape(top.items) == ["folder Labs", "note Old"])
+
+        // A later edit to Middle moves it above the folder.
+        middle.modifiedAt = Self.day(20)
+        let edited = NoteListSections(pages: [old, deep, middle], folders: [cs, labs], sort: .default)
+        #expect(shape(edited.items) == ["note Middle", "folder CS133"])
+    }
+
+    @Test("A folder with no notes is dated by when it was made")
+    func emptyFolderUsesItsCreation() {
+        let empty = folder("Empty")
+        empty.createdAt = Self.day(7)
+        let early = note("Early", created: 1)
+        let late = note("Late", created: 8)
+        let sections = NoteListSections(pages: [early, late], folders: [empty], sort: .default)
+        #expect(shape(sections.items) == ["note Late", "folder Empty", "note Early"])
+    }
+
+    @Test("By date created a folder is dated by its own creation, not its notes'")
+    func createdSortUsesFolderCreation() {
+        let cs = folder("CS133")
+        cs.createdAt = Self.day(3)
+        let inside = note("Inside", created: 10, in: cs)
+        let outside = note("Outside", created: 5)
+        let sections = NoteListSections(
+            pages: [inside, outside], folders: [cs],
+            sort: NoteSort(key: .created, ascending: false)
+        )
+        #expect(shape(sections.items) == ["note Outside", "folder CS133"])
+    }
+
+    @Test("Pinned folders and notes are one sorted list, and nothing in it is listed twice")
+    func pinnedItemsAreMixed() {
+        let cs = folder("CS133")
+        let zed = folder("Zed", pinned: true)
+        let pinnedNote = note("Mid", in: cs, pinned: true)
+        let plain = note("Lecture", in: cs)
+        let sections = NoteListSections(
+            pages: [pinnedNote, plain], folders: [cs, zed],
+            sort: NoteSort(key: .title, ascending: true)
+        )
+        #expect(shape(sections.pinnedItems) == ["note Mid", "folder Zed"])
+        #expect(shape(sections.items) == ["folder CS133"])
+        guard case .folder(let top) = sections.items[0] else { return Issue.record("expected a folder") }
+        #expect(shape(top.items) == ["note Lecture"], "the pinned note isn't repeated in its folder")
+    }
+
+    @Test("Rows name the folder only for notes at the level asked, never inside an open folder")
+    func rowsNameFolderAtTopOnly() {
+        let cs = folder("CS133", pinned: true)
+        let pinnedNote = note("Pinned", created: 1, in: cs, pinned: true)
+        let inside = note("Inside", created: 2, in: cs)
+        let sections = NoteListSections(pages: [pinnedNote, inside], folders: [cs], sort: .default)
+        let rows = NoteListRow.rows(for: sections.pinnedItems, closed: [], showsFolder: true)
+        let named = rows.compactMap { row -> String? in
+            if case .note(let page, _, let shows) = row { "\(page.title):\(shows)" } else { nil }
+        }
+        #expect(named == ["Inside:false", "Pinned:true"])
+    }
 }
 
 @Suite("Sorting notes")
