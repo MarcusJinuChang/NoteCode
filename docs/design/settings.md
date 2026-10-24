@@ -114,3 +114,47 @@ the version string, the licence text, the palette reset) are `AppSettings.swift`
   dark, in the simulator), the Mac's sheet and ⌘, (the Mac builds; it was not
   run), the haptic, Add Colour from a sheet, Reset Colours, and Appearance
   with a note open.
+
+- **Markers: off, dim or full** (23 Oct, feedback item 9; `MarkerDimming`,
+  `MarkerDimmingTests`). Settings › Writing › Markers has four rows, Heading
+  Marks, List Bullets, Checkboxes and Code Fences, each Off, Dim or Full, per
+  device (`markerDimming.headings`, `.bullets`, `.checkboxes`, `.fences`, pinned
+  in `SettingsTests.keysAreStable`). **Dim is today's look and the default.**
+  - **Dim** is the marker's grey (heading hashes in the margin
+    `secondaryLabel`, the rest `tertiaryLabel`, an output block's fences its
+    panel's label colour); **Full** is the text's own colour (`label`, the
+    panel's text colour on an output block); **Off** hides it **without
+    touching layout**, as Show Markdown's hiding does: a clear colour, or not
+    drawn. A setting is paint, so no word moves from under its ink
+    (`changeRestylesAndMovesNothing`).
+  - **What each covers.** Heading marks: the hashes drawn in the margin
+    (`HeadingLayoutFragment.markerColour`, asked at draw time) and the marker
+    characters in the text, which a rendered note collapses anyway. List
+    bullets: bullets and numbers (`DocumentStyler`, list markers). Checkboxes:
+    an unchecked box's outline (`ChecklistLayoutFragment.outlineColour`); a
+    ticked box is the item's state and always shows, and the PDF draws its own
+    boxes (the paper's `drawBox` default). Code fences: the backticks and tag
+    while they show (editing, or Always).
+  - **One type, one `apply(to:in:)`** (the Conventions rule, as
+    `CodeEditorSettings`): `PageDetailView` reads the four `@AppStorage`s into
+    a `MarkerDimming`, `DocumentTextView.updateUIView` hands it to the
+    coordinator once, and a change restyles the note (`invalidateStyling`, so
+    every block takes it) and redraws the fragments that draw a marker
+    themselves. The coordinator holds the value, so a PDF or thumbnail made
+    by another coordinator uses `.standard`: paper doesn't follow the device's
+    taste.
+  - **Typing after a hidden fence line** doesn't pick up its clear colour
+    (`inheritedCodeColor` skips it as it skips the grey), or text typed after
+    the tag would be invisible (`typingDoesNotInheritAHiddenFence`).
+  - **Tested:** the keys and default colours, each setting reaching only its
+    own marker (table over all levels), a change restyling with no line
+    moved, and pixels: hashes in the margin (none when off, darker when full)
+    and a box's outline (none when off, a ticked one stays). Fails with the
+    styler, the heading fragment or the box ignoring the setting (all three
+    removed in turn, 23 Oct).
+  - **Checked in the simulator** (launch arguments `-markerDimming.fences full
+    -markerDimming.headings full -showMarkdown always`): the hash and every
+    fence line in the text colour. **Not checked:** the Settings rows
+    themselves, Off on screen, dark mode, a change made with a note open, the
+    Pencil, the macOS build. "Off" for a checkbox leaves a ticked box visible
+    on purpose; if Marcus wants it gone too, `drawBox` is the place.

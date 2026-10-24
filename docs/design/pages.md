@@ -121,6 +121,18 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
       shown, so undoing the erase brings it back. **Moved by the lasso:**
       the hidden overflow is moved by the same amount, as a translation;
       a lasso's resize or rotation isn't carried exactly.
+- **Ink over a code panel shows a colour step at its edge** (21 Oct, a report
+  from 1.0). The cause is the highlighter, not a view: PencilKit's marker
+  blends with whatever is under it, so its colour changes where the page
+  (white / black) becomes the panel (#F2F2F7 / #1C1C1E). Seen in the
+  simulator with a stroke across a panel's left edge, cropped 4x: the pen
+  (normal blend) shows no step in light; the yellow highlighter is bright on
+  the page and duller on the panel, in light, and in dark an olive that
+  hides the code beneath it. The canvas is transparent and no cover or mask
+  draws there. Not fixed; options, none small: bring the panel's colour
+  closer to the page's, give the highlighter a normal blend if PaperKit
+  allows it, or draw it under the code text. Not checked: the Pencil, other
+  palette colours, the Output panel, print layout.
 - **Add Page, and seamless's buffer** (15 Oct, roadmap step 6).
   `Page.minimumPageCount` is the one stored page count: a note has the more of
   it and the pages its text and ink need (`PageLayout.pageCount(…, minimum:)`),
@@ -281,6 +293,21 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   alternative is pushing paragraphs with paragraph spacing, computed lazily
   — whole paragraphs rather than lines, and it has to coexist with the
   styler's own paragraph styles.
+  - **Held Return and Backspace needing two presses** (21 Oct, a report from
+    1.0). Not reproducible through code: twelve contexts (prose, heading,
+    after bold, code, after a brace, unclosed code, blank-line runs, and
+    Backspace in prose, blank runs, code, bold and a heading), three pacings,
+    ten presses each with nothing laid out between: every press changed the
+    text and moved the caret (`ReturnAndBackspaceTests.everyPressRegisters`;
+    the legitimate no-ops are Return on an empty list item and Backspace at
+    the note's start). A burst of 11 real Returns in the simulator all
+    registered. The likely cause is this cost against the key repeat, not
+    proven: Return near the top of a rendered note takes 14.5ms at 100 lines,
+    67ms at 500 (the press itself 39-41ms: edit, restyle, selection
+    handlers) and 205ms at 1,500; Backspace 9, 39 and 126ms. A hardware
+    repeat is about 30-80ms, so a 500-line note is slower than the repeat.
+    Check on the iPad: hold either key in a 5-line note and in a 500-line
+    one; if only the long one drops presses, it is cost.
 - **Printing goes through a PDF** (4 Oct). The share button in the note's
   header makes one and opens the share sheet, where Print, Save to Files
   and the rest are; there's no print button of its own. A PDF page is a

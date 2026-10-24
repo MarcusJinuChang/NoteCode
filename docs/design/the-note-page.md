@@ -206,3 +206,43 @@ Laid out from the 12 September mockup.
   - Unlocking doesn't raise the keyboard: the reader was reading.
   - The title is shown as plain text while locked, not a disabled field,
     which would grey it. The Mac's stand-in editor is simply disabled.
+
+- **Caret anywhere** (23 Oct, feedback item 7; `CaretAnywhere.swift`). A tap in
+  the empty space below the note's last line adds the blank lines it takes to
+  reach that line and puts the caret on it, so a note can be continued from
+  anywhere on its last page, as on paper. The lines are the note's own
+  newlines, one undo step (`Coordinator.apply`), added at the end; nothing above
+  moves, so ink isn't touched.
+  - **Its own recogniser** (`MarkerGestures.emptySpaceTap`), beside the link
+    and box taps, `cancelsTouchesInView` off and recognising with the caret's
+    tap, which puts the caret at the end anyway. It begins only where
+    `Coordinator.isEmptySpace(at:)` says: text mode, an editable note (not
+    locked, not in ink mode, no composition), not on a code block's buttons
+    (`containsInteractiveElement`), and below the last line. A tap on or
+    beside the text is the text view's own.
+  - **The count** is `CaretAnywhere.newlines`: `ceil((tapY - lineBottom) /
+    lineHeight)`, at most 200. `lineBottom` is the end of the note's caret line
+    (`DocumentUITextView.lastLineBottom`). A note ending in a newline has an
+    empty last line that TextKit sets at 22pt with the caret at the end and
+    about 14pt without it (its extra line fragment takes the typing attributes
+    only then), so that line is a blank line's height (`typography.codeLineHeight`),
+    never measured. A page break can outrun the count (a line that would cross
+    one is pushed to the next page), so the edit loops up to four times, looking
+    at the caret's line after each.
+  - **Asked cheaply.** The end of the note is only measured when the viewport
+    reaches it (`viewportReachesEnd`): a tap in the text of a long note never
+    lays the rest out.
+  - **Tested** (`CaretAnywhereTests`): the caret's line contains the tap for
+    seven endings (prose with and without a newline, blank lines, a heading, a
+    closed block, with and without a newline after it, an unclosed block) at 1,
+    2.5 and 6 lines below; taps on the text and beside it add nothing; ink mode
+    and a locked note add nothing; one undo. Fails with the count rounded down or
+    the mode and lock checks removed (both checked).
+  - **Not covered by a unit test:** the overlay guard is defensive. A code
+    block's buttons are always above the note's last line, so no point can be both
+    on a bar and below the text; the real tap was checked in the simulator
+    (a tap on the last block's Copy button reached it and added nothing; a tap
+    below the block added lines and raised the keyboard with the caret on a body
+    line). Not checked: the Pencil, print and compressed layout (taps in the
+    gap between sheets), a note on an iPhone, taps below an unclosed block with
+    the keyboard up.

@@ -99,6 +99,12 @@ struct PageDetailView: View {
     @AppStorage(ShowMarkdown.defaultsKey)
     private var showMarkdown: ShowMarkdown = .whileEditing
 
+    /// Settings › Writing › Markers: how dim each kind of visible marker is.
+    @AppStorage(MarkerDimming.headingsKey) private var headingMarkers = MarkerLevel.dim
+    @AppStorage(MarkerDimming.bulletsKey) private var bulletMarkers = MarkerLevel.dim
+    @AppStorage(MarkerDimming.checkboxesKey) private var checkboxMarkers = MarkerLevel.dim
+    @AppStorage(MarkerDimming.fencesKey) private var fenceMarkers = MarkerLevel.dim
+
     /// Settings › Code: the indent width, the row of code keys, line numbers.
     @AppStorage(CodeIndent.widthKey)
     private var indentWidth = CodeIndent.defaultWidth
@@ -226,8 +232,12 @@ struct PageDetailView: View {
         .onChange(of: page.textSize, initial: true) { _, size in
             editor.syncTextSize(to: size)
         }
+        .onChange(of: page.lineSpacing, initial: true) { _, spacing in
+            editor.syncLineSpacing(to: spacing)
+        }
         .onAppear {
             editor.commitTextSize = { [weak page] size in page?.textSize = size }
+            editor.commitLineSpacing = { [weak page] spacing in page?.lineSpacing = spacing }
             editor.onBlockCopied = { [toasts] in toasts?.show("Copied") }
         }
         .alert("Change Text Size?", isPresented: Binding(
@@ -238,6 +248,15 @@ struct PageDetailView: View {
             Button("Change") { editor.confirmTextSize() }
         } message: {
             Text("The text re-flows to the new size. Ink stays where it was drawn, so it may no longer sit on its words.")
+        }
+        .alert("Change Line Spacing?", isPresented: Binding(
+            get: { editor.spacingAwaitingConfirmation != nil },
+            set: { _ in }
+        )) {
+            Button("Cancel", role: .cancel) { editor.cancelLineSpacing() }
+            Button("Change") { editor.confirmLineSpacing() }
+        } message: {
+            Text("The lines move to the new spacing. Ink stays where it was drawn, so it may no longer sit on its words.")
         }
         .alert("Change Text Size?", isPresented: Binding(
             get: { editor.selectionSizeAwaitingConfirmation != nil },
@@ -488,10 +507,13 @@ struct PageDetailView: View {
                     }
                 },
                 showMarkdown: showMarkdown,
+                markerDimming: MarkerDimming(
+                    headings: headingMarkers, bullets: bulletMarkers, checkboxes: checkboxMarkers, fences: fenceMarkers
+                ),
                 rendersMarkdown: true,
                 codeSettings: CodeEditorSettings(indentWidth: indentWidth, codeKeys: codeKeys, lineNumbers: lineNumbers),
                 rewritesProse: rewritesProse,
-                typography: NoteTypography(bodySize: page.textSize),
+                typography: NoteTypography(bodySize: page.textSize, lineSpacing: page.lineSpacing),
                 minimumPageCount: page.minimumPageCount,
                 onMinimumPageCountChanged: { [weak page] count in
                     if let page, count > page.minimumPageCount { page.minimumPageCount = count }

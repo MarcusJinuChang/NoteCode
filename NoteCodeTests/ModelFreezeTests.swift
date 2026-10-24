@@ -25,7 +25,7 @@ struct ModelFreezeTests {
     /// after it, a mismatch means a new version (NoteSchema.swift).
     static let versionOneHashes: [String: String] = [
         "Folder": "LHK0l8jTaJCqqayMNtUNEU0jBeLaqXq1jGVdCOzU45Q=",
-        "Page": "R0HJP7kdo9Hom5Ez0UGxwr9gHBUlOw3aDK23r5faCWU=",
+        "Page": "0Pcr2hCwvm4jqE5XvQ1i6+kVMHYnF4bTFSKY3A27gyU=",
     ]
 
     private static func hashes(of schema: Schema) throws -> [String: String] {

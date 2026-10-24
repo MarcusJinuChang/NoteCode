@@ -27,10 +27,15 @@ enum DocumentStyler {
     }
 
     static func proseAttributes(_ typography: NoteTypography = .standard) -> [NSAttributedString.Key: Any] {
-        [
+        var attributes: [NSAttributedString.Key: Any] = [
             .font: typography.prose,
             .foregroundColor: UIColor.label,
         ]
+        // Only with spacing, so a note with none is styled as it always was.
+        if typography.lineSpacing > 0 {
+            attributes[.paragraphStyle] = typography.lineStyle(for: typography.prose)
+        }
+        return attributes
     }
 
     /// No `.backgroundColor` here on purpose. That attribute paints per glyph,
@@ -67,10 +72,15 @@ enum DocumentStyler {
     }
 
     static func headingAttributes(level: Int, typography: NoteTypography = .standard) -> [NSAttributedString.Key: Any] {
-        [
-            .font: typography.heading(level: level),
+        let font = typography.heading(level: level)
+        var attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
             .foregroundColor: UIColor.label,
         ]
+        if typography.lineSpacing > 0 {
+            attributes[.paragraphStyle] = typography.lineStyle(for: font)
+        }
+        return attributes
     }
 
     /// Markdown markers stay visible but recede, so the text reads as formatted
@@ -106,7 +116,7 @@ enum DocumentStyler {
         rendered: Bool = false,
         typography: NoteTypography = .standard
     ) -> NSParagraphStyle {
-        let style = NSMutableParagraphStyle()
+        let style = typography.lineStyle(for: typography.prose)
         let depth = block.listDepth ?? 0
         let levelIndent = CGFloat(depth) * listIndentPerLevel
 
@@ -157,10 +167,18 @@ enum DocumentStyler {
     /// Convenience for callers without a cache of their own (tests, previews).
     /// The editor goes through the `regions:` variant so it parses once per edit.
     @discardableResult
-    static func applyStyling(to textView: UITextView, rendered: Bool = false, typography: NoteTypography = .standard) -> [BlockNode] {
+    static func applyStyling(
+        to textView: UITextView,
+        rendered: Bool = false,
+        typography: NoteTypography = .standard,
+        markers: MarkerDimming = .standard
+    ) -> [BlockNode] {
         let source = (textView.text ?? "").nativeUTF8
         let blocks = DocumentParser.parse(source)
-        applyStyling(to: textView, source: source, blocks: blocks, previousSignatures: [], rendered: rendered, typography: typography)
+        applyStyling(
+            to: textView, source: source, blocks: blocks, previousSignatures: [], rendered: rendered,
+            typography: typography, markers: markers
+        )
         return blocks
     }
 
@@ -182,7 +200,8 @@ enum DocumentStyler {
         blocks: [BlockNode],
         previousSignatures: [BlockSignature] = [],
         rendered: Bool = false,
-        typography: NoteTypography = .standard
+        typography: NoteTypography = .standard,
+        markers: MarkerDimming = .standard
     ) -> [BlockSignature] {
         // Rewriting attributes mid-composition destroys the marked-text
         // underline and can drop the in-progress character entirely, which
@@ -236,7 +255,7 @@ enum DocumentStyler {
                 // output block's dark panel the usual marker grey would sink
                 // into it, so they take the panel's own label colour.
                 for marker in layout.blockMarkers {
-                    styled.addAttribute(.foregroundColor, value: output ? CodeOutputPanel.labelColor : markerColor, range: marker)
+                    styled.addAttribute(.foregroundColor, value: markers.fenceColour(isOutput: output), range: marker)
                 }
                 // The fences last, so nothing else's style can land on them.
                 applyCodeLineIndents(to: styled, code: layout.contentRange, typography: typography)
@@ -253,7 +272,7 @@ enum DocumentStyler {
                 )
                 apply(layout.inlines, over: typography.prose, to: styled)
                 for range in layout.blockMarkers {
-                    styled.addAttribute(.foregroundColor, value: markerColor, range: range)
+                    styled.addAttribute(.foregroundColor, value: markers.bulletColour, range: range)
                 }
                 // A ticked item is done: struck through, and quieter.
                 if marker == .checkbox(checked: true), layout.contentRange.length > 0 {
@@ -266,14 +285,14 @@ enum DocumentStyler {
                 styled.setAttributes(headingAttributes(level: level, typography: typography), range: layout.range)
                 apply(layout.inlines, over: typography.heading(level: level), to: styled)
                 for marker in layout.blockMarkers {
-                    styled.addAttribute(.foregroundColor, value: markerColor, range: marker)
+                    styled.addAttribute(.foregroundColor, value: markers.headingTextColour, range: marker)
                 }
 
             case .blockQuote(let depth, _):
                 // Indented past its bar, which its fragment draws. Whole
                 // paragraphs, as a list item's style is: the storage makes a
                 // paragraph's characters share its first one's.
-                styled.addAttribute(.paragraphStyle, value: ProseBlockMetrics.quoteParagraphStyle(depth: depth), range: layout.range)
+                styled.addAttribute(.paragraphStyle, value: ProseBlockMetrics.quoteParagraphStyle(depth: depth, typography: typography), range: layout.range)
                 apply(layout.inlines, over: typography.prose, to: styled)
                 for marker in layout.blockMarkers {
                     styled.addAttribute(.foregroundColor, value: markerColor, range: marker)
@@ -737,7 +756,7 @@ enum DocumentStyler {
         case .blockQuote(let depth, _):
             // The indent carries, or a quote's new line starts at the margin.
             var attributes = proseAttributes(typography)
-            attributes[.paragraphStyle] = ProseBlockMetrics.quoteParagraphStyle(depth: depth)
+            attributes[.paragraphStyle] = ProseBlockMetrics.quoteParagraphStyle(depth: depth, typography: typography)
             textView.typingAttributes = attributes
         case .listItem:
             // Carry the indent, or text typed into a wrapped list line jumps
@@ -762,7 +781,7 @@ enum DocumentStyler {
         guard storage.mutableString.character(at: caret - 1) != 0x0A else { return nil }
 
         guard let color = storage.attribute(.foregroundColor, at: caret - 1, effectiveRange: nil) as? UIColor,
-              color != markerColor   // don't pick up a dimmed fence line
+              color != markerColor, color != .clear   // don't pick up a dimmed or hidden fence line
         else { return nil }
 
         return color
