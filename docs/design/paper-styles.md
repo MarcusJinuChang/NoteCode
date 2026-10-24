@@ -154,4 +154,45 @@ is no ink question.
 
 ## Measured
 
-(filled in with the tests)
+Simulator (iPad Pro 13-inch, 24 Oct), `PaperLayerTests.cost`, a 300-page note:
+setting any style up takes 0.6ms (one frame and the shared path per layer);
+drawing one page's layer in full in software, an upper bound on the render
+server's work for a page on screen, takes 1.2ms for lined, 2.0ms for grid and
+6.9ms for dots (Fine spacing, the densest: about 2,950 dots a page; Standard has 1,287).
+Layout is untouched: `laysNothingOut` compares every text fragment's frame
+and the content height with and without paper (grid and dots, all modes and
+both orientations) and they are equal.
+
+**Pixel checks** read the rendered page at a rule, between rules, at a dot and
+between dots, in seamless, compressed and print layout, light and dark, at
+zoom 1, 1.37, 1.7 and 2.2: the rule is on its note point and the rest is the
+page colour. A control with no paper is read at the same points first.
+**The snapshot goes black at zoom 3 in a unit test** (`drawHierarchy` on a
+page scaled that far, with or without paper), so zoom 3 and 4 are not
+covered by a test; they are on the on-iPad checklist.
+
+Mutation-checked (24 Oct): the layers moved 5pt (`layersFollowBodies`,
+`rulesSitOnTheirPoints`, `dotsSitOnTheirPoints`); the host not kept above the
+sheets (`aboveSheets`); the PDF's paper call removed (`printedGrid`,
+`printedDotsAndLines`, the thumbnail test).
+
+## Looked at in the simulator
+
+Grid in seamless (light), dots at Fine and Strong in print layout (light), lined in
+compressed (dark), each behind the text and the code panel, margins plain. Not
+looked at: ••• › Paper and Settings › Notes › Paper (built, compiled, their
+binding logic tested), landscape, the Pencil, a real iPad.
+
+## On-iPad checklist
+
+1. ••• › Paper: pick each style, spacing and strength; the tick follows; Blank
+   hides Spacing and Strength. The note's date and the list order don't change.
+2. Settings › Notes › Paper, then a new note from "+": it has that paper, an old
+   note doesn't change.
+3. Pinch-zoom to 4x on grid and dots; draw a line along a rule with the Pencil.
+   The paper stays on the same words and ink as you zoom, and is sharp.
+4. Switch seamless / compressed / print layout and rotate the iPad: the paper
+   stays with its page body.
+5. Scroll a 20-page note with dots at speed: no hitching.
+6. Share ▸ PDF, open it in Files: paper is faint, vector (zoom in), margins plain.
+7. Duplicate a ruled note; Export All with a ruled note that has ink.

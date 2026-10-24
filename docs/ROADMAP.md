@@ -70,6 +70,11 @@ the simulator or a unit test. Do these on the iPad before submitting:
 - **Text overhaul "done means" list** (archive/text-system-overhaul.md): the
   six on-screen checks, including `.md` opening in Obsidian and a mixed-size
   note's PDF.
+- **Paper styles** (`design/paper-styles.md`): ••• › Paper and Settings › Notes
+  › Paper by a tap; pinch to 4x on grid and dots with ink drawn along a rule
+  (does it stay on its points, is the stroke crisp, any shimmer); print layout
+  and compressed; a long note scrolling smoothly with dots; the PDF in the
+  share sheet and in Files.
 - **Page-fills-window chrome:** header, floating bottom bar, side-bar strip,
   Reduce Motion.
 - **Pencil:** latency, palm rejection, squeeze/double-tap, the lasso on cut
@@ -105,7 +110,7 @@ In this order (see AGENTS.md › Open questions for the unscheduled ones):
 
 1. **iCloud sync.** Needs Signing & Capabilities; the model is already
    shaped for CloudKit. Important once the iPhone app exists.
-2. **Paper styles** (dots, grid), postponed after breaking on page geometry.
+2. **Paper styles** (blank, dots, grid, lined): built 24 Oct, see `docs/design/paper-styles.md`. Was postponed after breaking on page geometry.
 3. **LaTeX** (SwiftMath, always rendered, never caret-dependent).
 4. **Text-anchored ink**, before our own object system.
 5. **AI for March:** one or two features (explain this code block, summarise

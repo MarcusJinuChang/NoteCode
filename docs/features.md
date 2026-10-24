@@ -116,7 +116,7 @@ reading code, and to find the design note that has the detail.
 | The page fills the window | The hotbar floats over the page or takes a strip at a side | built, with a 10pt edge buffer (feedback #1) | `the-page-fills-the-window.md` |
 | Scrolling | The text view scrolls; the page handles zoom and pan | built | `who-owns-scrolling.md` |
 | A4, side-by-side pages, infinite canvas | | idea | ROADMAP |
-| Paper styles (dots, grid) | Postponed after breaking page geometry | planned (stream L) | `insert-and-templates.md` |
+| Paper styles | Blank, dots, grid, lined per note; spacing (Fine, Standard, Wide) and strength (Light, Standard, Strong) too; vector shape layers behind text and ink in each page body, so nothing is laid out and it stays on its points at every zoom and mode; printed and in thumbnails (0.75 alpha); ••• › Paper per note, Settings › Notes › Paper for new notes (default blank); Duplicate copies it, templates and Import take the default | built; not seen on a real iPad, the menu and the Settings rows not looked at | `paper-styles.md` |
 | Blank pages after moving between pages | Ink is absent about 130 to 200ms after a jump with 3,000 strokes while PaperKit draws the new region; not reproduced at "a few seconds" | measured, options in `pages.md` (feedback #27) | |
 
 ## 6. Interface

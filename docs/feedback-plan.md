@@ -247,8 +247,7 @@ The rest of `docs/ROADMAP.md`, placed in the same structure.
    CloudKit. Matters most once the iPhone app exists. It is also the first
    half of "type on the Mac, draw on the iPad": that needs the macOS editor
    (today a plain `TextEditor`) too, so those two belong together.
-2. **Paper styles** (dots, grid), postponed after breaking page geometry. Its
-   own design note first; reuse the page-geometry tests.
+2. **Paper styles** (dots, grid, lined): built 24 Oct (`docs/design/paper-styles.md`).
 3. **LaTeX** (SwiftMath, always rendered, never caret-dependent). Touches the
    parser, styler and layout, so it runs after T is settled and with the hidden
    markers' rules in mind (`writing-hidden-markdown-markers…`). Paste, copy and
