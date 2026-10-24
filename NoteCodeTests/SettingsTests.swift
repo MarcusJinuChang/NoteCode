@@ -32,6 +32,7 @@ struct SettingsTests {
         #expect(CodeIndent.widthKey == "indentWidth")
         #expect(CodeKeys.enabledKey == "codeKeys")
         #expect(LineNumbers.defaultsKey == "lineNumbers")
+        #expect(IconStyle.defaultsKey == "iconStyle")
         #expect(NewNotes.defaultsKey == "newNoteOrientation")
         #expect(NewNotes.opensAfterCreatingKey == "openNoteAfterCreating")
         #expect(TextRewritingPolicy.proseDefaultsKey == "autocorrectInProse")

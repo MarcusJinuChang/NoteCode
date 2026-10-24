@@ -276,6 +276,7 @@ private struct GeneralSettings: View {
     @AppStorage(HotbarDock.defaultsKey) private var dock = HotbarDock.default
     @AppStorage(SnapHaptic.defaultsKey) private var hapticOnSnap = SnapHaptic.isOnByDefault
     @Environment(\.hotbarCanMove) private var hotbarCanMove
+    @AppStorage(IconStyle.defaultsKey) private var iconStyle = IconStyle()
 #endif
 
     var body: some View {
@@ -296,6 +297,20 @@ private struct GeneralSettings: View {
             }
 #if canImport(UIKit)
             AppIconSection()
+
+            Section {
+                Picker("Toolbar Icons", selection: $iconStyle.isDrawn) {
+                    Text("NoteCode").tag(true)
+                    Text("System").tag(false)
+                }
+                if iconStyle.isDrawn {
+                    Picker("Icon Weight", selection: $iconStyle.weight) {
+                        ForEach(IconWeight.allCases, id: \.self) { Text($0.title) }
+                    }
+                }
+            } footer: {
+                Text("The hotbar's and its rows' icons. Increase Contrast makes the drawn ones a step heavier.")
+            }
 
             // The Mac has no hotbar: its editor is text only. A phone's bar
             // stays at the bottom, so there is nothing to set there.

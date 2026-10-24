@@ -611,14 +611,34 @@ struct HotbarIcon: View {
     var isSelected = false
 
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.colorSchemeContrast) private var contrast
+    @AppStorage(IconStyle.defaultsKey) private var iconStyle = IconStyle()
+
+    /// Our own icon for this symbol, unless the reader chose the system's.
+    private var drawn: (icon: NoteIcon, weight: IconWeight)? {
+        guard iconStyle.isDrawn, let icon = NoteIcon.replacing(systemName: systemImage) else { return nil }
+        return (icon, (contrast == .increased ? iconStyle.increased : iconStyle).weight)
+    }
 
     var body: some View {
-        Image(systemName: systemImage)
-            .font(.system(size: 17, weight: .medium))
+        face
             .foregroundStyle(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
             .opacity(isEnabled ? 1 : 0.3)
             .hotbarTarget(isHighlighted: isSelected)
     }
+
+    @ViewBuilder private var face: some View {
+        if let drawn {
+            NoteIconView(icon: drawn.icon, weight: drawn.weight)
+                .frame(width: Self.drawnSize, height: Self.drawnSize)
+        } else {
+            Image(systemName: systemImage)
+                .font(.system(size: 17, weight: .medium))
+        }
+    }
+
+    /// A drawn icon's box, which the 44pt target is laid out around.
+    static let drawnSize: CGFloat = 22
 }
 
 struct HotbarSwatch: View {
