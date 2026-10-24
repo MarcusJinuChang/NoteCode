@@ -78,7 +78,7 @@ nonisolated struct NoteTypography: Equatable, Sendable {
 }
 
 #if canImport(UIKit)
-extension NoteTypography {
+nonisolated extension NoteTypography {
 
     /// The Dynamic Type step whose body size this is.
     var contentSizeCategory: UIContentSizeCategory {

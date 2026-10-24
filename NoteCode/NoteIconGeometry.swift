@@ -154,7 +154,7 @@ private nonisolated enum G {
     }
 }
 
-extension NoteIcon {
+nonisolated extension NoteIcon {
 
     fileprivate static func build(_ icon: NoteIcon) -> [IconLayer] {
         typealias L = IconLayer
