@@ -38,7 +38,31 @@ final class NoteEditor {
                 previousInkKind = oldValue.kind
             }
             canvas?.tool = inkTool.pencilKitTool
+            page?.selection.kind = inkTool.selectionKind
+            applySelecting()
+            // The selection is the canvas controller's, not the tool's, so it
+            // outlived the lasso (reported 21 Oct). Only *leaving* the lasso
+            // clears it: `insertIntoInk` selects what it inserted and then
+            // switches to the lasso, and that must keep the selection.
+            if oldValue.kind == .lasso, inkTool.kind != .lasso {
+                canvas?.clearPaperKitSelection()
+                page?.selection.clear()
+            }
         }
+    }
+
+    /// The Select tool's selection, once the page exists.
+    var selection: InkSelection? { page?.selection }
+
+    /// Gives touches to the Select tool's overlay while it is the tool in ink
+    /// mode, and to the canvas otherwise.
+    private func applySelecting() {
+        let selecting = mode == .ink && inkTool.kind == .lasso
+        // PaperKit gets no touches while the Select tool has the page, except
+        // for one object the reader chose to Edit.
+        let editing = page?.selection.isEditingInPaperKit ?? false
+        canvas?.suspendsPaperKitInput = selecting
+        page?.setSelecting(selecting && !editing, allowsFingers: !isPencilOnly)
     }
 
     /// The tool in use before the current one, for the Pencil's double tap
@@ -102,6 +126,7 @@ final class NoteEditor {
         didSet {
             guard isPencilOnly != oldValue else { return }
             canvas?.allowsFingerDrawing = !isPencilOnly
+            applySelecting()
             applyScrolling()
         }
     }
@@ -117,6 +142,24 @@ final class NoteEditor {
     /// note and across launches (`InkToolPersistence`). Stored the way the
     /// button says it, so a device that has never set it reads `true`.
     static let fingerDrawsKey = "fingerDraws"
+
+    /// Settings › Drawing › After a Selection: back to the tool before the
+    /// Select tool once the selection ends by the reader's choice. Off
+    /// unless chosen.
+    static let returnToPreviousToolKey = "returnToPreviousTool"
+
+    /// Whether the selection ending sends the reader back to their tool.
+    /// Per device (`InkToolPersistence`).
+    @ObservationIgnored var returnsToPreviousTool = false
+
+    /// The Select tool's selection ended because the reader let go of it:
+    /// Delete, or a tap on empty space. Never a tool or mode switch (they
+    /// chose a tool) and never a move, recolour or duplicate (they often
+    /// do two in a row). Goes back to the tool before Select, if asked to.
+    func selectionEnded() {
+        guard returnsToPreviousTool, mode == .ink, inkTool.kind == .lasso, previousInkKind != .lasso else { return }
+        inkTool.kind = previousInkKind
+    }
 
     /// Whether the note's text is locked (`Page.isTextLocked`), so text mode
     /// reads rather than edits: no keyboard, no formatting, no undo. The page
@@ -209,8 +252,18 @@ final class NoteEditor {
     @discardableResult
     func insertIntoInk(extent: CGSize, _ insert: (PaperMarkupViewController) -> Void) -> Bool {
         guard mode == .ink, let page, let controller = canvas?.controller else { return false }
+        var before: Set<MarkupOrderedSet.ElementID> = []
+        for element in canvas?.markup.subelements ?? PaperMarkup(bounds: .zero).subelements { before.insert(element.elementID) }
         page.insertIntoInk(extent: extent) { insert(controller) }
         inkTool.kind = .lasso
+        // PaperKit selects what it inserts; the Select tool is the one that
+        // shows and moves it, so the selection is handed across.
+        var inserted: Set<MarkupOrderedSet.ElementID> = []
+        for element in canvas?.markup.subelements ?? PaperMarkup(bounds: .zero).subelements where !before.contains(element.elementID) {
+            inserted.insert(element.elementID)
+        }
+        canvas?.clearPaperKitSelection()
+        page.selection.select(ids: inserted)
         return true
     }
 
@@ -279,8 +332,25 @@ final class NoteEditor {
         clearTypingStyle()
         canvas?.tool = inkTool.pencilKitTool
         canvas?.allowsFingerDrawing = !isPencilOnly
-        canvas?.onUndoDidChange = { [weak self] in self?.refreshUndoState() }
+        canvas?.onUndoDidChange = { [weak self] in
+            self?.refreshUndoState()
+            // Undo can bring back or remove what is selected.
+            self?.page?.selection.refresh()
+        }
+        page?.selection.kind = inkTool.selectionKind
+        page?.selection.textPiecesFor = { [weak self] shape in
+            guard let self, !self.isTextLocked, let textView = self.textView else { return [] }
+            // Code is never coloured, so it is never selected as text.
+            let code = self.codeRanges?() ?? []
+            return TextRegion.pieces(for: shape, lines: TextRegion.visibleLines(in: textView)).filter { piece in
+                !code.contains { NSIntersectionRange($0.range, piece.range).length > 0 }
+            }
+        }
+        page?.selection.onEditingChange = { [weak self] in self?.applySelecting() }
+        page?.selection.onEnded = { [weak self] in self?.selectionEnded() }
+        page?.selection.recolourText = { [weak self] ranges, hex in self?.recolourText(ranges, to: hex) }
         savedSession = mode.apply(to: textView, canvas: canvas, saved: nil, textLocked: isTextLocked)
+        applySelecting()
         applyScrolling()
         refreshUndoState()
     }
@@ -293,6 +363,8 @@ final class NoteEditor {
             savedSession = newMode.apply(to: textView, canvas: canvas, saved: savedSession, textLocked: isTextLocked)
         }
         applyScrolling()
+        if newMode != .ink { page?.selection.clear() }
+        applySelecting()
         refreshUndoState()
         modeDidChange?()
     }
@@ -645,6 +717,29 @@ final class NoteEditor {
         }
         perform { [codeRanges] text, selection in
             MarkdownFormatting.colour(hex, selection: selection, in: text as NSString, codeRanges: codeRanges?() ?? [])
+        }
+    }
+
+    /// Colours text ranges, one per line, for the Select tool. Works in ink
+    /// mode, where the text view isn't editable and has no keyboard:
+    /// `replace(_:withText:)` doesn't care (scripts/spikes/text-edit-while-ink-probe.swift).
+    /// All in one turn of the run loop, so one undo step; bottom up, so the
+    /// lines an edit rewrites can't move a range not yet done.
+    func recolourText(_ ranges: [NSRange], to hex: Int?) {
+        guard !isTextLocked, let textView else { return }
+        isFormatting = true
+        defer {
+            isFormatting = false
+            refreshUndoState()
+        }
+        for range in ranges.sorted(by: { $0.location > $1.location }) {
+            let text = textView.text ?? ""
+            guard let edit = MarkdownFormatting.colour(hex, selection: range, in: text as NSString, codeRanges: codeRanges?() ?? []),
+                  let start = textView.position(from: textView.beginningOfDocument, offset: edit.range.location),
+                  let end = textView.position(from: start, offset: edit.range.length),
+                  let textRange = textView.textRange(from: start, to: end)
+            else { continue }
+            textView.replace(textRange, withText: edit.replacement)
         }
     }
 

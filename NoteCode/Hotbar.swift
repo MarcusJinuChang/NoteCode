@@ -126,6 +126,11 @@ struct Hotbar: View {
         .accessibilityIdentifier("hotbar")
         .padding(Self.padding)
         .glassEffect(.regular, in: .rect(cornerRadius: Self.thickness / 2))
+        #if DEBUG
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+            SelectionProbe.log("hotbar frame \(frame)")
+        }
+        #endif
         // An overlay, so the row takes no room: it floats over the page and
         // leaves the bar's size alone, which is what keeps the page where it
         // is whichever mode, tool or edge the bar is on. Inside the offset,

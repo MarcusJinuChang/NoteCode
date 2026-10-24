@@ -31,7 +31,8 @@ struct InkToolButtons: View {
 }
 
 /// What the selected tool can be set to: colours and a width for the pen and
-/// highlighter, mode and size for the eraser, nothing for the lasso.
+/// highlighter, mode and size for the eraser, and for the Select tool its shape
+/// and, with something selected, what to do to it.
 ///
 /// The content only. The hotbar floats it beside itself in a glass capsule
 /// (`Hotbar.optionsRow`), and the Pencil's palette lays it under the tools.
@@ -55,7 +56,7 @@ struct InkOptions: View {
         case .eraser:
             EraserOptions(editor: editor, isVertical: isVertical)
         case .lasso:
-            EmptyView()
+            SelectOptions(editor: editor, isVertical: isVertical)
         }
     }
 }
@@ -112,6 +113,12 @@ struct InkToolPersistence: ViewModifier {
     @AppStorage(NoteEditor.fingerDrawsKey)
     private var fingerDraws = true
 
+    @AppStorage(SelectionKind.defaultsKey)
+    private var selectionKind = SelectionKind.lasso
+
+    @AppStorage(NoteEditor.returnToPreviousToolKey)
+    private var returnsToPreviousTool = false
+
     func body(content: Content) -> some View {
         content
             .onAppear {
@@ -119,11 +126,15 @@ struct InkToolPersistence: ViewModifier {
                 editor.inkTool.highlighter = highlighter
                 editor.inkTool.eraser = eraser
                 editor.fingerDraws = fingerDraws
+                editor.inkTool.selectionKind = selectionKind
+                editor.returnsToPreviousTool = returnsToPreviousTool
             }
             .onChange(of: editor.inkTool.pen) { _, changed in pen = changed }
             .onChange(of: editor.inkTool.highlighter) { _, changed in highlighter = changed }
             .onChange(of: editor.inkTool.eraser) { _, changed in eraser = changed }
             .onChange(of: editor.fingerDraws) { _, changed in fingerDraws = changed }
+            .onChange(of: editor.inkTool.selectionKind) { _, changed in selectionKind = changed }
+            .onChange(of: returnsToPreviousTool) { _, stored in editor.returnsToPreviousTool = stored }
             // Settings changes these from a sheet over the open note, whose
             // editor was set from them as it appeared. Guarded by equality
             // so the editor's own change, written above, isn't echoed back.
@@ -600,14 +611,34 @@ struct HotbarIcon: View {
     var isSelected = false
 
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.colorSchemeContrast) private var contrast
+    @AppStorage(IconStyle.defaultsKey) private var iconStyle = IconStyle()
+
+    /// Our own icon for this symbol, unless the reader chose the system's.
+    private var drawn: (icon: NoteIcon, weight: IconWeight)? {
+        guard iconStyle.isDrawn, let icon = NoteIcon.replacing(systemName: systemImage) else { return nil }
+        return (icon, (contrast == .increased ? iconStyle.increased : iconStyle).weight)
+    }
 
     var body: some View {
-        Image(systemName: systemImage)
-            .font(.system(size: 17, weight: .medium))
+        face
             .foregroundStyle(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
             .opacity(isEnabled ? 1 : 0.3)
             .hotbarTarget(isHighlighted: isSelected)
     }
+
+    @ViewBuilder private var face: some View {
+        if let drawn {
+            NoteIconView(icon: drawn.icon, weight: drawn.weight)
+                .frame(width: Self.drawnSize, height: Self.drawnSize)
+        } else {
+            Image(systemName: systemImage)
+                .font(.system(size: 17, weight: .medium))
+        }
+    }
+
+    /// A drawn icon's box, which the 44pt target is laid out around.
+    static let drawnSize: CGFloat = 22
 }
 
 struct HotbarSwatch: View {

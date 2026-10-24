@@ -36,14 +36,17 @@ nonisolated struct IconLayer {
         case soft
     }
 
+    /// How strong a `soft` layer is.
+    static let softOpacity: CGFloat = 0.24
+
     var path: CGPath
     var kind: Kind
     /// Multiplies the weight, for the letters that are bold.
     var weight: CGFloat = 1
 }
 
-/// The tools that are drawn here. The lasso, the selection tools and the
-/// menus' glyphs are still SF Symbols (TODO: after the object system).
+/// The hotbar's and the options rows' icons. The glyphs inside menus (a menu
+/// item's `Label`) are still SF Symbols.
 nonisolated enum NoteIcon: String, CaseIterable, Sendable {
     case undo, redo
     case text, draw
@@ -52,6 +55,7 @@ nonisolated enum NoteIcon: String, CaseIterable, Sendable {
     case style, bold, italic, underline, strikethrough, inlineCode
     case list, codeBlock, quote, link
     case plus, minus, indent, outdent
+    case selectLasso, selectRectangle, done, adjust, delete, duplicate
 
     /// The SF Symbol each stands in for, so a call site that names a symbol
     /// gets the drawn icon without being rewritten.
@@ -67,7 +71,13 @@ nonisolated enum NoteIcon: String, CaseIterable, Sendable {
         case "eraser.line.dashed": .pixelEraser
         case "scribble.variable": .objectEraser
         case "hand.draw", "hand.draw.fill": .fingerDraws
-        case "plus.square.on.square", "plus.rectangle.on.rectangle": .insert
+        case "plus.circle": .insert
+        case "plus.square.on.square": .duplicate
+        case "lasso": .selectLasso
+        case "rectangle.dashed": .selectRectangle
+        case "checkmark": .done
+        case "slider.horizontal.3": .adjust
+        case "trash": .delete
         case "plus.circle.dashed": .addColour
         case "textformat": .style
         case "bold": .bold
@@ -163,11 +173,12 @@ extension NoteIcon {
 
         case .text:
             return [
-                L(path: G.line(p(4.5, 19), p(9.5, 5.5), p(14.5, 19)), kind: .stroke),
-                L(path: G.line(p(6.4, 14.4), p(12.6, 14.4)), kind: .stroke),
-                L(path: G.line(p(19, 5.5), p(19, 19)), kind: .stroke),
-                L(path: G.line(p(16.8, 5.5), p(21.2, 5.5)), kind: .stroke),
-                L(path: G.line(p(16.8, 19), p(21.2, 19)), kind: .stroke),
+                L(path: G.line(p(8, 4.6), p(8, 19.4)), kind: .stroke),
+                L(path: G.line(p(5.4, 4.6), p(10.6, 4.6)), kind: .stroke),
+                L(path: G.line(p(5.4, 19.4), p(10.6, 19.4)), kind: .stroke),
+                L(path: G.line(p(14, 8.5), p(21, 8.5)), kind: .stroke),
+                L(path: G.line(p(14, 12.5), p(21, 12.5)), kind: .stroke),
+                L(path: G.line(p(14, 16.5), p(18.5, 16.5)), kind: .stroke),
             ]
 
         case .draw:
@@ -247,15 +258,13 @@ extension NoteIcon {
             ]
         case .objectEraser:
             return [
+                L(path: G.circle(p(15.6, 12.4), 5.4), kind: .soft),
+                L(path: G.circle(p(15.6, 12.4), 5.4), kind: .stroke),
                 L(path: G.path { s in
-                    s.move(to: p(3.5, 15.5))
-                    s.addCurve(to: p(9, 9), control1: p(4.5, 10), control2: p(7, 7))
-                    s.addCurve(to: p(14, 14.5), control1: p(11.5, 11), control2: p(11.5, 17.5))
-                    s.addCurve(to: p(20.5, 8.5), control1: p(16.5, 12.5), control2: p(18, 8))
+                    s.move(to: p(3, 16.5))
+                    s.addCurve(to: p(8.5, 10), control1: p(3.8, 11.5), control2: p(6.2, 7.8))
+                    s.addCurve(to: p(12.8, 15.8), control1: p(10.6, 12), control2: p(10.4, 17.2))
                 }, kind: .stroke),
-                L(path: G.circle(p(3.5, 15.5), 1.6), kind: .solid),
-                L(path: G.circle(p(20.5, 8.5), 1.6), kind: .solid),
-                L(path: G.line(p(5, 20.5), p(19, 4)), kind: .stroke),
             ]
 
         case .fingerDraws:
@@ -411,6 +420,63 @@ extension NoteIcon {
                 L(path: G.line(p(11, 14.2), p(20.5, 14.2)), kind: .stroke),
                 L(path: G.line(p(3.5, 18.5), p(20.5, 18.5)), kind: .stroke),
                 L(path: G.polygon(p(7.8, 9.6), p(3.6, 12.2), p(7.8, 14.8)), kind: .solid),
+            ]
+        case .selectLasso:
+            return [
+                L(path: G.path { s in
+                    s.addEllipse(in: CGRect(x: 3.5, y: 3.8, width: 17, height: 11.2))
+                }.copy(dashingWithPhase: 0, lengths: [3.6, 2.8]), kind: .stroke),
+                L(path: G.path { s in
+                    s.move(to: p(8.4, 14.2))
+                    s.addCurve(to: p(10.2, 19.8), control1: p(7.2, 16.6), control2: p(8, 19.2))
+                    s.addCurve(to: p(13.2, 19.6), control1: p(11.2, 20.4), control2: p(12.4, 20.2))
+                }, kind: .stroke),
+                L(path: G.circle(p(14.3, 19.3), 1.3), kind: .solid),
+            ]
+        case .selectRectangle:
+            return [
+                L(path: G.rounded(CGRect(x: 4, y: 5, width: 16, height: 14), 2.2), kind: .soft),
+                L(path: G.rounded(CGRect(x: 4, y: 5, width: 16, height: 14), 2.2).copy(dashingWithPhase: 0, lengths: [3.6, 2.8]), kind: .stroke),
+            ]
+        case .done:
+            return [L(path: G.line(p(5, 12.6), p(10, 17.4), p(19.2, 7)), kind: .stroke)]
+        case .adjust:
+            return [
+                L(path: G.line(p(4, 6.5), p(20, 6.5)), kind: .stroke),
+                L(path: G.line(p(4, 12), p(20, 12)), kind: .stroke),
+                L(path: G.line(p(4, 17.5), p(20, 17.5)), kind: .stroke),
+                L(path: G.circle(p(9, 6.5), 2.4), kind: .soft),
+                L(path: G.circle(p(15.5, 12), 2.4), kind: .soft),
+                L(path: G.circle(p(8, 17.5), 2.4), kind: .soft),
+                L(path: G.circle(p(9, 6.5), 2.4), kind: .stroke),
+                L(path: G.circle(p(15.5, 12), 2.4), kind: .stroke),
+                L(path: G.circle(p(8, 17.5), 2.4), kind: .stroke),
+            ]
+        case .delete:
+            let body = G.path { s in
+                s.move(to: p(6.4, 7.4)); s.addLine(to: p(7.5, 19.2))
+                s.addCurve(to: p(8.6, 20.4), control1: p(7.55, 19.9), control2: p(8, 20.4))
+                s.addLine(to: p(15.4, 20.4))
+                s.addCurve(to: p(16.5, 19.2), control1: p(16, 20.4), control2: p(16.45, 19.9))
+                s.addLine(to: p(17.6, 7.4))
+            }
+            return [
+                L(path: body, kind: .soft),
+                L(path: body, kind: .stroke),
+                L(path: G.line(p(4.2, 7.4), p(19.8, 7.4)), kind: .stroke),
+                L(path: G.line(p(9.4, 7.2), p(9.4, 4.4), p(14.6, 4.4), p(14.6, 7.2)), kind: .stroke),
+                L(path: G.line(p(10.3, 11), p(10.3, 16.6)), kind: .stroke),
+                L(path: G.line(p(13.7, 11), p(13.7, 16.6)), kind: .stroke),
+            ]
+        case .duplicate:
+            return [
+                L(path: G.rounded(CGRect(x: 9, y: 9, width: 11, height: 11), 2.8), kind: .soft),
+                L(path: G.rounded(CGRect(x: 9, y: 9, width: 11, height: 11), 2.8), kind: .stroke),
+                L(path: G.path { s in
+                    s.move(to: p(13.2, 4.2)); s.addLine(to: p(7.2, 4.2))
+                    s.addCurve(to: p(4.2, 7.2), control1: p(5.5, 4.2), control2: p(4.2, 5.5))
+                    s.addLine(to: p(4.2, 13.2))
+                }, kind: .stroke),
             ]
         }
     }

@@ -226,6 +226,11 @@ nonisolated enum InkCapture {
                         for old in hidden(of: family) {
                             if var piece = remove(old) {
                                 piece.applyTransform(shift)
+                                // Recoloured on the canvas: the part that
+                                // isn't shown goes the same colour.
+                                if let stroke, InkContent.inkSignature(of: piece) != InkContent.inkSignature(of: stroke) {
+                                    piece = InkCommands.recoloured(piece, to: stroke.ink.color)
+                                }
                                 restored.append(piece)
                             }
                         }
@@ -295,8 +300,8 @@ nonisolated enum InkCapture {
 /// A number for what a shape, text box or image looks like apart from where it
 /// is, so `InkCapture` can tell that one was edited in place.
 ///
-/// Strokes have none: PencilKit's are immutable once drawn, and the lasso only
-/// moves them. A text box is a `ShapeMarkup` carrying `attributedText`, so one
+/// A stroke's is its ink and colour: PencilKit's are immutable once drawn, but
+/// the Select tool can recolour one where it stands. A text box is a `ShapeMarkup` carrying `attributedText`, so one
 /// hash covers shapes and text boxes alike.
 ///
 /// Hashed rather than compared: the elements aren't `Equatable`, and keeping
@@ -306,8 +311,8 @@ nonisolated enum InkCapture {
 nonisolated enum InkContent {
 
     static func fingerprint(of element: any Markup) -> Int? {
-        if element is PKStroke {
-            return nil
+        if let stroke = element as? PKStroke {
+            return inkSignature(of: stroke)
         }
         var hasher = Hasher()
         if let shape = element as? ShapeMarkup {
@@ -332,6 +337,17 @@ nonisolated enum InkContent {
             return hasher.finalize()
         }
         return nil
+    }
+
+    /// What a stroke is drawn in, apart from its path: the ink's type and
+    /// colour. The Select tool recolours strokes in place (same id, same
+    /// frame), which a frame alone can't show.
+    static func inkSignature(of stroke: PKStroke) -> Int {
+        var hasher = Hasher()
+        let ink = stroke.ink
+        hasher.combine(ink.inkType.rawValue)
+        hasher.combine(ink.color.cgColor.components)
+        return hasher.finalize()
     }
 
     /// A colour as numbers, or `nil` for none. `CGColor` isn't hashable.
