@@ -193,6 +193,19 @@ struct DebugHomeStoreTests {
         #expect(memory.place(of: continuing.persistentModelID) == .init(page: 2, of: 5))
     }
 
+    @Test("-debug-keep-defaults makes Home's store and leaves the saved flags and places as they were")
+    func homeKeepingDefaults() throws {
+        let defaults = freshDefaults()
+        defaults.set("a note of the reader's own", forKey: NoteMemory.lastOpenedKey)
+        let options = DebugLaunchOptions.parse(["app", "-debug-home", "-debug-keep-defaults"])
+
+        let storage = try #require(DebugLaunch.firstLaunchOrHomeStorage(options, session: DebugSession(options: options), defaults: defaults))
+        let (pages, folders) = try counts(storage)
+        #expect(pages >= 6 && folders == 4)
+        #expect(defaults.string(forKey: NoteMemory.lastOpenedKey) == "a note of the reader's own")
+        #expect(!defaults.bool(forKey: WelcomeScreen.shownKey), "the title screen's flag is not touched either")
+    }
+
     @Test("Without either flag there is no store to make")
     func neither() {
         let options = DebugLaunchOptions.parse(["app"])

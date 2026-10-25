@@ -90,14 +90,21 @@ struct ContentView: View {
 
     @Environment(\.modelContext) private var modelContext
 
-    /// True when a debug launch argument opened a note, in a store of its own.
+    /// True when a debug launch argument opened a note, in a store of its own
+    /// (or `-debug-keep-defaults` says the saved state is not this launch's).
     private let opensDebugNote: Bool
 
     /// - Parameter openedPage: a note to open straight away, with the list
     ///   hidden. Only debug launch arguments pass one.
     init(storageIsEphemeral: Bool = false, openedPage: Page? = nil) {
         self.storageIsEphemeral = storageIsEphemeral
+#if DEBUG && canImport(UIKit)
+        // `-debug-keep-defaults` is a run over a device's own notes: nothing
+        // here may prune, claim or make what belongs to the real store.
+        opensDebugNote = openedPage != nil || DebugSession.shared.options.keepsDefaults
+#else
         opensDebugNote = openedPage != nil
+#endif
         _selection = State(initialValue: openedPage)
         // The list is away for the first layout and comes in right after it
         // (`SidebarPlan.launchDelay`), on Home, or over a note when storage

@@ -166,7 +166,7 @@ struct NoteList: View {
                         itemRows(sections.items)
                     } header: {
                         Text("Library")
-                            .modifier(ListRowDrop(target: .topFolders, hoverID: .topFolders, drag: drag, folders: folders, perform: performDrop))
+                            .modifier(ListRowDrop(target: .topFolders, hoverID: .topFolders, drag: drag, outset: 12))
                     }
                 } else {
                     itemRows(sections.items)
@@ -182,6 +182,9 @@ struct NoteList: View {
                 ListFoot(tipJar: tipJar) { showsTipJar = true }
             }
         }
+#if canImport(UIKit)
+        .background { ListDropBridge(drag: drag, folders: folders, perform: performDrop) }
+#endif
         .overlay {
             if !search.isEmpty && results.isEmpty {
                 ContentUnavailableView.search(text: searchText)
@@ -379,8 +382,7 @@ struct NoteList: View {
         .contextMenu { noteMenu(page) }
         .onDrag { drag.lift(.note(page)) }
         .modifier(ListRowDrop(
-            target: .note(page), hoverID: .row(.note(page.persistentModelID)),
-            drag: drag, folders: folders, perform: performDrop
+            target: .note(page), hoverID: .row(.note(page.persistentModelID)), drag: drag
         ))
     }
 
@@ -492,8 +494,7 @@ struct NoteList: View {
         .deleteDisabled(true)
         .onDrag { drag.lift(.folder(folder)) }
         .modifier(ListRowDrop(
-            target: .folder(folder), hoverID: .row(.folder(folder.persistentModelID)),
-            drag: drag, folders: folders, perform: performDrop
+            target: .folder(folder), hoverID: .row(.folder(folder.persistentModelID)), drag: drag
         ))
         .contextMenu { folderMenu(folder) }
         // On the row, not the list: on an iPad the dialog is a popover, and

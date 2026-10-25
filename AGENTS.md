@@ -127,6 +127,8 @@ something exists, and update its rows in the same PR that adds, changes or remov
 
 Planning docs: `docs/ROADMAP.md` (status and what is left); `docs/feedback-plan.md` (the
 October testing feedback, the streams and their order); finished plans are in `docs/archive/`.
+Everything still to see on a real iPad, in the order of a walk through the app:
+[docs/ipad-test-checklist.md](docs/ipad-test-checklist.md).
 
 ## The model
 
@@ -300,6 +302,8 @@ rebuilt copy of the app with logging.
 | `-debug-report` | Writes `tmp/notecode-debug-state.json` in the app container each time layout settles |
 | `-debug-first-launch` | A fresh install: an empty in-memory store and the first-launch flags cleared, so the title screen and the Welcome note appear |
 | `-debug-home` | Home over a few weeks of sample notes and three folders, in memory, with the title screen already seen and a note to continue at page 3 |
+| `-debug-keep-defaults` | With `-debug-home`: leaves the saved flags and remembered places alone, and stops the launch pruning or making anything, so it can run over a device's own notes (`ListDragUITests` does) |
+| `-debug-probe` | Writes `tmp/notecode-probe.log` in the app container: what the list's drag and drop deliver, and what drew (`-debug-probe-snapshot` adds window PNGs). Pull it with `xcrun devicectl device copy from --domain-type appDataContainer --domain-identifier com.marcus.NoteCode --source tmp/notecode-probe.log` |
 | `-debug-tip-jar` | The tip jar with three stand-in tips, each thanked after a moment, nothing charged (`DebugTipStore`) |
 
 The report lists mode, orientation, page count, scroll offset, scale, zoom, the

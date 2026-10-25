@@ -63,10 +63,12 @@ Built:
 These are the things most likely to be wrong, because every check so far was
 the simulator or a unit test. Do these on the iPad before submitting:
 
-- **Folder and note drag-and-drop.** The simulator never delivered a drop, so
-  `ListDrop` is tested as rules only. If drops do nothing on the iPad, the
-  fallback is `dropDestination(for:)` (see design/organising-notes.md). Moves
-  from the folder menu work regardless.
+- **Folder and note drag-and-drop.** Fixed 24 Oct: a `List` never delivered a
+  drop to any SwiftUI modifier, so the list takes it from its collection view
+  (`ListDropBridge`; design/organising-notes.md). A note on a folder and on
+  Library is tested on the iPad; still to see: the outline and lines while
+  dragging, arranging folders by their edges, and dragging to the list's edge.
+  Moves from the menus work regardless.
 - **Text overhaul "done means" list** (archive/text-system-overhaul.md): the
   six on-screen checks, including `.md` opening in Obsidian and a mixed-size
   note's PDF.

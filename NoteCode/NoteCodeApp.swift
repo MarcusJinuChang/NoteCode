@@ -25,6 +25,7 @@ struct NoteCodeApp: App {
         // See DebugLaunch.swift. A no-op unless a -debug- argument was passed.
         let session = DebugSession.shared
         DebugLaunch.applyViewMode(session.options)
+        DeviceProbe.start()
         if let fresh = DebugLaunch.firstLaunchOrHomeStorage(session.options, session: session) {
             storage = fresh
             openedPage = nil
