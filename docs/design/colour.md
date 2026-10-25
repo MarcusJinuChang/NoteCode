@@ -369,7 +369,37 @@ simulator (driving ink mode failed twice); the text bar and its row were seen
 on the 13-inch in dark. Not checked on an iPad: light mode, Increase Contrast
 on screen, the Pencil.
 
+### The invisible icons, and the one mode toggle (24 Oct)
+
+- **Cause.** `NoteIconView` drew with the canvas's `.foreground` shading. In a
+  plain button on the glass bar that resolved the hierarchical `.primary` to
+  nothing, so every unselected or disabled drawn icon was invisible on an iPad
+  and in the simulator; the selected one, in the tint, showed. Measured on
+  Marcus's iPad (Debug build installed over the app, `devicectl device capture
+  screenshot`): the left-docked bar had no undo, redo, Draw, bold, italic or
+  code icon; with the fix every one shows. It also drew fine outside the glass,
+  which is why the first geometry and render tests passed.
+- **Fix.** Canvas shading is concrete: the label colour (`UIColor.label`), or
+  the tint when selected (`NoteIconView.isTinted`).
+- **Test.** `HotbarIconPixelTests` renders every control the bar names, in each
+  state (unselected, selected, disabled), light and dark, on glass over the
+  bar's colour, and counts pixels that differ from the same control with
+  nothing in it. With the old shading every unselected and disabled icon is 0
+  pixels (checked); with the fix all pass. Not covered: pressed, and Increase
+  Contrast (the environment's contrast can't be set in a test). A test of the
+  whole bar's icon count was tried and removed: it couldn't tell old from new.
+- **Mode toggle.** Text and Draw are one control in one 44pt slot
+  (`Hotbar.modeToggle`): it shows the current mode's icon (text cursor, or the
+  pencil with a scribble) with a 0.15s cross-fade, none under Reduce Motion;
+  a tap calls `editor.toggleMode()`, the same as the Text/Draw shortcut.
+  VoiceOver: label "Mode", value "Text mode" / "Draw mode", hint "Switches to
+  Draw" / "Switches to Text"; identifier `modeToggle`. No capsule behind it
+  now there is one control. `HotbarUITests` use the identifier and a new test
+  checks one toggle, its value and its 44pt size. There was no haptic to keep.
+
 ### Provisional (Marcus to review)
+
+- The Mode toggle shows the mode you are in, not the mode a tap goes to.
 
 - Icons (24 Oct, built): the Text toggle is an I-beam beside lines of text
   (an A with a caret read as "AI"); Delete is a trash can, Duplicate two
