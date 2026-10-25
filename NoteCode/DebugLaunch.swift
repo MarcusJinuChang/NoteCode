@@ -101,10 +101,15 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
     var mode: PageViewMode?
     /// The seeded note's page orientation.
     var orientation: PageOrientation?
+    /// The seeded note's paper, as `PaperSetup.stored` writes it (`grid`, `dots/fine`).
+    var paper: String?
     /// The seeded note's text size, one of `NoteTypography.sizes`.
     var textSize: Int?
     /// A page to scroll to, counted from 1 as pages are on screen.
     var page: Int?
+    /// A file on the Mac holding a note's ink, as `DrawingCodec` stores it,
+    /// for looking at a note with a lot of ink without drawing it.
+    var inkFile: String?
     /// A view mode to switch to once the page has settled.
     var thenMode: PageViewMode?
     /// Seconds to wait after settling before switching.
@@ -117,6 +122,9 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
     /// Home, over a store of sample notes and folders in memory, with the
     /// title screen already seen.
     var home = false
+    /// Leave the saved flags and remembered places alone, which `-debug-home`
+    /// otherwise clears: for a run on a device with someone's own notes.
+    var keepsDefaults = false
     /// The tip jar with stand-in tips, so its row and sheet can be looked at
     /// without the products in App Store Connect (`DebugTipStore`).
     var tipJar = false
@@ -126,7 +134,7 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
     var problems: [String] = []
 
     var isActive: Bool {
-        note != nil || mode != nil || orientation != nil || textSize != nil || page != nil || thenMode != nil
+        note != nil || mode != nil || orientation != nil || paper != nil || textSize != nil || page != nil || thenMode != nil
             || writesReport || firstLaunch || home || tipJar
     }
 
@@ -176,6 +184,8 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
                 options.mode = choice(value(for: flag), for: flag)
             case "-debug-orientation":
                 options.orientation = choice(value(for: flag), for: flag)
+            case "-debug-paper":
+                options.paper = value(for: flag)
             case "-debug-text-size":
                 if let raw = value(for: flag) {
                     if let size = Int(raw), NoteTypography.sizes.contains(size) {
@@ -192,6 +202,8 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
                         options.problems.append("\(flag): \"\(raw)\" isn't a page number from 1")
                     }
                 }
+            case "-debug-ink-file":
+                options.inkFile = value(for: flag)
             case "-debug-then-mode":
                 options.thenMode = choice(value(for: flag), for: flag)
             case "-debug-then-delay":
@@ -208,6 +220,8 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
                 options.firstLaunch = true
             case "-debug-home":
                 options.home = true
+            case "-debug-keep-defaults":
+                options.keepsDefaults = true
             case "-debug-tip-jar":
                 options.tipJar = true
             default:
@@ -220,6 +234,9 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
 
         if options.orientation != nil && options.note == nil {
             options.problems.append("-debug-orientation applies to a seeded note; add -debug-note")
+        }
+        if options.paper != nil && options.note == nil {
+            options.problems.append("-debug-paper applies to a seeded note; add -debug-note")
         }
         if options.textSize != nil && options.note == nil {
             options.problems.append("-debug-text-size applies to a seeded note; add -debug-note")
@@ -431,8 +448,18 @@ enum DebugLaunch {
         if let orientation = options.orientation {
             page.orientation = orientation
         }
+        if let paper = options.paper {
+            page.paperStyle = paper
+        }
         if let size = options.textSize {
             page.textSize = NoteTypography(bodySize: size).storedSize
+        }
+        if let path = options.inkFile {
+            if let data = FileManager.default.contents(atPath: path) {
+                page.drawingData = data
+            } else {
+                session.record("couldn't read ink from \(path)")
+            }
         }
         container.mainContext.insert(page)
         return (.persistent(container), page)
@@ -468,13 +495,20 @@ enum DebugLaunch {
             return nil
         }
 
-        for key in [WelcomeScreen.shownKey, WelcomeNote.madeKey, NoteMemory.lastOpenedKey, NoteMemory.placesKey] {
-            defaults.removeObject(forKey: key)
+        if !options.keepsDefaults {
+            for key in [WelcomeScreen.shownKey, WelcomeNote.madeKey, NoteMemory.lastOpenedKey, NoteMemory.placesKey] {
+                defaults.removeObject(forKey: key)
+            }
+            if options.home {
+                defaults.set(true, forKey: WelcomeScreen.shownKey)
+                defaults.set(true, forKey: WelcomeNote.madeKey)
+            }
         }
         if options.home {
-            defaults.set(true, forKey: WelcomeScreen.shownKey)
-            defaults.set(true, forKey: WelcomeNote.madeKey)
-            seedHome(in: container.mainContext, session: session, defaults: defaults)
+            // The sample notes are remembered as the last opened: into a
+            // scratch suite when the real flags are to be left alone.
+            let remembered = options.keepsDefaults ? UserDefaults(suiteName: "notecode.debug.scratch") ?? defaults : defaults
+            seedHome(in: container.mainContext, session: session, defaults: remembered)
         }
         return .persistent(container)
     }

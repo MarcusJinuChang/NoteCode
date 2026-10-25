@@ -32,21 +32,41 @@ nonisolated struct NoteTypography: Equatable, Sendable {
     /// The body size in points: one of `sizes`.
     let bodySize: Int
 
-    /// - Parameter bodySize: a size from `sizes`; `nil` is the default. A
-    ///   stored size that isn't a step (written by a later build) becomes the
-    ///   nearest one, rather than a font no step has.
-    init(bodySize: Int? = nil) {
+    /// The points each prose line is made taller than its font makes it:
+    /// one of `lineSpacings`, 0 being the system's own spacing. **Line
+    /// height only, never paragraph spacing** (see `CodeBlockRoom`: a line is
+    /// pushed across a page break whole, space between paragraphs isn't, so
+    /// the modes would paginate differently). Per note like the size, for the
+    /// same reason: it moves every line under the ink drawn on them.
+    let lineSpacing: Int
+
+    /// The presets, in points.
+    static let lineSpacings = [0, 2, 4, 6, 8, 12]
+
+    /// - Parameters:
+    ///   - bodySize: a size from `sizes`; `nil` is the default. A stored size
+    ///     that isn't a step (written by a later build) becomes the nearest
+    ///     one, rather than a font no step has.
+    ///   - lineSpacing: a preset from `lineSpacings`, snapped to the nearest
+    ///     as the size is; `nil` is none.
+    init(bodySize: Int? = nil, lineSpacing: Int? = nil) {
         let wanted = bodySize ?? Self.defaultSize
         self.bodySize = Self.sizes.min { abs($0 - wanted) < abs($1 - wanted) } ?? Self.defaultSize
+        let spacing = lineSpacing ?? 0
+        self.lineSpacing = Self.lineSpacings.min { abs($0 - spacing) < abs($1 - spacing) } ?? 0
     }
 
     static let standard = NoteTypography()
 
-    var isStandard: Bool { bodySize == Self.defaultSize }
+    /// The default size and spacing: a note nobody has changed.
+    var isStandard: Bool { bodySize == Self.defaultSize && lineSpacing == 0 }
 
     /// What to store in `Page.textSize`: `nil` for the default, so a note
     /// nobody has resized stays exactly as it was.
-    var storedSize: Int? { isStandard ? nil : bodySize }
+    var storedSize: Int? { bodySize == Self.defaultSize ? nil : bodySize }
+
+    /// What to store in `Page.lineSpacing`: `nil` for none.
+    var storedLineSpacing: Int? { lineSpacing == 0 ? nil : lineSpacing }
 
     /// The size `steps` places away, or `nil` past either end. Stepping is
     /// what + and − do, so they are disabled when this answers `nil`.
@@ -58,7 +78,7 @@ nonisolated struct NoteTypography: Equatable, Sendable {
 }
 
 #if canImport(UIKit)
-extension NoteTypography {
+nonisolated extension NoteTypography {
 
     /// The Dynamic Type step whose body size this is.
     var contentSizeCategory: UIContentSizeCategory {
@@ -106,6 +126,21 @@ extension NoteTypography {
     /// the room left over is air between its lines.
     var codeLineHeight: CGFloat {
         prose.lineHeight + prose.leading
+    }
+
+    /// A prose block's paragraph style: the line height this note's spacing
+    /// asks for, as a floor under the block's own font, so a line holding
+    /// larger sized text is as tall as that text makes it. Mutable, for the
+    /// indents a list or a quote adds. With no spacing it is the empty style,
+    /// which is the same as none.
+    func lineStyle(for font: UIFont) -> NSMutableParagraphStyle {
+        let style = NSMutableParagraphStyle()
+        if lineSpacing > 0 {
+            // TextKit adds the font's leading to a minimum, so the minimum is
+            // the font's line height without it (measured: 28 gave 29.7pt).
+            style.minimumLineHeight = font.lineHeight + CGFloat(lineSpacing)
+        }
+        return style
     }
 
     /// Headings are bold, at the sizes the text styles have at this step.

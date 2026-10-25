@@ -80,6 +80,11 @@ nonisolated enum InkCapture {
         /// piece only, in its coordinates: drawn or moved across a border in
         /// compressed or print layout, which don't show overflow.
         var reshow: [PKStroke] = []
+        /// Where each stroke the reader just drew ended, in the canvas's
+        /// coordinates: strokes with no record in `State.shown`. Moved, erased
+        /// and undone ink has one, so it is never in here, which is what keeps
+        /// ink moved into a page's foot from adding a page (`PageView`).
+        var drawnEnds: [CGPoint] = []
     }
 
     /// `canvas` taken into `state`.
@@ -95,6 +100,7 @@ nonisolated enum InkCapture {
         var frames: [ElementID: CGRect] = [:]
         var contents: [ElementID: Int] = [:]
         var touched: [any Markup] = []
+        var drawnEnds: [CGPoint] = []
         var bottom: CGFloat?
         for element in canvas.subelements {
             let id = element.elementID
@@ -113,6 +119,9 @@ nonisolated enum InkCapture {
             // which its missing frame already catches.
             if state.shown[id] != frame {
                 touched.append(element)
+                if state.shown[id] == nil, let stroke = element as? PKStroke, let last = stroke.path.last {
+                    drawnEnds.append(last.location.applying(stroke.transform))
+                }
             } else if let fingerprint, let known = state.contents[id], known != fingerprint {
                 touched.append(element)
             }
@@ -217,6 +226,11 @@ nonisolated enum InkCapture {
                         for old in hidden(of: family) {
                             if var piece = remove(old) {
                                 piece.applyTransform(shift)
+                                // Recoloured on the canvas: the part that
+                                // isn't shown goes the same colour.
+                                if let stroke, InkContent.inkSignature(of: piece) != InkContent.inkSignature(of: stroke) {
+                                    piece = InkCommands.recoloured(piece, to: stroke.ink.color)
+                                }
                                 restored.append(piece)
                             }
                         }
@@ -262,7 +276,8 @@ nonisolated enum InkCapture {
             state: State(ink: updated, shown: frames, contents: contents, wholeOnCanvas: whole, specked: specked, buried: buried),
             changed: true,
             inkBottom: bottom,
-            reshow: reshow
+            reshow: reshow,
+            drawnEnds: drawnEnds
         )
     }
 
@@ -285,8 +300,8 @@ nonisolated enum InkCapture {
 /// A number for what a shape, text box or image looks like apart from where it
 /// is, so `InkCapture` can tell that one was edited in place.
 ///
-/// Strokes have none: PencilKit's are immutable once drawn, and the lasso only
-/// moves them. A text box is a `ShapeMarkup` carrying `attributedText`, so one
+/// A stroke's is its ink and colour: PencilKit's are immutable once drawn, but
+/// the Select tool can recolour one where it stands. A text box is a `ShapeMarkup` carrying `attributedText`, so one
 /// hash covers shapes and text boxes alike.
 ///
 /// Hashed rather than compared: the elements aren't `Equatable`, and keeping
@@ -296,8 +311,8 @@ nonisolated enum InkCapture {
 nonisolated enum InkContent {
 
     static func fingerprint(of element: any Markup) -> Int? {
-        if element is PKStroke {
-            return nil
+        if let stroke = element as? PKStroke {
+            return inkSignature(of: stroke)
         }
         var hasher = Hasher()
         if let shape = element as? ShapeMarkup {
@@ -322,6 +337,17 @@ nonisolated enum InkContent {
             return hasher.finalize()
         }
         return nil
+    }
+
+    /// What a stroke is drawn in, apart from its path: the ink's type and
+    /// colour. The Select tool recolours strokes in place (same id, same
+    /// frame), which a frame alone can't show.
+    static func inkSignature(of stroke: PKStroke) -> Int {
+        var hasher = Hasher()
+        let ink = stroke.ink
+        hasher.combine(ink.inkType.rawValue)
+        hasher.combine(ink.color.cgColor.components)
+        return hasher.finalize()
     }
 
     /// A colour as numbers, or `nil` for none. `CGColor` isn't hashable.

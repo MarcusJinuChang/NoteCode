@@ -13,7 +13,7 @@ import HighlightSwift
 
 /// Colours code with highlight.js, which HighlightSwift runs through
 /// JavaScriptCore. Calls are async because that JS round trip is.
-struct HighlightSwiftHighlighter: SyntaxHighlighter {
+nonisolated struct HighlightSwiftHighlighter: SyntaxHighlighter {
 
     private let highlight = Highlight()
 

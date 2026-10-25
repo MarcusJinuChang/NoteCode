@@ -315,6 +315,28 @@ extension InkingSettings: RawRepresentable {
     }
 }
 
+/// How the reader draws the Select tool's shape.
+nonisolated enum SelectionKind: String, CaseIterable, Sendable {
+    case lasso
+    case rectangle
+
+    static let defaultsKey = "selectionKind"
+
+    var title: String {
+        switch self {
+        case .lasso:     "Lasso"
+        case .rectangle: "Rectangle"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .lasso:     "lasso"
+        case .rectangle: "rectangle.dashed"
+        }
+    }
+}
+
 // MARK: - Selection
 
 /// What the hotbar has selected in ink mode: the tool, and what each tool is
@@ -324,6 +346,8 @@ nonisolated struct InkToolState: Equatable, Sendable {
     var pen = InkingSettings.standard(for: .pen)
     var highlighter = InkingSettings.standard(for: .highlighter)
     var eraser = EraserSettings()
+    /// How the Select tool (`.lasso`) draws its shape.
+    var selectionKind = SelectionKind.lasso
 
     /// The settings of the pen or the highlighter. The eraser and lasso have
     /// none; asked, they answer with the pen's, which is what a swatch row
@@ -339,9 +363,10 @@ nonisolated struct InkToolState: Equatable, Sendable {
         }
     }
 
-    /// Whether the selected tool has anything to set. The lasso doesn't.
+    /// Whether the selected tool has anything to set. Every tool does: the
+    /// Select tool has its shape and, with a selection, its commands.
     var hasOptions: Bool {
-        kind != .lasso
+        true
     }
 
     /// Moves the selected tool one width thinner (`-1`) or thicker (`1`),
@@ -412,7 +437,20 @@ nonisolated extension InkColor {
         ("Purple", InkColor(hex: 0x8E22C3)),
     ]
 
+    /// The Refined set's highlighters: what a new device starts with. Orange
+    /// is today's, kept on purpose; the others are lifted so that a dark
+    /// page's version reads (see docs/design/colour.md).
     static let highlighterShades: [(name: String, color: InkColor)] = [
+        ("Graphite", InkColor(hex: 0x9B9BA1)),
+        ("Orange",   InkColor(hex: 0xFFB866)),
+        ("Yellow",   InkColor(hex: 0xFCDD79)),
+        ("Green",    InkColor(hex: 0x81E4A2)),
+        ("Pink",     InkColor(hex: 0xEC558D)),
+    ]
+
+    /// The Original set's highlighters, as the app shipped them. Pinned
+    /// forever: a reader restores them from Settings › Drawing › Colour Set.
+    static let originalHighlighterShades: [(name: String, color: InkColor)] = [
         ("Graphite", InkColor(hex: 0xB8B8B8)),
         ("Orange",   InkColor(hex: 0xFFB866)),
         ("Yellow",   InkColor(hex: 0xFFF066)),
@@ -420,18 +458,65 @@ nonisolated extension InkColor {
         ("Pink",     InkColor(hex: 0xF877B8)),
     ]
 
-    /// The highlighter's starting colour.
-    static let highlighterYellow = InkColor(hex: 0xFFF066)
+    /// The highlighter's starting colour in the Refined set.
+    static let highlighterYellow = InkColor(hex: 0xFCDD79)
+
+    /// ... and in the Original set.
+    static let originalHighlighterYellow = InkColor(hex: 0xFFF066)
 
     /// What VoiceOver should call one of the design's inks: "Ink", not
-    /// "black", and the highlighter's "Yellow" apart from the pen's.
+    /// "black", and the highlighter's "Yellow" apart from the pen's. Both sets'
+    /// highlighters are named, so a palette saved before Refined still reads.
     static let shadeNames: [InkColor: String] = {
         var names: [InkColor: String] = [:]
-        for shade in penShades + highlighterShades where names[shade.color] == nil {
+        for shade in penShades + highlighterShades + originalHighlighterShades where names[shade.color] == nil {
             names[shade.color] = shade.name
         }
         return names
     }()
+
+    /// How a swatch on a dark bar shows a highlighter, which is more vivid
+    /// than the ink it draws: PencilKit shows a highlighter on a dark page at
+    /// the light value's lightness flipped, a dark olive or maroon that looks
+    /// dull as a button. The hotbar's face keeps the hue and lifts the
+    /// saturation to at least 0.78 and the lightness to at least 0.58 (HSL);
+    /// a grey stays grey, at 0.62. Hotbar only: the ink, and anywhere else
+    /// that shows it, keeps the real colour. Called on what a dark page shows
+    /// for the stored ink.
+    var vividFace: InkColor {
+        let high = max(red, green, blue), low = min(red, green, blue)
+        let lightness = (high + low) / 2
+        let chroma = high - low
+        guard chroma > 1e-9 else { return InkColor(red: 0.62, green: 0.62, blue: 0.62, alpha: alpha) }
+        let saturation = chroma / (1 - abs(2 * lightness - 1))
+        guard saturation >= 0.1 else {
+            return InkColor(red: 0.62, green: 0.62, blue: 0.62, alpha: alpha)
+        }
+
+        var hue: Double
+        switch high {
+        case red:   hue = ((green - blue) / chroma).truncatingRemainder(dividingBy: 6)
+        case green: hue = (blue - red) / chroma + 2
+        default:    hue = (red - green) / chroma + 4
+        }
+        if hue < 0 { hue += 6 }
+
+        let newSaturation = max(saturation, 0.78)
+        let newLightness = max(lightness, 0.58)
+        let newChroma = (1 - abs(2 * newLightness - 1)) * newSaturation
+        let x = newChroma * (1 - abs(hue.truncatingRemainder(dividingBy: 2) - 1))
+        let (r, g, b): (Double, Double, Double)
+        switch Int(hue) {
+        case 0:  (r, g, b) = (newChroma, x, 0)
+        case 1:  (r, g, b) = (x, newChroma, 0)
+        case 2:  (r, g, b) = (0, newChroma, x)
+        case 3:  (r, g, b) = (0, x, newChroma)
+        case 4:  (r, g, b) = (x, 0, newChroma)
+        default: (r, g, b) = (newChroma, 0, x)
+        }
+        let m = newLightness - newChroma / 2
+        return InkColor(red: r + m, green: g + m, blue: b + m, alpha: alpha)
+    }
 }
 
 nonisolated extension InkPalette {
@@ -446,6 +531,82 @@ nonisolated extension InkPalette {
     /// `@AppStorage` reads this only where nothing is stored.
     static func standard(for kind: InkToolKind) -> InkPalette {
         kind == .highlighter ? standardHighlighter : standard
+    }
+}
+
+// MARK: - Colour sets
+
+/// Which highlighters a device starts from, and restores to.
+///
+/// The pens are the same in both sets, so the set is the highlighters. Where
+/// they have to move together (the key, both palettes, the highlighter's
+/// remembered colour) they move here, in one `apply(to:)`, so Settings'
+/// picker and its two resets can't disagree. Stored per device.
+nonisolated enum InkPaletteSet: String, CaseIterable, Sendable {
+    case refined
+    case original
+
+    static let defaultsKey = "inkPaletteSet"
+
+    var title: String {
+        switch self {
+        case .refined:  "Refined"
+        case .original: "Original"
+        }
+    }
+
+    var highlighterShades: [(name: String, color: InkColor)] {
+        self == .refined ? InkColor.highlighterShades : InkColor.originalHighlighterShades
+    }
+
+    /// The colour the highlighter starts on: yellow, since graphite, first in
+    /// its palette, is the least like one.
+    var highlighterStart: InkColor {
+        self == .refined ? InkColor.highlighterYellow : InkColor.originalHighlighterYellow
+    }
+
+    func palette(for kind: InkToolKind) -> InkPalette {
+        kind == .highlighter
+            ? InkPalette(highlighterShades.map(\.color))
+            : InkPalette(InkColor.penShades.map(\.color))
+    }
+
+    /// The set a device is on: the one it chose; failing that, Original for a
+    /// device that has saved a palette of its own before sets existed (its
+    /// highlighters are the old ones), and Refined for one that saved none.
+    static func stored(in defaults: UserDefaults = .standard) -> InkPaletteSet {
+        if let raw = defaults.string(forKey: defaultsKey), let chosen = InkPaletteSet(rawValue: raw) {
+            return chosen
+        }
+        let savedAPalette = [InkPalette.defaultsKey, InkPalette.highlighterDefaultsKey]
+            .contains { defaults.object(forKey: $0) != nil }
+        return savedAPalette ? .original : .refined
+    }
+
+    /// The set the two palettes are exactly, or `nil` ("Custom") once the
+    /// reader has added, removed or reordered a colour.
+    static func matching(pen: InkPalette, highlighter: InkPalette) -> InkPaletteSet? {
+        allCases.first { pen == $0.palette(for: .pen) && highlighter == $0.palette(for: .highlighter) }
+    }
+
+    /// Makes this the device's set: writes the choice, both palettes and the
+    /// highlighter's remembered colour (keeping its width), in the defaults
+    /// the hotbar reads them from. Ink already on a page keeps its colour.
+    func apply(to defaults: UserDefaults = .standard) {
+        defaults.set(rawValue, forKey: Self.defaultsKey)
+        resetPalette(for: .pen, in: defaults)
+        resetPalette(for: .highlighter, in: defaults)
+
+        let key = InkingSettings.defaultsKey(for: .highlighter)
+        var settings = defaults.string(forKey: key).flatMap(InkingSettings.init(rawValue:))
+            ?? InkingSettings.standard(for: .highlighter)
+        settings.color = highlighterStart
+        defaults.set(settings.rawValue, forKey: key)
+    }
+
+    /// Puts one palette back to this set's colours and nothing else.
+    func resetPalette(for kind: InkToolKind, in defaults: UserDefaults = .standard) {
+        defaults.set(palette(for: kind).rawValue, forKey: InkPalette.defaultsKey(for: kind))
     }
 }
 
@@ -489,6 +650,15 @@ extension InkColor {
     /// should show, so black ink doesn't vanish into a dark hotbar.
     func displayColor(for style: UIUserInterfaceStyle) -> UIColor {
         PKInkingTool.convertColor(inkColor, from: .light, to: style)
+    }
+
+    /// What a hotbar swatch shows for this ink on a page in `style`: the ink
+    /// as the page shows it, except that a highlighter on a dark bar is made
+    /// vivid (`vividFace`).
+    func swatchFace(for style: UIUserInterfaceStyle, kind: InkToolKind) -> UIColor {
+        let shown = displayColor(for: style)
+        guard style == .dark, kind == .highlighter else { return shown }
+        return InkColor(shown).vividFace.inkColor
     }
 
     /// What VoiceOver calls it: the design's name for its own inks, and

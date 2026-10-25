@@ -215,7 +215,7 @@ struct FolderEditor: View {
     }
 
     private func save() {
-        withAnimation {
+        _ = withAnimation {
             draft.apply(to: editing.folder, moving: editing.movingPage, inside: editing.parent, in: modelContext)
         }
         dismiss()

@@ -37,6 +37,11 @@ final class DrawingSaveScheduler {
     @ObservationIgnored private let delay: Duration
     @ObservationIgnored private let encode: @Sendable (PaperMarkup) async throws -> Data
 
+    /// What the stored ink says about its objects beyond PaperKit's bytes
+    /// (`InkObjectTable`). Read with the ink and written back with it, so a
+    /// save never drops an entry, including ones from a newer build.
+    @ObservationIgnored private(set) var objects = InkObjectTable.empty
+
     /// Cleared for good once the stored ink turns out to be unreadable.
     @ObservationIgnored private var mayWrite = true
 
@@ -67,7 +72,9 @@ final class DrawingSaveScheduler {
     /// Unreadable ink comes back as `nil` too, and turns saving off for this
     /// note: whatever is drawn now would otherwise be written over it.
     func loadInk() -> PaperMarkup? {
-        switch DrawingCodec.decode(page.drawingData) {
+        let (loaded, table) = DrawingCodec.decodeAll(page.drawingData)
+        objects = table
+        switch loaded {
         case .none:
             return nil
         case .ink(let markup):
@@ -77,6 +84,12 @@ final class DrawingSaveScheduler {
             problem = reason + " It's been left as it is, and ink drawn on this note won't be saved."
             return nil
         }
+    }
+
+    /// Replaces the objects' table; saved with the ink's next write. For the
+    /// phases that put entries in it.
+    func setObjects(_ table: InkObjectTable) {
+        objects = table
     }
 
     /// Takes the note's ink after the reader changed it, and saves it once
@@ -120,7 +133,9 @@ final class DrawingSaveScheduler {
 
         let data: Data
         do {
-            data = try await encode(markup)
+            // The table travels with every save; empty, it adds nothing and
+            // the bytes are exactly PaperKit's.
+            data = try InkContainer.wrap(table: objects, paper: try await encode(markup))
         } catch {
             // Keep it for the next save, unless newer ink arrived meanwhile.
             if pending == nil {

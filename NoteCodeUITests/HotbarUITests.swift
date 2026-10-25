@@ -36,7 +36,7 @@ final class HotbarUITests: XCTestCase {
         // for this launch only.
         app.launchArguments = Self.arguments(dock: dock)
         app.launch()
-        app.buttons["Draw"].tap()
+        app.buttons["modeToggle"].tap()
         XCTAssertTrue(app.buttons["Medium Pen"].waitForExistence(timeout: 5), "the options row never came out")
         // Past the row's slide in.
         Thread.sleep(forTimeInterval: 0.8)
@@ -82,13 +82,38 @@ final class HotbarUITests: XCTestCase {
     // MARK: Coming and going
 
     @MainActor
+    /// Text and Draw are one control in one slot: it says which mode the note
+    /// is in, and a tap switches it.
+    func testOneToggleSwitchesTheMode() {
+        let app = XCUIApplication()
+        app.launchArguments = Self.arguments(dock: .bottom)
+        app.launch()
+
+        let toggle = app.buttons["modeToggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        XCTAssertEqual(toggle.value as? String, "Text mode")
+        XCTAssertEqual(app.buttons.matching(identifier: "modeToggle").count, 1, "one control, not two")
+        XCTAssertFalse(app.buttons["Draw"].exists, "the separate Draw button is gone")
+        XCTAssertGreaterThanOrEqual(toggle.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(toggle.frame.height, 44)
+
+        toggle.tap()
+        XCTAssertTrue(app.buttons["Medium Pen"].waitForExistence(timeout: 5), "ink mode's row")
+        XCTAssertEqual(toggle.value as? String, "Draw mode")
+
+        toggle.tap()
+        XCTAssertTrue(app.buttons["Medium Pen"].waitForNonExistence(timeout: 5), "back in text mode")
+        XCTAssertEqual(toggle.value as? String, "Text mode")
+        app.terminate()
+    }
+
     func testRowIsOutOnlyInInkModeForAToolWithOptions() {
         let app = XCUIApplication()
         app.launchArguments = Self.arguments(dock: .bottom)
         app.launch()
         XCTAssertFalse(app.buttons["Medium Pen"].exists, "text mode")
 
-        app.buttons["Draw"].tap()
+        app.buttons["modeToggle"].tap()
         XCTAssertTrue(app.buttons["Medium Pen"].waitForExistence(timeout: 5), "pen")
 
         app.buttons["Highlighter"].tap()
@@ -105,7 +130,7 @@ final class HotbarUITests: XCTestCase {
 
         app.buttons["Pen"].tap()
         XCTAssertTrue(app.buttons["Medium Pen"].waitForExistence(timeout: 5), "pen again")
-        app.buttons["Text"].tap()
+        app.buttons["modeToggle"].tap()
         XCTAssertTrue(app.buttons["Medium Pen"].waitForNonExistence(timeout: 5), "back in text mode")
         app.terminate()
     }
@@ -164,4 +189,42 @@ final class HotbarUITests: XCTestCase {
     @MainActor func testReachDockedAtTheBottom() { checkReach(dock: .bottom) }
     @MainActor func testReachDockedLeft() { checkReach(dock: .left) }
     @MainActor func testReachDockedRight() { checkReach(dock: .right) }
+
+    // MARK: The note's menu
+
+    /// ••• › Settings opens the same sheet as Home's gear, over the note.
+    @MainActor
+    func testSettingsFromTheNoteMenu() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-debug-note", "empty"]
+        app.launch()
+        app.buttons["More"].firstMatch.tap()
+        let settings = app.buttons["noteMenuSettings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5), "the note's menu has no Settings entry")
+        settings.tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5), "the Settings sheet never opened")
+    }
+}
+
+// MARK: - Autocorrect
+
+extension HotbarUITests {
+    /// With Settings › Writing › Autocorrect off, three hyphens typed on the
+    /// soft keyboard stay three (a rule). With it on, smart dashes turn the
+    /// second into an em dash and the result is "—-" (measured 21 Oct).
+    @MainActor
+    func testAutocorrectOffKeepsThreeHyphens() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-debug-note", "empty", "-autocorrectInProse", "NO"]
+        app.launch()
+        let text = app.textViews.firstMatch
+        XCTAssertTrue(text.waitForExistence(timeout: 5))
+        text.tap()
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 5), "no soft keyboard")
+        let hyphen = keyboard.keys["-"]
+        XCTAssertTrue(hyphen.waitForExistence(timeout: 3), "no hyphen key")
+        hyphen.tap(); hyphen.tap(); hyphen.tap()
+        XCTAssertEqual(text.value as? String, "---")
+    }
 }

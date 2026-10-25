@@ -16,7 +16,7 @@
 ///
 /// Weight and italic are asked for too, but `ColorRun` carries only colour,
 /// so they are not drawn yet. Colour is what the design relies on.
-struct SyntaxTheme: Equatable {
+nonisolated struct SyntaxTheme: Equatable {
 
     /// One role: the colour, and whether highlight.js's classes for it are bold
     /// or italic.
@@ -87,7 +87,7 @@ struct SyntaxTheme: Equatable {
 #if canImport(UIKit)
 import UIKit
 
-extension SyntaxTheme {
+nonisolated extension SyntaxTheme {
     static func theme(for appearance: HighlightAppearance) -> SyntaxTheme {
         switch appearance {
         case .light: .light

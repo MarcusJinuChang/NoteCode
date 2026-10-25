@@ -200,7 +200,7 @@ struct SearchRevealTests {
 
     @Test("The page scrolls to the first match once it's laid out")
     func scrollsToMatch() async throws {
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1000, height: 1200))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 1000, height: 1200))
         let textView = DocumentTextView.makeConfiguredTextView()
         textView.text = Self.text
         let page = PageView(textView: textView)

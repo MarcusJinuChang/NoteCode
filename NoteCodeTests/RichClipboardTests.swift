@@ -335,6 +335,9 @@ struct RichClipboardTests {
         Self.clearPasteboard()
         let harness = Harness("|a **bold** word")
         harness.textView.selectedRange = NSRange(location: 2, length: 8)
+        // Smart delete would take one of the two spaces with the word, as it
+        // does for a cut on screen; this test is about what is on the pasteboard.
+        harness.textView.smartInsertDeleteType = .no
         harness.textView.cut(nil)
         #expect(harness.text == "a  word")
         #expect(UIPasteboard.general.string == "**bold**")

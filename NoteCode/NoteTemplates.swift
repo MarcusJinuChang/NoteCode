@@ -160,10 +160,11 @@ extension Page {
         orientation: PageOrientation,
         in folder: Folder? = nil,
         now: Date = .now,
+        paper: PaperSetup = .preferred(),
         context: ModelContext
     ) -> Page {
         let language = NoteTemplates.commonLanguage(in: (folder?.livePages ?? []).map(\.content))
-        let page = create(orientation: orientation, in: folder, context: context)
+        let page = create(orientation: orientation, in: folder, paper: paper, context: context)
         page.title = template.title
         page.content = template.content(language: language, now: now)
         return page

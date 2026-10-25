@@ -18,13 +18,13 @@ import UIKit
 @MainActor
 struct CodeFenceDisplayTests {
 
-    static let note = "Prose before\n```cpp\nint value = query(gap);\nint other = 2;\n```\nProse after the block\nand more text\n"
+    nonisolated static let note = "Prose before\n```cpp\nint value = query(gap);\nint other = 2;\n```\nProse after the block\nand more text\n"
 
     /// A text view wired the way `DocumentTextView` wires it, in its page.
     @MainActor
     final class Harness {
         var stored: String
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1100, height: 1400))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 1100, height: 1400))
         let textView = DocumentTextView.makeConfiguredTextView()
         let editor = NoteEditor()
         let page: PageView
@@ -419,12 +419,12 @@ struct CodeFenceDisplayTests {
         #expect(!bar.isHidden)
     }
 
-    @Test("A block's name is the tag as typed when the app doesn't know it, and Plain Text when bare")
+    @Test("A block's name is the tag as typed when the app doesn't know it, and Code when bare")
     func languageNames() async throws {
         let harness = Harness("```ruby\nfn main() {}\n```\n```\nplain\n```\n")
         try await harness.caret(at: harness.source.length)
         let buttons = harness.textView.subviews.compactMap { $0 as? CodeBlockLanguageButton }
-        #expect(buttons.map { $0.configuration?.title } == ["ruby", "Plain Text"])
+        #expect(buttons.map { $0.configuration?.title } == ["ruby", "Code"])
     }
 
     @Test("A tap on the name is the button's, not the text view's")
@@ -459,7 +459,7 @@ struct CodeFenceDisplayTests {
         try await harness.caret(at: 2)
         let button = try #require(harness.languageButton)
         let actions = button.choices()
-        #expect(actions.map(\.title) == ["C++", "Java", "Python", "C", "JavaScript", "Rust", "Go", "SQL", "Output", "Plain Text"])
+        #expect(actions.map(\.title) == ["C++", "Java", "Python", "C", "JavaScript", "Rust", "Go", "SQL", "Output", "Code"])
         #expect(actions.map(\.state) == [.on] + Array(repeating: .off, count: 9))
     }
 
@@ -484,16 +484,16 @@ struct CodeFenceDisplayTests {
         #expect(harness.stored.hasPrefix("Prose before\n```cpp\n"))
     }
 
-    @Test("Plain Text takes the tag off")
+    @Test("Code (no language) takes the tag off")
     func choosingPlain() async throws {
         let harness = Harness()
         try await harness.caret(at: 2)
         let button = try #require(harness.languageButton)
-        let plain = try #require(button.choices().first { $0.title == "Plain Text" })
+        let plain = try #require(button.choices().first { $0.title == "Code" })
         plain.performWithSender(nil, target: nil)
         try await harness.settle()
         #expect(harness.textView.text.hasPrefix("Prose before\n```\nint value"))
-        #expect(harness.languageButton?.configuration?.title == "Plain Text")
+        #expect(harness.languageButton?.configuration?.title == "Code")
     }
 
     @Test("A locked note shows the name and changes nothing")

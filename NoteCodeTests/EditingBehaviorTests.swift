@@ -145,7 +145,7 @@ struct MidFenceEditTests {
 @MainActor
 struct CaretBoundaryTests {
 
-    private static let source = "prose\n```cpp\nint x;\n```\nafter"
+    private nonisolated static let source = "prose\n```cpp\nint x;\n```\nafter"
 
     private func typingFont(caretAt offset: Int, in source: String = CaretBoundaryTests.source) -> UIFont? {
         let textView = DocumentTextView.makeConfiguredTextView()
@@ -200,7 +200,7 @@ struct UndoTests {
     /// Puts the editor in a real window and makes it first responder, which is
     /// what the text input system needs before it will register undo entries.
     private func hostedTextView() -> (UIWindow, UITextView) {
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 600, height: 400))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 600, height: 400))
         let textView = DocumentTextView.makeConfiguredTextView()
         textView.frame = window.bounds
         window.addSubview(textView)

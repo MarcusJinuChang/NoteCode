@@ -24,7 +24,7 @@ import UIKit
 ///
 /// **Why PaperKit.** Shapes, arrows, images and text boxes come with it, each
 /// selectable and resizable, and its strokes are PencilKit's. See
-/// docs/phase-drawing-layer.md.
+/// docs/archive/phase-drawing-layer.md.
 @MainActor
 final class DrawingCanvas: UIView {
 
@@ -100,6 +100,80 @@ final class DrawingCanvas: UIView {
         guard let takesTouch, let superview else { return true }
         // The superview is the text view, whose content is the note.
         return takesTouch(convert(point, to: superview))
+    }
+
+    /// Puts `after` on the canvas as the reader's own change: told to the
+    /// delegate (so `InkCapture` takes it in and it is saved) and undoable as
+    /// one step.
+    ///
+    /// The Select tool's commands go through here (docs/design/object-system.md).
+    /// Assigning a markup registers no undo of its own (pages.md), so the
+    /// action restores the markup as it was, and registers its own inverse for
+    /// redo. A markup is a value, so keeping both costs a copy-on-write.
+    func replaceMarkup(with after: PaperMarkup, actionName: String) {
+        let before = markup
+        controller.markup = after
+        registerReplacement(from: before, to: after, actionName: actionName)
+    }
+
+    private func registerReplacement(from before: PaperMarkup, to after: PaperMarkup, actionName: String) {
+        inkUndoManager.registerUndo(withTarget: self) { canvas in
+            canvas.controller.markup = before
+            canvas.registerReplacement(from: after, to: before, actionName: actionName)
+        }
+        if !inkUndoManager.isUndoing && !inkUndoManager.isRedoing {
+            inkUndoManager.setActionName(actionName)
+        }
+        onUndoDidChange?()
+    }
+
+    /// Shows `preview` without telling anyone, for a drag in progress: the
+    /// stored ink and its record of what was shown stay as they were, so
+    /// the one change that follows is the net move.
+    func showPreview(_ preview: PaperMarkup) {
+        show { controller.markup = preview }
+    }
+
+    /// Whether PaperKit may keep a selection of its own. Never, except for
+    /// the one shape or image the reader chose to Edit
+    /// (`beginPaperKitEdit`); a selection it makes otherwise is let go of.
+    private(set) var allowsPaperKitSelection = false
+
+    /// Takes PaperKit's views out of the touch path, for as long as the Select
+    /// tool owns the page: PaperKit then can't select, highlight or drag
+    /// anything, whatever its tool. The canvas's own view stays as it is.
+    var suspendsPaperKitInput = false {
+        didSet {
+            guard suspendsPaperKitInput != oldValue, !allowsPaperKitSelection else { return }
+            controller.view.isUserInteractionEnabled = !suspendsPaperKitInput
+        }
+    }
+
+    /// Hands one shape or image to PaperKit's own selection, with its
+    /// handles, for what the Select tool doesn't do: rotating, a text box's
+    /// text, a line's ends. The lasso is PaperKit's tool until it ends.
+    func beginPaperKitEdit(_ id: MarkupOrderedSet.ElementID) {
+        allowsPaperKitSelection = true
+        controller.view.isUserInteractionEnabled = true
+        controller.drawingTool = PKLassoTool()
+        controller.selection = [id]
+    }
+
+    func endPaperKitEdit() {
+        guard allowsPaperKitSelection else { return }
+        allowsPaperKitSelection = false
+        controller.selection = []
+        controller.view.isUserInteractionEnabled = !suspendsPaperKitInput
+    }
+
+    /// Lets go of whatever PaperKit has selected.
+    ///
+    /// The selection belongs to the controller, not to the tool, so changing
+    /// tool leaves it up (`NoteEditor.inkTool`). Does nothing when nothing is
+    /// selected: assigning the property reaches the delegate.
+    func clearPaperKitSelection() {
+        guard !controller.selection.isEmpty else { return }
+        controller.selection = []
     }
 
     /// Called when ink's undo stack gains or loses something the hotbar's
@@ -404,6 +478,9 @@ final class DrawingCanvas: UIView {
         // PencilKit's canvas can be rebuilt as the controller settles in, and
         // the drawing policy lives on it.
         applyTouchMode()
+        #if DEBUG
+        SelectionProbe.attach(to: self)
+        #endif
 
         guard controller.parent == nil, let parent = nearestViewController() else { return }
         parent.addChild(controller)
@@ -432,6 +509,23 @@ extension DrawingCanvas: PaperMarkupViewController.Delegate {
         // stayed dim after a stroke.
         onUndoDidChange?()
     }
+
+    func paperMarkupViewControllerDidChangeSelection(_ paperMarkupViewController: PaperMarkupViewController) {
+        #if DEBUG
+        probeDelegate("PaperKit selection changed")
+        #endif
+        // The app's selection is the Select tool's. Whatever PaperKit selects
+        // on its own (a tap on a cluster of strokes) is let go of at once.
+        guard !allowsPaperKitSelection, !paperMarkupViewController.selection.isEmpty else { return }
+        paperMarkupViewController.selection = []
+    }
+
+    #if DEBUG
+
+    func paperMarkupViewControllerDidBeginDrawing(_ paperMarkupViewController: PaperMarkupViewController) {
+        probeDelegate("PaperKit began drawing")
+    }
+    #endif
 }
 
 #endif

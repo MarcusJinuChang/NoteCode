@@ -290,7 +290,7 @@ extension InkInserter: @preconcurrency MarkupEditViewController.Delegate {
     }
 }
 
-extension InkInserter: @preconcurrency PHPickerViewControllerDelegate {
+extension InkInserter: PHPickerViewControllerDelegate {
 
     func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
         picker.dismiss(animated: true)
@@ -305,7 +305,7 @@ extension InkInserter: @preconcurrency PHPickerViewControllerDelegate {
             // this returns: so it's decoded here, and only the picture goes
             // back to the main actor.
             guard let url, let image = InkInsertion.downscaled(from: url, maxPixelSize: maxPixels) else { return }
-            Task { @MainActor in self?.insert(photo: image) }
+            Task { @MainActor [weak self] in self?.insert(photo: image) }
         }
     }
 }

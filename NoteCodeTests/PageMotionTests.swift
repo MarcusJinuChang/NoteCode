@@ -21,7 +21,7 @@ struct PageMotionTests {
     /// moves the container and narrows the page.
     @MainActor
     final class Fixture {
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1032, height: 1270))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 1032, height: 1270))
         let container = UIView(frame: CGRect(x: 0, y: 0, width: 1032, height: 1270))
         let page: PageView
 

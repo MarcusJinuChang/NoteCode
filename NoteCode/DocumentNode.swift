@@ -157,14 +157,14 @@ nonisolated enum CodeBlockKind: Equatable, Hashable, Sendable {
         switch self {
         case .language(let language): language.displayName
         case .output:                 "Output"
-        case .plain:                  "Plain Text"
+        case .plain:                  "Code"
         }
     }
 
     static let outputTag = "output"
 
     /// Every choice, in the order a menu lists them: the languages, then
-    /// Output, then Plain Text. The hotbar's Code Block ▾ and a block's
+    /// Output, then Code. The hotbar's Code Block ▾ and a block's
     /// language button both read this, so they can't disagree.
     static let menu: [CodeBlockKind] = languages + others
 

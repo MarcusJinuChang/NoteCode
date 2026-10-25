@@ -9,7 +9,7 @@
 
 import Foundation
 
-extension MarkdownFormatting {
+nonisolated extension MarkdownFormatting {
 
     /// What a formatting button does with a collapsed caret.
     enum CaretTarget: Equatable, Sendable {

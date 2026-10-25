@@ -124,6 +124,10 @@ final class HeadingLayoutFragment: NSTextLayoutFragment {
     /// follows the caret, and the fragment isn't laid out again when it does.
     var showsMarker: () -> Bool = { false }
 
+    /// The hashes' colour, asked at draw time like `showsMarker`: `nil` draws
+    /// none (Settings › Writing › Markers).
+    var markerColour: () -> UIColor? = { .secondaryLabel }
+
     /// Gap between the hashes and the heading's text.
     static let gap: CGFloat = 8
 
@@ -141,13 +145,13 @@ final class HeadingLayoutFragment: NSTextLayoutFragment {
 
     override func draw(at point: CGPoint, in context: CGContext) {
         super.draw(at: point, in: context)
-        guard showsMarker(), let line = textLineFragments.first else { return }
+        guard showsMarker(), let colour = markerColour(), let line = textLineFragments.first else { return }
 
         // The heading's own font: the first character is a word joiner that
         // carries the marker run's attributes, which are the heading's.
         let font = (textElement as? NSTextParagraph)?.attributedString
             .attribute(.font, at: 0, effectiveRange: nil) as? UIFont ?? DocumentStyler.proseFont
-        let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: UIColor.secondaryLabel]
+        let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: colour]
         let marker = String(repeating: "#", count: hashes) as NSString
         let width = marker.size(withAttributes: attributes).width
 
@@ -167,6 +171,10 @@ final class HeadingLayoutFragment: NSTextLayoutFragment {
 final class ChecklistLayoutFragment: NSTextLayoutFragment {
 
     var isChecked = false
+
+    /// An unchecked box's outline colour, asked at draw time: `nil` draws
+    /// none (Settings › Writing › Markers).
+    var outlineColour: () -> UIColor? = { .tertiaryLabel }
 
     /// Where the box's characters begin within the paragraph: after the
     /// indentation, the bullet and its space.
@@ -226,13 +234,13 @@ final class ChecklistLayoutFragment: NSTextLayoutFragment {
             context.setFillColor(UIColor.systemBackground.cgColor)
             context.fill(rect.advance.offsetBy(dx: origin.x, dy: origin.y))
         }
-        Self.drawBox(in: box, checked: isChecked, context: context)
+        Self.drawBox(in: box, checked: isChecked, outline: outlineColour(), context: context)
         context.restoreGState()
     }
 
     /// An unchecked box is a 2pt `tertiaryLabel` outline with a 6pt radius; a
     /// checked one is the accent filled, with a white tick.
-    static func drawBox(in rect: CGRect, checked: Bool, context: CGContext) {
+    static func drawBox(in rect: CGRect, checked: Bool, outline: UIColor? = .tertiaryLabel, context: CGContext) {
         if checked {
             let path = UIBezierPath(roundedRect: rect, cornerRadius: cornerRadius)
             // The stored accent, not `tintColor`: that is the view's, and paper has none.
@@ -250,9 +258,9 @@ final class ChecklistLayoutFragment: NSTextLayoutFragment {
             context.setLineJoin(.round)
             context.addPath(tick.cgPath)
             context.strokePath()
-        } else {
+        } else if let outline {
             let path = UIBezierPath(roundedRect: rect.insetBy(dx: strokeWidth / 2, dy: strokeWidth / 2), cornerRadius: cornerRadius)
-            context.setStrokeColor(UIColor.tertiaryLabel.cgColor)
+            context.setStrokeColor(outline.cgColor)
             context.setLineWidth(strokeWidth)
             context.addPath(path.cgPath)
             context.strokePath()

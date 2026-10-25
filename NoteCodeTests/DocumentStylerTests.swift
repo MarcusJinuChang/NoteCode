@@ -14,7 +14,7 @@ import UIKit
 struct DocumentStylerTests {
 
     /// prose\n```cpp\nint x;\n```\nafter
-    private static let source = "prose\n```cpp\nint x;\n```\nafter"
+    private nonisolated static let source = "prose\n```cpp\nint x;\n```\nafter"
 
     private func styledTextView(_ source: String = DocumentStylerTests.source) -> UITextView {
         let textView = DocumentTextView.makeConfiguredTextView()

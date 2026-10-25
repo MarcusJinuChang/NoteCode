@@ -27,6 +27,9 @@ struct DocumentTextView: UIViewRepresentable {
     /// The note's page orientation and the device's view mode.
     var pageLayout = PageLayout()
 
+    /// The paper the note is ruled with: drawing only, it takes no room.
+    var paper = PaperSetup.blank
+
     /// Room to leave above the keyboard for a hotbar riding up with it. See
     /// `PageView.keyboardClearance`.
     var keyboardClearance: CGFloat = 0
@@ -63,6 +66,9 @@ struct DocumentTextView: UIViewRepresentable {
     /// show only while it is being edited, or always.
     var showMarkdown = ShowMarkdown.whileEditing
 
+    /// Settings › Writing › Markers: how dim the visible markers are.
+    var markerDimming = MarkerDimming.standard
+
     /// Whether the note's Markdown markers take no room on the page
     /// (`Page.markdownLayout == rendered`). A legacy note keeps them visible,
     /// because its ink was drawn against that layout.
@@ -70,6 +76,10 @@ struct DocumentTextView: UIViewRepresentable {
 
     /// Settings › Code: indent width, the code-keys row, line numbers.
     var codeSettings = CodeEditorSettings()
+
+    /// Settings › Writing › Autocorrect: whether prose is autocorrected and
+    /// given smart punctuation (code never is).
+    var rewritesProse = TextRewritingPolicy.proseEnabledByDefault
 
     /// The note's text size (`Page.textSize`), which sets every font the
     /// note is laid out in.
@@ -79,6 +89,9 @@ struct DocumentTextView: UIViewRepresentable {
     /// raise made by the page (Add Page, seamless's buffer) is kept.
     var minimumPageCount = 1
     var onMinimumPageCountChanged: ((Int) -> Void)? = nil
+
+    /// Settings › Drawing › Add Pages While Drawing.
+    var addsPagesWhileDrawing = InkPageGrowth.defaultEnabled
 
     /// Told whenever the page scrolls, with the place it is scrolled to, for
     /// the page badge. Optional, like `editor`.
@@ -98,6 +111,8 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
         context.coordinator.setTypography(typography, in: textView)
         codeSettings.apply(to: context.coordinator, in: textView)
+        context.coordinator.setRewritesProse(rewritesProse, in: textView)
+        markerDimming.apply(to: context.coordinator, in: textView)
         textView.text = text
         context.coordinator.invalidateStyling()
         context.coordinator.restyle(textView)
@@ -109,7 +124,9 @@ struct DocumentTextView: UIViewRepresentable {
         // canvas knob too, and the canvas is the page's.
         editor?.attach(textView, canvas: page.canvas, page: page)
         page.pageLayout = pageLayout
+        page.paper = paper
         page.minimumPageCount = minimumPageCount
+        page.addsPagesWhileDrawing = addsPagesWhileDrawing
         page.onMinimumPageCountChanged = onMinimumPageCountChanged
         page.keyboardClearance = keyboardClearance
         page.restingClearance = restingClearance
@@ -136,7 +153,9 @@ struct DocumentTextView: UIViewRepresentable {
     func updateUIView(_ page: PageView, context: Context) {
         let textView = page.textView
         page.pageLayout = pageLayout
+        page.paper = paper
         page.minimumPageCount = max(minimumPageCount, page.minimumPageCount)
+        page.addsPagesWhileDrawing = addsPagesWhileDrawing
         page.onMinimumPageCountChanged = onMinimumPageCountChanged
         page.keyboardClearance = keyboardClearance
         page.restingClearance = restingClearance
@@ -165,6 +184,7 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.showMarkdown = showMarkdown
         context.coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
         codeSettings.apply(to: context.coordinator, in: textView)
+        markerDimming.apply(to: context.coordinator, in: textView)
 
         // Only push text down when it actually differs. Assigning `.text`
         // unconditionally would reset the selection on every render and fight
@@ -212,6 +232,7 @@ struct DocumentTextView: UIViewRepresentable {
 
         /// The keyboard traits the text view has now: prose or code.
         private(set) var rewritingPolicy = TextRewritingPolicy.initial
+        private(set) var rewritesProse = TextRewritingPolicy.proseEnabledByDefault
 
         /// Where the code blocks are, for the layout delegate, or `nil` once
         /// the text has changed since they were worked out.
@@ -225,6 +246,10 @@ struct DocumentTextView: UIViewRepresentable {
 
         /// Settings › Writing › Show Markdown, as `DocumentTextView` last had it.
         var showMarkdown = ShowMarkdown.whileEditing
+
+        /// Settings › Writing › Markers, as `DocumentTextView` last had it.
+        /// Changed through `setMarkerDimming`, which restyles.
+        var markerDimming = MarkerDimming.standard
 
         /// Settings › Code › Indent Width.
         var indentWidth = CodeIndent.defaultWidth
@@ -312,7 +337,7 @@ struct DocumentTextView: UIViewRepresentable {
             var id: CodeBlockID
             var language: String
 
-            init(block: CodeBlock) {
+            nonisolated init(block: CodeBlock) {
                 id = block.id
                 language = block.infoString.split(separator: " ").first.map { $0.lowercased() } ?? ""
             }
@@ -553,7 +578,8 @@ struct DocumentTextView: UIViewRepresentable {
                 blocks: blocks,
                 previousSignatures: styleSignatures,
                 rendered: rendersMarkdown,
-                typography: typography
+                typography: typography,
+                markers: markerDimming
             )
             DocumentStyler.applyTypingAttributes(
                 to: textView, source: source, blocks: blocks, rendered: rendersMarkdown, typography: typography
@@ -757,6 +783,14 @@ struct DocumentTextView: UIViewRepresentable {
                 guard let textView else { return }
                 Self.share(target.code, from: textView)
             })
+
+            // The on-device assistant. Left out when it is switched off or
+            // this iPad can never run it; otherwise the sheet says why not.
+            if let editor, editor.ai.offersFeatures, !target.isOutput {
+                actions.append(UIAction(title: "Explain Block", image: UIImage(systemName: AIAction.explainBlock.systemImage)) { [weak editor] _ in
+                    editor?.explain(target)
+                })
+            }
 
             return UIMenu(options: .displayInline, children: actions)
         }
@@ -1012,12 +1046,14 @@ struct DocumentTextView: UIViewRepresentable {
         func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
             if editor?.isFormatting != true, !isApplyingMarkerEdit { editor?.typingTextWillChange(range: range) }
 
-            // A formatting edit's text is what its button meant. UIKit runs
+            // A formatting edit's text is what its button meant (and so is a
+            // paste or marker edit the coordinator makes: a window in a scene
+            // showed their quotes going curly too). UIKit runs
             // smart punctuation over it as if it had been typed, as edits of
             // their own inside the replace, and turned a colour tag's quotes
             // curly, so it was a tag no longer and showed as text (seen 17
             // Oct, two one-character edits while the colour was applied).
-            if editor?.isFormatting == true, range.length > 0, NSMaxRange(range) <= (textView.text as NSString).length,
+            if editor?.isFormatting == true || isApplyingMarkerEdit, range.length > 0, NSMaxRange(range) <= (textView.text as NSString).length,
                TextRewritingPolicy.isSmartPunctuation(replacing: (textView.text as NSString).substring(with: range), with: text) {
                 return false
             }
@@ -1056,7 +1092,9 @@ struct DocumentTextView: UIViewRepresentable {
             // after it's committed catches up.
             guard textView.markedTextRange == nil else { return }
 
-            let policy = TextRewritingPolicy.at(textView.selectedRange.location, in: source, blocks: blocks)
+            let policy = TextRewritingPolicy.at(
+                textView.selectedRange.location, in: source, blocks: blocks, rewritesProse: rewritesProse
+            )
             guard policy != rewritingPolicy else {
                 // The caret is in the same kind of text, but the row might
                 // not have been put there yet: the first tap into a note
@@ -1069,6 +1107,15 @@ struct DocumentTextView: UIViewRepresentable {
             // to code changes the traits and the row in a single redraw.
             _ = placeCodeKeys(in: textView)
             policy.apply(to: textView, reloadingInputViews: textView.isFirstResponder)
+        }
+
+        /// Settings › Writing › Autocorrect changed: prose takes the new
+        /// traits now, in the keyboard already up.
+        func setRewritesProse(_ enabled: Bool, in textView: UITextView) {
+            guard enabled != rewritesProse else { return }
+            rewritesProse = enabled
+            let source = (textView.text ?? "").nativeUTF8
+            applyRewritingPolicy(to: textView, source: source, blocks: documentCache.blocks(for: source))
         }
 
         // MARK: The code-keys row
@@ -1296,6 +1343,7 @@ extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
         if rendersMarkdown, let hashes = ProseLine.headingHashes(in: text, line: element) {
             let fragment = HeadingLayoutFragment(textElement: textElement, range: textElement.elementRange)
             fragment.hashes = hashes
+            fragment.markerColour = { [weak self] in self?.markerDimming.headingColour }
             fragment.showsMarker = { [weak self, weak fragment] in
                 guard let self, let fragment, let offset = self.offset(of: fragment) else { return false }
                 return self.headingVisibility.shows(headingAt: offset)
@@ -1307,6 +1355,7 @@ extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
             let fragment = ChecklistLayoutFragment(textElement: textElement, range: textElement.elementRange)
             fragment.isChecked = box.checked
             fragment.boxIndex = box.indent + 2
+            fragment.outlineColour = { [weak self] in self?.markerDimming.checkboxColour }
             fragment.collapsed = rendersMarkdown
             return fragment
         }

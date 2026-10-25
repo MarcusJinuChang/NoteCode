@@ -17,7 +17,7 @@ import Foundation
 /// Everything here works on the one line the caret is on, parsed with the
 /// same parsers as the styling, so what counts as a marker is whatever the
 /// note draws as one. A code block's lines are never touched.
-extension MarkdownFormatting {
+nonisolated extension MarkdownFormatting {
 
     /// A run of characters that take no room, as one place for the caret.
     ///
@@ -220,7 +220,7 @@ extension MarkdownFormatting {
 
 // MARK: - Nesting, boxes, links, and the state at the caret
 
-extension MarkdownFormatting {
+nonisolated extension MarkdownFormatting {
 
     /// Tab and ⇧Tab on list items: one level in or out, two spaces.
     ///

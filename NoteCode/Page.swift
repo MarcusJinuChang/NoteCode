@@ -74,6 +74,20 @@ extension NoteSchemaV1 {
         /// when the note has ink.
         var textSize: Int?
 
+        /// The paper the note is ruled with (`PaperSetup.stored`), or `nil` for
+        /// blank. Drawing only: it takes no room, moves nothing and is not an
+        /// edit, so `modifiedAt` stays.
+        var paperStyle: String?
+
+        /// The points each prose line is made taller than the font makes it,
+        /// or `nil` for none (`NoteTypography.lineSpacings`). Line height only.
+        /// Like the text size it moves lines under the ink, so the text row
+        /// asks first when the note has ink, and it isn't an edit.
+        var lineSpacing: Int?
+
+        /// The size and spacing the note is laid out in.
+        var typography: NoteTypography { NoteTypography(bodySize: textSize, lineSpacing: lineSpacing) }
+
         /// The fewest pages the note has, whatever it holds: what Add Page raises,
         /// and what seamless raises when ink reaches the last page, so there is
         /// always a blank page to draw on below. Only ever grows. The note has
@@ -247,6 +261,8 @@ extension Page {
         let copy = Page(title: "\(title) copy", content: content, drawingData: drawingData)
         copy.pageOrientation = pageOrientation
         copy.textSize = textSize
+        copy.lineSpacing = lineSpacing
+        copy.paperStyle = paperStyle
         copy.minimumPageCount = minimumPageCount
         copy.runDestination = runDestination
         context.insert(copy)

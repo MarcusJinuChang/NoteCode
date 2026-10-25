@@ -107,9 +107,9 @@ struct CodeLanguagesTests {
     }
 
     @Test("Compiler Explorer takes C, C++, Python, Rust and Go in the link, with the pinned compilers", arguments: [
-        (CodeLanguage.cpp, "c++", "g142"),
-        (.python, "python", "python313"),
-        (.c, "c", "cg152"),
+        (CodeLanguage.cpp, "c++", "g162"),
+        (.python, "python", "python314"),
+        (.c, "c", "cg162"),
         (.rust, "rust", "r1990"),
         (.go, "go", "gl1260"),
     ])
@@ -184,10 +184,10 @@ struct CodeLanguagesTests {
 
     // MARK: The menu
 
-    @Test("The menu lists the languages, then Output, then Plain Text")
+    @Test("The menu lists the languages, then Output, then Code")
     func menu() {
         #expect(CodeBlockKind.menu.map(\.displayName) ==
-            ["C++", "Java", "Python", "C", "JavaScript", "Rust", "Go", "SQL", "Output", "Plain Text"])
+            ["C++", "Java", "Python", "C", "JavaScript", "Rust", "Go", "SQL", "Output", "Code"])
     }
 
     @Test("Only SQL carries a subtitle, and the two groups are the menu")

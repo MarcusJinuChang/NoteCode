@@ -52,6 +52,19 @@ struct DebugLaunchOptionsTests {
         #expect(options.note == .file("/tmp/note.md"))
     }
 
+    @Test("An ink file seeds the note's ink")
+    @MainActor func inkFile() throws {
+        let path = NSTemporaryDirectory() + "debug-ink-\(UUID().uuidString).bin"
+        let bytes = Data([1, 2, 3, 4])
+        try bytes.write(to: URL(fileURLWithPath: path))
+        defer { try? FileManager.default.removeItem(atPath: path) }
+
+        let options = DebugLaunchOptions.parse([app, "-debug-note", "empty", "-debug-ink-file", path])
+        #expect(options.inkFile == path)
+        let seeded = try #require(DebugLaunch.seededStorage(options, session: DebugSession(options: options)))
+        #expect(seeded.page.drawingData == bytes)
+    }
+
     @Test("Values that don't exist are reported, not silently ignored", arguments: [
         ["-debug-note", "novel"],
         ["-debug-mode", "carousel"],
@@ -180,6 +193,19 @@ struct DebugHomeStoreTests {
         #expect(memory.place(of: continuing.persistentModelID) == .init(page: 2, of: 5))
     }
 
+    @Test("-debug-keep-defaults makes Home's store and leaves the saved flags and places as they were")
+    func homeKeepingDefaults() throws {
+        let defaults = freshDefaults()
+        defaults.set("a note of the reader's own", forKey: NoteMemory.lastOpenedKey)
+        let options = DebugLaunchOptions.parse(["app", "-debug-home", "-debug-keep-defaults"])
+
+        let storage = try #require(DebugLaunch.firstLaunchOrHomeStorage(options, session: DebugSession(options: options), defaults: defaults))
+        let (pages, folders) = try counts(storage)
+        #expect(pages >= 6 && folders == 4)
+        #expect(defaults.string(forKey: NoteMemory.lastOpenedKey) == "a note of the reader's own")
+        #expect(!defaults.bool(forKey: WelcomeScreen.shownKey), "the title screen's flag is not touched either")
+    }
+
     @Test("Without either flag there is no store to make")
     func neither() {
         let options = DebugLaunchOptions.parse(["app"])
@@ -196,7 +222,7 @@ private extension ModelContext {
 struct DebugReportTests {
 
     private func open(_ text: String, layout: PageLayout) -> (UIWindow, PageView) {
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1024, height: 1366))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 1024, height: 1366))
         let textView = DocumentTextView.makeConfiguredTextView()
         textView.text = text
         let page = PageView(textView: textView)

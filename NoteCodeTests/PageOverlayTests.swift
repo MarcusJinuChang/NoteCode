@@ -18,7 +18,7 @@ struct PageOverlayTests {
     /// text view is styled, with its overlay, before the page exists.
     @MainActor
     private final class Harness {
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1100, height: 1400))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 1100, height: 1400))
         let coordinator: DocumentTextView.Coordinator
         let page: PageView
 

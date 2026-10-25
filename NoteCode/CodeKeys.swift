@@ -77,8 +77,8 @@ nonisolated enum CodeKeys {
     /// inline code, and a backtick or a fence still being typed.
     static func keys(for policy: TextRewritingPolicy) -> [CodeKey] {
         switch policy {
-        case .code:  CodeKey.all
-        case .prose: []
+        case .code:                CodeKey.all
+        case .prose, .proseWithoutRewriting: []
         }
     }
 

@@ -16,7 +16,7 @@ import UIKit
 struct PageViewTests {
 
     /// Lines that wrap on a portrait page and fit on a landscape one.
-    private static let longProse = (0..<40)
+    private nonisolated static let longProse = (0..<40)
         .map { "Line \($0): an invariant holds before and after every iteration of the loop, which is what the proof rests on." }
         .joined(separator: "\n")
 
@@ -139,7 +139,7 @@ struct PageViewTests {
 
     @MainActor
     private final class Harness {
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1400, height: 1400))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 1400, height: 1400))
         let page: PageView
 
         init(text: String = PageViewTests.longProse, area: CGSize = CGSize(width: 880, height: 1100), layout: PageLayout = PageLayout()) {
@@ -1812,6 +1812,122 @@ struct PageViewTests {
 
         #expect(told == 0)
         #expect(harness.page.pageCount == 1)
+    }
+
+    // MARK: Adding pages as the reader draws down
+
+    /// A page's foot, `up` points above its body's bottom.
+    private static func foot(of layout: PageLayout, page: Int = 0, up: CGFloat = 20) -> CGFloat {
+        layout.bodyTop(ofPage: page) + layout.bodyHeight - up
+    }
+
+    @Test("A stroke that ends in the last page's foot adds a page, and saves ink once", arguments: [PageViewMode.compressed, .print])
+    func strokeInTheFootAddsAPage(mode: PageViewMode) async {
+        let layout = PageLayout(mode: mode)
+        let harness = Harness(text: "One line.", layout: layout)
+        var told: [Int] = []
+        var saved = 0
+        harness.page.onMinimumPageCountChanged = { told.append($0) }
+        harness.page.onInkChanged = { _ in saved += 1 }
+
+        Self.draw([Self.stroke(at: Self.foot(of: layout))], on: harness)
+
+        #expect(await Self.waitFor { told == [2] })
+        harness.layOut()
+        #expect(harness.page.pageCount == 2)
+        // The page it added is the note's minimum, not ink: laying the note
+        // out again for it saved nothing more.
+        _ = await Self.waitFor({ false }, seconds: 0.5)
+        #expect(saved == 1)
+    }
+
+    @Test("It is where the stroke ends that counts, not where it began", arguments: [PageViewMode.compressed, .print])
+    func strokeEndsInTheFoot(mode: PageViewMode) async {
+        let layout = PageLayout(mode: mode)
+        let harness = Harness(text: "One line.", layout: layout)
+        var told: [Int] = []
+        harness.page.onMinimumPageCountChanged = { told.append($0) }
+
+        Self.draw([Self.verticalStroke(from: layout.bodyTop(ofPage: 0) + 100, to: Self.foot(of: layout))], on: harness)
+
+        #expect(await Self.waitFor { told == [2] })
+    }
+
+    @Test("A stroke above the foot, or on a page that isn't the last, adds nothing", arguments: [PageViewMode.compressed, .print])
+    func strokeAboveTheFoot(mode: PageViewMode) async {
+        let layout = PageLayout(mode: mode)
+        let harness = Harness(text: "One line.", layout: layout)
+        var told = 0
+        harness.page.onMinimumPageCountChanged = { _ in told += 1 }
+
+        let top = layout.growthBandTop(ofPage: 0)
+        Self.draw([Self.stroke(at: top - 10)], on: harness)
+        _ = await Self.waitFor({ false }, seconds: 0.5)
+        #expect(told == 0)
+        #expect(harness.page.pageCount == 1)
+
+        // Three pages, a stroke in the first one's foot.
+        harness.page.minimumPageCount = 3
+        harness.layOut()
+        Self.draw([Self.stroke(at: Self.foot(of: layout))], on: harness)
+        _ = await Self.waitFor({ false }, seconds: 0.5)
+        #expect(told == 0)
+        #expect(harness.page.pageCount == 3)
+    }
+
+    @Test("Turned off, a stroke in the foot adds nothing", arguments: [PageViewMode.compressed, .print])
+    func settingOff(mode: PageViewMode) async {
+        let layout = PageLayout(mode: mode)
+        let harness = Harness(text: "One line.", layout: layout)
+        harness.page.addsPagesWhileDrawing = false
+        var told = 0
+        harness.page.onMinimumPageCountChanged = { _ in told += 1 }
+
+        Self.draw([Self.stroke(at: Self.foot(of: layout))], on: harness)
+        _ = await Self.waitFor({ false }, seconds: 0.5)
+
+        #expect(told == 0)
+        #expect(harness.page.pageCount == 1)
+    }
+
+    @Test("Ink that is loaded or moved into the foot adds nothing: only a stroke drawn now does", arguments: [PageViewMode.compressed, .print])
+    func onlyDrawnStrokesAdd(mode: PageViewMode) async throws {
+        let layout = PageLayout(mode: mode)
+        var told = 0
+
+        // Loaded into the foot.
+        let loaded = Harness(text: "One line.", layout: layout)
+        loaded.page.onMinimumPageCountChanged = { _ in told += 1 }
+        loaded.setInk(PKDrawing(strokes: [Self.stroke(at: Self.foot(of: layout))]))
+        _ = await Self.waitFor({ false }, seconds: 0.5)
+        #expect(told == 0)
+
+        // Drawn above the foot, then moved into it by the lasso.
+        let moved = Harness(text: "One line.", layout: layout)
+        moved.page.onMinimumPageCountChanged = { _ in told += 1 }
+        var saved = 0
+        moved.page.onInkChanged = { _ in saved += 1 }
+        Self.draw([Self.stroke(at: layout.bodyTop(ofPage: 0) + 200)], on: moved)
+        #expect(await Self.waitFor { saved == 1 })
+
+        var markup = moved.page.canvas.markup
+        var stroke = try #require(markup.subelements.strokes.first)
+        stroke.applyTransform(CGAffineTransform(translationX: 0, y: Self.foot(of: layout) - (layout.bodyTop(ofPage: 0) + 200)))
+        markup.subelements.updateOrAppend(stroke)
+        moved.page.canvas.markup = markup
+        moved.page.canvas.onMarkupChanged?()
+        #expect(await Self.waitFor { saved == 2 })
+        moved.layOut()
+
+        #expect(told == 0)
+        #expect(moved.page.pageCount == 1)
+    }
+
+    @Test("The setting's key is stable and the feature is on until turned off")
+    func growthSettingKey() {
+        #expect(InkPageGrowth.defaultsKey == "addPagesWhileDrawing")
+        #expect(InkPageGrowth.defaultEnabled)
+        #expect(Harness(text: "x").page.addsPagesWhileDrawing)
     }
 }
 

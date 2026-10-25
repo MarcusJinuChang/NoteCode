@@ -10,7 +10,7 @@
 
 import Foundation
 
-extension MarkdownFormatting {
+nonisolated extension MarkdownFormatting {
 
     /// The point size of each kind of block's text, which a size chosen in
     /// points is written against (`SpanSize`): the note's, from its

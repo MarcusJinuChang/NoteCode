@@ -328,7 +328,7 @@ struct TextSizeEditorTests {
     @MainActor
     final class Harness {
         let editor = NoteEditor()
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 900, height: 700))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 900, height: 700))
         let page: PageView
         let textView = DocumentTextView.makeConfiguredTextView()
         var committed: [Int?] = []

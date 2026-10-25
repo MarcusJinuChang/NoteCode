@@ -25,7 +25,7 @@ import UIKit
 /// text container's exclusion paths; `PageLayout` has the geometry and why
 /// every mode paginates identically. The bands make typing cost more, because
 /// TextKit lays out everything below an edit once any exclusion path exists —
-/// see docs/phase-drawing-layer.md for the numbers.
+/// see docs/archive/phase-drawing-layer.md for the numbers.
 final class PageView: UIScrollView, UIGestureRecognizerDelegate {
 
     let textView: DocumentUITextView
@@ -35,8 +35,22 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// two in step.
     let canvas: DrawingCanvas
 
+    /// The Select tool: what is selected on the canvas, and the view that
+    /// owns touches while it is the tool (docs/design/object-system.md).
+    let selection: InkSelection
+    let selectionOverlay: InkSelectionOverlay
+
     /// Sheets in print layout, break lines in compressed. Behind the text.
     let decorations = PageDecorationView()
+
+    /// The paper the note is ruled with (`Page.paper`). Drawing only: it takes
+    /// no room, so setting it moves no line and no stroke.
+    var paper = PaperSetup.blank {
+        didSet {
+            guard paper != oldValue else { return }
+            decorations.paper = paper
+        }
+    }
 
     /// Over the ink, where seamless has no room — see `PageCoverView`.
     let covers = PageCoverView()
@@ -109,6 +123,10 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
 
     /// Told the new minimum when this view raises it, so the note keeps it.
     var onMinimumPageCountChanged: ((Int) -> Void)?
+
+    /// Whether a stroke the reader ends in the last page's foot adds a page
+    /// (`InkPageGrowth`). Seamless keeps a blank page below ink regardless.
+    var addsPagesWhileDrawing = InkPageGrowth.defaultEnabled
 
     /// How many pages the text currently has bands for.
     private var bandedPageCount = 0
@@ -191,6 +209,9 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             width: layout.pageSize.width,
             height: layout.noteHeight(pageCount: 1)
         ))
+        let selection = InkSelection()
+        self.selection = selection
+        self.selectionOverlay = InkSelectionOverlay(selection: selection)
         self.inkState = InkCapture.State(ink: PaperMarkup(bounds: CGRect(
             origin: .zero,
             size: CGSize(
@@ -242,6 +263,9 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         }
         textView.addSubview(canvas)
         textView.insertSubview(covers, aboveSubview: canvas)
+        selection.canvas = canvas
+        selectionOverlay.takesTouch = canvas.takesTouch
+        textView.insertSubview(selectionOverlay, aboveSubview: covers)
 
         pinch.addTarget(self, action: #selector(handlePinch(_:)))
         pinch.delegate = self
@@ -956,12 +980,15 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
 
         let noteHeight = pageLayout.noteHeight(pageCount: pageCount)
         canvas.noteSize = CGSize(width: pageLayout.pageSize.width, height: noteHeight)
-        canvas.cover(Self.visiblePart(
+        let visible = Self.visiblePart(
             ofNoteHeight: noteHeight,
             width: pageLayout.pageSize.width,
             scrolledTo: textView.contentOffset.y,
             viewHeight: textView.bounds.height
-        ))
+        )
+        canvas.cover(visible)
+        selectionOverlay.cover(visible)
+        selection.regions = pageLayout.inkRegions(pageCount: pageCount)
         decorations.update(layout: pageLayout, pageCount: pageCount, height: noteHeight)
         covers.update(layout: pageLayout, pageCount: pageCount, height: noteHeight)
     }
@@ -1082,6 +1109,8 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         // Ink just moved under whatever the undo stack was holding: its
         // actions restore strokes to the mode they were drawn in.
         canvas.forgetUndo()
+        // Ids and the box belong to the layout that is gone.
+        selection.clear()
 
         // The canvas holds exactly the stored elements this mode shows now,
         // pieces included, and nothing is left to undo.
@@ -1115,6 +1144,12 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// of a page's body, so it fits one page.
     var insertionMaxHeight: CGFloat {
         min(canvas.coveredPart.height, pageLayout.bodyHeight) * InkInsertion.photoWidthShare
+    }
+
+    /// Hands touches to the Select tool's overlay, or back to the canvas.
+    func setSelecting(_ selecting: Bool, allowsFingers: Bool) {
+        selectionOverlay.allowsFingers = allowsFingers
+        selectionOverlay.isActive = selecting
     }
 
     /// Takes what the reader just drew, erased or moved into the stored ink,
@@ -1190,6 +1225,23 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             textView.setNeedsLayout()
         }
         keepPageBelowInk()
+        growPageForStroke(endingAt: result.drawnEnds)
+    }
+
+    /// A stroke the reader just drew that ends in the last page's foot adds a
+    /// page, as Add Page does (`raiseMinimum`), so they can go on writing.
+    ///
+    /// Only strokes drawn now count (`InkCapture.Result.drawnEnds`): not ink
+    /// that was loaded, moved by the lasso or shown again for a mode switch.
+    /// It runs after the stroke has been taken in and told onward, and the
+    /// page it adds is the note's minimum, not ink: nothing here calls
+    /// `onInkChanged`, so growing never saves ink of its own. Seamless adds
+    /// its page from `keepPageBelowInk` as soon as ink reaches the last page.
+    private func growPageForStroke(endingAt ends: [CGPoint]) {
+        guard addsPagesWhileDrawing, pageLayout.mode != .seamless else { return }
+        let last = pageCount
+        guard ends.contains(where: { pageLayout.endsInGrowthBand(y: $0.y, pageCount: last) }) else { return }
+        raiseMinimum(to: last + 1)
     }
 
     /// Swaps strokes the canvas holds whole for the piece on the page each
@@ -1370,7 +1422,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// has a touch: a second finger joins whatever gesture the first began.
     func touchWillLand(on view: UIView?) {
         guard pans.allSatisfy({ $0.numberOfTouches == 0 }) else { return }
-        let onCanvas = view?.isDescendant(of: canvas) ?? false
+        let onCanvas = (view?.isDescendant(of: canvas) ?? false) || (view?.isDescendant(of: selectionOverlay) ?? false)
         let rule = onCanvas ? scrolling : scrolling.offCanvas
         for pan in pans {
             rule.apply(to: pan)
@@ -1438,6 +1490,26 @@ final class PageDecorationView: UIView {
     private var layout: PageLayout?
     private var pageCount = 0
 
+    /// The paper: a host layer kept above the sheets, with a shape layer to a
+    /// page body. A stroked vector path, not a tiled bitmap, so there is no
+    /// tile to round to whole pixels at some zoom and drift off the words it
+    /// sits under (docs/design/paper-styles.md). The layers share one path.
+    private let paperHost = CALayer()
+    private var paperLayers: [CAShapeLayer] = []
+
+    var paper = PaperSetup.blank {
+        didSet {
+            guard paper != oldValue else { return }
+            updatePaper()
+        }
+    }
+
+    /// The paper layers' frames in note coordinates, for tests.
+    var paperFrames: [CGRect] { paperLayers.map(\.frame) }
+
+    /// The paper layers, for tests.
+    var paperShapeLayers: [CAShapeLayer] { paperLayers }
+
     /// Sheet frames in note coordinates, for tests.
     var sheetFrames: [CGRect] { sheets.map(\.frame) }
 
@@ -1494,13 +1566,62 @@ final class PageDecorationView: UIView {
             Self.place(line, atY: layout.breakLineY(afterPage: index), width: frame.width)
         }
 
+        updatePaper()
         resolveColors()
+    }
+
+    // MARK: Paper
+
+    /// Brings the paper layers up to the layout, the page count and the
+    /// setup. Draws only: nothing here touches the text.
+    private func updatePaper() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+
+        // Above the sheets, which a switch to print layout adds after this
+        // layer exists.
+        if paperHost.superlayer !== layer || layer.sublayers?.last !== paperHost {
+            layer.addSublayer(paperHost)
+        }
+        paperHost.frame = bounds
+
+        let regions = (paper.isBlank || layout == nil) ? [] : layout!.paperRegions(pageCount: pageCount)
+        while paperLayers.count < regions.count {
+            let shape = CAShapeLayer()
+            shape.fillColor = nil
+            paperHost.addSublayer(shape)
+            paperLayers.append(shape)
+        }
+        while paperLayers.count > regions.count {
+            paperLayers.removeLast().removeFromSuperlayer()
+        }
+        guard let size = regions.first?.size else { return }
+
+        let path = paper.strokePath(in: size)
+        let dash = paper.dash?.map { NSNumber(value: Double($0)) }
+        for (shape, region) in zip(paperLayers, regions) {
+            shape.frame = region
+            shape.path = path
+            shape.lineWidth = paper.strokeWidth
+            shape.lineDashPattern = dash
+            shape.lineCap = paper.style == .dots ? .round : .butt
+        }
+        applyPaperColor()
+    }
+
+    private func applyPaperColor() {
+        guard let tone = paper.tone(dark: traitCollection.userInterfaceStyle == .dark) else { return }
+        for shape in paperLayers {
+            shape.strokeColor = tone.cgColor
+        }
     }
 
     /// CALayer colours are plain CGColors and don't follow dark mode on their
     /// own, so they're re-resolved whenever the appearance changes.
     private func resolveColors() {
         Self.resolveColors(sheets: sheets, lines: breaks, for: traitCollection)
+        applyPaperColor()
     }
 
     // MARK: Pieces, shared with the covers

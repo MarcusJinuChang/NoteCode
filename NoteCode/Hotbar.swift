@@ -64,6 +64,14 @@ struct Hotbar: View {
     /// Gap between the bar and the edges around it.
     static let margin: CGFloat = 12
 
+    /// The gap kept between the page and the screen's edge on every side the
+    /// bar doesn't take (feedback item 1, 23 Oct). 10pt: enough to read as a
+    /// margin of surround rather than a rendering glitch, a little under the
+    /// bar's own 12pt margin so a bar floating over the page's bottom still
+    /// sits inside it, and small enough that the fit scale moves about 2.4% on
+    /// an 11-inch iPad. See `CanvasGeometry.areaInsets`.
+    static let pageBuffer: CGFloat = 10
+
     /// How far the bar and its margin take in from the edge it's docked to.
     static var barFootprint: CGFloat { margin + thickness }
 
@@ -118,6 +126,11 @@ struct Hotbar: View {
         .accessibilityIdentifier("hotbar")
         .padding(Self.padding)
         .glassEffect(.regular, in: .rect(cornerRadius: Self.thickness / 2))
+        #if DEBUG
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+            SelectionProbe.log("hotbar frame \(frame)")
+        }
+        #endif
         // An overlay, so the row takes no room: it floats over the page and
         // leaves the bar's size alone, which is what keeps the page where it
         // is whichever mode, tool or edge the bar is on. Inside the offset,
@@ -195,18 +208,27 @@ struct Hotbar: View {
         }
     }
 
+    /// One control for the two modes, in a single slot: it shows the icon of
+    /// the mode the note is in (the text cursor in text mode, the pencil in
+    /// ink mode) and a tap switches. Not `pencil.tip`, which is the pen tool
+    /// that sits beside it in ink mode.
     private var modeToggle: some View {
-        stack {
-            button("Text", "character.cursor.ibeam", isSelected: editor.mode == .text) {
-                editor.setMode(.text)
+        let isInk = editor.mode == .ink
+        return Button {
+            editor.toggleMode()
+        } label: {
+            ZStack {
+                HotbarIcon(systemImage: "character.cursor.ibeam").opacity(isInk ? 0 : 1)
+                HotbarIcon(systemImage: "pencil.and.scribble").opacity(isInk ? 1 : 0)
             }
-            // Not `pencil.tip`: that is the pen tool, which sits beside this
-            // in ink mode.
-            button("Draw", "pencil.and.scribble", isSelected: editor.mode == .ink) {
-                editor.setMode(.ink)
-            }
+            // A quick cross-fade between the two faces; none under Reduce Motion.
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: isInk)
         }
-        .background(.quaternary, in: .capsule)
+        .buttonStyle(.plain)
+        .accessibilityLabel("Mode")
+        .accessibilityValue(isInk ? "Draw mode" : "Text mode")
+        .accessibilityHint(isInk ? "Switches to Text" : "Switches to Draw")
+        .accessibilityIdentifier("modeToggle")
     }
 
     @ViewBuilder

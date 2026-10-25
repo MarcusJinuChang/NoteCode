@@ -27,10 +27,10 @@ nonisolated enum ProseBlockMetrics {
     static let ruleThickness: CGFloat = 1.5
 
     /// A quote line's paragraph style: the first line and the rest both start
-    /// past the bars. Nothing here reads the typography, so the style is the
-    /// same at every text size.
-    static func quoteParagraphStyle(depth: Int) -> NSParagraphStyle {
-        let style = NSMutableParagraphStyle()
+    /// past the bars. The indent is the same at every text size; the line
+    /// height is the note's spacing.
+    static func quoteParagraphStyle(depth: Int, typography: NoteTypography = .standard) -> NSParagraphStyle {
+        let style = typography.lineStyle(for: typography.prose)
         let indent = CGFloat(max(depth, 1)) * quoteIndent
         style.firstLineHeadIndent = indent
         style.headIndent = indent

@@ -236,12 +236,12 @@ struct FenceTagTests {
         #expect(edit("", as: .java) == nil)
     }
 
-    @Test("The label is the language's name, the tag as typed, or Plain Text")
+    @Test("The label is the language's name, the tag as typed, or Code")
     func labels() {
         #expect(FenceTag.label(language: .cpp, tag: "c++") == "C++")
         #expect(FenceTag.label(language: .python, tag: "py") == "Python")
         #expect(FenceTag.label(language: nil, tag: "ruby") == "ruby")
-        #expect(FenceTag.label(language: nil, tag: "") == "Plain Text")
+        #expect(FenceTag.label(language: nil, tag: "") == "Code")
     }
 
     @Test("A target carries the tag as typed")
@@ -249,6 +249,6 @@ struct FenceTagTests {
         let source = "```c++\nx\n```\n```\ny\n```\n```ruby\nz\n```\n"
         let targets = CodeBlockAction.targets(in: source, blocks: DocumentParser.parse(source))
         #expect(targets.map(\.tag) == ["c++", "", "ruby"])
-        #expect(targets.map(\.languageLabel) == ["C++", "Plain Text", "ruby"])
+        #expect(targets.map(\.languageLabel) == ["C++", "Code", "ruby"])
     }
 }

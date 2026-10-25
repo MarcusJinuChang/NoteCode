@@ -38,7 +38,31 @@ final class NoteEditor {
                 previousInkKind = oldValue.kind
             }
             canvas?.tool = inkTool.pencilKitTool
+            page?.selection.kind = inkTool.selectionKind
+            applySelecting()
+            // The selection is the canvas controller's, not the tool's, so it
+            // outlived the lasso (reported 21 Oct). Only *leaving* the lasso
+            // clears it: `insertIntoInk` selects what it inserted and then
+            // switches to the lasso, and that must keep the selection.
+            if oldValue.kind == .lasso, inkTool.kind != .lasso {
+                canvas?.clearPaperKitSelection()
+                page?.selection.clear()
+            }
         }
+    }
+
+    /// The Select tool's selection, once the page exists.
+    var selection: InkSelection? { page?.selection }
+
+    /// Gives touches to the Select tool's overlay while it is the tool in ink
+    /// mode, and to the canvas otherwise.
+    private func applySelecting() {
+        let selecting = mode == .ink && inkTool.kind == .lasso
+        // PaperKit gets no touches while the Select tool has the page, except
+        // for one object the reader chose to Edit.
+        let editing = page?.selection.isEditingInPaperKit ?? false
+        canvas?.suspendsPaperKitInput = selecting
+        page?.setSelecting(selecting && !editing, allowsFingers: !isPencilOnly)
     }
 
     /// The tool in use before the current one, for the Pencil's double tap
@@ -58,6 +82,18 @@ final class NoteEditor {
     /// Swaps between the current tool and the one before it.
     func switchToPreviousTool() {
         inkTool.kind = previousInkKind
+    }
+
+    /// The Pencil's double tap or squeeze while the text has the page: goes to
+    /// ink mode so the gesture has something to act on, then does what the
+    /// reader set it to. Nothing when the setting is off or a shortcut the
+    /// system runs itself, since switching mode for a gesture that then does
+    /// nothing would only surprise. Whether the mode changed.
+    @discardableResult
+    func enterInkForPencil(_ response: PencilResponse) -> Bool {
+        guard mode == .text, response != .nothing else { return false }
+        setMode(.ink)
+        return true
     }
 
     /// Picks a tool from the keyboard (P, H, E, L). Ink mode only: in text
@@ -90,6 +126,7 @@ final class NoteEditor {
         didSet {
             guard isPencilOnly != oldValue else { return }
             canvas?.allowsFingerDrawing = !isPencilOnly
+            applySelecting()
             applyScrolling()
         }
     }
@@ -106,6 +143,24 @@ final class NoteEditor {
     /// button says it, so a device that has never set it reads `true`.
     static let fingerDrawsKey = "fingerDraws"
 
+    /// Settings › Drawing › After a Selection: back to the tool before the
+    /// Select tool once the selection ends by the reader's choice. Off
+    /// unless chosen.
+    static let returnToPreviousToolKey = "returnToPreviousTool"
+
+    /// Whether the selection ending sends the reader back to their tool.
+    /// Per device (`InkToolPersistence`).
+    @ObservationIgnored var returnsToPreviousTool = false
+
+    /// The Select tool's selection ended because the reader let go of it:
+    /// Delete, or a tap on empty space. Never a tool or mode switch (they
+    /// chose a tool) and never a move, recolour or duplicate (they often
+    /// do two in a row). Goes back to the tool before Select, if asked to.
+    func selectionEnded() {
+        guard returnsToPreviousTool, mode == .ink, inkTool.kind == .lasso, previousInkKind != .lasso else { return }
+        inkTool.kind = previousInkKind
+    }
+
     /// Whether the note's text is locked (`Page.isTextLocked`), so text mode
     /// reads rather than edits: no keyboard, no formatting, no undo. The page
     /// holds the setting; this is the copy the text view and the hotbar
@@ -120,7 +175,7 @@ final class NoteEditor {
     @ObservationIgnored private(set) var isFormatting = false
 
     /// What the next text typed will be drawn with, set by a button that has
-    /// no word to act on (`TypingStyle`, docs/text-system-overhaul.md,
+    /// no word to act on (`TypingStyle`, docs/archive/text-system-overhaul.md,
     /// decision 5). Nothing is written until text is typed. Cleared by a
     /// caret move, a mode switch, a locked note and the keyboard going away.
     private(set) var typingStyle = TypingStyle.none
@@ -151,6 +206,15 @@ final class NoteEditor {
     /// view's coordinator sets these: it owns the blocks and where they run.
     @ObservationIgnored var runBlockAtCaret: (() -> Void)?
     @ObservationIgnored var copyBlockAtCaret: (() -> Void)?
+
+    /// The on-device assistant (Explain Code, Summarise Note). One per note,
+    /// like the editor; its settings arrive from `PageDetailView` through
+    /// `AIFeatureSettings.apply(to:)`.
+    @ObservationIgnored var ai = AIAssistant.system()
+
+    /// Explains the code block the caret is in, if it is in one. The text
+    /// view's coordinator sets this, as it does `runBlockAtCaret`.
+    @ObservationIgnored var explainBlockAtCaret: (() -> Void)?
 
     /// Told after a code block's code is on the pasteboard, by the button, the
     /// edit menu or ⇧⌘C, so the page can say "Copied".
@@ -197,8 +261,18 @@ final class NoteEditor {
     @discardableResult
     func insertIntoInk(extent: CGSize, _ insert: (PaperMarkupViewController) -> Void) -> Bool {
         guard mode == .ink, let page, let controller = canvas?.controller else { return false }
+        var before: Set<MarkupOrderedSet.ElementID> = []
+        for element in canvas?.markup.subelements ?? PaperMarkup(bounds: .zero).subelements { before.insert(element.elementID) }
         page.insertIntoInk(extent: extent) { insert(controller) }
         inkTool.kind = .lasso
+        // PaperKit selects what it inserts; the Select tool is the one that
+        // shows and moves it, so the selection is handed across.
+        var inserted: Set<MarkupOrderedSet.ElementID> = []
+        for element in canvas?.markup.subelements ?? PaperMarkup(bounds: .zero).subelements where !before.contains(element.elementID) {
+            inserted.insert(element.elementID)
+        }
+        canvas?.clearPaperKitSelection()
+        page.selection.select(ids: inserted)
         return true
     }
 
@@ -224,7 +298,8 @@ final class NoteEditor {
             minimumPages: page.minimumPageCount,
             rendersMarkdown: rendersMarkdown,
             lineNumbers: showsLineNumbers,
-            typography: typography
+            typography: typography,
+            paper: page.paper
         ))
     }
 
@@ -267,8 +342,25 @@ final class NoteEditor {
         clearTypingStyle()
         canvas?.tool = inkTool.pencilKitTool
         canvas?.allowsFingerDrawing = !isPencilOnly
-        canvas?.onUndoDidChange = { [weak self] in self?.refreshUndoState() }
+        canvas?.onUndoDidChange = { [weak self] in
+            self?.refreshUndoState()
+            // Undo can bring back or remove what is selected.
+            self?.page?.selection.refresh()
+        }
+        page?.selection.kind = inkTool.selectionKind
+        page?.selection.textPiecesFor = { [weak self] shape in
+            guard let self, !self.isTextLocked, let textView = self.textView else { return [] }
+            // Code is never coloured, so it is never selected as text.
+            let code = self.codeRanges?() ?? []
+            return TextRegion.pieces(for: shape, lines: TextRegion.visibleLines(in: textView)).filter { piece in
+                !code.contains { NSIntersectionRange($0.range, piece.range).length > 0 }
+            }
+        }
+        page?.selection.onEditingChange = { [weak self] in self?.applySelecting() }
+        page?.selection.onEnded = { [weak self] in self?.selectionEnded() }
+        page?.selection.recolourText = { [weak self] ranges, hex in self?.recolourText(ranges, to: hex) }
         savedSession = mode.apply(to: textView, canvas: canvas, saved: nil, textLocked: isTextLocked)
+        applySelecting()
         applyScrolling()
         refreshUndoState()
     }
@@ -281,6 +373,8 @@ final class NoteEditor {
             savedSession = newMode.apply(to: textView, canvas: canvas, saved: savedSession, textLocked: isTextLocked)
         }
         applyScrolling()
+        if newMode != .ink { page?.selection.clear() }
+        applySelecting()
         refreshUndoState()
         modeDidChange?()
     }
@@ -614,6 +708,53 @@ final class NoteEditor {
         refreshUndoState()
     }
 
+    // MARK: The on-device assistant
+
+    /// Explain Code: opens the assistant's sheet on a block.
+    func explain(_ target: CodeBlockTarget) {
+        guard !target.isOutput, !target.code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        ai.begin(AIPrompts.explainJob(
+            code: target.code,
+            languageName: target.language?.displayName,
+            insertionOffset: min(NSMaxRange(target.range), textView?.textStorage.length ?? NSMaxRange(target.range)),
+            contextTokens: ai.contextTokens,
+            length: ai.settings.length
+        ))
+    }
+
+    /// Summarise Note: opens the assistant's sheet on the note's text.
+    func summariseNote(title: String) {
+        guard let textView else { return }
+        let text = textView.text ?? ""
+        ai.begin(AIPrompts.summariseJob(
+            text: text,
+            title: title,
+            insertionOffset: AIInsertion.anchor(caret: textView.selectedRange.location, in: text as NSString, codeRanges: codeRanges?() ?? []),
+            contextTokens: ai.contextTokens,
+            length: ai.settings.length
+        ))
+    }
+
+    /// Whether Insert Below can write: text mode, and not a locked note.
+    var canInsertAnswer: Bool {
+        mode == .text && !isTextLocked && textView != nil
+    }
+
+    /// Insert Below: the answer as a quote or an output block under the
+    /// block or line it was asked about. One edit through the text view, so
+    /// one undo step. Returns whether it wrote anything.
+    @discardableResult
+    func insertAnswer(_ answer: String, style: AIInsertStyle, at anchor: Int) -> Bool {
+        guard canInsertAnswer else { return false }
+        var wrote = false
+        perform { text, _ in
+            let edit = AIInsertion.edit(inserting: answer, style: style, at: anchor, in: text as NSString)
+            wrote = edit != nil
+            return edit
+        }
+        return wrote
+    }
+
     /// + Output: an empty output block under the code block the caret is in.
     func addOutputBlock() {
         perform { [codeRanges] text, selection in
@@ -633,6 +774,29 @@ final class NoteEditor {
         }
         perform { [codeRanges] text, selection in
             MarkdownFormatting.colour(hex, selection: selection, in: text as NSString, codeRanges: codeRanges?() ?? [])
+        }
+    }
+
+    /// Colours text ranges, one per line, for the Select tool. Works in ink
+    /// mode, where the text view isn't editable and has no keyboard:
+    /// `replace(_:withText:)` doesn't care (scripts/spikes/text-edit-while-ink-probe.swift).
+    /// All in one turn of the run loop, so one undo step; bottom up, so the
+    /// lines an edit rewrites can't move a range not yet done.
+    func recolourText(_ ranges: [NSRange], to hex: Int?) {
+        guard !isTextLocked, let textView else { return }
+        isFormatting = true
+        defer {
+            isFormatting = false
+            refreshUndoState()
+        }
+        for range in ranges.sorted(by: { $0.location > $1.location }) {
+            let text = textView.text ?? ""
+            guard let edit = MarkdownFormatting.colour(hex, selection: range, in: text as NSString, codeRanges: codeRanges?() ?? []),
+                  let start = textView.position(from: textView.beginningOfDocument, offset: edit.range.location),
+                  let end = textView.position(from: start, offset: edit.range.length),
+                  let textRange = textView.textRange(from: start, to: end)
+            else { continue }
+            textView.replace(textRange, withText: edit.replacement)
         }
     }
 
@@ -1000,7 +1164,7 @@ final class NoteEditor {
     private(set) var appliedTextSize = NoteTypography.defaultSize
 
     /// The note's typography as it is now, for a PDF made of it.
-    var typography: NoteTypography { NoteTypography(bodySize: appliedTextSize) }
+    var typography: NoteTypography { NoteTypography(bodySize: appliedTextSize, lineSpacing: appliedLineSpacing) }
 
     /// A size waiting for the reader's yes, because the note has ink: the
     /// text re-flows and ink stays where it was drawn. `nil` unless the alert
@@ -1069,6 +1233,60 @@ final class NoteEditor {
     func cancelTextSize() {
         sizeAwaitingConfirmation = nil
         textSize = appliedTextSize
+    }
+
+    // MARK: The note's line spacing
+
+    /// The points of line spacing the note is laid out with, from
+    /// `Page.lineSpacing`, and as the text row's menu shows them. A pick is
+    /// one action, so it applies at once (no `settleDelay`); a note with ink
+    /// asks first, once each time it is opened, with the text size's answer.
+    private(set) var lineSpacing = 0
+    private(set) var appliedLineSpacing = 0
+
+    /// A spacing waiting for the reader's yes, because the note has ink.
+    private(set) var spacingAwaitingConfirmation: Int?
+
+    /// Writes the spacing into the note (`Page.lineSpacing`). Not an edit.
+    @ObservationIgnored var commitLineSpacing: ((Int?) -> Void)?
+
+    /// Follows the note's stored spacing, as the page opens and whenever
+    /// something else changes it.
+    func syncLineSpacing(to stored: Int?) {
+        let spacing = NoteTypography(lineSpacing: stored).lineSpacing
+        appliedLineSpacing = spacing
+        if spacingAwaitingConfirmation == nil { lineSpacing = spacing }
+    }
+
+    /// A spacing picked from the text row. Text mode only, and not for a
+    /// locked note.
+    func setLineSpacing(_ points: Int) {
+        guard mode == .text, !isTextLocked, spacingAwaitingConfirmation == nil else { return }
+        let spacing = NoteTypography(lineSpacing: points).lineSpacing
+        guard spacing != appliedLineSpacing else { return }
+        if hasInk, !inkQuestionAnswered {
+            spacingAwaitingConfirmation = spacing
+        } else {
+            commitLineSpacing?(NoteTypography(lineSpacing: spacing).storedLineSpacing)
+            appliedLineSpacing = spacing
+            lineSpacing = spacing
+        }
+    }
+
+    /// The alert's Change.
+    func confirmLineSpacing() {
+        guard let spacing = spacingAwaitingConfirmation else { return }
+        inkQuestionAnswered = true
+        spacingAwaitingConfirmation = nil
+        commitLineSpacing?(NoteTypography(lineSpacing: spacing).storedLineSpacing)
+        appliedLineSpacing = spacing
+        lineSpacing = spacing
+    }
+
+    /// The alert's Cancel.
+    func cancelLineSpacing() {
+        spacingAwaitingConfirmation = nil
+        lineSpacing = appliedLineSpacing
     }
 
     /// Whether the note has any ink. The page's own copy, so strokes drawn

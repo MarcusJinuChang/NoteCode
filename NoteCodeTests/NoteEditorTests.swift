@@ -5,6 +5,7 @@
 
 #if canImport(UIKit)
 
+import PaperKit
 import PencilKit
 import SwiftUI
 import Testing
@@ -20,7 +21,7 @@ struct NoteEditorTests {
     @MainActor
     private final class Harness {
         var stored: String
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
         let textView = DocumentTextView.makeConfiguredTextView()
         let editor = NoteEditor()
         let page: PageView
@@ -339,6 +340,22 @@ struct NoteEditorTests {
         #expect(PencilResponse(.ignore) == .nothing)
     }
 
+    @Test("A Pencil gesture in text mode goes to ink first, unless it would do nothing")
+    func pencilFromText() {
+        let harness = Harness("a word b")
+        #expect(harness.editor.mode == .text)
+
+        #expect(harness.editor.enterInkForPencil(.nothing) == false)
+        #expect(harness.editor.mode == .text)
+
+        #expect(harness.editor.enterInkForPencil(.toggleEraser))
+        #expect(harness.editor.mode == .ink)
+        // Already in ink: nothing to switch.
+        #expect(harness.editor.enterInkForPencil(.toggleEraser) == false)
+        harness.editor.toggleEraser()
+        #expect(harness.editor.inkTool.kind == .eraser)
+    }
+
     @Test("The hotbar's tool reaches the canvas")
     func toolReachesTheCanvas() {
         let harness = Harness("a word b")
@@ -346,6 +363,55 @@ struct NoteEditorTests {
         harness.editor.inkTool = InkToolState(kind: .highlighter, highlighter: InkingSettings(color: .red))
 
         #expect((harness.canvas.tool as? PKInkingTool)?.inkType == .marker)
+    }
+
+    // MARK: PaperKit's selection and the tool
+
+    /// A canvas with one shape on it, selected in PaperKit.
+    private func selectAShape(in harness: Harness) throws {
+        var markup = harness.canvas.markup
+        markup.insertNewShape(
+            configuration: ShapeConfiguration(type: .rectangle),
+            frame: CGRect(x: 100, y: 100, width: 80, height: 60)
+        )
+        harness.canvas.markup = markup
+        let id = try #require(harness.canvas.markup.subelements.first?.elementID)
+        // As the Edit bridge does: PaperKit's delegate lets go of any other
+        // selection the moment it is made (`PaperKitSelectionRemovalTests`).
+        harness.canvas.beginPaperKitEdit(id)
+        try #require(harness.canvas.controller.selection.count == 1, "the harness can't hold a PaperKit selection, so the tests below prove nothing")
+    }
+
+    @Test("Leaving the lasso lets go of PaperKit's selection")
+    func leavingTheLassoClearsTheSelection() throws {
+        let harness = Harness("a word b")
+        harness.editor.inkTool.kind = .lasso
+        try selectAShape(in: harness)
+
+        harness.editor.inkTool.kind = .pen
+
+        #expect(harness.canvas.controller.selection.isEmpty)
+    }
+
+    @Test("Switching to the lasso keeps a selection, as an insert needs")
+    func enteringTheLassoKeepsTheSelection() throws {
+        let harness = Harness("a word b")
+        try selectAShape(in: harness)
+
+        harness.editor.inkTool.kind = .lasso
+
+        #expect(harness.canvas.controller.selection.count == 1)
+    }
+
+    @Test("Changing the pen's colour, not the tool, leaves the selection alone")
+    func settingsKeepTheSelection() throws {
+        let harness = Harness("a word b")
+        harness.editor.inkTool.kind = .lasso
+        try selectAShape(in: harness)
+
+        harness.editor.inkTool.pen.color = .red
+
+        #expect(harness.canvas.controller.selection.count == 1)
     }
 }
 

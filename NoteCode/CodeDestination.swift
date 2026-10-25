@@ -271,17 +271,20 @@ extension CodeDestination {
     ///
     /// Compiler Explorer names languages exactly as `CodeLanguage.canonicalName`
     /// already does, so only the compiler is worth stating here. Verified
-    /// against godbolt.org on 11 September 2026; C, Rust and Go on 13 October,
-    /// each by compiling and running a hello-world through its API
-    /// (`/api/compiler/<id>/compile` with `execute` on) and reading the output.
-    /// The newest release of each, so the ids are the part that will go stale.
+    /// against godbolt.org on 11 September 2026; C, Rust and Go on 13 October;
+    /// all five re-checked on 23 October 2026 against the live compiler list
+    /// (`/api/compilers/<language>`: every earlier pin was still there, and gcc
+    /// 16.2 and Python 3.14 were out), each by compiling and running a
+    /// hello-world through its API (`/api/compiler/<id>/compile` with `execute`
+    /// on) and reading the output. The newest release of each, so the ids are
+    /// the part that will go stale.
     private static func compilerExplorerCompiler(
         for language: CodeLanguage
     ) -> (id: String, options: String)? {
         switch language {
-        case .cpp:    ("g142", "-O2 -std=c++17")
-        case .python: ("python313", "")
-        case .c:      ("cg152", "-O2 -std=c17")
+        case .cpp:    ("g162", "-O2 -std=c++17")
+        case .python: ("python314", "")
+        case .c:      ("cg162", "-O2 -std=c17")
         case .rust:   ("r1990", "-O")
         case .go:     ("gl1260", "")
         // No executor for these; see `supportedLanguages`.
