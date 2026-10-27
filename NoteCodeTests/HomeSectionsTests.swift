@@ -189,6 +189,32 @@ struct HomeSectionsTests {
         #expect(HomeExcerpt.of(String(repeating: "x", count: 500), limit: 160)?.count == 160)
     }
 
+    @Test("The excerpt is the words the page draws, not the Markdown typed",
+          arguments: [
+              ("**bold** words", "bold words"),
+              ("*italic* words", "italic words"),
+              ("~~struck~~ words", "struck words"),
+              ("<u>under</u> words", "under words"),
+              ("==🟡marked== words", "marked words"),
+              ("<span style=\"color:#E5484D\">red</span> words", "red words"),
+              ("<span style=\"font-size:1.25em\">big</span> words", "big words"),
+              ("See [the docs](https://example.com/x) now", "See the docs now"),
+              ("- a bullet", "a bullet"),
+              ("1. a number", "a number"),
+              ("- [ ] a task", "a task"),
+              ("- [x] a done task", "a done task"),
+              ("> a quote", "a quote"),
+              ("Call `foo()` here", "Call foo() here"),
+          ])
+    func excerptDropsMarkers(line: String, shown: String) {
+        #expect(HomeExcerpt.of(line) == shown)
+    }
+
+    @Test("A line that is all markup and no text falls through to the next")
+    func excerptSkipsEmptyMarkup() {
+        #expect(HomeExcerpt.of("---\n- [ ]\n> \nThe real line.") == "The real line.")
+    }
+
     @Test("An unclosed fence at the top means the rest is code, so there is nothing to quote")
     func excerptUnclosedFence() {
         #expect(HomeExcerpt.of("```python\nprint(1)\nstill code") == nil)
