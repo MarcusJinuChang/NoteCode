@@ -120,148 +120,49 @@ Read the one that matches the area you are changing; do not read them all.
 | Paste and copy with formatting | [docs/design/paste-and-copy-with-formatting.md](docs/design/paste-and-copy-with-formatting.md) |
 | Organising notes | [docs/design/organising-notes.md](docs/design/organising-notes.md) |
 | On-device assistant: Explain Code, Summarise Note | [docs/design/ai-features.md](docs/design/ai-features.md) |
+| The model (schema versions, freezing) | [docs/design/the-model.md](docs/design/the-model.md) |
+| Shipping (privacy, signing, icons) | [docs/design/shipping.md](docs/design/shipping.md) |
 
 What the app contains: [docs/features.md](docs/features.md) — every feature by type, how it
 works, and what is missing or planned. Read it before reading code to find out whether
 something exists, and update its rows in the same PR that adds, changes or removes a feature.
 
-Planning docs: `docs/ROADMAP.md` (status and what is left); `docs/feedback-plan.md` (the
-October testing feedback, the streams and their order); finished plans are in `docs/archive/`.
+Planning docs: `docs/ROADMAP.md` (status and what is left); the working plan is
+`docs/release-1.0/README.md` (a session reads its Rules and its own stream's file);
+finished plans are in `docs/archive/`.
 Everything still to see on a real iPad, in the order of a walk through the app:
 [docs/ipad-test-checklist.md](docs/ipad-test-checklist.md).
 
 ## The model
 
-`Page` and `Folder` are typealiases for `NoteSchemaV1.Page` and `.Folder`,
-whose classes are in Page.swift and Folder.swift. `NoteSchema.current` is
-version 1's schema, and `Storage` opens every store with `NoteMigrationPlan`,
-which holds version 1 and no stages (17 Oct, step 13 of docs/ROADMAP.md).
+`Page` and `Folder` are typealiases for `NoteSchemaV1.Page` and `.Folder`
+(Page.swift, Folder.swift); `Storage` opens every store with
+`NoteMigrationPlan`. Read [docs/design/the-model.md](docs/design/the-model.md)
+before changing a stored attribute. The rules:
 
-- **Edited in place until the release** (decided 15 Oct, step 4). Nothing
-  important was stored in the app, so the frozen versions 1 to 7, the
-  version-7 stage and `SchemaMigrationTests` went, and are in the history of
-  NoteSchema.swift. Their numbers are reused: today's version 1 is the shape
-  that ships, not the old one.
-- **Version 1 is frozen by its hashes** (`ModelFreezeTests`). SwiftData
-  matches a store to a version by Core Data's entity version hashes, so the
-  test pins them (`NSManagedObjectModel.makeManagedObjectModel(for:)`,
-  `entityVersionHashesByName`). Adding an attribute fails it, and so does
-  opening stores without the plan (both mutation-checked, 17 Oct).
-  - **Before the App Store release** a model change may still edit version
-    1 in place and update the pinned hashes; TestFlight testers then
-    reinstall.
-  - **After it, a changed hash means a new version.** Copy the classes as
-    they were into `NoteSchemaV1` (frozen: same names, types, defaults,
-    external storage and relationships), move the live ones to
-    `extension NoteSchemaV2`, point the typealiases at it, add a stage, and
-    write a test that saves a store with the frozen copy and opens it through
-    `Storage`, never a container built some other way. Pin version 2's
-    hashes beside version 1's.
-- **A store from before versions opens as version 1**, since its shape is
-  the same: the TestFlight builds from 17 Oct opened a plain
-  `Schema([Page.self, Folder.self])`, and
-  `ModelFreezeTests.storeFromBeforeVersionsOpens` writes one that way, with
-  ink, nested folders and a deleted note, and opens it through `Storage`.
-- **A store that can't be opened looks like lost notes.** `Storage` falls back
-  to an in-memory store with a warning; the file is untouched, but the app
-  can't see it.
-- **Shaped for CloudKit**, so iCloud sync later needs no migration of its own:
-  every relationship optional, every attribute optional or with a default,
-  nothing `.unique`.
-- **Gone with the old notes**: `Page.paperStyle` (paper is postponed),
-  `Page.markdownLayout` and the legacy layout it chose, and the title menu's
-  Hide Markdown Markers….
-- **Don't run an older branch on a device** whose store this build has opened:
-  an older build may fail to open it.
+- **Version 1 is frozen by its hashes** (`ModelFreezeTests`). Before the App
+  Store release a model change may edit version 1 in place and update the
+  pinned hashes; after it, a changed hash means a new schema version.
+- **Shaped for CloudKit**: every relationship optional, every attribute
+  optional or with a default, nothing `.unique`.
+- **A store that can't be opened looks like lost notes**: `Storage` falls
+  back to memory with a warning.
 
 ## Shipping
 
-What an upload checks before a person sees the app (4 Oct).
-`AppStoreReadinessTests` checks each of these in the built app.
+Details (privacy manifest, encryption, signing, icons, the build number):
+[docs/design/shipping.md](docs/design/shipping.md). The rules:
 
-- **The privacy manifest** (`PrivacyInfo.xcprivacy`) has to list a reason
-  for every required-reason API the app calls, or the upload is rejected.
-  Today that's only UserDefaults, through `@AppStorage`, for the app's own
-  settings (`CA92.1`). Calling one from another category — file
-  timestamps, system boot time, disk space, active keyboards — means adding
-  its reason. `CACurrentMediaTime` isn't on Apple's list. Notes never leave
-  the device, so nothing is collected or tracked; a server would change
-  that.
-- **Exempt encryption.** `ITSAppUsesNonExemptEncryption` is `NO` in
-  Info.plist: the only network traffic is the system opening a compiler's
-  page over HTTPS. Encryption of the app's own would change the answer.
-- **No background modes or entitlements it doesn't use.** Xcode's template
-  declared push as a background mode and had an unused entitlements file
-  for iCloud and push; both went on 4 Oct, since a mode the app never uses
-  is a question in review. iCloud sync brings them back, through Signing &
-  Capabilities.
-- **Signing is the paid team** (9 Oct). Automatic signing, team
-  `N454V8HV9J`. That ID was the free Personal Team, whose device profiles
-  last seven days, and it can't sign push or CloudKit; Marcus re-obtained
-  the paid Developer Program membership, and the same ID is now a paid
-  Individual team, so the project's team setting didn't need to change.
-  Read from Xcode's team list (`defaults read com.apple.dt.Xcode
-  IDEProvisioningTeamByIdentifier`: `isFreeProvisioningTeam = 0`, team name
-  "Marcus Chang" with no "(Personal Team)"), a new "Apple Development:
-  Marcus Chang" certificate issued 8 Oct to 8 Oct 2027, and the app's
-  team provisioning profile, made 8 Oct and valid a year. When an on-device
-  build misbehaves, check which team signed it before reading any Swift.
-  - **Marcus's working tree carries an uncommitted `project.pbxproj` edit**,
-    and has since 8 Oct: Xcode set `CODE_SIGN_IDENTITY = "Apple Development"`
-    for every SDK, in place of ad-hoc `-` for macOS (`"CODE_SIGN_IDENTITY
-    [sdk=macosx*]" = "-"`), and added an empty `PROVISIONING_PROFILE_SPECIFIER`,
-    when the paid account came back. It is his local state: **leave it
-    unstaged, never commit or revert it, and don't mention it in summaries or
-    PRs** (he knows). Stage files by name, never `git add -A` or `-a`. If a
-    change needs `project.pbxproj` itself, stop and ask first.
-- **iPad only, build 2** (14 Oct, v3 phase 8). The NoteCode target (both
-  configurations) has `TARGETED_DEVICE_FAMILY = 2` and
-  `CURRENT_PROJECT_VERSION = 2`; the test targets are untouched. The iPhone
-  layout is designed, not built, so TestFlight 1 is iPad only; macOS is a
-  separate platform in `SUPPORTED_PLATFORMS` and still builds. Bump the build
-  number for every upload. The edit sits in Marcus's working tree beside his
-  signing change and is not committed (see above).
-- **Privacy and support pages** are drafted in `docs/site/privacy.md` and
-  `support.md` for Marcus to host: nothing collected, notes stay on the device,
-  Run sends a block's code to the compiler site the reader picked. They carry
-  `DATE` and `EMAIL ADDRESS` placeholders. When they're hosted, set
-  `AppInfo.privacyPolicy` and `.feedbackAddress` and the two About rows appear.
-- **The app icon** (10 Oct, phase 7 of `docs/archive/ui-design-v2-implementation.md`):
-  the set had no images, which fails an upload; it has them now. They are
-  **drawn by `scripts/make-icons.swift`** (Core Graphics, the Logo board's
-  120-unit geometry), which rewrites the three icon sets and their
-  `Contents.json` outright: `swift scripts/make-icons.swift` from the
-  repository root. Edit the script, never the PNGs.
-  - **`AppIcon`**: Default (opaque), Dark (brackets and pencil on a
-    transparent ground: the system supplies the background) and Tinted
-    (greyscale, with the pencil at the orange's luma so it stays darker than
-    the brackets once tinted), plus the ten macOS slots. Each macOS size is
-    drawn at its own pixel size, not scaled from the 1024.
-  - **Opaque except Dark.** The App Store rejects a marketing icon with an
-    alpha channel, so the Default, both alternates and the Tinted image are
-    written with none (`sips -g hasAlpha`); `AppIconTests.alpha` checks it.
-  - **Alternates** `AppIcon-Paper` and `AppIcon-Orange`, named in
-    `ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES`, **scoped to the iPhone
-    and iPad SDKs** (`[sdk=iphone*]`): they have no macOS art, so unscoped
-    the Mac build warned "No applicable app icon found" for both. macOS has
-    no `setAlternateIconName` either. One image each, with no Dark or Tinted
-    variant, so they look the same in every Home Screen style.
-  - **Full-bleed squares**, as the design says. The macOS slots are the same
-    art, unmasked: not seen on a Mac, so check the Dock before shipping there.
-  - **The colours live twice**, in the script and in `AppIconChoice`
-    (AppSettings.swift), which Settings draws its previews from, since an
-    icon set can't be loaded as an image by name. `AppIconTests` samples the
-    background, a bracket and the pencil in each PNG against the model, so a
-    change to one side fails until the other follows.
-  - **Settings › General › App Icon** (iOS only) reads
-    `UIApplication.alternateIconName` as it appears and after each change,
-    and stores nothing: iOS keeps the choice, so a copy in `UserDefaults`
-    could only disagree with the Home Screen. iOS puts up its own "You have
-    changed the icon" alert on a change; it can't be turned off without
-    private API. The Mac has no row.
-  - **Not done:** Icon Composer's glass look (out of scope; Marcus can rebuild
-    from the script's geometry), and the icon on a real Home Screen with
-    Increase Contrast or a tint colour (the system composes both).
+- **Marcus's working tree carries uncommitted `project.pbxproj` and
+  `Info.plist` edits.** Leave them unstaged, never commit or revert them,
+  and don't mention them in summaries or PRs. Stage files by name, never
+  `git add -A` or `-a`. If a change needs either file, stop and ask.
+- Every required-reason API the app calls needs its reason in
+  `PrivacyInfo.xcprivacy`, or the upload is rejected (`AppStoreReadinessTests`).
+- **The app icon is drawn by `scripts/make-icons.swift`**: edit the script,
+  never the PNGs, and run `swift scripts/make-icons.swift`.
+- iPad only for now (`TARGETED_DEVICE_FAMILY = 2`); bump the build number for
+  every upload (Marcus, in `project.pbxproj`).
 
 ## Build/test
 
