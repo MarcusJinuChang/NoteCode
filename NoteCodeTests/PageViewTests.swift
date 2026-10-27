@@ -1661,6 +1661,37 @@ struct PageViewTests {
         #expect(median < 0.1, "keystroke near the top took \(median)s")
     }
 
+    @Test("W1 spike: figures")
+    func w1Spike() {
+        for lines in [250, 500] {
+            let harness = Harness(text: StylingPerformanceTests.document(lines: lines))
+            let textView = harness.page.textView
+            var times: [TimeInterval] = []
+            for index in 0..<15 {
+                let position = textView.position(from: textView.beginningOfDocument, offset: 120 + index)!
+                let start = Date()
+                textView.replace(textView.textRange(from: position, to: position)!, withText: "z")
+                textView.layoutIfNeeded()
+                times.append(Date().timeIntervalSince(start))
+            }
+            print("W1 keystroke \(lines) lines median \(times.sorted()[7] * 1000)ms")
+        }
+        let harness = Harness(text: Self.severalPages)
+        let page = harness.page
+        let textView = page.textView
+        print("W1 pan owner is page:", textView.panGestureRecognizer.view === page,
+              "textview pan on textview:", textView.gestureRecognizers?.contains(textView.panGestureRecognizer) ?? false)
+        textView.contentOffset.y = -80
+        print("W1 top clamp: offset after setting -80 =", textView.contentOffset.y)
+        textView.contentOffset.y = 400
+        harness.layOut()
+        let ind = page.subviews.last!
+        print("W1 indicator frame", ind.frame, "page bounds", page.bounds, "hidden", ind.isHidden)
+        // beside the page: a touch left of the text view
+        let p = CGPoint(x: 2, y: 300)
+        print("W1 hit beside page is textView:", page.hitTest(p, with: nil) === textView, "textView frame", textView.frame)
+    }
+
     /// Two thousand short strokes, thirty to a row, rows down every page's
     /// body, in print coordinates: a long note written by hand.
     static func handwriting(_ count: Int) -> PaperMarkup {

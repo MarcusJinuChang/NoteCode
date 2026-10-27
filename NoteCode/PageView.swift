@@ -270,6 +270,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         pinch.addTarget(self, action: #selector(handlePinch(_:)))
         pinch.delegate = self
         addGestureRecognizer(pinch)
+        spikeAdoptTextViewPan()
 
         applyPageLayout(replacing: nil)
 
@@ -1427,6 +1428,59 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         for pan in pans {
             rule.apply(to: pan)
         }
+    }
+
+    // MARK: W1 spike (candidate a)
+
+    private let spikeIndicator = UIView()
+    private var spikeOffsetObservation: NSKeyValueObservation?
+    private var spikeLastTranslation = CGPoint.zero
+    private var spikeClamping = false
+
+    /// The text view's pan lives on this view, so a drag anywhere scrolls the
+    /// note; the same pan drives the sideways offset (diagonal pan); the top
+    /// is clamped; an indicator is drawn at this view's right edge.
+    private func spikeAdoptTextViewPan() {
+        let pan = textView.panGestureRecognizer
+        pan.view?.removeGestureRecognizer(pan)
+        addGestureRecognizer(pan)
+        pan.addTarget(self, action: #selector(spikePanChanged(_:)))
+        panGestureRecognizer.isEnabled = false
+        isDirectionalLockEnabled = false
+        textView.alwaysBounceVertical = false
+
+        spikeIndicator.backgroundColor = UIColor.label.withAlphaComponent(0.35)
+        spikeIndicator.layer.cornerRadius = 1.5
+        spikeIndicator.isUserInteractionEnabled = false
+        addSubview(spikeIndicator)
+        spikeOffsetObservation = textView.observe(\.contentOffset, options: [.new]) { [weak self] view, _ in
+            guard let self, !self.spikeClamping else { return }
+            if view.contentOffset.y < 0 {
+                self.spikeClamping = true
+                view.contentOffset.y = 0
+                self.spikeClamping = false
+            }
+            self.spikeUpdateIndicator()
+        }
+    }
+
+    @objc private func spikePanChanged(_ pan: UIPanGestureRecognizer) {
+        let t = pan.translation(in: self)
+        defer { spikeLastTranslation = pan.state == .changed ? t : .zero }
+        guard pan.state == .changed, contentSize.width > bounds.width else { return }
+        let maxX = contentSize.width - bounds.width
+        contentOffset.x = min(max(contentOffset.x - (t.x - spikeLastTranslation.x), 0), maxX)
+    }
+
+    private func spikeUpdateIndicator() {
+        let content = textView.contentSize.height * displayScale
+        let visible = bounds.height
+        guard content > visible else { spikeIndicator.isHidden = true; return }
+        spikeIndicator.isHidden = false
+        let h = max(visible * visible / content, 36)
+        let y = (textView.contentOffset.y * displayScale) / (content - visible) * (visible - h)
+        spikeIndicator.frame = CGRect(x: contentOffset.x + bounds.width - 5, y: y + contentOffset.y, width: 3, height: h)
+        bringSubviewToFront(spikeIndicator)
     }
 
     private func setPanning(enabled: Bool) {
