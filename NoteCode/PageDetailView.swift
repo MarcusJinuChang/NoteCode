@@ -263,36 +263,7 @@ struct PageDetailView: View {
             editor.commitLineSpacing = { [weak page = self.page] spacing in page?.lineSpacing = spacing }
             editor.onBlockCopied = { [toasts] in toasts?.show("Copied") }
         }
-        .alert("Change Text Size?", isPresented: Binding(
-            get: { editor.sizeAwaitingConfirmation != nil },
-            set: { _ in }
-        )) {
-            Button("Cancel", role: .cancel) { editor.cancelTextSize() }
-            Button("Change") { editor.confirmTextSize() }
-        } message: {
-            Text("The text re-flows to the new size. Ink stays where it was drawn, so it may no longer sit on its words.")
-        }
-        .alert("Change Line Spacing?", isPresented: Binding(
-            get: { editor.spacingAwaitingConfirmation != nil },
-            set: { _ in }
-        )) {
-            Button("Cancel", role: .cancel) { editor.cancelLineSpacing() }
-            Button("Change") { editor.confirmLineSpacing() }
-        } message: {
-            Text("The lines move to the new spacing. Ink stays where it was drawn, so it may no longer sit on its words.")
-        }
-        .alert("Change Text Size?", isPresented: Binding(
-            get: { editor.selectionSizeAwaitingConfirmation != nil },
-            set: { _ in }
-        )) {
-            Button("Cancel", role: .cancel) { editor.cancelSelectionSize() }
-            Button("Change") { editor.confirmSelectionSize() }
-        } message: {
-            Text("The text re-flows to the new size. Ink stays where it was drawn, so it may no longer sit on its words.")
-        }
-        // Custom… in the size control's list. On a note with ink it also says
-        // what the question above does, and its Set is the yes: a second
-        // alert can't come up as this one goes.
+        // Custom… in the size control's list.
         .alert("Text Size", isPresented: Binding(
             get: { editor.customSizeSelection != nil },
             set: { _ in }
@@ -302,11 +273,7 @@ struct PageDetailView: View {
             Button("Cancel", role: .cancel) { editor.cancelCustomSize() }
             Button("Set") { editor.finishCustomSize(typed: customSize) }
         } message: {
-            if editor.customSizeAsksAboutInk {
-                Text("8 to 72 points. The text re-flows to the new size. Ink stays where it was drawn, so it may no longer sit on its words.")
-            } else {
-                Text("8 to 72 points.")
-            }
+            Text("8 to 72 points.")
         }
         .onChange(of: editor.customSizeSelection != nil) { _, asking in
             if asking { customSize = editor.selectionTextSize.points.map(SpanSize.label(points:)) ?? "" }

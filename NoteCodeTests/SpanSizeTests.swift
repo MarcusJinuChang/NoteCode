@@ -580,74 +580,41 @@ struct SizeControlTests {
         harness.textView.selectedRange = Self.caret(in: "words", of: harness)
         harness.editor.setSelectionSize(points: 24)
 
-        #expect(harness.editor.selectionSizeAwaitingConfirmation == nil)
         #expect(harness.textView.text.contains("\(SpanSizeTests.tag(1.412))words</span>"))
     }
 
-    @Test("With ink, a size waits for Change, then goes on where it was asked for")
-    func inkAsks() {
+    @Test("With ink, a size goes on at once too")
+    func inkNoQuestion() {
         let harness = Harness(withInk: true)
-        let caret = Self.caret(in: "words", of: harness)
-        harness.textView.selectedRange = caret
+        harness.textView.selectedRange = Self.caret(in: "words", of: harness)
         harness.editor.setSelectionSize(points: 24)
-
-        #expect(harness.editor.selectionSizeAwaitingConfirmation == NoteEditor.SizeRequest(points: 24, selection: caret))
-        #expect(!harness.textView.text.contains("<span"), "nothing changes until the reader says so")
-
-        // The alert took the keyboard; the selection it was asked for holds.
-        harness.textView.selectedRange = NSRange(location: 0, length: 0)
-        harness.editor.confirmSelectionSize()
         #expect(harness.textView.text.contains("\(SpanSizeTests.tag(1.412))words</span>"))
-
-        // One yes covers the note until it is next opened.
-        harness.textView.selectedRange = Self.caret(in: "Title", of: harness)
-        harness.editor.setSelectionSize(points: 24)
-        #expect(harness.editor.selectionSizeAwaitingConfirmation == nil)
-        #expect(harness.textView.text.contains("\(SpanSizeTests.tag(0.706))Title</span>"))
     }
 
-    @Test("With ink, a run of taps asks once, after they stop")
-    func inkAsksAfterTheTaps() async {
+    @Test("With ink, a run of taps sizes once, after they stop")
+    func inkTapsSettleOnce() async {
         let harness = Harness(withInk: true)
         harness.textView.selectedRange = Self.caret(in: "words", of: harness)
         Self.report(harness)
         for _ in 0..<3 { harness.editor.stepSelectionSize(by: 1) }
-        #expect(harness.editor.selectionSizeAwaitingConfirmation == nil)
+        #expect(!harness.textView.text.contains("<span"))
+        #expect(harness.editor.selectionTextSize.points == 20, "the control shows the taps at once")
         await harness.wait()
-        #expect(harness.editor.selectionSizeAwaitingConfirmation?.points == 20)
-        #expect(harness.editor.selectionTextSize.points == 20, "the control shows what is being asked about")
-        harness.editor.confirmSelectionSize()
         #expect(harness.textView.text.contains("\(SpanSizeTests.tag(20.0 / 17))words</span>"))
     }
 
-    @Test("Cancel changes nothing")
-    func inkCancel() {
-        let harness = Harness(withInk: true)
-        harness.textView.selectedRange = Self.caret(in: "words", of: harness)
-        harness.editor.setSelectionSize(points: 24)
-        harness.editor.cancelSelectionSize()
-
-        #expect(harness.editor.selectionSizeAwaitingConfirmation == nil)
-        #expect(!harness.textView.text.contains("<span"))
-    }
-
-    @Test("Custom… sizes what it was asked for, and on a note with ink its Set is the yes")
+    @Test("Custom… sizes what it was asked for")
     func custom() {
         let harness = Harness(withInk: true)
         let caret = Self.caret(in: "words", of: harness)
         harness.textView.selectedRange = caret
         harness.editor.beginCustomSize()
         #expect(harness.editor.customSizeSelection == caret)
-        #expect(harness.editor.customSizeAsksAboutInk)
 
         harness.textView.selectedRange = NSRange(location: 0, length: 0)
         harness.editor.finishCustomSize(typed: "30")
         #expect(harness.editor.customSizeSelection == nil)
         #expect(harness.textView.text.contains("\(SpanSizeTests.tag(30.0 / 17))words</span>"))
-
-        harness.textView.selectedRange = Self.caret(in: "Title", of: harness)
-        harness.editor.setSelectionSize(points: 24)
-        #expect(harness.editor.selectionSizeAwaitingConfirmation == nil, "already answered")
     }
 
     @Test("Custom… with nothing typed, or cancelled, sets nothing")

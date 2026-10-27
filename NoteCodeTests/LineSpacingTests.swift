@@ -160,21 +160,15 @@ struct LineSpacingTests {
         #expect(committed.count == 2 && committed.last == .some(nil))
     }
 
-    @Test("A note with ink asks first, once, and a locked note or ink mode refuses")
-    func inkAsksOnce() {
+    @Test("A note with ink takes a spacing at once, and a locked note refuses")
+    func inkTakesIt() {
         let harness = Harness(withInk: true)
         var committed: [Int?] = []
         harness.editor.commitLineSpacing = { committed.append($0) }
         harness.editor.setLineSpacing(6)
-        #expect(committed.isEmpty && harness.editor.spacingAwaitingConfirmation == 6)
-        harness.editor.cancelLineSpacing()
-        #expect(harness.editor.lineSpacing == 0 && harness.editor.spacingAwaitingConfirmation == nil)
-
-        harness.editor.setLineSpacing(6)
-        harness.editor.confirmLineSpacing()
-        #expect(committed == [6])
+        #expect(committed == [6] && harness.editor.lineSpacing == 6)
         harness.editor.setLineSpacing(8)
-        #expect(committed == [6, 8], "answered once for this opening")
+        #expect(committed == [6, 8])
 
         harness.editor.setTextLocked(true)
         harness.editor.setLineSpacing(2)

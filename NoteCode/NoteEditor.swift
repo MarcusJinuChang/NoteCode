@@ -854,10 +854,6 @@ final class NoteEditor {
     /// since has moved what its selection points at, so it is dropped.
     @ObservationIgnored private var pendingTextLength = 0
 
-    /// A size waiting for the reader's yes, because the note has ink. `nil`
-    /// unless the alert is up.
-    private(set) var selectionSizeAwaitingConfirmation: SizeRequest?
-
     /// The selection Custom… sizes, kept while the size is asked for. `nil`
     /// unless the alert is up.
     private(set) var customSizeSelection: NSRange?
@@ -866,7 +862,7 @@ final class NoteEditor {
     /// text as it is.
     var selectionTextSize: SelectionTextSize {
         var reading = textSize(reading: caretFormatting)
-        if let request = selectionSizeAwaitingConfirmation ?? pendingSelectionSize {
+        if let request = pendingSelectionSize {
             reading.points = request.steps == nil ? request.points ?? reading.ownPoints : request.points
         } else {
             switch typingStyle.points {
@@ -881,7 +877,7 @@ final class NoteEditor {
     /// + and −, and ⌘+ and ⌘−. Off at the control's ends, 8 and 72 points.
     var canStepSelectionSize: (bigger: Bool, smaller: Bool) {
         let reading = selectionTextSize
-        guard reading.canChange, selectionSizeAwaitingConfirmation == nil else { return (false, false) }
+        guard reading.canChange else { return (false, false) }
         let current = reading.points ?? reading.startPoints
         return (Self.stepped(current, by: 1) != nil, Self.stepped(current, by: -1) != nil)
     }
@@ -890,7 +886,7 @@ final class NoteEditor {
     /// caret or the word there. Text in several sizes moves a point each,
     /// keeping them apart; each stops at the control's ends.
     func stepSelectionSize(by steps: Int) {
-        guard let textView, selectionSizeAwaitingConfirmation == nil else { return }
+        guard let textView else { return }
         let reading = textSize(reading: currentFormatting(of: textView))
         guard mode == .text, !isTextLocked, reading.canChange else { return }
         // No word to resize: the next text typed gets the size, at once, since
@@ -923,7 +919,7 @@ final class NoteEditor {
     /// A size picked from the list, or `nil` for Default: at once, since a
     /// pick isn't one of a run of taps.
     func setSelectionSize(points: Double?) {
-        guard let textView, mode == .text, !isTextLocked, selectionSizeAwaitingConfirmation == nil else { return }
+        guard let textView, mode == .text, !isTextLocked else { return }
         dropPendingSelectionSize()
         if isTypingCaret(in: textView) {
             setTypingStyle(typingStyle.sizing(points.map { Self.clampedPoints($0) }))
@@ -940,11 +936,6 @@ final class NoteEditor {
         dropPendingSelectionSize()
         customSizeSelection = textView.selectedRange
     }
-
-    /// Whether Custom…'s alert should also say what the ink question says.
-    /// One alert, not two: a second can't come up as the first goes. Its Set
-    /// counts as the yes.
-    var customSizeAsksAboutInk: Bool { hasInk && !inkQuestionAnswered && !sizesTypedText }
 
     /// Whether the size control would set the typing style: no word to resize.
     /// Nothing is laid out again then, so there is no ink question.
@@ -966,21 +957,7 @@ final class NoteEditor {
             setTypingStyle(typingStyle.sizing(points))
             return
         }
-        if hasInk { inkQuestionAnswered = true }
         applySelectionSize(SizeRequest(points: points, selection: selection))
-    }
-
-    /// The ink alert's Change.
-    func confirmSelectionSize() {
-        guard let request = selectionSizeAwaitingConfirmation else { return }
-        inkQuestionAnswered = true
-        selectionSizeAwaitingConfirmation = nil
-        applySelectionSize(request)
-    }
-
-    /// The ink alert's Cancel: the control goes back to the text's size.
-    func cancelSelectionSize() {
-        selectionSizeAwaitingConfirmation = nil
     }
 
     /// `points` stepped a point at a time, or `nil` past the control's ends.
@@ -1056,16 +1033,9 @@ final class NoteEditor {
         pendingSelectionSize = nil
     }
 
-    /// Sizes the text, or asks first on a note with ink: it re-wraps around
-    /// the new size, and ink stays where it was drawn. One yes covers this
-    /// and the note's own size until the note is next opened.
     private func requestSelectionSize(_ request: SizeRequest, keeping selection: NSRange? = nil) {
         guard let textView, sizeEdit(for: request, in: textView.textStorage.mutableString) != nil else { return }
-        if hasInk, !inkQuestionAnswered {
-            selectionSizeAwaitingConfirmation = request
-        } else {
-            applySelectionSize(request, keeping: selection)
-        }
+        applySelectionSize(request, keeping: selection)
     }
 
     /// Sizes the text. The caret ends on what was sized, unless `keeping`
@@ -1166,22 +1136,13 @@ final class NoteEditor {
     /// The note's typography as it is now, for a PDF made of it.
     var typography: NoteTypography { NoteTypography(bodySize: appliedTextSize, lineSpacing: appliedLineSpacing) }
 
-    /// A size waiting for the reader's yes, because the note has ink: the
-    /// text re-flows and ink stays where it was drawn. `nil` unless the alert
-    /// is up.
-    private(set) var sizeAwaitingConfirmation: Int?
-
-    /// Whether the reader has said yes since this note was opened ("once
-    /// each time the note is opened"). The editor is made per note.
-    @ObservationIgnored private var inkQuestionAnswered = false
-
     /// Writes the size into the note (`Page.textSize`). Set by the page.
     /// Not an edit: the page leaves `modifiedAt` and the undo stack alone.
     @ObservationIgnored var commitTextSize: ((Int?) -> Void)?
 
     /// How long a size waits after a tap or a pick before the text re-flows,
     /// so a run of the size control's taps lays the note out once.
-    @ObservationIgnored var settleDelay = Duration.milliseconds(300)
+    @ObservationIgnored var settleDelay = Duration.milliseconds(120)
     @ObservationIgnored private var settleTask: Task<Void, Never>?
 
     /// Follows the note's stored size (`Page.textSize`), as the page opens
@@ -1190,13 +1151,13 @@ final class NoteEditor {
     func syncTextSize(to stored: Int?) {
         let size = NoteTypography(bodySize: stored).bodySize
         appliedTextSize = size
-        if settleTask == nil, sizeAwaitingConfirmation == nil, textSize != size { textSize = size }
+        if settleTask == nil, textSize != size { textSize = size }
     }
 
     /// A size picked from ••• › Text Size. Text mode only, and not for a
     /// locked note, whose text is read and not changed.
     func setTextSize(_ size: Int) {
-        guard mode == .text, !isTextLocked, sizeAwaitingConfirmation == nil else { return }
+        guard mode == .text, !isTextLocked else { return }
         let size = NoteTypography(bodySize: size).bodySize
         guard size != textSize else { return }
         textSize = size
@@ -1211,28 +1172,18 @@ final class NoteEditor {
     private func settleTextSize() {
         settleTask = nil
         guard textSize != appliedTextSize else { return }
-        if hasInk, !inkQuestionAnswered {
-            sizeAwaitingConfirmation = textSize
-        } else {
-            commitTextSize?(NoteTypography(bodySize: textSize).storedSize)
-            appliedTextSize = textSize
-        }
+        applyTextSize(textSize)
     }
 
-    /// The alert's Change.
-    func confirmTextSize() {
-        guard let size = sizeAwaitingConfirmation else { return }
-        inkQuestionAnswered = true
-        sizeAwaitingConfirmation = nil
+    /// Lays the note out in `size`, as one undo step: undo goes back to the
+    /// size it had, and redo to this one.
+    private func applyTextSize(_ size: Int) {
+        let before = appliedTextSize
         commitTextSize?(NoteTypography(bodySize: size).storedSize)
         appliedTextSize = size
         textSize = size
-    }
-
-    /// The alert's Cancel: the stepper goes back to the size the note has.
-    func cancelTextSize() {
-        sizeAwaitingConfirmation = nil
-        textSize = appliedTextSize
+        textView?.undoManager?.registerUndo(withTarget: self) { $0.applyTextSize(before) }
+        textView?.undoManager?.setActionName("Text Size")
     }
 
     // MARK: The note's line spacing
@@ -1244,9 +1195,6 @@ final class NoteEditor {
     private(set) var lineSpacing = 0
     private(set) var appliedLineSpacing = 0
 
-    /// A spacing waiting for the reader's yes, because the note has ink.
-    private(set) var spacingAwaitingConfirmation: Int?
-
     /// Writes the spacing into the note (`Page.lineSpacing`). Not an edit.
     @ObservationIgnored var commitLineSpacing: ((Int?) -> Void)?
 
@@ -1255,45 +1203,26 @@ final class NoteEditor {
     func syncLineSpacing(to stored: Int?) {
         let spacing = NoteTypography(lineSpacing: stored).lineSpacing
         appliedLineSpacing = spacing
-        if spacingAwaitingConfirmation == nil { lineSpacing = spacing }
+        lineSpacing = spacing
     }
 
     /// A spacing picked from the text row. Text mode only, and not for a
     /// locked note.
     func setLineSpacing(_ points: Int) {
-        guard mode == .text, !isTextLocked, spacingAwaitingConfirmation == nil else { return }
+        guard mode == .text, !isTextLocked else { return }
         let spacing = NoteTypography(lineSpacing: points).lineSpacing
         guard spacing != appliedLineSpacing else { return }
-        if hasInk, !inkQuestionAnswered {
-            spacingAwaitingConfirmation = spacing
-        } else {
-            commitLineSpacing?(NoteTypography(lineSpacing: spacing).storedLineSpacing)
-            appliedLineSpacing = spacing
-            lineSpacing = spacing
-        }
+        applyLineSpacing(spacing)
     }
 
-    /// The alert's Change.
-    func confirmLineSpacing() {
-        guard let spacing = spacingAwaitingConfirmation else { return }
-        inkQuestionAnswered = true
-        spacingAwaitingConfirmation = nil
+    /// Lays the note out with `spacing`, as one undo step.
+    private func applyLineSpacing(_ spacing: Int) {
+        let before = appliedLineSpacing
         commitLineSpacing?(NoteTypography(lineSpacing: spacing).storedLineSpacing)
         appliedLineSpacing = spacing
         lineSpacing = spacing
-    }
-
-    /// The alert's Cancel.
-    func cancelLineSpacing() {
-        spacingAwaitingConfirmation = nil
-        lineSpacing = appliedLineSpacing
-    }
-
-    /// Whether the note has any ink. The page's own copy, so strokes drawn
-    /// moments ago count.
-    private var hasInk: Bool {
-        guard let page else { return false }
-        return !page.ink.subelements.isEmpty
+        textView?.undoManager?.registerUndo(withTarget: self) { $0.applyLineSpacing(before) }
+        textView?.undoManager?.setActionName("Line Spacing")
     }
 
     // MARK: Outline
