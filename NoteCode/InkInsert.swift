@@ -132,7 +132,7 @@ final class InkInserter: NSObject {
     private(set) var isPresented = false
 
     @ObservationIgnored weak var anchorView: UIView?
-    @ObservationIgnored private weak var editor: NoteEditor?
+    @ObservationIgnored weak var editor: NoteEditor?
     @ObservationIgnored private weak var presenter: UIViewController?
     @ObservationIgnored private weak var popover: MarkupEditViewController?
     @ObservationIgnored private var watching: Task<Void, Never>?
@@ -205,7 +205,7 @@ final class InkInserter: NSObject {
     /// reader the lasso, so the new element can be moved and resized at once.
     private func insert(extent: CGSize, _ body: @escaping (PaperMarkupViewController) -> Void) {
         guard let editor, editor.insertIntoInk(extent: extent, body) else { return }
-        dismiss()
+        dismiss { [weak editor] in editor?.reselectInserted() }
     }
 
     private func choosePhoto() {
