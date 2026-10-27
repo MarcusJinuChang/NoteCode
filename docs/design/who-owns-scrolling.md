@@ -73,3 +73,68 @@ note against 11ms scrolling, and 5.5 seconds at 2000 lines. So instead:
   with a zero rect. Checked in the simulator on a ten-page note: the page
   stays full size and the caret line sits above the hotbar. The list change
   is checked by build only.
+
+## W1 spike: the page as an object on a background (26 Oct)
+
+Question: can the note window scroll like Notability's (drag anywhere, no
+give at the top, indicator at the window edge, diagonal pan when zoomed)
+without the outer vertical scroll view rejected above? The spike is on
+branch `spike/w1-scroll-owner` (not merged; ~55 lines in `PageView` plus one
+scratch test, `PageViewTests.w1Spike`).
+
+**Candidate (a), as built.**
+- `textView.panGestureRecognizer` is removed from the text view and added to
+  `PageView` (`addGestureRecognizer`). The text view still scrolls itself, so
+  the viewport, the transform and the canvas geometry are untouched.
+- `PageView`'s own pan is disabled; a target on the moved pan applies the
+  horizontal part of its translation to `PageView.contentOffset.x`, so one
+  drag moves both axes. `isDirectionalLockEnabled` is off.
+- Top clamp: a KVO observer on `textView.contentOffset` sets y back to 0 when
+  it goes negative. (The brief's `scrollViewDidScroll` clamp does not exist:
+  `PageView` has no delegate.)
+- Indicator: a 3pt capsule on `PageView`, placed from the text view's
+  `contentOffset.y`/`contentSize.height` and the display scale, pinned to the
+  view's right edge (`contentOffset.x + bounds.width`).
+
+**Measured** (iPad Pro 13-inch M5 simulator, PageView harness, median of 15
+keystrokes at offset 120, `replace` + `layoutIfNeeded`):
+
+| Note | Keystroke |
+|---|---|
+| 250 lines | 13.5 ms |
+| 500 lines | 27.1 ms |
+
+Within `typingCost`'s 100ms budget. The text view is unchanged and still the
+scroller, so this is the existing cost by construction, not a new one; the
+outer-scroll-view figure was 477ms at 500 lines. Scroll smoothness was not
+measured: simulator scrolling is not representative and the brief rules out
+UI automation, so it is on Marcus's iPad list.
+
+**Per criterion.**
+
+| # | Criterion | Result |
+|---|---|---|
+| 1 | Hairline under the top bar | Not part of the spike (SwiftUI chrome, W2) |
+| 2 | No give at the top | Met in the harness: setting offset -80 reads back 0. A live drag past the top is not tried |
+| 3 | Drag on the background scrolls | Wiring met: the pan is on `PageView`, which covers the background. `hitTest` already handed those touches to the text view, so this was mostly true before; the move makes it true for any touch `hitTest` doesn't claim. The test window was page-wide, so a beside-the-page touch was not exercised |
+| 4 | Indicator at the window edge | Met: frame x = 875 in an 880 area |
+| 5 | Page reads as a sheet | Not part of the spike (W2: surround colour exists, page edge/shadow is new) |
+| 6 | Free diagonal pan | Plumbed (one pan drives both offsets). Not verified by touch |
+
+**Not verified, needs a finger/Pencil:** diagonal feel; that the sideways drag
+has no momentum (the target moves `contentOffset.x` directly, so W2 needs
+`UIScrollView`-style deceleration or a `UIDynamicAnimator`/display-link fling
+for x); that the ink-mode rules (`EditorMode.scrolling`, `touchWillLand`)
+still hold with the pan on another view, including PaperKit's two-finger pan
+and the lasso; that the pinch's simultaneous-recognition rule still reads
+the moved pan correctly (`gestureRecognizer(_:shouldRecognizeSimultaneouslyWith:)`
+compares by identity, so it should).
+
+**Recommendation.** Build (a) in W2; do not try (b). Nothing measured
+contradicts it, and it avoids rewriting the pinned container width and canvas
+geometry. W2 should: replace the KVO clamp with a delegate or a
+`DocumentUITextView` override of `contentOffset` so a fling cannot show space
+at the top; give the sideways axis momentum; make the indicator a real
+view that fades like the system one and ignores the keyboard inset; and
+start its tests with the top clamp and a pan beginning outside the page.
+Candidate (b) was not tried: no criterion failed that it would fix.
