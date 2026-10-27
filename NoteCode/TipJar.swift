@@ -91,7 +91,8 @@ final class TipJar {
         if updates == nil, store is StoreKitTipStore {
             updates = Task.detached {
                 for await update in Transaction.updates {
-                    if case .verified(let transaction) = update {
+                    // Only tips: the subscription's transactions are ProStatus's.
+                    if case .verified(let transaction) = update, TipJar.productIDs.contains(transaction.productID) {
                         await transaction.finish()
                     }
                 }

@@ -153,3 +153,62 @@ struct TipJarTests {
         #expect(request != feedback)
     }
 }
+
+// Through StoreKit, against NoteCode.storekit. These live in the tip jar's suite
+// so they run one at a time with its tests: both buy from the one StoreKit test
+// session, and run side by side a purchase from one was seen unfinished by the
+// other (simulator, 27 Oct).
+extension TipJarTests {
+
+    private func proSession() async throws -> SKTestSession {
+        let session = try SKTestSession(configurationFileNamed: "NoteCode")
+        session.disableDialogs = true
+        session.askToBuyEnabled = false
+        session.clearTransactions()
+        for _ in 0..<50 {
+            if try await Product.products(for: [ProStatus.productID]).count == 1 { break }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        return session
+    }
+
+    @Test("The configuration sells the monthly product at $4.99, which buys, finishes, restores, and a refund ends it")
+    func storeKitPurchaseAndRestore() async throws {
+        let session = try await proSession()
+        let pro = ProStatus(store: StoreKitProStore())
+        await pro.loadedProduct()
+        #expect(pro.product?.name == "NoteCode Pro")
+        #expect(pro.product?.price == "$4.99")
+
+        await pro.buy()
+        #expect(pro.isPro)
+        #expect(pro.expirationDate != nil)
+        #expect(pro.signedTransaction?.split(separator: ".").count == 3)
+
+        // Not asserted: that `finish()` took. The test session listed a bought
+        // subscription as unfinished after it, run to run (simulator, 27 Oct),
+        // which a tip does not do.
+
+        // A fresh model, as after a relaunch or on another iPad.
+        let again = ProStatus(store: StoreKitProStore())
+        await again.restore()
+        #expect(again.isPro)
+
+        // A refund ends it.
+        let transaction = try #require(session.allTransactions().first)
+        try await session.refundTransaction(identifier: UInt(transaction.identifier))
+        // The test session pushed no `Transaction.updates` for a refund (simulator,
+        // 27 Oct), so this is the launch path: a refunded transaction is no
+        // longer among the current entitlements. The live path is `revocation`.
+        for _ in 0..<40 where pro.isPro {
+            await pro.refresh()
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        #expect(!pro.isPro)
+
+        // The refund is a transaction nobody finished here, which the tip jar's
+        // test would count as left over.
+        for await case .verified(let revoked) in Transaction.unfinished { await revoked.finish() }
+        session.clearTransactions()
+    }
+}
