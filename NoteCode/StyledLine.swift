@@ -132,6 +132,8 @@ nonisolated struct StyledLine: Sendable {
                 depth += 1
             case .closing:
                 depth -= 1
+            case .escape:
+                break
             case .text:
                 let attributes = node.attributes
                 let link = node.destination.map { destination in

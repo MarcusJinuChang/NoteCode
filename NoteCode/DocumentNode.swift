@@ -185,6 +185,25 @@ nonisolated enum CodeBlockKind: Equatable, Hashable, Sendable {
     }
 }
 
+// MARK: - Math
+
+/// A formula on lines of its own: `$$ x $$`, or `$$` … `$$` over several.
+///
+/// Its block is line-aligned like a code block's. A `$$` that never closes
+/// within `DocumentParser.maxMathLines` lines is no block at all, only text:
+/// a fence runs to the end of the note, but a hidden formula doing so would
+/// make the rest of it vanish while someone typed.
+nonisolated struct MathBlock: Equatable, Sendable {
+    /// The `$$` that opens it, at the start of its first line.
+    var openingRange: Range<String.Index>
+    /// The `$$` that closes it, which ends its last line (trailing blanks aside).
+    var closingRange: Range<String.Index>
+    /// The TeX between the two, newlines included.
+    var contentRange: Range<String.Index>
+    /// FNV-1a of the TeX (`CodeBlockID.hash`), for telling an edit from none.
+    var contentHash: UInt64
+}
+
 // MARK: - Lists
 
 /// What introduces a list item.
@@ -199,6 +218,15 @@ nonisolated enum ListMarker: Equatable, Sendable {
 }
 
 // MARK: - Inline
+
+/// How a formula is set: in the line, or on a line of its own size.
+nonisolated enum MathStyle: Hashable, Sendable {
+    /// `$x$`
+    case inline
+    /// `$$x$$` in the middle of a line. A `$$` that starts the line is a
+    /// block (`MathBlock`).
+    case display
+}
 
 /// What a pair of markers does to the text between them.
 nonisolated enum InlineMarkup: Hashable, Sendable {
@@ -220,6 +248,9 @@ nonisolated enum InlineMarkup: Hashable, Sendable {
     case underline
     /// `==🟡highlighted==`, whose opening marker is the `==` and the emoji.
     case highlight(HighlightColour)
+    /// `$x$` or `$$x$$`, whose markers are the dollars. What is between them
+    /// is TeX, one text node, and nothing in it is read as Markdown.
+    case math(MathStyle)
 
     var isStyled: Bool {
         if case .styled = self { return true }
@@ -265,6 +296,8 @@ nonisolated struct InlineAttributes: Hashable, Sendable {
     var underline = false
     /// The innermost highlight's colour, or `nil` for none.
     var highlight: HighlightColour?
+    /// Between the dollars of a formula.
+    var math = false
 
     static let plain = InlineAttributes()
 
@@ -279,6 +312,7 @@ nonisolated struct InlineAttributes: Hashable, Sendable {
         case .link:          inner.link = true
         case .underline:     inner.underline = true
         case .highlight(let colour): inner.highlight = colour
+        case .math:          inner.math = true
         case .styled(let style):
             if let colour = style.colour { inner.colour = colour }
             if let runSize = style.size {
@@ -296,7 +330,7 @@ nonisolated struct InlineAttributes: Hashable, Sendable {
         let highlightBits = highlight?.number ?? 0       // 3 bits
         let colourBits = colour.map { ($0 & 0xFFFFFF) + 1 } ?? 0   // 25 bits
         let sizeBits = size.map { $0.thousandths + 1 } ?? 0        // 14 bits
-        return flags | highlightBits << 6 | colourBits << 9 | sizeBits << 34
+        return flags | highlightBits << 6 | colourBits << 9 | sizeBits << 34 | (math ? 1 : 0) << 48
     }
 }
 
@@ -314,6 +348,9 @@ nonisolated struct InlineNode: Equatable, Sendable {
         case opening(InlineMarkup)
         /// The markers that close one: `**`, `](url)`, `</span>`.
         case closing(InlineMarkup)
+        /// The `\` of `\$`, which makes the dollar after it a dollar. A
+        /// marker on its own, not one of a pair: nothing closes it.
+        case escape
 
         var isMarker: Bool { self != .text }
 
@@ -322,6 +359,7 @@ nonisolated struct InlineNode: Equatable, Sendable {
             case .text:                 nil
             case .opening(let markup):  markup
             case .closing(let markup):  markup
+            case .escape:               nil
             }
         }
 
@@ -337,6 +375,9 @@ nonisolated struct InlineNode: Equatable, Sendable {
             case .text:    0
             case .opening: 1
             case .closing: 2
+            // Odd one out: the others are 0 to 2 here, so this is 3 with
+            // no markup, which nothing else is.
+            case .escape:  3
             }
             let markupBits: Int = switch markup {
             case nil:                 0
@@ -350,6 +391,9 @@ nonisolated struct InlineNode: Equatable, Sendable {
             // are 1 to 5: these two take 7 and the multiples of 8.
             case .underline?:         7
             case .highlight(let colour)?: colour.number &* 8
+            // 7 more than a multiple of 8, as the underline is: it is 7.
+            case .math(.inline)?:     15
+            case .math(.display)?:    23
             }
             return side &+ markupBits &* 4
         }
@@ -397,6 +441,8 @@ nonisolated struct InlineSpan: Equatable, Sendable {
             case .opening(let markup):
                 open.append((spans.count, node.range))
                 spans.append(InlineSpan(markup: markup, range: node.range, contentRange: node.range, destination: node.destination))
+            case .escape:
+                break
             case .closing:
                 // The parser only makes pairs that nest, so the innermost
                 // open one is this one's.
@@ -439,7 +485,9 @@ nonisolated struct BlockNode: Equatable, Sendable {
         /// `---`: a horizontal rule. The dashes are its marker and the
         /// content is the line's end alone, so `inlines` is the terminator.
         case rule(inlines: [InlineNode])
-        // .math arrives with a later step.
+        /// `$$ x $$` or `$$` … `$$` over lines: a formula on lines of its
+        /// own, which are all of the block (`MathBlock`).
+        case math(MathBlock)
     }
 
     var kind: Kind
@@ -462,6 +510,16 @@ nonisolated struct BlockNode: Equatable, Sendable {
         return nil
     }
 
+    var isMath: Bool {
+        if case .math = kind { return true }
+        return false
+    }
+
+    var mathBlock: MathBlock? {
+        if case .math(let block) = kind { return block }
+        return nil
+    }
+
     var inlines: [InlineNode] {
         switch kind {
         case .paragraph(let inlines):     inlines
@@ -469,7 +527,7 @@ nonisolated struct BlockNode: Equatable, Sendable {
         case .listItem(_, _, let inlines): inlines
         case .blockQuote(_, let inlines): inlines
         case .rule(let inlines):          inlines
-        case .code:                       []
+        case .code, .math:                []
         }
     }
 
@@ -482,6 +540,7 @@ nonisolated struct BlockNode: Equatable, Sendable {
         case .code:      3
         case .blockQuote: 4
         case .rule:      5
+        case .math:      6
         }
     }
 
@@ -494,6 +553,8 @@ nonisolated struct BlockNode: Equatable, Sendable {
         case .listItem(let depth, _, _): depth
         case .blockQuote(let depth, _):  depth
         case .rule:                      0
+        // What the formula says is part of it, as the code's is.
+        case .math(let math):            Int(truncatingIfNeeded: math.contentHash)
         // Output is part of it: python -> output is the same length, and the
         // styler must still notice, since the text colour changes.
         case .code(let code):
@@ -513,7 +574,7 @@ nonisolated struct BlockNode: Equatable, Sendable {
     /// `nil` for a paragraph, whose content is the whole block. Code blocks
     /// handle their fence lines separately, since they have one at each end.
     var markerRange: Range<String.Index>? {
-        guard !isCode, range.lowerBound < contentRange.lowerBound else { return nil }
+        guard !isCode, !isMath, range.lowerBound < contentRange.lowerBound else { return nil }
         return range.lowerBound..<contentRange.lowerBound
     }
 

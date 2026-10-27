@@ -420,6 +420,7 @@ nonisolated extension MarkdownFormatting {
             case .underline:     state.underline = true
             case .link:          state.link = true
             case .styled, .highlight: runs = runs.inside(span.markup)
+            case .math:          break   // Bold and italic mean nothing to a formula.
             }
         }
         state.colour = runs.colour
