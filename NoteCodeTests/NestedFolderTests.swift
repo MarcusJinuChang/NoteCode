@@ -358,4 +358,42 @@ struct NestedFolderTests {
         #expect(layout.plan.directories == ["CS133", "CS133/Labs"])
         #expect(layout.plan.entries.first?.directory == "CS133/Labs")
     }
+
+    // MARK: Dropped on Recently Deleted
+
+    @Test("A note dropped on Recently Deleted is deleted and saved")
+    func noteDroppedOnRecentlyDeleted() throws {
+        let a = folder("A")
+        let n = note("Lecture", in: a)
+        try context.save()
+        let action = try #require(ListDrop.resolve(.note(n), onto: .recentlyDeleted, zone: .into, among: everyFolder))
+        #expect(action == .deleteNote(n))
+        ListDrop.perform(action, among: everyFolder, in: context)
+
+        // A fresh context reads only what was saved.
+        let fresh = ModelContext(container)
+        let pages = try fresh.fetch(FetchDescriptor<Page>())
+        #expect(pages.count == 1 && pages[0].deletedAt != nil)
+        #expect(pages[0].folder != nil, "it keeps its folder, so restoring puts it back")
+    }
+
+    @Test("A folder dropped on Recently Deleted goes with its notes and folders, saved")
+    func folderDroppedOnRecentlyDeleted() throws {
+        let a = folder("A"), b = folder("B", in: a)
+        note("One", in: a); note("Two", in: b)
+        try context.save()
+        let action = try #require(ListDrop.resolve(.folder(a), onto: .recentlyDeleted, zone: .into, among: everyFolder))
+        ListDrop.perform(action, among: everyFolder, in: context)
+
+        let fresh = ModelContext(container)
+        #expect(try fresh.fetch(FetchDescriptor<Folder>()).allSatisfy { $0.deletedAt != nil })
+        #expect(try fresh.fetch(FetchDescriptor<Page>()).allSatisfy { $0.deletedAt != nil })
+    }
+
+    @Test("Something already in Recently Deleted can't be dropped on it again")
+    func deletedStaysPut() throws {
+        let n = note("Old")
+        try Page.moveToRecentlyDeleted([n], from: context)
+        #expect(ListDrop.resolve(.note(n), onto: .recentlyDeleted, zone: .into, among: everyFolder) == nil)
+    }
 }

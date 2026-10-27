@@ -27,7 +27,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Notes and folders as one list | One list holds folders and notes, sorted together | built (feedback #13) | |
 | Sidebar on Home | The list sits beside Home in a regular width | built (feedback #3) | `ContentView` |
 | Folders | One folder per note, nested, drag to arrange (the arrangement is kept but hidden by the sort), colour and symbol, pin, delete asks about contents | built | `organising-notes.md`, `recently-deleted-and-folder-faces.md` |
-| Drag and drop of notes and folders | The list takes the drop as a whole (`ListDropBridge`), by rules plus the menu route; a note onto a folder and onto Library is tested on the iPad (`ListDragUITests`), the simulator delivers no drop | built; hover indicator, arranging and edge scroll unchecked | `organising-notes.md` |
+| Drag and drop of notes and folders | The list takes the drop as a whole (`ListDropBridge`), by rules plus the menu route; a note or folder onto the Recently Deleted row deletes it; the lift is held 0.25s; a note onto a folder and onto Library is tested on the iPad (`ListDragUITests`), the simulator delivers no drop | built; hover indicator, arranging, edge scroll, Recently Deleted drop and the shorter hold unchecked | `organising-notes.md` |
 | New note "+" | Tap makes a note and, per the Open Note After Creating setting (default off), shows a toast with Open instead of opening it; hold picks orientation; files in the open note's folder | built (feedback #12) | `WelcomeNote.swift` |
 | Templates | Lecture, Problem and Lab; text only | built | `insert-and-templates.md` |
 | Welcome note | First launch note | built | `organising-notes.md` |

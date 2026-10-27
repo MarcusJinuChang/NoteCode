@@ -285,6 +285,7 @@ struct NoteList: View {
         }
         .buttonStyle(.plain)
         .selectionDisabled()
+        .modifier(ListRowDrop(target: .recentlyDeleted, hoverID: .recentlyDeleted, drag: drag))
         .accessibilityIdentifier("recentlyDeletedRow")
     }
 
@@ -696,6 +697,16 @@ struct NoteList: View {
     /// Does what a drop or a menu decided. Not an edit: nothing's date
     /// moves. Saved at once, so a move isn't lost to a kill before autosave.
     private func performDrop(_ action: ListDropAction) {
+        switch action {
+        case .deleteNote(let page):
+            deletePages([page])
+            return
+        case .deleteFolder(let folder):
+            delete(folder, .withNotes)
+            return
+        default:
+            break
+        }
         withAnimation {
             ListDrop.perform(action, among: folders)
             switch action {
