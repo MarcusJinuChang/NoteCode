@@ -84,7 +84,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Wrapped lines | Continue past their indentation, with a mark | built | `code-blocks-room-around-and-inside.md` |
 | Return in a block | A thin extra gap after Return was reported on 1.0 | not reproduced on `main` (feedback #14, #31); retest on the iPad | `code-blocks-room-around-and-inside.md` |
 | Explain Code | Edit menu › Explain Block, or the Explain chip in the text row, on a block: Apple's on-device model explains it in a sheet; Copy, or Insert Below as a quote or output block (undoable) | built; unverified on device | `ai-features.md` |
-| Running code in the app | Out of scope on purpose | not planned | `AGENTS.md` |
+| Running code in the app | Pro. Runner layer (R1) built: job, result, client for our proxy, Java `Main` rename, compiler-error lines, reads-input hint; no UI or proxy yet (R2–R4). Contract: `docs/design/run-proxy-contract.md` | planned | `RunServiceClient.swift`, `JavaMain.swift`, `CompilerMessages.swift`, `ReadsInput.swift` |
 
 ## 4. Drawing and ink
 
