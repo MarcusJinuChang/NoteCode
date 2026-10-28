@@ -302,6 +302,11 @@ the same arguments in the scheme's Run → Arguments.
   68s for 5,000. Removing is the exception: use `removeElement(for:)` per
   element, which is few. A markup keeps what `removeAll(where:)` takes
   out, as it does an element left out of an assigned set.
+- Never read `PKInk.inkType` from a stroke the canvas made; use
+  `InkContent.inkIdentifier`. PaperKit's pixel eraser cuts nothing: it adds
+  a stroke in `com.apple.ink.eraser`, which `PKInk.InkType` has no case
+  for, and the Swift getter traps on it. Every pixel erase crashed the app
+  as the pen lifted (28 Oct).
 - The action bars are positioned from TextKit 2's *viewport*, never from the
   whole document. Asking for a fragment further down forces layout all the way
   to it, which is the lazy layout the editor is built on.

@@ -345,9 +345,22 @@ nonisolated enum InkContent {
     static func inkSignature(of stroke: PKStroke) -> Int {
         var hasher = Hasher()
         let ink = stroke.ink
-        hasher.combine(ink.inkType.rawValue)
+        hasher.combine(inkIdentifier(of: ink))
         hasher.combine(ink.color.cgColor.components)
         return hasher.finalize()
+    }
+
+    /// The ink's identifier, such as `com.apple.ink.pen`, read without
+    /// `PKInk.inkType`.
+    ///
+    /// PaperKit's pixel eraser doesn't cut the strokes it crosses: it adds a
+    /// stroke of its own over them, in `com.apple.ink.eraser`. `PKInk.InkType`
+    /// has no case for that ink, and the Swift getter traps on one rather
+    /// than return nothing: the app crashed as the pen lifted from every
+    /// pixel erase (simulator, 28 October). The Objective-C ink holds the
+    /// identifier as a string.
+    static func inkIdentifier(of ink: PKInk) -> String {
+        (ink as PKInkReference).inkType.rawValue
     }
 
     /// A colour as numbers, or `nil` for none. `CGColor` isn't hashable.

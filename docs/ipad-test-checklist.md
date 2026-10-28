@@ -99,6 +99,7 @@ do the steps, pull `tmp/selectionprobe.log` with
 - [ ] Recolour text from ink mode with the lasso (unlocked notes; locked and code lines select no text); undo it from text mode. — **FB 26**, object-system
 - [ ] Insert a photo and a shape: popover opens, the button un-lights, the element can be dragged and scaled with a finger and with the Pencil; the Pencil-only lock; two fingers. — insert-and-templates, object-system, ROADMAP
 - [ ] Pencil: latency, palm rejection, squeeze and double-tap, the lasso on cut strokes, the eraser on a stopped stroke. — ROADMAP, pages
+- [ ] Pixel eraser, Pencil lifted after each: across one stroke, across several, on a note with thousands of strokes; then text mode and back, and leave and reopen the note: no crash, the gaps stay. Lasso an erased stroke and recolour it: the gap doesn't fill in. — pixel eraser crash, 28 Oct
 - [ ] Pencil double tap in text mode swaps to the pencil; if nothing happens, the fallback is a `UIPencilInteraction` on the text view. — **FB 23**, the-note-page
 - [ ] Tool change shows at once on the hover mark. — **FB 17** (PaperKit's own; note if it lags)
 - [ ] Draw through a code block's panel and along a quote: the stroke is clean, no awkward border. — **FB 22**
