@@ -33,10 +33,10 @@ Request bodies are never logged.
 
 ## Before the first deploy
 
-Two things in `wrangler.toml` are Marcus's:
+Two things to check:
 
-1. `PRO_PRODUCT_IDS` is a placeholder. Put the subscription's product id from
-   P1 / App Store Connect there, or every run is refused with 402.
+1. `PRO_PRODUCT_IDS` is `com.marcus.NoteCode.pro.monthly`, P1's subscription.
+   Add any new Pro product id there, or its runs are refused with 402.
 2. `languages.json` has the Judge0 ids, pinned on 26 Oct 2026 from
    <https://ce.judge0.com/languages>. Judge0 has no "latest" alias, so check
    them when you upgrade. The hosted RapidAPI instance should match CE, but

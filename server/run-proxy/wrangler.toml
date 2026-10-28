@@ -1,6 +1,7 @@
 name = "notecode-run-proxy"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
 
 # Every number Marcus may want to change lives here; no code change needed.
 [vars]
@@ -11,8 +12,7 @@ RUNS_PER_IP_PER_MINUTE = "10"
 # All subscriptions together, per UTC day. $3 / $0.0017 ≈ 1,760.
 GLOBAL_DAILY_RUNS = "1760"
 # Comma-separated StoreKit product ids that count as Pro.
-# MARKED FOR MARCUS: replace with the real id from P1 before deploying.
-PRO_PRODUCT_IDS = "REPLACE_WITH_PRO_PRODUCT_ID"
+PRO_PRODUCT_IDS = "com.marcus.NoteCode.pro.monthly"
 # The app's bundle id, checked against the transaction.
 BUNDLE_ID = "com.marcus.NoteCode"
 # Accept TestFlight/sandbox transactions too. Set to "Production" for App Store only.
