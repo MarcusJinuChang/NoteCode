@@ -1,0 +1,30 @@
+name = "notecode-run-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Every number Marcus may want to change lives here; no code change needed.
+[vars]
+# Per subscription (original transaction id), per UTC day.
+DAILY_RUNS_PER_SUBSCRIPTION = "30"
+# Per client IP, per minute.
+RUNS_PER_IP_PER_MINUTE = "10"
+# All subscriptions together, per UTC day. $3 / $0.0017 ≈ 1,760.
+GLOBAL_DAILY_RUNS = "1760"
+# Comma-separated StoreKit product ids that count as Pro.
+PRO_PRODUCT_IDS = "com.marcus.NoteCode.pro.monthly"
+# The app's bundle id, checked against the transaction.
+BUNDLE_ID = "com.marcus.NoteCode"
+# Accept TestFlight/sandbox transactions too. Set to "Production" for App Store only.
+ALLOWED_ENVIRONMENTS = "Production,Sandbox"
+JUDGE0_URL = "https://judge0-ce.p.rapidapi.com"
+JUDGE0_HOST = "judge0-ce.p.rapidapi.com"
+# Set the key with: npx wrangler secret put JUDGE0_KEY
+
+[[durable_objects.bindings]]
+name = "LIMITS"
+class_name = "Limits"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Limits"]

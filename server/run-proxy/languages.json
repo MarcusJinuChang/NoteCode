@@ -1,0 +1,10 @@
+{
+  "_comment": "Judge0 CE language ids, from https://ce.judge0.com/languages on 26 Oct 2026, newest stable compiler per language. The site has no 'latest' alias; re-check when Judge0 adds compilers. JavaScript 102 is Node 22. SQL is not offered (400).",
+  "c++": { "id": 105, "name": "C++ (GCC 14.1.0)", "compilerOptions": "-std=c++17" },
+  "c": { "id": 103, "name": "C (GCC 14.1.0)", "compilerOptions": "-std=c17" },
+  "java": { "id": 91, "name": "Java (JDK 17.0.6)", "compilerOptions": "" },
+  "python": { "id": 109, "name": "Python (3.13.2)", "compilerOptions": "" },
+  "javascript": { "id": 102, "name": "JavaScript (Node.js 22.08.0)", "compilerOptions": "" },
+  "rust": { "id": 108, "name": "Rust (1.85.0)", "compilerOptions": "" },
+  "go": { "id": 107, "name": "Go (1.23.5)", "compilerOptions": "" }
+}

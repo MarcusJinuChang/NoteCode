@@ -1,0 +1,21 @@
+{
+  "name": "notecode-run-proxy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "dev": "wrangler dev"
+  },
+  "dependencies": {
+    "@peculiar/x509": "1.12.3",
+    "jose": "5.9.6"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.5.41",
+    "@cloudflare/workers-types": "4.20241112.0",
+    "typescript": "5.6.3",
+    "vitest": "2.1.8",
+    "wrangler": "3.90.0"
+  }
+}
