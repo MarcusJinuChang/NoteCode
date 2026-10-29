@@ -60,6 +60,7 @@ struct PageDetailView: View {
     @State private var resumingAtPage: Int?
 
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.displayScale) private var screenScale
 
     @AppStorage(HotbarDock.defaultsKey)
     private var storedDock: HotbarDock = .default
@@ -565,6 +566,14 @@ struct PageDetailView: View {
         .background {
             Color(PageView.surroundColor)
                 .ignoresSafeArea()
+        }
+        // The hairline between the top bar and the note area (W2). The page
+        // never scrolls under the bar, so the system draws none.
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(Color(.separator))
+                .frame(height: 1 / screenScale)
+                .allowsHitTesting(false)
         }
         .background {
             FoldReader { found in
