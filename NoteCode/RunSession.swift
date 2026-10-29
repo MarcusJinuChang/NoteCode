@@ -49,6 +49,10 @@ final class RunSession {
     private var chosenOrdinal: Int?
 
     private(set) var runningOrdinal: Int?
+    /// The code the running job was started with, and which run it is, so an
+    /// edit can cancel it and a late answer can be told from the current one.
+    private var runningHash: UInt64?
+    private var runGeneration = 0
     private(set) var runsLeft: Int?
 
     /// Where code goes. `nil` hides Run altogether (`RunServiceFactory`).
@@ -123,6 +127,13 @@ final class RunSession {
         chosenOrdinal = chosenOrdinal.flatMap { map[$0] }
         runningOrdinal = runningOrdinal.flatMap { map[$0] }
         blocks = new
+        // A run for code that is gone or was edited answers for nothing.
+        if let ordinal = runningOrdinal, let hash = runningHash,
+           new.first(where: { $0.ordinal == ordinal })?.id.contentHash != hash {
+            abandonRun()
+        } else if runningOrdinal == nil, task != nil, runningHash != nil {
+            abandonRun()
+        }
     }
 
     /// Where each old block went, by ordinal. A block whose code is unchanged
@@ -164,6 +175,9 @@ final class RunSession {
         let hash = block.id.contentHash
         chosenOrdinal = block.ordinal
         runningOrdinal = block.ordinal
+        runningHash = hash
+        runGeneration += 1
+        let mine = runGeneration
         task = Task { [weak self] in
             let outcome: RunOutcome?
             do {
@@ -175,7 +189,7 @@ final class RunSession {
             } catch {
                 outcome = .failure(.serviceDown)
             }
-            self?.finish(outcome, hash: hash)
+            self?.finish(outcome, hash: hash, generation: mine)
         }
     }
 
@@ -183,8 +197,17 @@ final class RunSession {
         task?.cancel()
     }
 
-    private func finish(_ outcome: RunOutcome?, hash: UInt64) {
-        defer { runningOrdinal = nil }
+    private func abandonRun() {
+        task?.cancel()
+        runGeneration += 1
+        runningOrdinal = nil
+        runningHash = nil
+    }
+
+    private func finish(_ outcome: RunOutcome?, hash: UInt64, generation: Int) {
+        // Not this run's turn any more: it was abandoned, or another began.
+        guard generation == runGeneration else { return }
+        defer { runningOrdinal = nil; runningHash = nil }
         guard let ordinal = runningOrdinal, let outcome else { return }
         records[ordinal] = RunRecord(outcome: outcome, ranHash: hash)
         switch outcome {

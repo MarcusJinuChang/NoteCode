@@ -148,3 +148,66 @@ struct StubRunner: CodeRunning {
         #expect(RunDockWidth.clamped(360, available: 400) == 280)
     }
 }
+
+/// A runner that answers when the test says so, one job at a time.
+actor GatedRunner: CodeRunning {
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+    private var answers: [String] = []
+
+    func run(_ job: RunJob) async throws -> RunResult {
+        await withCheckedContinuation { waiting.append($0) }
+        return RunResult(status: .ok, stdout: job.code, runsLeft: nil)
+    }
+
+    var pending: Int { waiting.count }
+
+    func release(_ index: Int) { waiting[index].resume() }
+}
+
+@MainActor
+@Suite struct RunSessionInFlightTests {
+    private func target(_ ordinal: Int, _ code: String) -> CodeBlockTarget {
+        CodeBlockTarget(
+            id: CodeBlockID(ordinal: ordinal, code: code),
+            range: NSRange(location: 0, length: code.utf16.count),
+            language: .python, code: code, tag: "python"
+        )
+    }
+
+    private func waitForPending(_ gate: GatedRunner, _ count: Int) async throws {
+        for _ in 0..<2000 {
+            if await gate.pending >= count { return }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        Issue.record("the runner was never asked for job \(count)")
+        throw CancellationError()
+    }
+
+    /// The running block is deleted and another takes its place; the first
+    /// run's answer must not land on the second block.
+    @Test func aRunWhoseBlockWasRemovedDoesNotAnswerForTheNextRun() async throws {
+        let gate = GatedRunner()
+        let s = RunSession()
+        s.runner = gate
+        s.update(blocks: [target(0, "first")])
+        s.run(transaction: "jws")
+        let firstTask = s.task
+        try await waitForPending(gate, 1)
+
+        s.update(blocks: [target(0, "second")])   // "first" is gone
+        s.run(transaction: "jws")
+        try await waitForPending(gate, 2)
+
+        await gate.release(0)                      // the first run answers late
+        await firstTask?.value
+        #expect(s.record(for: s.blocks[0]) == nil)
+        #expect(s.isRunning)                       // the second is still going
+
+        await gate.release(1)
+        await s.task?.value
+        guard case .result(let result)? = s.record(for: s.blocks[0])?.outcome else {
+            Issue.record("no result for the second run"); return
+        }
+        #expect(result.stdout == "second")
+    }
+}
