@@ -32,7 +32,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Templates | Lecture, Problem and Lab; text only | built | `insert-and-templates.md` |
 | Welcome note | First launch note | built | `organising-notes.md` |
 | Recently Deleted | Delete moves a note there with an Undo toast; restore; purged after a period; folders go with their notes | built | `recently-deleted-and-folder-faces.md` |
-| Note menu | Rename, Pin, Move to Folder, Remove from Folder, Lock Text, Duplicate, Get Info, Delete | built | `the-note-page.md` |
+| Note menu | Rename, Pin, Move to Folder (with Top Level), Get Info, Manage (Lock Text, Duplicate), Delete | built | `the-note-page.md` |
 | Text lock | Read-only text, ink still works | built | `the-note-page.md` |
 | Get Info | Counts and dates | built | `NoteInfoView.swift` |
 | Thumbnails and reopening | Cards draw the note; a note reopens at its last page | built | `home-…md` |
@@ -49,9 +49,9 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Inline marks | Bold, italic, strikethrough, underline, inline code, highlight (six colours); applied per character; the bar lights the state at the caret | built | `formatting-per-character.md`, `obsidian-s-other-marks-and-blocks.md` |
 | Typing style | A press with a caret sets what the next characters will be | built | `typing-style.md` |
 | Nested formatting | A real parser, not spans; bold inside colour inside italic | built | `inline-nesting.md` |
-| Text colour | Colour menu in the text options row, written as an Obsidian-compatible span | built | `coloured-and-sized-text.md` |
+| Text colour | Row of swatches (and a Default ring) in the text options row, written as an Obsidian-compatible span | built | `coloured-and-sized-text.md` |
 | Text size | Seven steps (14 to 23) plus any size per run with `+` and `−` | built | `coloured-and-sized-text.md`, `navigation-and-the-text-options-row.md` |
-| Line spacing presets (pt) | Menu in the text row: Default, +2, +4, +6, +8, +12 pt; line height only; stored per note (`Page.lineSpacing`, so ModelFreezeTests' hash changed) | built (feedback #2) | `navigation-and-the-text-options-row.md` |
+| Line spacing presets (pt) | Under More in the text row: Default, +2, +4, +6, +8, +12 pt; line height only; stored per note (`Page.lineSpacing`, so ModelFreezeTests' hash changed) | built (feedback #2) | `navigation-and-the-text-options-row.md` |
 | Lists | Bulleted, numbered, checklist; Return continues, Tab and Shift-Tab indent, Backspace unwinds | built | `writing-hidden-…md` |
 | Checklists | `- [ ]` boxes you tap | built | `MarkerTaps.swift` |
 | Links | Markdown links, tappable | built | `writing-hidden-…md` |
@@ -63,7 +63,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Outline and page badge | Headings list jumps to a heading; "2 / 5" shows the page | built | `navigation-and-the-text-options-row.md` |
 | Find in note | System find | built | `the-note-page.md` |
 | Summarise Note | Pro. ••• › Summarise Note: an on-device summary in a sheet (long notes in up to 4 pieces); Copy or Insert Below | built; unverified on device | `ai-features.md` |
-| LaTeX | | planned, design note done (`docs/design/latex.md`), needs SwiftMath package added by Marcus | `latex.md` |
+| LaTeX | Inline `$…$` (and `$$…$$` mid-line, display style) draws as a formula in the line, in the text's colour and size; a formula SwiftMath can't draw keeps its dollars and shows dimmed. A `$$` block (`$$`…`$$` over lines, or one line) draws as one centred formula on a line of its own, scaled down to fit the column, its source lines taking no room; an undrawable block shows as typed, dimmed. A drawn formula is one place for the caret; Backspace after it deletes all of it (one undo step); a selection never ends inside one. Tap opens an editor popover (sheet when narrow) with the source in monospace and a live preview — Done writes back as one undo step, Remove deletes it, read-only in a locked note. Style ▾ (hotbar, edit menu, ⇧⌘M / ⌥⌘M) inserts a new inline or display formula over the selection. The PDF and thumbnails draw each formula as vectors in black on the sheet, and don't print its source. Copy puts the source in Menlo (`$…$`, and every line of a `$$` block) in the RTF, the plain text unchanged; a rich paste escapes a `$` as `\$` when it would otherwise make a formula. Get Info doesn't count words inside a formula, and an outline title shows a formula's TeX without its dollars | inline layout (L3), display blocks (L4), editing (L5), PDF/thumbnails (L6) and info/outline/copy/paste (L7) built; unverified on device | `latex.md` |
 | Free text boxes | PaperKit has one through Insert; a text-box tool is not designed | idea (feedback #18) | |
 
 ## 3. Code blocks
@@ -77,6 +77,8 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Syntax highlighting | HighlightSwift with a custom theme; each role 4.5:1 | built | `colour.md` |
 | Block header | Name, Run and Copy buttons in the block's corner | built | `code-blocks-room-around-and-inside.md` |
 | Run | Redirect to a free compiler: Compiler Explorer (code in the link) or Programiz or OnlineGDB or a custom site (code copied); chosen per note, folder or app | built | `AGENTS.md`, `CodeDestination.swift` |
+| Run panel | Notes \| Run control in the top bar opens a pane at the page's right (360pt, dragged 280pt to half the window, collapses to an edge tab; a bottom sheet in a compact width): block strip, Run, Output and Input tabs, per-block input and last result (dimmed when the code changed). `RunSession`; `-debug-run-stub`. `AppInfo.runService` supplies the runner; with `nil` none of it is visible | built (R3, R4) | `code-languages-and-keys.md`, `RunPanel.swift`, `RunSession.swift` |
+| Run in the app | A free reader's ▷, ⌘R and the edit menu's Run open the paywall (`PaywallView`, "Run in the app is part of NoteCode Pro.") and do nothing else; the Run segment of the top bar carries a small PRO mark for them; Pro's run in the panel when the page's destination is **In NoteCode** (`CodeDestination.inApp`, id `notecode`, first in the menu and the default when `runService` is set; resolved page → folder → app). Each run sends `ProStatus.signedTransaction`; a 402 refreshes `ProStatus` and opens the paywall. Offline, capped or service down: the panel says which, with *Open on a Site Instead*. **Keep in Note** writes or replaces the ```` ```output ```` block under the code (one undo step); a compile error's `file:line` is a link that puts the caret on that line. `RunRoute`, `KeepInNote` | built (R4) | `RunRouting.swift`, `CodeDestination.swift`, `RunPanel.swift` |
 | Copy block | Copies the code with a Copied toast | built | `keyboard-edit-menu-…md` |
 | Code keys row | ⇥ ⇤ and brackets above the keyboard | built | `code-languages-and-keys.md` |
 | Indentation | Return keeps indent and opens a level after `{`; Tab and Backspace move a level; width is a setting | built | `code-languages-and-keys.md` |
@@ -84,7 +86,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Wrapped lines | Continue past their indentation, with a mark | built | `code-blocks-room-around-and-inside.md` |
 | Return in a block | A thin extra gap after Return was reported on 1.0 | not reproduced on `main` (feedback #14, #31); retest on the iPad | `code-blocks-room-around-and-inside.md` |
 | Explain Code | Pro. Edit menu › Explain Block, or the Explain chip in the text row, on a block: Apple's on-device model explains it in a sheet; Copy, or Insert Below as a quote or output block (undoable) | built; unverified on device | `ai-features.md` |
-| Running code in the app | Pro. Runner layer (R1) built: job, result, client for our proxy, Java `Main` rename, compiler-error lines, reads-input hint; no UI or proxy yet (R2–R4). Contract: `docs/design/run-proxy-contract.md` | planned | `RunServiceClient.swift`, `JavaMain.swift`, `CompilerMessages.swift`, `ReadsInput.swift` |
+| Running code in the app | Pro. Runner layer (R1), proxy (R2), panel (R3) and wiring (R4); see "Run panel" and "Run in the app" above. Contract: `docs/design/run-proxy-contract.md` | built (R1–R4); unverified on device | `RunServiceClient.swift`, `JavaMain.swift`, `CompilerMessages.swift`, `ReadsInput.swift` |
 
 ## 4. Drawing and ink
 
@@ -99,7 +101,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Pencil double tap and squeeze | Swap to eraser, swap to previous tool, or show the ink tools; in text mode they switch to ink first | built; unchecked with a Pencil (feedback #23) | `the-note-page.md` |
 | Ink across pages | Ink cut cleanly at page breaks | built | `pages.md` |
 | Ink in the PDF | Printed as a picture at 288 dpi | built | `pages.md` |
-| Rectangular selection | Select tool, Rectangle or Lasso: move, scale from a corner, recolour, duplicate, delete; touching, not containing | built (24 Oct), unverified on the iPad (feedback #6) | `object-system.md` |
+| Rectangular selection | Select tool, Rectangle or Lasso: move, scale from a corner, recolour, duplicate, delete; touching, not containing. A drag or scale shows the selection as a picture moved by a layer transform, so its cost doesn't grow with the note (O2) | built (24 Oct), unverified on the iPad (feedback #6) | `object-system.md` |
 | Recolour text with the lasso | The shape also covers text, a range per line (never code); one colour control recolours ink and text | built (24 Oct), unverified on the iPad (feedback #26) | `object-system.md` |
 | Add pages while drawing down | In compressed and print layout a stroke ending in the last page's bottom 15% adds a page; Settings › Drawing › Add Pages While Drawing | built (feedback #8) | |
 | Selection behaviour | Selection clears on a tool or mode switch; PaperKit's own selection is let go of (one shape or image can be handed to it to Edit) | built (24 Oct); tap-to-highlight and the hotbar displacement not located, needs the probe log on the iPad (feedback #24, #29, #30) | `object-system.md` |
@@ -128,7 +130,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 |---|---|---|---|
 | Header | One joined pill at the top left (list and Home, drawn icons), editable title with menu, Share, •••; the note shrinks into its Home card on the way home (cross-fade with Reduce Motion) | built (W3) | `the-note-page.md` |
 | Hotbar | Docks left, bottom or right; undo, redo, text/draw toggle, then the mode's tools | built | `the-note-page.md` |
-| Options rows | Text row (size, colour, and so on) and ink row (palette, widths, eraser mode) beside the bar | built | `navigation-and-the-text-options-row.md` |
+| Options rows | Text row (B/I/U/S, colour swatches, highlight, size, More; opaque, no glass) and ink row (palette, widths, eraser mode) beside the bar | built | `navigation-and-the-text-options-row.md` |
 | Settings inside a note | Settings at the foot of the note's ••• menu | built (feedback #11) | |
 | Keyboard shortcuts | One table: formatting, headings, tools, view modes, run and copy block, find, print, new note and folder, home, settings | built; unchecked with a real keyboard | `keyboard-edit-menu-…md` |
 | Edit menu | Format entries on selection | built | `keyboard-edit-menu-…md` |
@@ -151,7 +153,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 
 ## 8. Settings
 
-Sheet with General, Notes, Writing, Code, Drawing and About
+Sheet with General, Pro, Notes, Writing, Code, Drawing and Help and About
 (`SettingsView.swift`, `DrawingSettings.swift`); design in `settings.md`.
 
 | Page | Contains | Missing |
@@ -161,7 +163,8 @@ Sheet with General, Notes, Writing, Code, Drawing and About
 | Writing | Show Markdown, Autocorrect, Markers (four rows), On-Device Assistant (switch, Answer Length, Insert As) | |
 | Code | Run Code In, Code Keys, Indent Width, Line Numbers | |
 | Drawing | Finger Draws, Erases, Size, Colour Set, Pens and Highlighters palettes, Pencil actions, Add Pages While Drawing, Return to Previous Tool, Reset Colours | |
-| About | Version, licences, tip jar, privacy and feedback rows once set | |
+| Pro | Status (Pro or Free), renewal, Manage, Restore, See NoteCode Pro (`ProSettings.swift`) | |
+| Help and About | Welcome note and screen, version, licences, tip jar, privacy and feedback rows once set (`AppInfo.privacyPolicy` and `.feedbackAddress` are still `nil`) | |
 
 ## 9. Shell and release
 
@@ -172,6 +175,6 @@ Sheet with General, Notes, Writing, Code, Drawing and About
 | Privacy | Nothing collected; manifest lists UserDefaults only | built; pages not hosted | `AGENTS.md` › Shipping |
 | Storage | SwiftData, schema version 1 frozen by hashes; falls back to memory with a warning | built | `AGENTS.md` › The model |
 | Pro status | `ProStatus`: whether the reader has Pro (`com.marcus.NoteCode.pro.monthly`, $4.99 a month), its expiry and the signed transaction for the Run proxy; purchase, Restore, Manage; `-debug-pro on\|off`. The AI actions read it (P2); ads P3, Run R4 will | built (P1) | `the-list-s-foot-and-the-tip-jar.md`, `ProStatus.swift` |
-| Paywall and AI gate | `PaywallView`: what Pro gives, this iPad's AI availability, price and period, Subscribe, Restore, Terms of Use, Privacy Policy (when `AppInfo.privacyPolicy` is set). A free reader's Explain or Summarise opens it instead of the sheet and starts no model session (`AIAssistant.needsPro`). Settings › Pro: status, renewal, Manage, Restore. Opened from Remove ads (P3); not yet from Run (R3/R4) | built (P2); unverified on device | `ai-features.md`, `PaywallView.swift`, `ProSettings.swift` |
+| Paywall and AI gate | `PaywallView`: what Pro gives, this iPad's AI availability, price and period, Subscribe, Restore, Terms of Use, Privacy Policy (when `AppInfo.privacyPolicy` is set). A free reader's Explain or Summarise opens it instead of the sheet and starts no model session (`AIAssistant.needsPro`). Settings › Pro: status, renewal, Manage, Restore. Run opens it too ("Run in the app is part of NoteCode Pro."), and so does Remove ads (P3) | built (P2); unverified on device | `ai-features.md`, `PaywallView.swift`, `ProSettings.swift` |
 | Ads | Banner for readers without Pro, at Home's foot and in the list's foot, with Remove ads opening the paywall. UMP consent form first (EEA/UK), then the Mobile Ads SDK starts; the ATT prompt waits for a second Home visit, never launch. Refused or unasked tracking: non-personalised (`npa`). Test ids in Debug, real ids in Release (`AdConfig`) | built (P3); unverified on device | `shipping.md`, `AdConfig.swift`, `AdConsent.swift`, `AdBanner.swift` |
 | Ads and Pro, group notes | | planned or idea (stream L) | ROADMAP |

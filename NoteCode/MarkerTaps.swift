@@ -2,7 +2,7 @@
 //  MarkerTaps.swift
 //  NoteCode
 //
-//  Taps on a checklist's boxes and on links, in an editable text view.
+//  Taps on a checklist's boxes, on links and on formulas, in an editable text view.
 //
 
 #if canImport(UIKit)
@@ -15,6 +15,8 @@ enum MarkerTapTarget: Equatable {
     case checkbox(lineOffset: Int)
     /// A link and the address it goes to.
     case link(url: URL, destination: String)
+    /// A formula the note draws, which opens its editor.
+    case formula(FormulaEditing.Span)
 }
 
 /// The recognisers and the menu behind `MarkerTapTarget`, owned by the text view.
@@ -113,8 +115,11 @@ final class MarkerGestures: NSObject, UIGestureRecognizerDelegate, UIEditMenuInt
         let point = gestureRecognizer.location(in: textView)
         if gestureRecognizer === emptySpaceTap { return isEmptySpace?(point) == true }
         guard let target = targetAt?(point) else { return false }
-        // A hold is for links: a box has no menu.
-        if gestureRecognizer === hold, case .checkbox = target { return false }
+        // A hold is for links: a box and a formula have no menu.
+        if gestureRecognizer === hold {
+            if case .checkbox = target { return false }
+            if case .formula = target { return false }
+        }
         // A finger lifting after a hold has shown the menu isn't also a tap.
         // A tap has no time limit of its own, and the two recognise together.
         // Not read from the hold's state: on the iPad the hold had already
@@ -183,6 +188,24 @@ extension DocumentTextView.Coordinator {
             if target.contains(container) { return .checkbox(lineOffset: offset) }
         }
 
+        // A formula the line draws: the attachment, or for a block its whole
+        // first line. The editor opens in a locked note too, read-only.
+        let line = MarkdownFormatting.contentLine(containing: offset, in: textView.textStorage.mutableString)
+        for span in formulaSpans(in: textView, touching: line)
+        where span.isBlock ? span.start == offset : NSLocationInRange(span.start, line) {
+            if span.isBlock { return .formula(span) }
+            guard let start = contentManager.location(contentManager.documentRange.location, offsetBy: span.start),
+                  let end = contentManager.location(start, offsetBy: span.range.length),
+                  let range = NSTextRange(location: start, end: end)
+            else { continue }
+            var hit = false
+            layoutManager.enumerateTextSegments(in: range, type: .standard, options: []) { _, segment, _, _ in
+                if segment.insetBy(dx: -4, dy: -4).contains(container) { hit = true }
+                return !hit
+            }
+            if hit { return .formula(span) }
+        }
+
         // A link: any of the line's links whose text lies under the point.
         let text = textView.textStorage.mutableString
         for link in MarkdownFormatting.links(onLineAt: offset, in: text, codeRanges: codeRanges(in: textView.textStorage)) {
@@ -212,6 +235,9 @@ extension DocumentTextView.Coordinator {
             ) else { return }
             apply(edit, to: textView)
 
+        case .formula(let span):
+            presentFormulaEditor(for: span, in: textView)
+
         case .link(let url, _):
             // Leaving for Safari with the keyboard up means coming back to a
             // view that has to lay out under it.
@@ -238,6 +264,10 @@ extension DocumentTextView.Coordinator {
         gestures.didTapEmptySpace = { [weak self, weak textView] point in
             guard let self, let textView else { return }
             extendNote(toReach: point, in: textView)
+        }
+        editor?.presentNewFormula = { [weak self, weak textView] display in
+            guard let self, let textView else { return }
+            presentNewFormulaEditor(display: display, in: textView)
         }
         textView.touchTarget = { [weak gestures] point in gestures?.targetAt?(point) != nil }
         textView.outdentHandler = { [weak self, weak textView] in

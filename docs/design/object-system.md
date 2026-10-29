@@ -544,6 +544,20 @@ iPad Pro 13-inch, iOS 27.0); nothing is verified on the iPad.
 - **Not done:** a hotbar/Settings icon pass (C's); the rotate handle; text
   boxes; anchored ink (the table has room for it).
 
+## Drag cost (O2, 28 Oct)
+
+A move or scale used to assign the whole markup per preview (30 a second).
+Measured on the simulator, Debug, 10 previews averaged, 24 strokes selected:
+9.5ms at 100 strokes, 76ms at 1,000, 584ms at 5,000. Now `beginAdjusting`
+draws the selection once into an image (`DrawingCanvas.showSnapshot`), hides
+the originals in one rebuild, and each preview only sets the image's
+transform: about 5µs at all three sizes. Until the image is ready (a moment
+after touch-down) previews use the old path; the end result is the same
+either way (`snapshotScaleMatchesOldPath`). `originalBounds` is cached at
+begin, since walking the markup for it was itself linear. The release is
+still one rebuild and one undo step. The image is drawn at the display
+scale, so a drag while zoomed in may look soft until release.
+
 ## Questions for Marcus (with a recommendation)
 
 1. **Storage: container inside `drawingData` (A) or a new attribute (B)?**

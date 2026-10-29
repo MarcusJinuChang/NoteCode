@@ -18,18 +18,18 @@ import UIKit
 @Suite("Hotbar icons are visible")
 struct HotbarIconPixelTests {
 
-    /// Roughly what the bar's glass is over a page, per appearance.
+    /// What the bar material is over a page, per appearance.
     static func bar(_ scheme: ColorScheme) -> UIColor {
         scheme == .dark ? UIColor(red: 0.23, green: 0.23, blue: 0.24, alpha: 1) : UIColor(red: 0.96, green: 0.96, blue: 0.97, alpha: 1)
     }
 
-    /// `content` on the bar's glass, as pixels.
+    /// `content` on the bar material, as pixels.
     static func render(_ content: some View, scheme: ColorScheme) -> (data: [UInt8], width: Int, height: Int) {
-        // In the bar's own glass, which is where the first drawn icons
+        // On the bar's own surface, which is where the first drawn icons
         // vanished: out of it they drew fine.
         let view = content
             .frame(width: 44, height: 44)
-            .glassEffect(.regular, in: .capsule)
+            .barMaterial(in: .capsule)
             .padding(8)
             .background(Color(uiColor: bar(scheme)))
         let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 60, height: 60))

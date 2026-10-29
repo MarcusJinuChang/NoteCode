@@ -17,7 +17,7 @@ scrollable document (Obsidian-style) where:
 Primary use case: CS133 (C++) and general algorithm practice (Java/Python), so
 code blocks need to support at least C++, Java, and Python.
 
-Running code in-app is deliberately out of scope. Every option needed either a
+Running code in-app was deliberately out of scope until the 1.0 plan, which adds it as a Pro feature through a proxy (R1–R4; see docs/features.md › Run in the app); the free path below is still a redirect. Every option needed either a
 paid API, a self-hosted sandbox on a VPS, or a multi-megabyte WebAssembly
 runtime with a four-second cold start — all for a feature whose value is lowest
 exactly when the app is being used, since nobody runs code during a lecture.

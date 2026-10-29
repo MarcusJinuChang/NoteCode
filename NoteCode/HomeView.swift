@@ -104,7 +104,12 @@ struct HomeView: View {
                 Button("New Note", systemImage: "plus", action: onNewNote)
                     .accessibilityIdentifier("homeToolbarNewNote")
             }
+            .sharedBackgroundVisibility(.hidden)
         }
+#if os(iOS)
+        .toolbarBackground(BarMaterial.fill, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+#endif
         .sheet(item: $editingFolder) { editing in
             FolderEditor(editing: editing)
         }

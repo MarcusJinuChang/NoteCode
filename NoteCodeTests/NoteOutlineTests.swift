@@ -124,6 +124,22 @@ struct NoteOutlineScrollTests {
         #expect(page.textView.contentOffset.y <= maxOffset + 0.5)
         withExtendedLifetime((window, coordinator)) {}
     }
+
+@Suite("Outline: formulas in headings")
+struct NoteOutlineMathTests {
+
+    @Test("A heading's title is the formula's TeX without its dollars")
+    func titleDropsDollars() {
+        let entries = NoteOutline.entries(in: "# Big-O of $O(n \\log n)$ sorts\n## $$x^2$$\ntext")
+
+        #expect(entries.map(\.title) == ["Big-O of O(n \\log n) sorts", "x^2"])
+    }
+
+    @Test("A $$ block's lines are not headings")
+    func blockIsNotAHeading() {
+        #expect(NoteOutline.entries(in: "$$\n# a\n$$\n# real").map(\.title) == ["real"])
+    }
+}
 }
 
 #endif

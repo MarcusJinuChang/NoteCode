@@ -28,6 +28,9 @@ import UniformTypeIdentifiers
 ///   selection reaches them, indented by depth.
 /// - **Code is monospaced text without its fences.** No syntax colours and
 ///   no panel: a block's text, a line each.
+/// - **A formula is its source in Menlo**, dollars included (`$x^2$`, or
+///   the lines of a `$$` block): a receiving app can't draw TeX, and the
+///   source is what a person can read there and paste back.
 /// - **The Markdown stays the plain text**, and the Markdown also rides in a
 ///   type of the app's own (`RichPaste.ownType`), so a paste into a note
 ///   takes the Markdown whole instead of reading the RTF back.
@@ -47,6 +50,7 @@ enum RichCopy {
               NSMaxRange(selection) <= text.length
         else { return nil }
 
+        let mathRanges = Self.mathBlockRanges(in: text)
         let result = NSMutableAttributedString()
         var lineStart = text.lineRange(for: NSRange(location: selection.location, length: 0)).location
         while lineStart < NSMaxRange(selection) {
@@ -58,6 +62,17 @@ enum RichCopy {
             let part = NSIntersectionRange(content, selection)
             let endsLine = contentEnd < NSMaxRange(full) && NSMaxRange(selection) > contentEnd
             lineStart = NSMaxRange(full)
+
+            if mathRanges.contains(where: { NSLocationInRange(content.location, $0) }) {
+                // Every line of a display block, its `$$` lines too.
+                if part.length > 0 {
+                    result.append(NSAttributedString(
+                        string: text.substring(with: part), attributes: [.font: portable(typography.code)]
+                    ))
+                }
+                if endsLine { result.append(NSAttributedString(string: "\n", attributes: [.font: portable(typography.prose)])) }
+                continue
+            }
 
             let block = codeRanges.first { NSLocationInRange(content.location, $0.range) }
             if let block {
@@ -73,6 +88,16 @@ enum RichCopy {
             if endsLine { result.append(NSAttributedString(string: "\n", attributes: [.font: portable(typography.prose)])) }
         }
         return result.length > 0 ? result : nil
+    }
+
+    /// Where the `$$` blocks are, found by parsing the note only when it has
+    /// a `$$` to find.
+    static func mathBlockRanges(in text: NSString) -> [NSRange] {
+        guard text.range(of: "$$").location != NSNotFound else { return [] }
+        let source = String(text)
+        return DocumentParser.parse(source).compactMap { block in
+            block.isMath ? NSRange(block.range, in: source) : nil
+        }
     }
 
     /// The part of a prose line that the selection touches.
@@ -107,12 +132,31 @@ enum RichCopy {
             }
         }
 
+        // Each formula's whole span, dollars included, and which of them a
+        // glyph is in: the glyphs hold only the TeX, the markers being hidden.
+        let formulas = Self.formulaRanges(in: styled)
+        func formula(of glyph: StyledLine.Glyph) -> Int? {
+            formulas.firstIndex { NSLocationInRange(glyph.source.location, $0) }
+        }
+
         var index = 0
         while index < styled.glyphs.count {
+            if let spanIndex = formula(of: styled.glyphs[index]) {
+                var end = index
+                while end < styled.glyphs.count, formula(of: styled.glyphs[end]) == spanIndex { end += 1 }
+                index = end
+                let span = formulas[spanIndex]
+                if NSIntersectionRange(span, selected).length > 0 {
+                    var attributes: [NSAttributedString.Key: Any] = [.font: portable(typography.code)]
+                    if let paragraph { attributes[.paragraphStyle] = paragraph }
+                    result.append(NSAttributedString(string: (line as NSString).substring(with: span), attributes: attributes))
+                }
+                continue
+            }
             let style = styled.glyphs[index].style
             var text = ""
             var end = index
-            while end < styled.glyphs.count, styled.glyphs[end].style == style {
+            while end < styled.glyphs.count, styled.glyphs[end].style == style, formula(of: styled.glyphs[end]) == nil {
                 if NSIntersectionRange(styled.glyphs[end].source, selected).length > 0 { text += styled.glyphs[end].text }
                 end += 1
             }
@@ -123,6 +167,25 @@ enum RichCopy {
             result.append(NSAttributedString(string: text, attributes: attributes))
         }
         return result
+    }
+
+    /// The inline formulas of a line, each from its opening dollar to its
+    /// closing one, in UTF-16 units.
+    static func formulaRanges(in line: StyledLine) -> [NSRange] {
+        var ranges: [NSRange] = []
+        var opened: String.Index?
+        for node in line.inlines {
+            switch node.kind {
+            case .opening(.math): opened = node.range.lowerBound
+            case .closing(.math):
+                if let start = opened {
+                    ranges.append(NSRange(start..<node.range.upperBound, in: line.line))
+                    opened = nil
+                }
+            default: break
+            }
+        }
+        return ranges
     }
 
     /// What one stretch of a line is drawn with.

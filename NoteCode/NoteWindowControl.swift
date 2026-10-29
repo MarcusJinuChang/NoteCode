@@ -51,8 +51,8 @@ extension AnyTransition {
     }
 }
 
-/// The sidebar button and the house, joined. An opaque fill rather than
-/// glass, since W4 removes the glass from every bar.
+/// The sidebar button and the house, joined. On the bar material, like
+/// every bar.
 struct NoteWindowControl: View {
     var onToggleList: () -> Void
     var onGoHome: (() -> Void)?
@@ -69,7 +69,7 @@ struct NoteWindowControl: View {
                 segment(.home, label: "Home", identifier: "homeButton", action: onGoHome)
             }
         }
-        .background(.quaternary, in: Capsule())
+        .barMaterial(in: Capsule())
     }
 
     private func segment(_ icon: NoteIcon, label: String, identifier: String, action: @escaping () -> Void) -> some View {

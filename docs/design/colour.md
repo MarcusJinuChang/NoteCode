@@ -419,3 +419,12 @@ on screen, the Pencil.
 
 - On-screen look at the highlighter swatches and the Colour Set row on an iPad
   (the checklist in the report); the dark-mode blend on screen.
+
+## One bar material, no glass (W4, 28 Oct)
+
+Every bar is drawn on `BarMaterial` (BarMaterial.swift): `secondarySystemBackground`
+with a 0.5pt `separator` edge, opaque in both appearances. Used by the hotbar,
+the pen's options row, the code keys row, `NoteWindowControl`, and the top bar
+(`toolbarBackground` on the note and on Home, with `sharedBackgroundVisibility(.hidden)`
+on the toolbar items so the system draws no capsule behind them). `TextOptionsRow`'s
+glass is T2's and goes with that PR; until it merges, that row is the one glass left.

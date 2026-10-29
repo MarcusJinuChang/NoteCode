@@ -92,7 +92,7 @@ struct NoteList: View {
     /// Where code blocks run when nothing more specific says, for the
     /// folder menu's "Default" row.
     @AppStorage(RunDestinationPreference.appDefaultKey)
-    private var appDefaultDestination: String = CodeDestination.default.id
+    private var appDefaultDestination: String = CodeDestination.preferredDefault().id
 
     /// Folders the reader has closed. Folders start open, so a new folder's
     /// notes are never hidden behind a row nobody has tapped yet.
@@ -626,16 +626,18 @@ struct NoteList: View {
         ) {
             withAnimation { folder.isPinned.toggle() }
         }
-        Menu("New Note", systemImage: "square.and.pencil") {
-            newNoteButtons(in: folder)
-        }
-        Button("New Folder Inside…", systemImage: "folder.badge.plus") {
-            closedFolders.remove(folder.persistentModelID)
-            editingFolder = .new(moving: nil, in: folder)
-        }
         Button("Rename…", systemImage: "pencil") {
             editingFolder = .rename(folder)
         }
+        Menu("New", systemImage: "plus") {
+            newNoteButtons(in: folder)
+            Divider()
+            Button("Folder Inside…", systemImage: "folder.badge.plus") {
+                closedFolders.remove(folder.persistentModelID)
+                editingFolder = .new(moving: nil, in: folder)
+            }
+        }
+        Divider()
         Menu("Move To", systemImage: "folder") {
             Button("Top Level", systemImage: "tray") {
                 move(folder, into: nil)
@@ -649,7 +651,7 @@ struct NoteList: View {
         Picker(selection: runDestination(of: folder)) {
             Text("Default (\(RunDestinationPreference.resolve([appDefaultDestination]).name))")
                 .tag(String?.none)
-            ForEach(CodeDestination.builtIns) { destination in
+            ForEach(CodeDestination.choices()) { destination in
                 Text(destination.name).tag(String?.some(destination.id))
             }
             // A custom site set at either level stays in the menu.

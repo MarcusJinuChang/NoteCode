@@ -195,6 +195,56 @@ struct InkSelectionTests {
         #expect(after.width > box.width * 1.8 && after.width < box.width * 2.2)
     }
 
+    @Test("O2: a scale through the snapshot ends as the old path's markup, in one undo step")
+    func snapshotScaleMatchesOldPath() async {
+        let rig = Rig()
+        let a = Self.stroke(from: CGPoint(x: 100, y: 100), to: CGPoint(x: 200, y: 100))
+        let b = Self.stroke(from: CGPoint(x: 100, y: 400), to: CGPoint(x: 200, y: 400))
+        rig.put([a, b])
+        rig.selection.select(.rectangle(CGRect(x: 120, y: 90, width: 30, height: 20)))
+        let start = rig.frames()
+        let o = try! #require(rig.selection.bounds).origin
+        let expected = InkCommands.transformed(rig.canvas.markup, ids: rig.selection.ids, by: CGAffineTransform(translationX: o.x, y: o.y).scaledBy(x: 1.5, y: 1.5).translatedBy(x: -o.x, y: -o.y))
+        var want: [ElementID: CGRect] = [:]
+        for element in expected.subelements { want[element.elementID] = element.renderFrame }
+
+        rig.selection.beginAdjusting()
+        for _ in 0..<500 where !rig.canvas.isShowingSnapshot { try? await Task.sleep(for: .milliseconds(10)) }
+        #expect(rig.canvas.isShowingSnapshot)
+        rig.selection.previewScale(by: 1.2)
+        rig.selection.previewScale(by: 1.5)
+        rig.selection.endAdjusting(actionName: "Resize")
+
+        #expect(!rig.canvas.isShowingSnapshot)
+        #expect(rig.frames() == want)
+        rig.editor.undo()
+        #expect(rig.frames() == start, "one undo takes the whole resize")
+    }
+
+    @Test("O2: one scale preview costs the same however big the note is", arguments: [100, 1_000, 5_000])
+    func previewCost(strokes: Int) async {
+        let rig = Rig()
+        var elements: [any Markup] = []
+        for i in 0..<strokes {
+            let x = CGFloat(i % 40) * 18, y = 300 + CGFloat(i / 40) * 6
+            elements.append(Self.stroke(from: CGPoint(x: x, y: y), to: CGPoint(x: x + 12, y: y + 3)))
+        }
+        rig.put(elements)
+        rig.selection.select(.rectangle(CGRect(x: 0, y: 290, width: 100, height: 30)))
+        rig.selection.beginAdjusting()
+        for _ in 0..<500 where !rig.canvas.isShowingSnapshot { try? await Task.sleep(for: .milliseconds(10)) }
+        #expect(rig.canvas.isShowingSnapshot, "the snapshot should be up within 5s")
+        let clock = ContinuousClock()
+        var total = Duration.zero
+        for i in 1...10 {
+            total += clock.measure { rig.selection.previewScale(by: 1 + CGFloat(i) * 0.05) }
+        }
+        #expect(total / 10 < .milliseconds(4), "a preview took \(total / 10)")
+        rig.selection.cancelAdjusting()
+        #expect(!rig.canvas.isShowingSnapshot)
+        print("O2-COST strokes=\(strokes) selected=\(rig.selection.ids.count) perPreview=\(total / 10)")
+    }
+
     @Test("Recolour, duplicate and delete are each one undo step, and delete ends the selection")
     func commands() throws {
         let rig = Rig()

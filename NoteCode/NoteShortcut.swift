@@ -23,6 +23,7 @@ enum NoteShortcut: CaseIterable, Sendable {
     case bold, italic, inlineCode
     case heading1, heading2, heading3, body
     case strikethrough, underline, bulletedList, codeBlock
+    case inlineFormula, displayFormula
     case runBlock, copyBlock
     case toggleMode
     case pen, highlighter, eraser, lasso
@@ -48,6 +49,8 @@ enum NoteShortcut: CaseIterable, Sendable {
         case .underline:     "Underline"
         case .bulletedList:  "Bulleted List"
         case .codeBlock:     "Code Block"
+        case .inlineFormula: "Inline Formula"
+        case .displayFormula: "Display Formula"
         case .runBlock:      "Run Block"
         case .copyBlock:     "Copy Block"
         case .toggleMode:    "Text / Draw"
@@ -88,6 +91,7 @@ enum NoteShortcut: CaseIterable, Sendable {
         case .underline:     "u"
         case .bulletedList:  "l"
         case .codeBlock:     "k"
+        case .inlineFormula, .displayFormula: "m"
         case .runBlock:      "r"
         case .copyBlock:     "c"
         case .toggleMode:    "d"
@@ -119,10 +123,10 @@ enum NoteShortcut: CaseIterable, Sendable {
         case .undo, .bold, .italic, .underline, .inlineCode, .runBlock, .seamless, .compressed, .printLayout,
              .find, .print, .newNote, .settings, .biggerText, .smallerText:
             .command
-        case .redo, .strikethrough, .bulletedList, .codeBlock, .copyBlock, .toggleMode,
+        case .redo, .strikethrough, .bulletedList, .codeBlock, .inlineFormula, .copyBlock, .toggleMode,
              .newFolder, .searchNotes, .home:
             [.command, .shift]
-        case .heading1, .heading2, .heading3, .body:
+        case .heading1, .heading2, .heading3, .body, .displayFormula:
             [.command, .option]
         case .noteList, .outline:
             [.command, .control]

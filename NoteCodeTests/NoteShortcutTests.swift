@@ -22,6 +22,7 @@ struct NoteShortcutTests {
         (.bold, "⌘B"), (.italic, "⌘I"), (.underline, "⌘U"), (.inlineCode, "⌘E"),
         (.heading1, "⌥⌘1"), (.heading2, "⌥⌘2"), (.heading3, "⌥⌘3"), (.body, "⌥⌘0"),
         (.strikethrough, "⇧⌘X"), (.bulletedList, "⇧⌘L"), (.codeBlock, "⇧⌘K"),
+        (.inlineFormula, "⇧⌘M"), (.displayFormula, "⌥⌘M"),
         (.runBlock, "⌘R"), (.copyBlock, "⇧⌘C"),
         (.toggleMode, "⇧⌘D"),
         (.pen, "P"), (.highlighter, "H"), (.eraser, "E"), (.lasso, "L"),

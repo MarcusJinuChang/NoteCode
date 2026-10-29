@@ -10,7 +10,7 @@
 import GameController
 import UIKit
 
-/// ⇥ ⇤ { } ( ) [ ] < > ; = " ' : / \ | & * #  ← →, on a glass capsule, in
+/// ⇥ ⇤ { } ( ) [ ] < > ; = " ' : / \ | & * #  ← →, on a bar-material capsule, in
 /// the options row's look: 40pt to the eye in a row 52pt tall.
 ///
 /// An `inputAccessoryView`, so UIKit puts it on the keyboard and the keyboard's
@@ -34,7 +34,7 @@ final class CodeKeysRow: UIInputView, UIInputViewAudioFeedback {
 
     var enableInputClicksWhenVisible: Bool { true }
 
-    private let capsule = UIVisualEffectView(effect: UIGlassEffect(style: .regular))
+    private let capsule = UIVisualEffectView(effect: nil)
 
     override init(frame: CGRect, inputViewStyle: UIInputView.Style) {
         super.init(frame: CGRect(x: 0, y: 0, width: frame.width, height: Self.height), inputViewStyle: inputViewStyle)
@@ -60,6 +60,9 @@ final class CodeKeysRow: UIInputView, UIInputViewAudioFeedback {
     private func build() {
         capsule.translatesAutoresizingMaskIntoConstraints = false
         capsule.cornerConfiguration = .capsule()
+        capsule.backgroundColor = BarMaterial.uiColor
+        capsule.layer.borderWidth = 0.5
+        capsule.layer.borderColor = BarMaterial.uiEdge.cgColor
         addSubview(capsule)
 
         let leading = keyStack([.indent, .outdent])

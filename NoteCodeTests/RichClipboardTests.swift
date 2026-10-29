@@ -363,4 +363,35 @@ struct RichClipboardTests {
         #expect(Self.copiedText() == nil, "there is nothing to see in `**`")
         #expect(UIPasteboard.general.string == "**", "the plain text is still what was selected")
     }
+
+    @Test("A copy carries a formula as its source in Menlo, dollars included")
+    func copiesFormulaSource() throws {
+        Self.clearPasteboard()
+        let harness = Harness("Euler: $e^{i\\pi}$ is -1|")
+        harness.textView.selectedRange = NSRange(location: 0, length: (harness.textView.text as NSString).length)
+        harness.textView.copy(nil)
+        let copied = try #require(Self.copiedText())
+
+        #expect(copied.string == "Euler: $e^{i\\pi}$ is -1")
+        let font = try #require(Self.attribute(.font, of: "$e^", in: copied) as? UIFont)
+        #expect(font.fontName.contains("Menlo"))
+        #expect(!Self.traits(of: "Euler", in: copied).contains(.traitMonoSpace))
+        #expect(!Self.traits(of: "is -1", in: copied).contains(.traitMonoSpace))
+    }
+
+    @Test("A copy carries every line of a display formula in Menlo, the dollar lines too")
+    func copiesDisplayFormula() throws {
+        Self.clearPasteboard()
+        let harness = Harness("before\n$$\n\\frac{a}{b}\n$$\nafter|")
+        harness.textView.selectedRange = NSRange(location: 0, length: (harness.textView.text as NSString).length)
+        harness.textView.copy(nil)
+        let copied = try #require(Self.copiedText())
+
+        #expect(copied.string == "before\n$$\n\\frac{a}{b}\n$$\nafter")
+        for word in ["$$", "\\frac"] {
+            let font = try #require(Self.attribute(.font, of: word, in: copied) as? UIFont)
+            #expect(font.fontName.contains("Menlo"), "\(word)")
+        }
+        #expect(!Self.traits(of: "after", in: copied).contains(.traitMonoSpace))
+    }
 }

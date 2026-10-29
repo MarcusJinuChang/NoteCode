@@ -51,7 +51,7 @@ struct NoteEditorTests {
             editor.attach(textView, canvas: canvas, page: page)
         }
 
-        var pans: [UIPanGestureRecognizer] { [textView.panGestureRecognizer, page.panGestureRecognizer] }
+        var pans: [UIPanGestureRecognizer] { [textView.panGestureRecognizer] }
     }
 
     @Test("A formatting button edits the text view and the page both")
