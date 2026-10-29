@@ -274,8 +274,10 @@ struct RunDestinationPreferenceTests {
 
     @Test("Nothing set anywhere means the default")
     func emptyResolvesToDefault() {
-        #expect(RunDestinationPreference.resolve([]) == .default)
-        #expect(RunDestinationPreference.resolve([nil, nil]) == .default)
+        #expect(RunDestinationPreference.resolve([], inAppAvailable: false) == .default)
+        #expect(RunDestinationPreference.resolve([nil, nil], inAppAvailable: false) == .default)
+        // With a run service, the default is the app's own Run.
+        #expect(RunDestinationPreference.resolve([nil, nil], inAppAvailable: true) == .inApp)
     }
 
     @Test("The page wins over the app-wide setting")
@@ -300,6 +302,6 @@ struct RunDestinationPreferenceTests {
     @Test("An id nothing recognises is skipped rather than obeyed")
     func unknownIDsAreSkipped() {
         #expect(RunDestinationPreference.resolve(["from-a-newer-build", "onlinegdb"]) == .onlineGDB)
-        #expect(RunDestinationPreference.resolve(["from-a-newer-build"]) == .default)
+        #expect(RunDestinationPreference.resolve(["from-a-newer-build"], inAppAvailable: false) == .default)
     }
 }

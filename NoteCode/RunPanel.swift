@@ -165,6 +165,16 @@ private struct RunOutputView: View {
             Label(RunPresentation.message(for: error), systemImage: "exclamationmark.triangle")
                 .font(.callout)
                 .foregroundStyle(Self.error)
+            if RunPresentation.offersSite(after: error) {
+                Button {
+                    session.openAtSite?(block)
+                } label: {
+                    Label("Open on a Site Instead", systemImage: "arrow.up.right.square").font(.subheadline)
+                }
+                .buttonStyle(.bordered)
+                .tint(Color(CodeOutputPanel.controlColor))
+                .accessibilityIdentifier("runPanelOpenAtSite")
+            }
         case .result(let result):
             Text(RunPresentation.statusLine(result))
                 .font(.footnote.weight(.semibold))
@@ -180,7 +190,13 @@ private struct RunOutputView: View {
                     .textSelection(.enabled)
             }
             ForEach([result.compileOutput, result.stderr].filter { !$0.isEmpty }, id: \.self) { text in
-                Text(text).font(Self.code).foregroundStyle(Self.error).textSelection(.enabled)
+                Text(Self.linked(text, for: block))
+                    .font(Self.code).foregroundStyle(Self.error).textSelection(.enabled)
+                    .environment(\.openURL, OpenURLAction { url in
+                        guard url.scheme == Self.lineScheme, let line = Int(url.host() ?? "") else { return .discarded }
+                        session.showLine?(block, line)
+                        return .handled
+                    })
             }
             if result.truncated {
                 Text("Output was cut short.").font(.footnote).foregroundStyle(Color(CodeOutputPanel.labelColor))
@@ -191,16 +207,43 @@ private struct RunOutputView: View {
                     note("It reads input; add some on the Input tab.")
                 }
             }
-            if !result.stdout.isEmpty {
-                Button {
-                    UIPasteboard.general.string = result.stdout
-                } label: {
-                    Label("Copy", systemImage: "doc.on.doc").font(.subheadline)
+            HStack(spacing: 10) {
+                if !result.stdout.isEmpty {
+                    Button {
+                        UIPasteboard.general.string = result.stdout
+                    } label: {
+                        Label("Copy", systemImage: "doc.on.doc").font(.subheadline)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(Color(CodeOutputPanel.controlColor))
                 }
-                .buttonStyle(.bordered)
-                .tint(Color(CodeOutputPanel.controlColor))
+                // Not for output of code that has since changed.
+                if let keep = KeepInNote.text(of: result), !session.isStale(block) {
+                    Button {
+                        session.keepInNote?(block.ordinal, keep)
+                    } label: {
+                        Label("Keep in Note", systemImage: "square.and.arrow.down").font(.subheadline)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(Color(CodeOutputPanel.controlColor))
+                    .accessibilityIdentifier("runPanelKeepInNote")
+                }
             }
         }
+    }
+
+    private static let lineScheme = "notecode-line"
+
+    /// Compile output with each "file:line" made a link to that line of the block.
+    private static func linked(_ text: String, for block: RunBlock) -> AttributedString {
+        var attributed = AttributedString(text)
+        let lineCount = block.code.split(separator: "\n", omittingEmptySubsequences: false).count
+        for message in CompilerMessages.find(in: text, language: block.language, lineCount: lineCount) {
+            guard let range = Range(message.range, in: attributed) else { continue }
+            attributed[range].link = URL(string: "\(lineScheme)://\(message.line)")
+            attributed[range].underlineStyle = .single
+        }
+        return attributed
     }
 
     private func note(_ text: String) -> some View {
@@ -403,10 +446,14 @@ struct RunPanelHost: ViewModifier {
     @Binding var showsRunIsPro: Bool
     @Binding var windowWidth: CGFloat
     var transaction: () -> String
+    var pro: ProStatus?
 
     func body(content: Content) -> some View {
         content
             .task {
+                editor.pro = pro
+                editor.onRunNeedsPro = { showsRunIsPro = true }
+                editor.connectRun()
                 editor.run.runner = RunServiceFactory.make()
 #if DEBUG
                 if DebugLaunchOptions.current.runStub != nil {

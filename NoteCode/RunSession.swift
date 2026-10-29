@@ -53,6 +53,16 @@ final class RunSession {
 
     /// Where code goes. `nil` hides Run altogether (`RunServiceFactory`).
     @ObservationIgnored var runner: (any CodeRunning)?
+    /// Told when the service refuses the subscription (a 402).
+    @ObservationIgnored var onNotSubscribed: (() -> Void)?
+    /// Hands a block to the page's site instead: the panel's button for an
+    /// offline phone, a used-up day or a service that is down. Set by the
+    /// text view's coordinator, which knows the site.
+    @ObservationIgnored var openAtSite: ((RunBlock) -> Void)?
+    /// Keep in Note: writes the text under the block with that ordinal.
+    @ObservationIgnored var keepInNote: ((Int, String) -> Void)?
+    /// A compile-error link: the caret to a 1-based line of the block.
+    @ObservationIgnored var showLine: ((RunBlock, Int) -> Void)?
 
     var isOpen = false
     var isCollapsed = false
@@ -182,6 +192,8 @@ final class RunSession {
             if let left = result.runsLeft { runsLeft = left }
         case .failure(.capped(let cap)):
             runsLeft = cap.runsLeft ?? 0
+        case .failure(.notSubscribed):
+            onNotSubscribed?()
         case .failure:
             break
         }
@@ -212,6 +224,16 @@ nonisolated enum RunPresentation {
         return parts.joined(separator: " · ")
     }
 
+    /// Whether the panel offers to open the block on a site: when the service
+    /// can't run it right now. Not for a refused subscription (the paywall
+    /// opens) nor a block too large for the service, which a site may take.
+    static func offersSite(after error: RunServiceError) -> Bool {
+        switch error {
+        case .offline, .capped, .serviceDown, .tooLarge: true
+        case .notSubscribed: false
+        }
+    }
+
     static func message(for error: RunServiceError) -> String {
         switch error {
         case .offline: "You're offline. Run needs a connection."
@@ -231,14 +253,14 @@ nonisolated enum RunPresentation {
 // MARK: - The runner the app uses
 
 enum RunServiceFactory {
-    /// R4 supplies the real client once there is a service address to read;
-    /// until then only the debug stub exists, and without a runner the Run
-    /// control stays hidden.
-    @MainActor static func make() -> (any CodeRunning)? {
+    /// The client for `AppInfo.runService`, or `nil` when there is none, and
+    /// with it no Run control. The debug stub outranks it so the panel can be
+    /// seen without a proxy.
+    @MainActor static func make(service: URL? = AppInfo.runService) -> (any CodeRunning)? {
 #if DEBUG
         if let kind = DebugLaunchOptions.current.runStub { return DebugRunStub(kind: kind) }
 #endif
-        return nil
+        return service.map { RunServiceClient(baseURL: $0) }
     }
 }
 

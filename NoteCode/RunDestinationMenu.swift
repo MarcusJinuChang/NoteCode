@@ -72,7 +72,7 @@ struct RunDestinationMenu: View {
             Picker("Run code blocks in", selection: $pageSetting) {
                 Text(inheritedTitle).tag(String?.none)
 
-                ForEach(CodeDestination.builtIns) { destination in
+                ForEach(CodeDestination.choices()) { destination in
                     Text(destination.name).tag(String?.some(destination.id))
                 }
 

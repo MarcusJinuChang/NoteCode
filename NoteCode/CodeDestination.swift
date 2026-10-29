@@ -33,6 +33,11 @@ nonisolated enum CodeDelivery: Equatable, Sendable {
 /// to get the block to a toolchain the student already trusts and let them run
 /// it there.
 nonisolated enum CodeDestination: Equatable, Hashable, Sendable, Identifiable {
+    /// NoteCode's own Run panel, through our proxy (R4). Not a site: nothing
+    /// is opened and nothing is copied. Only offered when `AppInfo.runService`
+    /// is set, and only runs for Pro; for everyone else, and whenever the
+    /// service can't be reached, the block goes to a site instead (`site`).
+    case inApp
     /// programiz.com. The default, and the one most CS courses point at.
     case programiz
     /// onlinegdb.com. Closer to a real debugger, with stdin.
@@ -51,8 +56,27 @@ nonisolated enum CodeDestination: Equatable, Hashable, Sendable, Identifiable {
     /// The built-ins, in the order a picker should list them.
     static let builtIns: [CodeDestination] = [.programiz, .onlineGDB, .compilerExplorer]
 
+    /// What the run menu lists: "In NoteCode" above the sites, when there is a
+    /// service to run it on.
+    static func choices(inAppAvailable: Bool = AppInfo.runService != nil) -> [CodeDestination] {
+        inAppAvailable ? [.inApp] + builtIns : builtIns
+    }
+
+    /// What a note runs in when nothing says otherwise: in the app when it can.
+    static func preferredDefault(inAppAvailable: Bool = AppInfo.runService != nil) -> CodeDestination {
+        inAppAvailable ? .inApp : .default
+    }
+
+    /// The site a block is handed to when this isn't one, or can't take it:
+    /// the app's fallback for an offline phone or a used-up day.
+    var site: CodeDestination {
+        if case .inApp = self { return .default }
+        return self
+    }
+
     var name: String {
         switch self {
+        case .inApp:            "In NoteCode"
         case .programiz:        "Programiz"
         case .onlineGDB:        "OnlineGDB"
         case .compilerExplorer: "Compiler Explorer"
@@ -68,6 +92,7 @@ nonisolated enum CodeDestination: Equatable, Hashable, Sendable, Identifiable {
     /// can't silently orphan every note that pointed at it.
     var id: String {
         switch self {
+        case .inApp:            "notecode"
         case .programiz:        "programiz"
         case .onlineGDB:        "onlinegdb"
         case .compilerExplorer: "godbolt"
@@ -80,6 +105,7 @@ nonisolated enum CodeDestination: Equatable, Hashable, Sendable, Identifiable {
     /// taking a note's run button down with it.
     init?(id: String) {
         switch id {
+        case "notecode":  self = .inApp
         case "programiz": self = .programiz
         case "onlinegdb": self = .onlineGDB
         case "godbolt":   self = .compilerExplorer
@@ -114,7 +140,7 @@ nonisolated enum CodeDestination: Equatable, Hashable, Sendable, Identifiable {
     var supportedLanguages: Set<CodeLanguage> {
         let runnable = Set(CodeLanguage.allCases.filter(\.canRun))
         return switch self {
-        case .programiz, .custom: runnable
+        case .inApp, .programiz, .custom: runnable
         case .onlineGDB:          runnable.subtracting([.javascript])
         case .compilerExplorer:   [.cpp, .python, .c, .rust, .go]
         }
@@ -176,6 +202,8 @@ extension CodeDestination {
         language: CodeLanguage,
         preferring preferred: CodeDestination
     ) -> RunRequest {
+        // A site, whatever was asked: "In NoteCode" has no page to open.
+        let preferred = preferred.site
         let destination = preferred.supports(language) ? preferred : .default
         return destination.request(for: code, language: language)
     }
@@ -222,6 +250,8 @@ extension CodeDestination {
             }
         case .compilerExplorer:
             "https://godbolt.org/"
+        case .inApp:
+            "https://www.programiz.com/"
         case .custom(let url):
             url.absoluteString
         }
@@ -351,10 +381,24 @@ nonisolated enum RunDestinationPreference {
     /// - Parameter levels: the setting at each level, most specific first —
     ///   the page, its folder, then the app-wide default. `nil` means "not set here",
     ///   which is the normal state of every level but the last.
-    static func resolve(_ levels: [String?]) -> CodeDestination {
+    ///
+    ///   A level naming "In NoteCode" is skipped while there is no service, so a
+    ///   note set up on a build with one degrades to a site, not to a dead button.
+    static func resolve(
+        _ levels: [String?],
+        inAppAvailable: Bool = AppInfo.runService != nil
+    ) -> CodeDestination {
         for id in levels.compactMap({ $0 }) {
-            if let destination = CodeDestination(id: id) { return destination }
+            guard let destination = CodeDestination(id: id) else { continue }
+            if destination == .inApp, !inAppAvailable { continue }
+            return destination
         }
-        return .default
+        return .preferredDefault(inAppAvailable: inAppAvailable)
+    }
+
+    /// `resolve`, ignoring "In NoteCode": the site the page would use, for the
+    /// button that opens a block there when the service can't run it.
+    static func resolveSite(_ levels: [String?]) -> CodeDestination {
+        resolve(levels.map { $0 == CodeDestination.inApp.id ? nil : $0 }, inAppAvailable: false)
     }
 }

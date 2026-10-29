@@ -29,6 +29,30 @@ import UIKit
 /// answer.
 extension DocumentTextView.Coordinator {
 
+    /// Keep in Note: the run's output as an ```` ```output ```` block under
+    /// the code, or in place of the one already there. One `replace`, so one
+    /// undo step. Not in a locked note.
+    func keepInNote(_ output: String, forBlockAt ordinal: Int, in textView: UITextView) {
+        guard editor?.isTextLocked != true else { return }
+        let source = (textView.text ?? "").nativeUTF8
+        let targets = CodeBlockAction.targets(in: source, blocks: documentCache.blocks(for: source))
+        guard let edit = KeepInNote.edit(output: output, forBlockAt: ordinal, in: source, targets: targets) else { return }
+        apply(edit, to: textView)
+    }
+
+    /// A compile-error link: the caret on that line of the block, in view.
+    func showLine(_ line: Int, ofBlockAt ordinal: Int, in textView: UITextView) {
+        guard editor?.mode == .text else { return }
+        let source = (textView.text ?? "").nativeUTF8
+        let targets = CodeBlockAction.targets(in: source, blocks: documentCache.blocks(for: source))
+        guard let target = targets.first(where: { $0.id.ordinal == ordinal && !$0.isOutput }),
+              let offset = KeepInNote.caretOffset(line: line, in: target, source: source)
+        else { return }
+        if !textView.isFirstResponder { textView.becomeFirstResponder() }
+        textView.selectedRange = NSRange(location: offset, length: 0)
+        textView.scrollRangeToVisible(NSRange(location: offset, length: 0))
+    }
+
     /// Hands the coordinator the page's editor, and has it follow the editor's
     /// mode: ink mode takes every block's fences away, and nothing about the
     /// selection changes when it does.
@@ -50,6 +74,17 @@ extension DocumentTextView.Coordinator {
                   let target = target(atCaret: textView.selectedRange.location, in: textView)
             else { return }
             run(target, from: textView)
+        }
+        editor?.run.openAtSite = { [weak self, weak textView] block in
+            self?.openAtSite(code: block.code, language: block.language, destination: .inApp, from: textView)
+        }
+        editor?.run.keepInNote = { [weak self, weak textView] ordinal, output in
+            guard let self, let textView else { return }
+            keepInNote(output, forBlockAt: ordinal, in: textView)
+        }
+        editor?.run.showLine = { [weak self, weak textView] block, line in
+            guard let self, let textView else { return }
+            showLine(line, ofBlockAt: block.ordinal, in: textView)
         }
         editor?.copyBlockAtCaret = { [weak self, weak textView] in
             guard let self, let textView, editor?.mode == .text,

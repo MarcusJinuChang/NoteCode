@@ -43,7 +43,7 @@ struct PageDetailView: View {
     /// model: it is a preference about this device, not a property of a note,
     /// and it has to have a value before any page exists.
     @AppStorage(RunDestinationPreference.appDefaultKey)
-    private var appDefaultDestination: String = CodeDestination.default.id
+    private var appDefaultDestination: String = CodeDestination.preferredDefault().id
 
     @Environment(\.modelContext) private var modelContext
     @Query private var folders: [Folder]
@@ -241,7 +241,7 @@ struct PageDetailView: View {
 #if canImport(UIKit)
         .modifier(RunPanelHost(
             editor: editor, isCompact: isCompact, showsRunIsPro: $showsRunIsPro,
-            windowWidth: $windowWidth, transaction: { pro?.signedTransaction ?? "" }
+            windowWidth: $windowWidth, transaction: { pro?.signedTransaction ?? "" }, pro: pro
         ))
         .toolbar { runToggleItem }
 #endif
@@ -544,6 +544,9 @@ struct PageDetailView: View {
             DocumentTextView(
                 text: $page.content,
                 runDestination: RunDestinationPreference.resolve(
+                    page.runDestinationLevels(appDefault: appDefaultDestination)
+                ),
+                runSite: RunDestinationPreference.resolveSite(
                     page.runDestinationLevels(appDefault: appDefaultDestination)
                 ),
                 editor: editor,

@@ -9,6 +9,7 @@
 
 import Observation
 import PaperKit
+import SwiftUI
 import UIKit
 
 /// A note page's editing state, shared by the hotbar and the editor.
@@ -208,6 +209,34 @@ final class NoteEditor {
 
     /// The Run panel's state for this note (RunPanel).
     @ObservationIgnored let run = RunSession()
+
+    /// The subscription, for Run's gate and its signed transaction. Set by
+    /// `PageDetailView`; `nil` reads as a free reader.
+    @ObservationIgnored var pro: ProStatus?
+    /// Opens the paywall: a free reader's Run, or a 402.
+    @ObservationIgnored var onRunNeedsPro: (() -> Void)?
+
+    /// Runs a block in the panel: opens it on that block and starts the run.
+    /// The caller has passed the gate (`RunRoute`).
+    func runInApp(_ target: CodeBlockTarget) {
+        guard let block = run.blocks.first(where: { $0.ordinal == target.id.ordinal }) else { return }
+        run.choose(block)
+        run.tab = .output
+        withAnimation(.snappy) { run.isOpen = true; run.isCollapsed = false }
+        run.run(transaction: pro?.signedTransaction ?? "")
+    }
+
+    /// Wires the session to the subscription: a 402 means the subscription
+    /// ended without the app noticing, so it is re-read and the paywall opens.
+    func connectRun() {
+        run.onNotSubscribed = { [weak self] in
+            guard let self else { return }
+            Task { @MainActor in
+                await self.pro?.refresh()
+                self.onRunNeedsPro?()
+            }
+        }
+    }
     @ObservationIgnored var copyBlockAtCaret: (() -> Void)?
 
     /// The on-device assistant (Explain Code, Summarise Note). One per note,
