@@ -134,6 +134,70 @@ final class DrawingCanvas: UIView {
         show { controller.markup = preview }
     }
 
+    // MARK: A drag shown as a picture
+
+    /// The selection drawn once, standing in for it while it is dragged or
+    /// scaled (docs/design/object-system.md, O2). Moving a layer costs the
+    /// same at 5,000 strokes as at 5; assigning a whole markup 30 times a
+    /// second does not.
+    private var snapshotView: UIImageView?
+
+    /// Whether a snapshot is up, with the originals hidden behind it.
+    var isShowingSnapshot: Bool { snapshotView != nil }
+
+    /// Draws `selected` into a picture over `area` and puts it on the canvas,
+    /// and swaps the canvas to `remaining` (the note without the selection),
+    /// in one step. Returns whether it did; the caller keeps previewing the
+    /// whole markup when not.
+    func showSnapshot(of selected: PaperMarkup, over area: CGRect, remaining: @autoclosure () -> PaperMarkup) async -> Bool {
+        let area = area.intersection(selected.bounds)
+        let scale = min(traitCollection.displayScale, 4)
+        guard snapshotView == nil, !area.isNull, area.width > 0, area.height > 0,
+              area.width * area.height * scale * scale < 16_000_000,
+              let image = await Self.render(selected, over: area, scale: scale)
+        else { return false }
+        guard snapshotView == nil else { return false }
+        let view = UIImageView(image: UIImage(cgImage: image, scale: scale, orientation: .up))
+        view.frame = area
+        view.isUserInteractionEnabled = false
+        addSubview(view)
+        snapshotView = view
+        showPreview(remaining())
+        return true
+    }
+
+    /// Moves the picture as `transform` (in note coordinates) would move the
+    /// ink it shows.
+    func transformSnapshot(_ transform: CGAffineTransform) {
+        guard let view = snapshotView else { return }
+        let c = view.center
+        // A layer transforms about its centre: T(p) = centre + M(p - centre).
+        view.transform = CGAffineTransform(translationX: c.x, y: c.y)
+            .concatenating(transform)
+            .concatenating(CGAffineTransform(translationX: -c.x, y: -c.y))
+    }
+
+    func removeSnapshot() {
+        snapshotView?.removeFromSuperview()
+        snapshotView = nil
+    }
+
+    private static func render(_ markup: PaperMarkup, over area: CGRect, scale: CGFloat) async -> CGImage? {
+        let width = Int((area.width * scale).rounded(.up))
+        let height = Int((area.height * scale).rounded(.up))
+        guard let context = CGContext(
+            data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.displayP3) ?? CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return nil }
+        // UIKit's way up, as NotePDF.bitmap has it.
+        context.translateBy(x: 0, y: CGFloat(height))
+        context.scaleBy(x: scale, y: -scale)
+        context.translateBy(x: -area.minX, y: -area.minY)
+        await markup.draw(in: context, frame: markup.bounds)
+        return context.makeImage()
+    }
+
     /// Whether PaperKit may keep a selection of its own. Never, except for
     /// the one shape or image the reader chose to Edit
     /// (`beginPaperKitEdit`); a selection it makes otherwise is let go of.

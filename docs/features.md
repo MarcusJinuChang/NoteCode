@@ -99,7 +99,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Pencil double tap and squeeze | Swap to eraser, swap to previous tool, or show the ink tools; in text mode they switch to ink first | built; unchecked with a Pencil (feedback #23) | `the-note-page.md` |
 | Ink across pages | Ink cut cleanly at page breaks | built | `pages.md` |
 | Ink in the PDF | Printed as a picture at 288 dpi | built | `pages.md` |
-| Rectangular selection | Select tool, Rectangle or Lasso: move, scale from a corner, recolour, duplicate, delete; touching, not containing | built (24 Oct), unverified on the iPad (feedback #6) | `object-system.md` |
+| Rectangular selection | Select tool, Rectangle or Lasso: move, scale from a corner, recolour, duplicate, delete; touching, not containing. A drag or scale shows the selection as a picture moved by a layer transform, so its cost doesn't grow with the note (O2) | built (24 Oct), unverified on the iPad (feedback #6) | `object-system.md` |
 | Recolour text with the lasso | The shape also covers text, a range per line (never code); one colour control recolours ink and text | built (24 Oct), unverified on the iPad (feedback #26) | `object-system.md` |
 | Add pages while drawing down | In compressed and print layout a stroke ending in the last page's bottom 15% adds a page; Settings › Drawing › Add Pages While Drawing | built (feedback #8) | |
 | Selection behaviour | Selection clears on a tool or mode switch; PaperKit's own selection is let go of (one shape or image can be handed to it to Edit) | built (24 Oct); tap-to-highlight and the hotbar displacement not located, needs the probe log on the iPad (feedback #24, #29, #30) | `object-system.md` |

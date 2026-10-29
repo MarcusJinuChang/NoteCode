@@ -177,8 +177,35 @@ final class InkSelection {
 
     // MARK: A drag or a scale in progress
 
+    /// Bumped by every begin and end, so a snapshot that finishes drawing
+    /// after its drag is over is not used.
+    @ObservationIgnored private var adjustment = 0
+
     func beginAdjusting() {
         base = canvas?.markup
+        startBounds = nil
+        startBounds = originalBounds
+        adjustment += 1
+        guard let canvas, let base, let area = originalBounds else { return }
+        let token = adjustment
+        let ids = ids
+        // Until the picture is ready the preview assigns the whole markup, as
+        // it always did; once it is, a preview only moves the picture.
+        Task { @MainActor [weak self, weak canvas] in
+            let selected = InkCommands.only(base, ids: ids)
+            guard let canvas,
+                  await canvas.showSnapshot(
+                    of: selected, over: area.insetBy(dx: -24, dy: -24),
+                    remaining: InkCommands.deleted(base, ids: ids)),
+                  let self
+            else { return }
+            if self.adjustment != token || self.base == nil {
+                canvas.removeSnapshot()
+                return
+            }
+            // Catch up with where the drag got to while it was drawing.
+            if let pending = self.pending { canvas.transformSnapshot(pending) }
+        }
     }
 
     /// Shows the selection moved by `translation`. Quiet: nothing is told
@@ -196,8 +223,13 @@ final class InkSelection {
         preview(transform)
     }
 
+    /// Where the selection was when the drag began, found once: walking the
+    /// whole markup for it on every preview cost what the note's size does.
+    @ObservationIgnored private var startBounds: CGRect?
+
     private var originalBounds: CGRect? {
         guard let base else { return bounds }
+        if let startBounds { return startBounds }
         var union: CGRect?
         for element in base.subelements where ids.contains(element.elementID) {
             union = union.map { $0.union(element.renderFrame) } ?? element.renderFrame
@@ -210,7 +242,11 @@ final class InkSelection {
     private func preview(_ transform: CGAffineTransform) {
         guard let canvas, let base else { return }
         pending = transform
-        canvas.showPreview(InkCommands.transformed(base, ids: ids, by: transform))
+        if canvas.isShowingSnapshot {
+            canvas.transformSnapshot(transform)
+        } else {
+            canvas.showPreview(InkCommands.transformed(base, ids: ids, by: transform))
+        }
         // The box follows what it surrounds.
         bounds = originalBounds?.applying(transform)
         onChange?()
@@ -219,15 +255,17 @@ final class InkSelection {
     /// Makes what the preview showed the reader's change: one capture, one
     /// undo step. A drag that went nowhere changes nothing.
     func endAdjusting(actionName: String) {
-        defer { base = nil; pending = nil }
+        defer { base = nil; pending = nil; startBounds = nil; adjustment += 1 }
         guard let canvas, let base else { return }
         guard let transform = pending, transform != .identity else {
+            canvas.removeSnapshot()
             canvas.showPreview(base)
             return
         }
         // Back to where it was, quietly, so the canvas's delegate sees the
         // one change from there to the end rather than two.
         let after = InkCommands.transformed(base, ids: ids, by: transform)
+        canvas.removeSnapshot()
         canvas.showPreview(base)
         canvas.replaceMarkup(with: after, actionName: actionName)
         set(ids)
@@ -235,8 +273,9 @@ final class InkSelection {
 
     /// Puts the canvas back as the drag found it.
     func cancelAdjusting() {
-        defer { base = nil; pending = nil }
+        defer { base = nil; pending = nil; startBounds = nil; adjustment += 1 }
         guard let canvas, let base else { return }
+        canvas.removeSnapshot()
         canvas.showPreview(base)
         set(ids)
     }
