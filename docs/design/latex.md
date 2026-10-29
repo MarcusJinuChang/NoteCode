@@ -245,6 +245,23 @@ spike found no required-reason API in SwiftMath's sources).
    Menlo), `RichPaste.swift` (escape an accidental `$`), `SpanStyle.swift`'s
    search masking left alone; tests per rule.
 
+## Built in step 3 (inline layout)
+
+- `MarkdownLayout.Run.Kind.formula(tex:display:opening:)` covers the whole
+  `$…$`, dollars included; its replacement is U+FFFC then word joiners (same
+  UTF-16 length). `laidOut` gives the first unit a `FormulaAttachment` and the
+  attributes of the **TeX text** (the dollars carry the marker colour, which
+  would otherwise tint the template image).
+- `FormulaAttachment` (UIKit, app target): `MTMathUILabel` to a template
+  image at 3x, attachment `bounds.y = -descent`, size scale 1.1, cached by
+  tex, point size and mode (colour and scale are not in the key). Caches up to
+  500 and starts over.
+- An undrawable formula (`FormulaValidity`) gets no run: its dollars show, and
+  `DocumentStyler.dimUndrawableFormulas` paints the whole span `secondaryLabel`.
+  Layout and styler both ask `FormulaValidity.check`, so they agree.
+- Bitmap scale is fixed at 3, not the page's zoom: sharpness at zoom is still
+  unverified.
+
 ## Unverified
 
 On an iPad; the view-provider variant; display-block heights and centring

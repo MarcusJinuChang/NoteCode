@@ -63,7 +63,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Outline and page badge | Headings list jumps to a heading; "2 / 5" shows the page | built | `navigation-and-the-text-options-row.md` |
 | Find in note | System find | built | `the-note-page.md` |
 | Summarise Note | ••• › Summarise Note: an on-device summary in a sheet (long notes in up to 4 pieces); Copy or Insert Below | built; unverified on device | `ai-features.md` |
-| LaTeX | | planned, design note done (`docs/design/latex.md`), needs SwiftMath package added by Marcus | `latex.md` |
+| LaTeX | Inline `$…$` (and `$$…$$` mid-line, display style) draws as a formula in the line, in the text's colour and size; a formula SwiftMath can't draw keeps its dollars and shows dimmed. Display blocks, editing, PDF, copy and paste are planned (L4–L7) | inline layout built (L3); unverified on device | `latex.md` |
 | Free text boxes | PaperKit has one through Insert; a text-box tool is not designed | idea (feedback #18) | |
 
 ## 3. Code blocks
