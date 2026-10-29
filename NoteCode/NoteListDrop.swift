@@ -47,13 +47,15 @@ enum ListDropTarget {
     case topFolders
     /// The "Notes" header: notes in no folder.
     case topNotes
+    /// The Recently Deleted row at the list's foot.
+    case recentlyDeleted
 
     /// What lifting this row drags: nothing, for the headers.
     var dragItem: ListDragItem? {
         switch self {
         case .folder(let folder): .folder(folder)
         case .note(let page):     .note(page)
-        case .topFolders, .topNotes: nil
+        case .topFolders, .topNotes, .recentlyDeleted: nil
         }
     }
 }
@@ -65,9 +67,16 @@ enum ListDropAction: Equatable {
     /// Put the folder inside another (or at the top, `nil`), at `index` among
     /// the folders already there (the end when `nil`).
     case moveFolder(Folder, into: Folder?, at: Int?)
+    /// Send the note to Recently Deleted.
+    case deleteNote(Page)
+    /// Send the folder, its folders and its notes to Recently Deleted: what
+    /// the folder menu's Delete does when its notes go too.
+    case deleteFolder(Folder)
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         switch (lhs, rhs) {
+        case let (.deleteNote(a), .deleteNote(b)): a === b
+        case let (.deleteFolder(a), .deleteFolder(b)): a === b
         case let (.fileNote(a, b), .fileNote(c, d)): a === c && b === d
         case let (.moveFolder(a, b, i), .moveFolder(c, d, j)): a === c && b === d && i == j
         default: false
@@ -123,13 +132,26 @@ enum ListDrop {
 
         case (.folder, .note), (.folder, .topNotes):
             return nil
+
+        // Onto Recently Deleted: a note that is already live, or a folder
+        // that is.
+        case let (.note(page), .recentlyDeleted):
+            return page.isLive ? .deleteNote(page) : nil
+        case let (.folder(folder), .recentlyDeleted):
+            return folder.isLive ? .deleteFolder(folder) : nil
         }
     }
 
     /// Does it. Moving a note isn't an edit and keeps its date, like every
-    /// move; the change is saved by autosave.
-    static func perform(_ action: ListDropAction, among folders: [Folder]) {
+    /// move; the change is saved by autosave. Deleting saves at once, as
+    /// `Page.moveToRecentlyDeleted` and `Folder.delete` do, so it needs the
+    /// `context`.
+    static func perform(_ action: ListDropAction, among folders: [Folder], in context: ModelContext? = nil) {
         switch action {
+        case let .deleteNote(page):
+            if let context { try? Page.moveToRecentlyDeleted([page], from: context) }
+        case let .deleteFolder(folder):
+            if let context { try? Folder.delete(folder, .withNotes, from: context) }
         case let .fileNote(page, folder):
             page.folder = folder
         case let .moveFolder(folder, parent, index):
@@ -183,6 +205,7 @@ final class ListDragState {
         case row(NoteListRow.ID)
         case topFolders
         case topNotes
+        case recentlyDeleted
     }
 
     struct Hover: Equatable {
@@ -392,6 +415,7 @@ struct ListDropBridge: UIViewRepresentable {
         func update(_ bridge: ListDropBridge) { current = bridge }
 
         func install(on collection: UICollectionView) {
+            shortenLift(on: collection)
             guard collection.dropDelegate !== self else { return }
             swiftUI = collection.dropDelegate
             collection.dropDelegate = self
@@ -402,6 +426,25 @@ struct ListDropBridge: UIViewRepresentable {
 #if DEBUG
             DeviceProbe.log("list drop bridge on \(type(of: collection)), wrapping \(swiftUI.map { String(describing: type(of: $0)) } ?? "nothing")")
 #endif
+        }
+
+        /// How long a row is held before it lifts, down from the system's
+        /// 0.5s. The lift is a long press the collection view's drag
+        /// interaction owns, found among its recognizers: it is a
+        /// `UILongPressGestureRecognizer`, public API, and only its class
+        /// (private) is looked for by name. Absent, nothing changes.
+        static let liftDuration: TimeInterval = 0.25
+
+        private func shortenLift(on collection: UICollectionView) {
+            for recognizer in collection.gestureRecognizers ?? [] {
+                guard let press = recognizer as? UILongPressGestureRecognizer,
+                      String(describing: type(of: press)).contains("Drag"),
+                      press.minimumPressDuration != Self.liftDuration else { continue }
+#if DEBUG
+                DeviceProbe.log("lift recogniser \(type(of: press)) held \(press.minimumPressDuration)s, now \(Self.liftDuration)s")
+#endif
+                press.minimumPressDuration = Self.liftDuration
+            }
         }
 
         private func isOurs(_ session: any UIDropSession) -> Bool {

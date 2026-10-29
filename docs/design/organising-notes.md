@@ -110,8 +110,18 @@ so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
     the touch and nothing is entered). **Not checked**: the hover outline and
     edge lines drawn while dragging, folder arranging by the top and bottom
     edge, and dragging near the list's edge to scroll.
+  - **Onto Recently Deleted** (26 Oct, release S1): the row at the list's foot
+    is a drop target (`ListDropTarget.recentlyDeleted`). A note goes through
+    `Page.moveToRecentlyDeleted`, a folder through `Folder.delete(.withNotes)`,
+    the same calls as the menus, with their Undo toast; something already
+    deleted is refused. A drop can't ask "keep its notes?", so a folder always
+    goes with them, which Recently Deleted can undo.
+  - **The lift is held 0.25s**, down from the system's 0.5s: `ListDropBridge`
+    finds the collection view's drag long press by class name and sets
+    `minimumPressDuration`. Unverified on the iPad (the recogniser may time its
+    own lift); `-debug-probe` logs what it found.
   - **A press on a row** shows its context menu; a drag lifts it after about
-    half a second if the finger moves at once. A hold that stays still gets the
+    a quarter of a second if the finger moves at once. A hold that stays still gets the
     menu.
 - **Deleting a folder asks** whether its notes go too, or move to the top.
   `Folder.delete` saves at once, like `Page.delete`. "Go too" means Recently
