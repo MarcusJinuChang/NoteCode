@@ -126,7 +126,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 
 | Feature | How it works | Status | Detail |
 |---|---|---|---|
-| Header | One joined pill at the top left (list and Home, drawn icons), editable title with menu, Share, •••; the note shrinks into its Home card on the way home (cross-fade with Reduce Motion) | built (W3); the system's own sidebar button still shows beside the pill, see PR | `the-note-page.md` |
+| Header | One joined pill at the top left (list and Home, drawn icons), editable title with menu, Share, •••; the note shrinks into its Home card on the way home (cross-fade with Reduce Motion) | built (W3) | `the-note-page.md` |
 | Hotbar | Docks left, bottom or right; undo, redo, text/draw toggle, then the mode's tools | built | `the-note-page.md` |
 | Options rows | Text row (size, colour, and so on) and ink row (palette, widths, eraser mode) beside the bar | built | `navigation-and-the-text-options-row.md` |
 | Settings inside a note | Settings at the foot of the note's ••• menu | built (feedback #11) | |

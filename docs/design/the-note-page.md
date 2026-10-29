@@ -273,6 +273,6 @@ a card is tapped, and the note's removal transition scales toward that
 anchor and fades (`AnyTransition.noteToHome`); a note opened from the list
 shrinks to the middle, Reduce Motion cross-fades. Ink is committed by
 `PageDetailView.onDisappear` as before.
-**Not solved:** the system's sidebar toggle still draws left of the pill;
-`.toolbar(removing: .sidebarToggle)` on the note and on the detail column
-didn't take on iPad.
+The system's sidebar toggle is removed with `.toolbar(removing: .sidebarToggle)`
+on the **sidebar column's** content (`noteList` inside the split view), not on
+the note or the detail column, where it did nothing on iPad.

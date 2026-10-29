@@ -223,6 +223,8 @@ struct ContentView: View {
     private var splitView: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             noteList(showsToasts: columnVisibility != .detailOnly)
+                // The joined control carries the list button, in a note.
+                .toolbar(removing: selection == nil || isCompact ? nil : .sidebarToggle)
         } detail: {
             Group {
                 if selection != nil {
@@ -233,8 +235,6 @@ struct ContentView: View {
                     home
                 }
             }
-            // The joined control carries the list button, in a note.
-            .toolbar(removing: selection == nil || isCompact ? nil : .sidebarToggle)
             .overlay(alignment: .bottom) {
                 if columnVisibility == .detailOnly {
                     ToastOverlay(center: toasts, bottomInset: selection == nil ? 16 : pageToastInset)
