@@ -34,7 +34,7 @@ struct InkToolButtons: View {
 /// highlighter, mode and size for the eraser, and for the Select tool its shape
 /// and, with something selected, what to do to it.
 ///
-/// The content only. The hotbar floats it beside itself in a glass capsule
+/// The content only. The hotbar floats it beside itself on the bar material
 /// (`Hotbar.optionsRow`), and the Pencil's palette lays it under the tools.
 struct InkOptions: View {
     @Bindable var editor: NoteEditor
@@ -164,7 +164,7 @@ struct InkToolPersistence: ViewModifier {
 /// in 391pt. Outside the row (`nil`) a control is the bar's 44pt square.
 ///
 /// The reach is layout, not a hit shape: each control is 44pt thick, its face
-/// at the bar's end of that, and the glass is drawn on the 40pt of it. A
+/// at the bar's end of that, and the surface is drawn on the 40pt of it. A
 /// `contentShape` grown past a view's bounds took no touches there (measured
 /// in the simulator on 9 October: nothing past the page edge of the frame, and
 /// 5pt past the bar's).

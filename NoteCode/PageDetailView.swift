@@ -237,6 +237,11 @@ struct PageDetailView: View {
             )
         }
         .toolbar { headerItems }
+#if os(iOS)
+        // The top bar on the bar material, not the system's glass.
+        .toolbarBackground(BarMaterial.fill, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+#endif
 
         .sheet(isPresented: $showsInfo) {
             NoteInfoView(page: page, pageCount: openPageCount)
@@ -364,6 +369,7 @@ struct PageDetailView: View {
             ToolbarItem(placement: homePlacement) {
                 NoteWindowControl(onToggleList: onToggleList, onGoHome: onGoHome)
             }
+            .sharedBackgroundVisibility(.hidden)
         }
 
 #if canImport(UIKit)
@@ -371,12 +377,14 @@ struct PageDetailView: View {
             NoteShareButton(editor: editor, title: page.title, fallbackText: page.content)
                 .tint(.primary)
         }
+        .sharedBackgroundVisibility(.hidden)
 #endif
 
         ToolbarItem(placement: .primaryAction) {
             moreMenu
                 .tint(.primary)
         }
+        .sharedBackgroundVisibility(.hidden)
     }
 
     /// The top left. `.topBarLeading` is iOS's only; the Mac's leading

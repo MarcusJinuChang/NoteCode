@@ -88,7 +88,7 @@ v3 phase 4 (13 Oct, `docs/archive/ui-design-v3-implementation.md`).
   nothing to take off hands the key back. Code lines only: a selection running
   into a fence or prose isn't Tab's. Lists keep their own Tab.
 - **The code-keys row** (`CodeKeysRow`, `CodeKeys`): ⇥ ⇤ `{ } ( ) [ ] < > ; = " '
-  : / \ | & * #` ← →, on a glass capsule, 40pt keys in a 52pt row, an
+  : / \ | & * #` ← →, on a bar-material capsule, 40pt keys in a 52pt row, an
   `inputAccessoryView` set while `TextRewritingPolicy` says the caret is in
   code, and swapped **before the one `reloadInputViews()`** that crossing
   already does (`applyRewritingPolicy`), so the traits and the row change in a
