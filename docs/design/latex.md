@@ -148,6 +148,14 @@ simulator with `xcodebuild test -scheme LaTeXSpike-Package`; `SPIKE|` lines).
 - **Ink**: typing a formula changes the line height, so the lines below move,
   as any edit that re-wraps does.
 
+- **Built in step 2**: `FormulaValidity.check(_:)` (cached, bounded at 2,000
+  answers) returns `.valid(tex:)` with the alias-resolved TeX to typeset, or
+  `.invalid(message:)`; `TeXAliases.resolve` is a command-by-command scan, so
+  `\\dfrac` (a line break, then text) and `\dfracs` are left alone, and
+  `\operatorname*` stays unsupported (its limits can't be drawn). `\pmod{n}`
+  becomes `\ \left(\mathrm{mod}\ n\right)` and `\bmod` `\mathrm{\ mod\ }`.
+  Nothing calls them yet: the styler and layout do in step 3.
+
 ## What SwiftMath can't draw (measured, 56 probes at 17pt)
 
 - **Fail at parse**: `\operatorname`, `\underbrace`, `\overbrace`,
