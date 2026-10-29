@@ -32,6 +32,11 @@ struct PageDetailView: View {
     /// Closes the note and shows Home: the house beside the sidebar button.
     var onGoHome: (() -> Void)? = nil
 
+    /// Shows or hides the note list over the page: the sidebar half of the
+    /// joined control at the top left. `nil` in a stack, whose back button
+    /// takes the control's place.
+    var onToggleList: (() -> Void)? = nil
+
     /// Opens the app's Settings sheet, which the window owns: ••• › Settings.
     var onShowSettings: (() -> Void)? = nil
 
@@ -179,6 +184,7 @@ struct PageDetailView: View {
         revealing: NoteSearch = NoteSearch(""),
         onDelete: (() -> Void)? = nil,
         onGoHome: (() -> Void)? = nil,
+        onToggleList: (() -> Void)? = nil,
         onShowSettings: (() -> Void)? = nil,
         startsRenaming: Bool = false
     ) {
@@ -186,6 +192,7 @@ struct PageDetailView: View {
         self.revealing = revealing
         self.onDelete = onDelete
         self.onGoHome = onGoHome
+        self.onToggleList = onToggleList
         self.onShowSettings = onShowSettings
         self.startsRenaming = startsRenaming
 #if canImport(UIKit)
@@ -230,6 +237,7 @@ struct PageDetailView: View {
             )
         }
         .toolbar { headerItems }
+
         .sheet(isPresented: $showsInfo) {
             NoteInfoView(page: page, pageCount: openPageCount)
         }
@@ -352,11 +360,9 @@ struct PageDetailView: View {
 
         // Beside the sidebar button, at the top left. The house goes where
         // the list's Home row was: the list is no longer where Home lives.
-        if let onGoHome {
+        if let onToggleList {
             ToolbarItem(placement: homePlacement) {
-                Button("Home", systemImage: "house", action: onGoHome)
-                    .tint(.primary)
-                    .accessibilityIdentifier("homeButton")
+                NoteWindowControl(onToggleList: onToggleList, onGoHome: onGoHome)
             }
         }
 

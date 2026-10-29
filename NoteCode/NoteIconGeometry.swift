@@ -56,6 +56,8 @@ nonisolated enum NoteIcon: String, CaseIterable, Sendable {
     case list, codeBlock, quote, link
     case plus, minus, indent, outdent
     case selectLasso, selectRectangle, done, adjust, delete, duplicate
+    /// The note window's joined control: the list, and Home (W3).
+    case sidebar, home
 
     /// The SF Symbol each stands in for, so a call site that names a symbol
     /// gets the drawn icon without being rewritten.
@@ -93,6 +95,8 @@ nonisolated enum NoteIcon: String, CaseIterable, Sendable {
         case "minus": .minus
         case "increase.indent": .indent
         case "decrease.indent": .outdent
+        case "sidebar.left": .sidebar
+        case "house": .home
         default: nil
         }
     }
@@ -477,6 +481,27 @@ nonisolated extension NoteIcon {
                     s.addCurve(to: p(4.2, 7.2), control1: p(5.5, 4.2), control2: p(4.2, 5.5))
                     s.addLine(to: p(4.2, 13.2))
                 }, kind: .stroke),
+            ]
+        case .sidebar:
+            let panel = G.rounded(CGRect(x: 3.5, y: 5, width: 17, height: 14), 3)
+            return [
+                L(path: G.path { s in
+                    s.move(to: p(9.5, 5)); s.addLine(to: p(6.5, 5))
+                    s.addCurve(to: p(3.5, 8), control1: p(4.8, 5), control2: p(3.5, 6.3))
+                    s.addLine(to: p(3.5, 16))
+                    s.addCurve(to: p(6.5, 19), control1: p(3.5, 17.7), control2: p(4.8, 19))
+                    s.addLine(to: p(9.5, 19)); s.closeSubpath()
+                }, kind: .soft),
+                L(path: panel, kind: .stroke),
+                L(path: G.line(p(9.5, 5), p(9.5, 19)), kind: .stroke),
+            ]
+        case .home:
+            let body = G.line(p(5.8, 10.4), p(5.8, 18.2), p(6.9, 19.5), p(17.1, 19.5), p(18.2, 18.2), p(18.2, 10.4))
+            return [
+                L(path: G.polygon(p(5.8, 10.4), p(12, 5.2), p(18.2, 10.4), p(18.2, 19.5), p(5.8, 19.5)), kind: .soft),
+                L(path: body, kind: .stroke),
+                L(path: G.line(p(3.4, 11.6), p(12, 4.4), p(20.6, 11.6)), kind: .stroke),
+                L(path: G.line(p(10, 19.5), p(10, 14.6), p(14, 14.6), p(14, 19.5)), kind: .stroke),
             ]
         }
     }

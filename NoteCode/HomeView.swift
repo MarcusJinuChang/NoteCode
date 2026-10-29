@@ -18,6 +18,9 @@ import SwiftUI
 struct HomeView: View {
     /// Opens a note.
     var onOpen: (Page) -> Void
+    /// A card was tapped: the note, and where the card is, so closing the
+    /// note can shrink it back there (W3). Cards call this, not `onOpen`.
+    var onOpenFrom: (Page, HomeLaunch) -> Void = { _, _ in }
 
     /// Makes a note and opens it, the way ⌘N does.
     var onNewNote: () -> Void
@@ -49,6 +52,11 @@ struct HomeView: View {
 
     @State private var editingFolder: FolderEditing?
 
+    /// Where each card is on screen and how big Home is, kept for the note's
+    /// way back (W3). Updated as cards move; read once, on a tap.
+    @State private var cardFrames: [PersistentIdentifier: CGRect] = [:]
+    @State private var homeSize: CGSize = .zero
+
     /// What the Continue card says about its note: the languages in it, and
     /// whether it has ink. Worked out off the card's first drawing, not in
     /// `body`: ink is read from external storage, and the text is parsed.
@@ -78,6 +86,8 @@ struct HomeView: View {
                 populated(sections)
             }
         }
+        .coordinateSpace(.named("home"))
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { homeSize = $0 }
         .navigationTitle("Home")
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -191,10 +201,18 @@ struct HomeView: View {
 
     // MARK: Cards
 
+    private func open(_ page: Page) {
+        if let card = cardFrames[page.persistentModelID] {
+            onOpenFrom(page, HomeLaunch(card: card, container: homeSize))
+        } else {
+            onOpen(page)
+        }
+    }
+
     private func continueCard(_ page: Page) -> some View {
         let place = memory.place(of: page.persistentModelID)
         return Button {
-            onOpen(page)
+            open(page)
         } label: {
             HStack(spacing: isCompact ? 14 : 28) {
                 NoteThumbnailView(page: page)
@@ -279,6 +297,7 @@ struct HomeView: View {
 #endif
         .accessibilityLabel(continueLabel(page, place: place))
         .accessibilityHint("Opens the note")
+        .trackingFrame(of: page, in: $cardFrames)
         .accessibilityIdentifier("homeContinueCard")
         .task(id: page.modifiedAt) { continueFacts = Self.facts(of: page) }
     }
@@ -301,7 +320,7 @@ struct HomeView: View {
 
     private func recentCard(_ page: Page) -> some View {
         Button {
-            onOpen(page)
+            open(page)
         } label: {
             VStack(alignment: .leading, spacing: 10) {
                 NoteThumbnailView(page: page, fit: .top)
@@ -326,6 +345,7 @@ struct HomeView: View {
 #if os(iOS)
         .hoverEffect(.highlight)
 #endif
+        .trackingFrame(of: page, in: $cardFrames)
         .accessibilityElement(children: .combine)
         .accessibilityHint("Opens the note")
     }
@@ -481,5 +501,13 @@ struct HomeView: View {
             .padding(.top, 80)
         }
         .background { DottedSurround() }
+    }
+}
+
+private extension View {
+    /// Keeps `page`'s card frame, in Home's coordinate space, up to date.
+    func trackingFrame(of page: Page, in frames: Binding<[PersistentIdentifier: CGRect]>) -> some View {
+        let id = page.persistentModelID
+        return onGeometryChange(for: CGRect.self) { $0.frame(in: .named("home")) } action: { frames.wrappedValue[id] = $0 }
     }
 }

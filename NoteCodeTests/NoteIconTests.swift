@@ -21,7 +21,7 @@ struct NoteIconTests {
         "plus.circle", "plus.circle.dashed", "textformat", "bold", "italic", "underline", "strikethrough",
         "chevron.left.forwardslash.chevron.right", "list.bullet", "curlybraces.square", "text.quote",
         "link", "plus", "minus", "increase.indent", "decrease.indent", "lasso", "rectangle.dashed",
-        "checkmark", "slider.horizontal.3", "trash", "plus.square.on.square",
+        "checkmark", "slider.horizontal.3", "trash", "plus.square.on.square", "sidebar.left", "house",
     ]
 
     @Test("Every symbol the bar names has a drawn icon, and none shares one", arguments: names)
