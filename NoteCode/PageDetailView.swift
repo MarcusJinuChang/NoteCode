@@ -32,6 +32,11 @@ struct PageDetailView: View {
     /// Closes the note and shows Home: the house beside the sidebar button.
     var onGoHome: (() -> Void)? = nil
 
+    /// Shows or hides the note list over the page: the sidebar half of the
+    /// joined control at the top left. `nil` in a stack, whose back button
+    /// takes the control's place.
+    var onToggleList: (() -> Void)? = nil
+
     /// Opens the app's Settings sheet, which the window owns: ••• › Settings.
     var onShowSettings: (() -> Void)? = nil
 
@@ -60,6 +65,7 @@ struct PageDetailView: View {
     @State private var resumingAtPage: Int?
 
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.displayScale) private var screenScale
 
     @AppStorage(HotbarDock.defaultsKey)
     private var storedDock: HotbarDock = .default
@@ -178,6 +184,7 @@ struct PageDetailView: View {
         revealing: NoteSearch = NoteSearch(""),
         onDelete: (() -> Void)? = nil,
         onGoHome: (() -> Void)? = nil,
+        onToggleList: (() -> Void)? = nil,
         onShowSettings: (() -> Void)? = nil,
         startsRenaming: Bool = false
     ) {
@@ -185,6 +192,7 @@ struct PageDetailView: View {
         self.revealing = revealing
         self.onDelete = onDelete
         self.onGoHome = onGoHome
+        self.onToggleList = onToggleList
         self.onShowSettings = onShowSettings
         self.startsRenaming = startsRenaming
 #if canImport(UIKit)
@@ -229,6 +237,12 @@ struct PageDetailView: View {
             )
         }
         .toolbar { headerItems }
+#if os(iOS)
+        // The top bar on the bar material, not the system's glass.
+        .toolbarBackground(BarMaterial.fill, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+#endif
+
         .sheet(isPresented: $showsInfo) {
             NoteInfoView(page: page, pageCount: openPageCount)
         }
@@ -354,12 +368,11 @@ struct PageDetailView: View {
 
         // Beside the sidebar button, at the top left. The house goes where
         // the list's Home row was: the list is no longer where Home lives.
-        if let onGoHome {
+        if let onToggleList {
             ToolbarItem(placement: homePlacement) {
-                Button("Home", systemImage: "house", action: onGoHome)
-                    .tint(.primary)
-                    .accessibilityIdentifier("homeButton")
+                NoteWindowControl(onToggleList: onToggleList, onGoHome: onGoHome)
             }
+            .sharedBackgroundVisibility(.hidden)
         }
 
 #if canImport(UIKit)
@@ -367,12 +380,14 @@ struct PageDetailView: View {
             NoteShareButton(editor: editor, title: page.title, fallbackText: page.content)
                 .tint(.primary)
         }
+        .sharedBackgroundVisibility(.hidden)
 #endif
 
         ToolbarItem(placement: .primaryAction) {
             moreMenu
                 .tint(.primary)
         }
+        .sharedBackgroundVisibility(.hidden)
     }
 
     /// The top left. `.topBarLeading` is iOS's only; the Mac's leading
@@ -568,6 +583,14 @@ struct PageDetailView: View {
         .background {
             Color(PageView.surroundColor)
                 .ignoresSafeArea()
+        }
+        // The hairline between the top bar and the note area (W2). The page
+        // never scrolls under the bar, so the system draws none.
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(Color(.separator))
+                .frame(height: 1 / screenScale)
+                .allowsHitTesting(false)
         }
         .background {
             FoldReader { found in

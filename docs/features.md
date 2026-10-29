@@ -117,7 +117,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Zoom | Pinch to zoom; zoom does not re-wrap text | built | `page-geometry-orientation-and-zoom.md` |
 | Add Page | Appends a page | built | `pages.md` |
 | The page fills the window | The hotbar floats over the page or takes a strip at a side | built, with a 10pt edge buffer (feedback #1) | `the-page-fills-the-window.md` |
-| Scrolling | The text view scrolls; the page handles zoom and pan | built | `who-owns-scrolling.md` |
+| Scrolling | The text view scrolls and its pan lives on the page: a drag anywhere (background included) scrolls, diagonally when zoomed, with sideways momentum; no give at the top; own indicator at the window edge; hairline under the top bar; page edge and shadow (W2) | built; feel on the iPad unchecked | `who-owns-scrolling.md` |
 | A4, side-by-side pages, infinite canvas | | idea | ROADMAP |
 | Paper styles | Blank, dots, grid, lined per note; spacing (Fine, Standard, Wide) and strength (Light, Standard, Strong) too; vector shape layers behind text and ink in each page body, so nothing is laid out and it stays on its points at every zoom and mode; printed and in thumbnails (0.75 alpha); ••• › Paper per note, Settings › Notes › Paper for new notes (default blank); Duplicate copies it, templates and Import take the default | built; not seen on a real iPad, the menu and the Settings rows not looked at | `paper-styles.md` |
 | Blank pages after moving between pages | Ink is absent about 130 to 200ms after a jump with 3,000 strokes while PaperKit draws the new region; not reproduced at "a few seconds" | measured, options in `pages.md` (feedback #27) | |
@@ -126,7 +126,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 
 | Feature | How it works | Status | Detail |
 |---|---|---|---|
-| Header | Home, list, editable title with menu, Share, ••• | built | `the-note-page.md` |
+| Header | One joined pill at the top left (list and Home, drawn icons), editable title with menu, Share, •••; the note shrinks into its Home card on the way home (cross-fade with Reduce Motion) | built (W3) | `the-note-page.md` |
 | Hotbar | Docks left, bottom or right; undo, redo, text/draw toggle, then the mode's tools | built | `the-note-page.md` |
 | Options rows | Text row (B/I/U/S, colour swatches, highlight, size, More; opaque, no glass) and ink row (palette, widths, eraser mode) beside the bar | built | `navigation-and-the-text-options-row.md` |
 | Settings inside a note | Settings at the foot of the note's ••• menu | built (feedback #11) | |

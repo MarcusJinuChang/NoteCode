@@ -262,3 +262,18 @@ Laid out from the 12 September mockup.
     line). Not checked: the Pencil, print and compressed layout (taps in the
     gap between sheets), a note on an iPhone, taps below an unclosed block with
     the keyboard up.
+
+## Joined list and Home control, and the way home (W3)
+
+`NoteWindowControl`: the list and Home as one pill at the top left, in the
+`sidebar` and `home` icons of `NoteIconGeometry` (an opaque `.quaternary` fill,
+no glass). Home is the detail column's other branch, not a navigation
+destination, so `.navigationTransition(.zoom)` doesn't apply. Instead Home
+records each card's frame (`HomeLaunch`: anchor and scale against Home) when
+a card is tapped, and the note's removal transition scales toward that
+anchor and fades (`AnyTransition.noteToHome`); a note opened from the list
+shrinks to the middle, Reduce Motion cross-fades. Ink is committed by
+`PageDetailView.onDisappear` as before.
+The system's sidebar toggle is removed with `.toolbar(removing: .sidebarToggle)`
+on the **sidebar column's** content (`noteList` inside the split view), not on
+the note or the detail column, where it did nothing on iPad.

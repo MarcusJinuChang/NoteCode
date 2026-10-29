@@ -138,3 +138,38 @@ at the top; give the sideways axis momentum; make the indicator a real
 view that fades like the system one and ignores the keyboard inset; and
 start its tests with the top clamp and a pan beginning outside the page.
 Candidate (b) was not tried: no criterion failed that it would fix.
+
+## W2: the note window, built (28 Oct)
+
+W1's candidate (a), as recommended, with its follow-ups:
+
+- **One pan.** `textView.panGestureRecognizer` lives on `PageView`
+  (`adoptTextViewPan`); `PageView`'s own pan is off for good, so
+  `PageView.pans` is just the moved one and `setPanning` toggles only it.
+  A drag anywhere, beside the page included, scrolls the note, and the same
+  pan moves the sideways offset: zoomed in, one drag pans diagonally
+  (`isDirectionalLockEnabled` off).
+- **Sideways momentum** is `SidewaysFling`: a display link decaying the
+  pan's x velocity at `UIScrollView.DecelerationRate.normal`, ending at an
+  edge or under 20pt/s. The vertical axis still decelerates in the text view.
+- **No give at the top**: `DocumentUITextView.contentOffset` clamps y to
+  `-contentInset.top` in its setter, so a drag, a fling or `setContentOffset`
+  cannot show space above the page (replaces the spike's KVO). The bottom
+  still bounces. Top-of-note Pencil/selection scrolling is unaffected.
+- **Indicator**: a 3pt capsule on `PageView` at its right edge
+  (`PageView.indicatorFrame`, pure), full window height, ignoring the
+  keyboard inset; it fades 0.8s after the offset last moved.
+- **Sheet**: `PageEdgeView` (page colour, a hairline in `separator` and a
+  soft shadow) sits behind the text view in seamless and compressed, hidden
+  in print layout, whose sheets already carry the same border and shadow
+  (`PageDecorationView.makeSheet`). The surround is the existing
+  `PageView.surroundColor` (`secondarySystemBackground`), not a new token.
+- **Hairline** under the top bar: `PageDetailView` overlays a `separator`
+  line at the top of the page area.
+
+**Checked**: `PageViewTests` (top clamp, pan on the page, a touch beside
+the page, indicator geometry, fling decay, edge follows the text view).
+**Not checked** (needs the iPad): diagonal feel and fling; ink mode's
+two-finger rule and PaperKit's lasso with the pan on `PageView`; the pinch
+beside the moved pan; indicator fade; how the edge looks in both
+appearances; scroll smoothness.

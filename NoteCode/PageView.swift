@@ -60,6 +60,15 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     static let pageColor = UIColor.systemBackground
     static let surroundColor = UIColor.secondarySystemBackground
 
+    private let indicator = UIView()
+    private var offsetObservation: NSKeyValueObservation?
+    private var fadeTask: Task<Void, Never>?
+    private var lastPanTranslation = CGPoint.zero
+    private let sidewaysFling = SidewaysFling()
+    /// The page's edge: a hairline and a soft shadow behind the text view
+    /// in the continuous modes (print layout's sheets have their own).
+    private let pageEdge = PageEdgeView()
+
     /// The pages' orientation and how they are shown.
     ///
     /// Changing the mode keeps the reader's place and shows ink on its page.
@@ -199,7 +208,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// The pans that scroll the note: the text view's, up and down, and this
     /// view's, sideways when zoomed in.
     private var pans: [UIPanGestureRecognizer] {
-        [textView.panGestureRecognizer, panGestureRecognizer]
+        [textView.panGestureRecognizer]
     }
 
     init(textView: DocumentUITextView) {
@@ -228,10 +237,12 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         contentInsetAdjustmentBehavior = .never
         textView.contentInsetAdjustmentBehavior = .never
 
-        isDirectionalLockEnabled = true
+        isDirectionalLockEnabled = false
         alwaysBounceVertical = false
         showsVerticalScrollIndicator = false
+        addSubview(pageEdge)
         addSubview(textView)
+        adoptTextViewPan()
 
         // A Duo folding or unfolding changes the size class, and with it
         // whether the page is fitted by its text column.
@@ -529,6 +540,10 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             textView.center = center
         }
         paintPage()
+        pageEdge.isHidden = pageLayout.mode == .print
+        if pageEdge.frame != textView.frame {
+            pageEdge.frame = textView.frame
+        }
 
         let content = CGSize(width: max(area.width, frame.width), height: area.height)
         if contentSize != content {
@@ -1429,8 +1444,125 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         }
     }
 
+    // MARK: One pan for the page (W2)
+
+    /// The text view's pan lives on this view, so a drag anywhere on it,
+    /// beside the page included, scrolls the note, and the same pan drives
+    /// the sideways offset: zoomed in, one drag moves the page diagonally.
+    /// This view's own pan is switched off for good; the text view still
+    /// scrolls itself, so the viewport, the transform and the canvas geometry
+    /// are as they were (docs/design/who-owns-scrolling.md › W2).
+    private func adoptTextViewPan() {
+        let pan = textView.panGestureRecognizer
+        pan.view?.removeGestureRecognizer(pan)
+        addGestureRecognizer(pan)
+        pan.addTarget(self, action: #selector(textViewPanChanged(_:)))
+        // Its own pan is off for good: scrolling disabled does that and, unlike
+        // the recogniser's isEnabled, UIKit doesn't switch it back on.
+        isScrollEnabled = false
+        panGestureRecognizer.isEnabled = false
+
+        indicator.isUserInteractionEnabled = false
+        indicator.alpha = 0
+        addSubview(indicator)
+        textView.addLayoutObserver { [weak self] in self?.updateIndicator() }
+        offsetObservation = textView.observe(\.contentOffset) { [weak self] _, _ in
+            self?.indicatorMoved()
+        }
+    }
+
+    @objc private func textViewPanChanged(_ pan: UIPanGestureRecognizer) {
+        switch pan.state {
+        case .began:
+            sidewaysFling.stop()
+            lastPanTranslation = .zero
+        case .changed:
+            let t = pan.translation(in: self)
+            let dx = t.x - lastPanTranslation.x
+            lastPanTranslation = t
+            scrollSideways(by: -dx)
+        case .ended:
+            // The text view decelerates itself; the sideways axis is ours.
+            let velocity = pan.velocity(in: self).x
+            sidewaysFling.start(velocity: -velocity) { [weak self] delta in
+                self?.scrollSideways(by: delta) ?? false
+            }
+        default:
+            break
+        }
+    }
+
+    /// Moves the sideways offset, clamped. Returns whether it moved.
+    @discardableResult
+    private func scrollSideways(by delta: CGFloat) -> Bool {
+        let maxX = max(contentSize.width - bounds.width, 0)
+        let next = min(max(contentOffset.x + delta, 0), maxX)
+        guard next != contentOffset.x else { return false }
+        contentOffset.x = next
+        return true
+    }
+
+    // MARK: The scroll indicator
+
+    /// A capsule at this view's right edge, so it runs at the window's edge,
+    /// not the page's. It shows while the note moves and fades after.
+    static let indicatorWidth: CGFloat = 3
+    static let indicatorInset: CGFloat = 3
+    static let indicatorMinimumLength: CGFloat = 36
+
+    /// Where the indicator sits in this view, or nil when the note fits.
+    /// `offset` and `content` are in page points; `scale` turns them to
+    /// screen points.
+    static func indicatorFrame(
+        offset: CGFloat, content: CGFloat, area: CGSize, scale: CGFloat, sideways: CGFloat
+    ) -> CGRect? {
+        let total = content * scale
+        guard total > area.height + 0.5 else { return nil }
+        let length = max(area.height * area.height / total, indicatorMinimumLength)
+        let travel = area.height - length
+        let progress = min(max(offset * scale / (total - area.height), 0), 1)
+        return CGRect(
+            x: sideways + area.width - indicatorWidth - indicatorInset,
+            y: progress * travel,
+            width: indicatorWidth,
+            height: length
+        )
+    }
+
+    private func updateIndicator() {
+        indicator.backgroundColor = UIColor.label.withAlphaComponent(0.35)
+        indicator.layer.cornerRadius = Self.indicatorWidth / 2
+        // Not the keyboard's inset: the bar rides above it and the note
+        // scrolls under, so the indicator runs the whole window.
+        guard let frame = Self.indicatorFrame(
+            offset: textView.contentOffset.y + textView.contentInset.top,
+            content: textView.contentSize.height,
+            area: bounds.size,
+            scale: displayScale,
+            sideways: contentOffset.x
+        ) else {
+            indicator.isHidden = true
+            return
+        }
+        indicator.isHidden = false
+        indicator.frame = frame.offsetBy(dx: 0, dy: contentOffset.y)
+        bringSubviewToFront(indicator)
+    }
+
+    private func indicatorMoved() {
+        updateIndicator()
+        guard !indicator.isHidden else { return }
+        fadeTask?.cancel()
+        indicator.layer.removeAllAnimations()
+        indicator.alpha = 1
+        fadeTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(0.8))
+            guard !Task.isCancelled, let self else { return }
+            UIView.animate(withDuration: 0.3) { self.indicator.alpha = 0 }
+        }
+    }
+
     private func setPanning(enabled: Bool) {
-        panGestureRecognizer.isEnabled = enabled
         textView.panGestureRecognizer.isEnabled = enabled
     }
 
