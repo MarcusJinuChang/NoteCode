@@ -49,13 +49,27 @@ nonisolated struct NoteInfo: Equatable, Sendable {
                 let lines = Self.lineCount(content[code.contentRange])
                 let counted = blocksByLanguage[code.language] ?? (0, 0)
                 blocksByLanguage[code.language] = (counted.blocks + 1, counted.lines + lines)
+            } else if block.isMath {
+                // TeX isn't words: `\frac`, `n` and `2` aren't prose.
+                continue
             } else {
                 // The content range leaves out a heading's #s and a list
                 // item's marker, and word enumeration skips punctuation, so
                 // inline markers drop out on their own. A colour's tags
                 // hold words (`span`, `style`, `color`, the hex), so those
                 // are left out by hand.
-                let tags = block.inlines.filter(\.kind.isSpanTag).map(\.range)
+                var tags = block.inlines.filter(\.kind.isSpanTag).map(\.range)
+                // A formula's TeX, dollars to dollars, is no words either.
+                var opened: Range<String.Index>?
+                for node in block.inlines {
+                    switch node.kind {
+                    case .opening(.math): opened = node.range
+                    case .closing(.math):
+                        if let start = opened { tags.append(start.lowerBound..<node.range.upperBound) }
+                        opened = nil
+                    default: break
+                    }
+                }
                 content.enumerateSubstrings(
                     in: block.contentRange,
                     options: [.byWords, .substringNotRequired]

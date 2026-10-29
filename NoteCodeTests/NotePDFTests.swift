@@ -21,10 +21,11 @@ struct NotePDFTests {
         title: String = "Note",
         ink: PaperMarkup? = nil,
         orientation: PageOrientation = .portrait,
-        pageCount: Int = 1
+        pageCount: Int = 1,
+        rendersMarkdown: Bool = false
     ) async throws -> PDFDocument {
         let data = await NotePDF.render(NotePDF.Note(
-            title: title, text: text, ink: ink, orientation: orientation, pageCount: pageCount
+            title: title, text: text, ink: ink, orientation: orientation, pageCount: pageCount, rendersMarkdown: rendersMarkdown
         ))
         return try #require(PDFDocument(data: data))
     }
@@ -329,6 +330,54 @@ struct NotePDFTests {
             }
         }
         return widths
+    }
+
+    // MARK: Formulas
+
+    /// Dark pixels in `rect` of a PDF page, rendered at 2 pixels to the point.
+    private static func inkCount(_ bitmap: Bitmap, in rect: CGRect) -> Int {
+        var count = 0
+        for y in Int(rect.minY)..<Int(rect.maxY) {
+            for x in Int(rect.minX)..<Int(rect.maxX) where bitmap.luminance(at: CGPoint(x: x, y: y)) < 0.5 { count += 1 }
+        }
+        return count
+    }
+
+    @Test("An inline formula is in the sheet where its line is, and its source is not printed")
+    func inlineFormula() async throws {
+        let withFormula = try await Self.pdf("$\\sum_{i=1}^{n} i^2 = \\frac{a}{b}$", rendersMarkdown: true)
+        let without = try await Self.pdf(" ", rendersMarkdown: true)
+        let a = try #require(Bitmap(pdfPage: withFormula.page(at: 0)))
+        let b = try #require(Bitmap(pdfPage: without.page(at: 0)))
+        // The formula's own ink: pixels the plain line doesn't have, on the first line.
+        let line = CGRect(x: 0, y: 0, width: CGFloat(a.width) / a.scale, height: 200)
+        let extra = Self.inkCount(a, in: line) - Self.inkCount(b, in: line)
+        #expect(extra > 40, "formula ink: \(extra) more dark pixels")
+        let text = withFormula.string ?? ""
+        #expect(!text.contains("frac") && !text.contains("$"), "printed source: \(text)")
+        // Vectors: the sheet stays far from a picture's size.
+        let data = await NotePDF.render(NotePDF.Note(title: "t", text: "$\\frac{a}{b}$", ink: nil, orientation: .portrait, rendersMarkdown: true))
+        #expect(data.count < 250_000, "\(data.count) bytes")
+    }
+
+    @Test("A display formula is centred on the sheet and drawn once")
+    func displayFormula() async throws {
+        let pdf = try await Self.pdf("$$\\sum_{i=1}^{n} i$$", rendersMarkdown: true)
+        let bitmap = try #require(Bitmap(pdfPage: pdf.page(at: 0)))
+        let width = CGFloat(bitmap.width) / bitmap.scale
+        var minX = CGFloat.infinity, maxX = -CGFloat.infinity
+        for y in 80..<400 { for x in 0..<Int(width) where bitmap.luminance(at: CGPoint(x: x, y: y)) < 0.5 {
+            minX = min(minX, CGFloat(x)); maxX = max(maxX, CGFloat(x))
+        } }
+        #expect(maxX > minX, "no formula ink")
+        let centre = (minX + maxX) / 2
+        #expect(abs(centre - width / 2) < width * 0.06, "centre \(centre) of \(width)")
+        #expect(!(pdf.string ?? "").contains("$$"))
+    }
+
+    @Test("Thumbnails are cached afresh for notes drawn before formulas were")
+    func thumbnailVersion() {
+        #expect(NoteThumbnail.version >= 8)
     }
 
     // MARK: Files

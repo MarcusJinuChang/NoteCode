@@ -256,5 +256,25 @@ Settings › Writing on screen, and Insert Below on a note with ink.
 4. **Length of notes**: at most 4 pieces, then cut with a notice.
 5. **Plain-sentence answers.** No Markdown from the model, so nothing renders
    half-formatted in a quote.
-6. **No Pro/ads gating.** Free for everyone, since it costs nothing to run.
+6. ~~No Pro/ads gating.~~ **Replaced by P2 (28 Oct 2026): the AI features are Pro**; see "Pro gate" below.
 7. **Ink is not summarised.** Only the note's text.
+
+## Pro gate (P2, 28 Oct 2026)
+
+Decision 7 of the 1.0 plan: Explain Code and Summarise Note are part of Pro.
+
+- **One check, in `AIAssistant.begin`.** Every entry point (the edit menu's
+  Explain Block, the text row's Explain chip, ••• › Summarise Note) ends there,
+  so the gate cannot be missed by adding a menu. A free reader sets
+  `needsPro`, no job is made and the model client is never called;
+  `PageDetailView` shows `PaywallView` for it in place of the result sheet.
+  The app's assistant (`AIAssistant.system()`) reads `ProStatus.shared.isPro`;
+  the `isPro` closure defaults open so the state-machine tests need no store.
+- **The items stay visible to free readers**, so the paywall is how they learn
+  what Pro does. Hiding for an ineligible device or the Settings switch is
+  unchanged (`offersFeatures`).
+- **The paywall says whether this iPad can run the AI** (the same
+  `AIUnavailableReason` words), and that Run and no ads work regardless.
+- Tests: `PaywallTests` (free is gated and the model sees no request; Pro runs;
+  buying lifts the gate; the paywall's strings). Mutation-checked: with the
+  guard defeated, `PaywallTests` fails.

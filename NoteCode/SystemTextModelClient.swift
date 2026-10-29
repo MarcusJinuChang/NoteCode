@@ -84,7 +84,7 @@ extension AIAssistant {
     /// The assistant the app uses: Apple's on-device model. Where the
     /// framework is missing every request reports the model unavailable.
     static func system() -> AIAssistant {
-        AIAssistant(client: systemClient)
+        AIAssistant(client: systemClient, isPro: { ProStatus.shared.isPro })
     }
 
     /// The device's model, for Settings to read without an assistant.

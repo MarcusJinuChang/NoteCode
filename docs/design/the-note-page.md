@@ -14,8 +14,9 @@ Laid out from the 12 September mockup.
     button on iPad, on the split view or on the detail, so a custom ☰ sat
     beside it and was dropped rather than kept as a duplicate.
   - **Title menu** (`NoteTitleMenu`): Rename (the system's `RenameButton`,
-    disabled while the text is locked), Pin, Move to Folder, Remove from
-    Folder, Lock Text, Duplicate, Get Info, Delete. Delete asked once, in an
+    disabled while the text is locked), Pin, Move to Folder (its submenu
+    has Top Level), Get Info, Manage (Lock Text, Duplicate), Delete — six, since
+    S2 (28 Oct). Delete asked once, in an
     alert, until v3 phase 1; now it asks nothing and moves the note to
     Recently Deleted, and a toast offers Undo (see "Recently Deleted").
     `ContentView.delete` clears the selection first, as the list does, and
@@ -261,3 +262,18 @@ Laid out from the 12 September mockup.
     line). Not checked: the Pencil, print and compressed layout (taps in the
     gap between sheets), a note on an iPhone, taps below an unclosed block with
     the keyboard up.
+
+## Joined list and Home control, and the way home (W3)
+
+`NoteWindowControl`: the list and Home as one pill at the top left, in the
+`sidebar` and `home` icons of `NoteIconGeometry` (an opaque `.quaternary` fill,
+no glass). Home is the detail column's other branch, not a navigation
+destination, so `.navigationTransition(.zoom)` doesn't apply. Instead Home
+records each card's frame (`HomeLaunch`: anchor and scale against Home) when
+a card is tapped, and the note's removal transition scales toward that
+anchor and fades (`AnyTransition.noteToHome`); a note opened from the list
+shrinks to the middle, Reduce Motion cross-fades. Ink is committed by
+`PageDetailView.onDisappear` as before.
+The system's sidebar toggle is removed with `.toolbar(removing: .sidebarToggle)`
+on the **sidebar column's** content (`noteList` inside the split view), not on
+the note or the detail column, where it did nothing on iPad.

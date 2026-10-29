@@ -211,6 +211,10 @@ struct NoteCommands: Commands {
                     .keyboardShortcut(.inlineCode)
                 Button(NoteShortcut.strikethrough.title) { editor?.toggle(.strikethrough) }
                     .keyboardShortcut(.strikethrough)
+                Button(NoteShortcut.inlineFormula.title) { editor?.insertFormula(display: false) }
+                    .keyboardShortcut(.inlineFormula)
+                Button(NoteShortcut.displayFormula.title) { editor?.insertFormula(display: true) }
+                    .keyboardShortcut(.displayFormula)
                 Divider()
                 Button(NoteShortcut.heading1.title) { editor?.setHeading(level: 1) }
                     .keyboardShortcut(.heading1)

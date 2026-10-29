@@ -206,6 +206,7 @@ rebuilt copy of the app with logging.
 | `-debug-keep-defaults` | With `-debug-home`: leaves the saved flags and remembered places alone, and stops the launch pruning or making anything, so it can run over a device's own notes (`ListDragUITests` does) |
 | `-debug-probe` | Writes `tmp/notecode-probe.log` in the app container: what the list's drag and drop deliver, and what drew (`-debug-probe-snapshot` adds window PNGs). Pull it with `xcrun devicectl device copy from --domain-type appDataContainer --domain-identifier com.marcus.NoteCode --source tmp/notecode-probe.log` |
 | `-debug-tip-jar` | The tip jar with three stand-in tips, each thanked after a moment, nothing charged (`DebugTipStore`) |
+| `-debug-paywall` | The paywall over whatever opens; with `-debug-pro off` it is the free reader's view |
 
 The report lists mode, orientation, page count, scroll offset, scale, zoom, the
 top line (character, page, whether it starts the page, its text), the point

@@ -104,6 +104,11 @@ nonisolated enum InkCommands {
         }
     }
 
+    /// Only the objects in `ids`: what a drag's snapshot is drawn from.
+    static func only(_ markup: PaperMarkup, ids: Set<ElementID>) -> PaperMarkup {
+        rebuilt(markup) { ids.contains($0.elementID) ? $0 : nil }
+    }
+
     static func deleted(_ markup: PaperMarkup, ids: Set<ElementID>) -> PaperMarkup {
         rebuilt(markup) { ids.contains($0.elementID) ? nil : $0 }
     }

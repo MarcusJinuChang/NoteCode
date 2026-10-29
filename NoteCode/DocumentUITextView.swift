@@ -380,6 +380,17 @@ final class DocumentUITextView: UITextView {
     /// harmless.
     private(set) var textContentHeight: CGFloat = 0
 
+    /// The note never scrolls above its top: a drag or a fling past it stops
+    /// there, with no space showing above the page (W2). The bottom bounces.
+    override var contentOffset: CGPoint {
+        get { super.contentOffset }
+        set {
+            var clamped = newValue
+            clamped.y = max(clamped.y, -contentInset.top)
+            super.contentOffset = clamped
+        }
+    }
+
     override var contentSize: CGSize {
         get { super.contentSize }
         set {

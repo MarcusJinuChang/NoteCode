@@ -184,7 +184,7 @@ extension CodeBlockRoom {
         (" " as NSString).size(withAttributes: [.font: font]).width
     }
 
-    private static func descent(of font: UIFont) -> CGFloat {
+    static func descent(of font: UIFont) -> CGFloat {
         -font.descender
     }
 

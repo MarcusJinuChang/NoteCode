@@ -128,8 +128,12 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
     /// The tip jar with stand-in tips, so its row and sheet can be looked at
     /// without the products in App Store Connect (`DebugTipStore`).
     var tipJar = false
+    var paywall = false
     /// Pro on or off, with nothing asked of StoreKit (`DebugProStore`).
     var pro: Bool?
+    /// Run answers with a canned result and the panel opens on the first
+    /// block and runs it (`DebugRunStub`).
+    var runStub: DebugRunStubKind?
 
     /// Arguments that couldn't be used. Reported rather than ignored, so a
     /// typo can't pass for a check that ran.
@@ -137,7 +141,7 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
 
     var isActive: Bool {
         note != nil || mode != nil || orientation != nil || paper != nil || textSize != nil || page != nil || thenMode != nil
-            || writesReport || firstLaunch || home || tipJar || pro != nil
+            || writesReport || firstLaunch || home || tipJar || paywall || pro != nil || runStub != nil
     }
 
     static let current = parse(ProcessInfo.processInfo.arguments)
@@ -226,6 +230,8 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
                 options.keepsDefaults = true
             case "-debug-tip-jar":
                 options.tipJar = true
+            case "-debug-paywall":
+                options.paywall = true
             case "-debug-pro":
                 if let raw = value(for: flag) {
                     switch raw {
@@ -234,6 +240,8 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
                     default:    options.problems.append("\(flag): \"\(raw)\" isn't on or off")
                     }
                 }
+            case "-debug-run-stub":
+                options.runStub = choice(value(for: flag), for: flag)
             default:
                 if flag.hasPrefix("-debug-") {
                     options.problems.append("unknown argument \(flag)")

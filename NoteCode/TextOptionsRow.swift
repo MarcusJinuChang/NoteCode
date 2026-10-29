@@ -35,26 +35,31 @@ struct TextOptionsRow: View {
         // (a narrow phone, with the size and colour menus at the end).
         OptionsRowTrack(isVertical: isVertical) {
             HotbarStack(isVertical: isVertical) {
-                SizeControl(editor: editor, isVertical: isVertical)
-                HotbarDivider(isVertical: isVertical)
                 switch editor.caretFormatting.block {
-                case .paragraph:
-                    ParagraphControls(editor: editor)
-                case .listItem:
-                    ListControls(editor: editor)
+                case .paragraph, .listItem:
+                    InlineStyleButtons(editor: editor)
+                    HotbarDivider(isVertical: isVertical)
+                    ColourSwatches(editor: editor, isVertical: isVertical)
+                    HighlightMenu(editor: editor)
+                    HotbarDivider(isVertical: isVertical)
+                    SizeControl(editor: editor, isVertical: isVertical)
+                    MoreMenu(editor: editor)
                 case .code(let label, let kind, let isClosed):
+                    SizeControl(editor: editor, isVertical: isVertical)
+                    HotbarDivider(isVertical: isVertical)
                     CodeControls(editor: editor, label: label, kind: kind, isClosed: isClosed)
                 }
             }
             .padding(isVertical ? .vertical : .horizontal, 2)
         }
         .background(alignment: style?.faceAlignment ?? .center) {
-            Color.clear
+            Capsule()
+                .fill(Color(.systemBackground))
+                .overlay(Capsule().strokeBorder(.separator, lineWidth: 0.5))
                 .frame(
                     width: isVertical ? OptionsRowStyle.thickness : nil,
                     height: isVertical ? nil : OptionsRowStyle.thickness
                 )
-                .glassEffect(.regular, in: .capsule)
         }
     }
 }
@@ -112,62 +117,107 @@ private struct SizeControl: View {
     }
 }
 
-// MARK: - By what the caret is in
+// MARK: - Prose
 
-/// A paragraph or a heading: Body, H1, H2, H3, and Link.
-private struct ParagraphControls: View {
+/// Bold, Italic, Underline, Strikethrough: lit by the style at the caret.
+private struct InlineStyleButtons: View {
     @Bindable var editor: NoteEditor
 
     var body: some View {
-        let level = editor.caretFormatting.headingLevel
-        RowWord("Body", label: "Body", isSelected: level == 0, along: 44) { editor.setHeading(level: 0) }
-        ForEach(1...3, id: \.self) { heading in
-            RowWord("H\(heading)", label: "Heading \(heading)", isSelected: level == heading) {
-                editor.setHeading(level: heading)
-            }
-        }
-        HotbarButton("Quote", "text.quote", isSelected: editor.caretFormatting.quoteDepth > 0) { editor.toggleQuote() }
-        // Lit while the caret is in a link: nothing to add to one that is there.
-        HotbarButton("Link", "link", isSelected: editor.caretFormatting.link) { editor.beginLink() }
-            .disabled(editor.caretFormatting.link)
-        ColourMenu(editor: editor)
-        HighlightMenu(editor: editor)
-        LineSpacingMenu(editor: editor)
+        let shown = editor.formattingShown
+        HotbarButton("Bold", "bold", isSelected: shown.bold) { editor.toggle(.bold) }
+        HotbarButton("Italic", "italic", isSelected: shown.italic) { editor.toggle(.italic) }
+        HotbarButton("Underline", "underline", isSelected: shown.underline) { editor.toggle(.underline) }
+        HotbarButton("Strikethrough", "strikethrough", isSelected: shown.strikethrough) { editor.toggle(.strikethrough) }
     }
 }
 
-/// Colour (`TextColour`): the palette, then Default, which takes colour off.
-/// The face is the colour the caret is in, or an empty ring for none.
-private struct ColourMenu: View {
+/// What the old row's prose and list controls gave up room for, each still
+/// one menu away: headings (prose only), Quote, Link, the three lists, indent
+/// and outdent, and line spacing.
+private struct MoreMenu: View {
     @Bindable var editor: NoteEditor
+
+    var body: some View {
+        let caret = editor.caretFormatting
+        Menu {
+            if case .paragraph = caret.block {
+                let level = caret.headingLevel
+                Toggle("Body", isOn: Binding(get: { level == 0 }, set: { _ in editor.setHeading(level: 0) }))
+                ForEach(1...3, id: \.self) { heading in
+                    Toggle("Heading \(heading)", isOn: Binding(
+                        get: { level == heading },
+                        set: { _ in editor.setHeading(level: heading) }
+                    ))
+                }
+                Divider()
+                Toggle(isOn: Binding(get: { caret.quoteDepth > 0 }, set: { _ in editor.toggleQuote() })) {
+                    Label("Quote", systemImage: "text.quote")
+                }
+                // Nothing to add to a link that is already there.
+                Button { editor.beginLink() } label: { Label("Link", systemImage: "link") }
+                    .disabled(caret.link)
+                Divider()
+            }
+            ForEach(MarkdownFormatting.ListStyle.allCases, id: \.self) { style in
+                Toggle(isOn: Binding(get: { caret.list == style }, set: { _ in editor.toggleList(style) })) {
+                    Label(style.title, systemImage: style.systemImage)
+                }
+            }
+            Divider()
+            Button { editor.indent(outdent: true) } label: { Label("Outdent", systemImage: "decrease.indent") }
+            Button { editor.indent(outdent: false) } label: { Label("Indent", systemImage: "increase.indent") }
+            Divider()
+            Menu {
+                ForEach(NoteTypography.lineSpacings, id: \.self) { points in
+                    Toggle(isOn: Binding(get: { editor.lineSpacing == points }, set: { _ in editor.setLineSpacing(points) })) {
+                        Text(points == 0 ? "Default" : "+\(points) pt")
+                    }
+                }
+            } label: {
+                Label("Line Spacing", systemImage: "line.3.horizontal")
+            }
+        } label: {
+            HotbarIcon(systemImage: "ellipsis.circle")
+        }
+        .modifier(HotbarMenuStyle())
+        .menuOrder(.fixed)
+        .accessibilityLabel("More")
+    }
+}
+
+/// The text colours (`TextColour`) as a row of swatches, after a ring for
+/// Default, which takes colour off. The one the caret is in is circled.
+private struct ColourSwatches: View {
+    @Bindable var editor: NoteEditor
+    var isVertical: Bool
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let current = editor.formattingShown.colour
-        Menu {
+        let isDark = colorScheme == .dark
+        HotbarStack(isVertical: isVertical) {
+            swatch("Default Colour", image: Self.face(hex: nil, isDark: isDark), isSelected: current == nil, template: true) {
+                editor.setColour(nil)
+            }
             ForEach(TextColour.allCases, id: \.self) { colour in
-                Toggle(isOn: Binding(get: { current == colour.hex }, set: { _ in editor.setColour(colour.hex) })) {
-                    Label {
-                        Text(colour.name)
-                    } icon: {
-                        Image(uiImage: Self.swatch(hex: colour.hex, isDark: colorScheme == .dark)).renderingMode(.original)
-                    }
+                swatch("\(colour.name) Text", image: Self.swatch(hex: colour.hex, isDark: isDark), isSelected: current == colour.hex, template: false) {
+                    editor.setColour(colour.hex)
                 }
             }
-            Divider()
-            Toggle(isOn: Binding(get: { current == nil }, set: { _ in editor.setColour(nil) })) {
-                Text("Default")
-            }
-        } label: {
-            Image(uiImage: Self.face(hex: current, isDark: colorScheme == .dark))
-                .renderingMode(current == nil ? .template : .original)
-                .foregroundStyle(.primary)
-                .hotbarTarget()
         }
-        .modifier(HotbarMenuStyle())
-        .menuOrder(.fixed)
-        .accessibilityLabel("Text Colour")
-        .accessibilityValue(current.flatMap { hex in TextColour.allCases.first { $0.hex == hex }?.name } ?? (current == nil ? "Default" : "Custom"))
+    }
+
+    private func swatch(_ label: String, image: UIImage, isSelected: Bool, template: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(uiImage: image)
+                .renderingMode(template ? .template : .original)
+                .foregroundStyle(.primary)
+                .hotbarTarget(isHighlighted: isSelected)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     /// A filled circle in the colour as it is drawn on this page.
@@ -237,48 +287,6 @@ private struct HighlightMenu: View {
             fill.setFill()
             UIBezierPath(roundedRect: CGRect(x: 0, y: 0, width: side, height: side), cornerRadius: 4).fill()
         }
-    }
-}
-
-/// Line spacing (`NoteTypography.lineSpacings`): the note's, in points added to
-/// every prose line's height. Per note, so it asks first when the note has ink.
-private struct LineSpacingMenu: View {
-    @Bindable var editor: NoteEditor
-
-    var body: some View {
-        Menu {
-            ForEach(NoteTypography.lineSpacings, id: \.self) { points in
-                Toggle(isOn: Binding(get: { editor.lineSpacing == points }, set: { _ in editor.setLineSpacing(points) })) {
-                    Text(points == 0 ? "Default" : "+\(points) pt")
-                }
-            }
-        } label: {
-            Image(systemName: "line.3.horizontal")
-                .font(.system(size: 17, weight: .medium))
-                .foregroundStyle(editor.lineSpacing == 0 ? AnyShapeStyle(.primary) : AnyShapeStyle(.tint))
-                .hotbarTarget()
-        }
-        .modifier(HotbarMenuStyle())
-        .menuOrder(.fixed)
-        .accessibilityLabel("Line Spacing")
-        .accessibilityValue(editor.lineSpacing == 0 ? "Default" : "\(editor.lineSpacing) points")
-    }
-}
-
-/// A list item: the three kinds (the current one tinted), outdent and indent.
-private struct ListControls: View {
-    @Bindable var editor: NoteEditor
-
-    var body: some View {
-        ForEach(MarkdownFormatting.ListStyle.allCases, id: \.self) { style in
-            HotbarButton(style.title, style.systemImage, isSelected: editor.caretFormatting.list == style) {
-                editor.toggleList(style)
-            }
-        }
-        IndentControls(editor: editor)
-        ColourMenu(editor: editor)
-        HighlightMenu(editor: editor)
-        LineSpacingMenu(editor: editor)
     }
 }
 

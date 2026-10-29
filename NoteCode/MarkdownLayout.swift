@@ -40,7 +40,19 @@ enum MarkdownLayout {
         case bullet
         /// `[ ]` or `[x]` (three units) becomes an em space and two joiners.
         case box
+        /// A whole `$…$` (markers included) laid out as one attachment: the
+        /// typeset `tex` (aliases resolved), whether it is display style
+        /// (`$$x$$` in a line), and how many units the opening marker takes,
+        /// so the TeX's own attributes (colour, size) can be found.
+        case formula(tex: String, display: Bool, opening: Int)
+        /// The first line of a `$$` block: the whole line is the formula's
+        /// attachment, centred on a line of its own (`DisplayFormula`). The
+        /// block's other lines are `.joiners`.
+        case displayFormula(tex: String)
     }
+
+    /// U+FFFC, which the text view draws as the formula's attachment.
+    static let attachmentCharacter: Character = "\u{FFFC}"
 
     struct Run: Equatable {
         var range: NSRange
@@ -52,6 +64,7 @@ enum MarkdownLayout {
             case .joiners: String(repeating: joiner, count: range.length)
             case .bullet:  String(bullet)
             case .box:     String(box) + String(repeating: joiner, count: max(range.length - 1, 0))
+            case .formula, .displayFormula: String(attachmentCharacter) + String(repeating: joiner, count: max(range.length - 1, 0))
             }
         }
     }
@@ -68,9 +81,11 @@ enum MarkdownLayout {
         var runs: [Run] = []
         for layout in layouts {
             switch layout.block.kind {
-            case .code, .math:
-                // A block's source is shown as typed until the formulas are
-                // drawn (LaTeX step 4).
+            case .code:
+                continue
+
+            case .math(let math):
+                runs += displayRuns(of: layout, math: math, in: source)
                 continue
 
             case .paragraph:
@@ -87,13 +102,74 @@ enum MarkdownLayout {
                 runs += listRuns(of: layout, marker: marker, in: source)
             }
 
-            for inline in layout.inlines {
-                for marker in inline.markers {
-                    runs.append(Run(range: marker, kind: .joiners))
+            var index = 0
+            while index < layout.inlines.count {
+                let inline = layout.inlines[index]
+                if let formula = formulaRun(at: index, in: layout, source: source) {
+                    runs.append(formula)
+                    index += 3
+                    continue
                 }
+                // A formula that can't be drawn keeps its dollars: it shows
+                // as typed, dimmed by the styler.
+                if !isMathMarker(inline.kind) {
+                    for marker in inline.markers {
+                        runs.append(Run(range: marker, kind: .joiners))
+                    }
+                }
+                index += 1
             }
         }
         return runs
+    }
+
+    /// A `$$` block drawable as a formula: its first line becomes the
+    /// attachment and every other non-empty line collapses to joiners (their
+    /// height is the styler's, `DisplayFormula.sourceLineHeight`). An
+    /// undrawable block keeps its source, dimmed by the styler.
+    static func displayRuns(of layout: DocumentStyler.BlockLayout, math: MathBlock, in source: String) -> [Run] {
+        guard let tex = FormulaValidity.check(String(source[math.contentRange])).tex else { return [] }
+        var runs: [Run] = []
+        let text = source as NSString
+        var location = layout.range.location
+        let end = NSMaxRange(layout.range)
+        while location < end {
+            var lineEnd = location
+            while lineEnd < end, text.character(at: lineEnd) != 0x0A { lineEnd += 1 }
+            let length = lineEnd - location
+            if length > 0 {
+                let range = NSRange(location: location, length: length)
+                runs.append(Run(range: range, kind: runs.isEmpty ? .displayFormula(tex: tex) : .joiners))
+            } else if runs.isEmpty {
+                return []
+            }
+            location = lineEnd + 1
+        }
+        return runs
+    }
+
+    private static func isMathMarker(_ kind: InlineNode.Kind) -> Bool {
+        if case .math? = kind.markup { return true }
+        return false
+    }
+
+    /// The run for the formula whose opening `$` is inline `index` of
+    /// `layout`, when its TeX is one that can be drawn
+    /// (`FormulaValidity`, the same answer the styler dims by).
+    static func formulaRun(at index: Int, in layout: DocumentStyler.BlockLayout, source: String) -> Run? {
+        guard index + 2 < layout.inlines.count,
+              case .opening(.math(let style)) = layout.inlines[index].kind,
+              layout.inlines[index + 1].kind == .text,
+              case .closing(.math) = layout.inlines[index + 2].kind,
+              layout.block.inlines.count == layout.inlines.count,
+              let tex = FormulaValidity.check(String(source[layout.block.inlines[index + 1].range])).tex
+        else { return nil }
+        let opening = layout.inlines[index].range
+        let closing = layout.inlines[index + 2].range
+        return Run(
+            range: NSRange(location: opening.location, length: NSMaxRange(closing) - opening.location),
+            kind: .formula(tex: tex, display: style == .display, opening: opening.length)
+        )
     }
 
     /// A list item's marker as laid out: its bullet as `•`, a checkbox as an
@@ -141,6 +217,32 @@ enum MarkdownLayout {
         for run in runs {
             let local = NSRange(location: run.range.location - paragraph.location, length: run.range.length)
             guard local.location >= 0, NSMaxRange(local) <= text.length else { continue }
+            if case .formula(let tex, let display, let opening) = run.kind {
+                // The TeX's own font and colour, not the dimmed dollars'.
+                let at = min(local.location + opening, text.length - 1)
+                let attributes = text.attributes(at: at, effectiveRange: nil)
+                let size = (attributes[.font] as? UIFont)?.pointSize ?? 17
+                text.mutableString.replaceCharacters(in: local, with: run.replacement)
+                text.setAttributes(attributes, range: local)
+                if let attachment = FormulaAttachment.make(tex: tex, pointSize: size, display: display) {
+                    text.addAttribute(.attachment, value: attachment, range: NSRange(location: local.location, length: 1))
+                    text.addAttribute(FormulaAttachment.sourceKey, value: FormulaAttachment.Source(tex: tex, pointSize: size, display: display), range: NSRange(location: local.location, length: 1))
+                }
+                continue
+            }
+            if case .displayFormula(let tex) = run.kind {
+                let attributes = text.attributes(at: local.location, effectiveRange: nil)
+                let font = attributes[.font] as? UIFont
+                text.mutableString.replaceCharacters(in: local, with: run.replacement)
+                text.setAttributes(attributes, range: local)
+                if let attachment = FormulaAttachment.make(tex: tex, pointSize: font?.pointSize ?? 17, display: true, fitting: true) {
+                    text.addAttribute(.attachment, value: attachment, range: NSRange(location: local.location, length: 1))
+                    text.addAttribute(FormulaAttachment.sourceKey, value: FormulaAttachment.Source(tex: tex, pointSize: font?.pointSize ?? 17, display: true), range: NSRange(location: local.location, length: 1))
+                    let lift = DisplayFormula.baselineLift(tex: tex, font: font ?? .preferredFont(forTextStyle: .body))
+                    text.addAttribute(.baselineOffset, value: lift, range: NSRange(location: local.location, length: 1))
+                }
+                continue
+            }
             text.mutableString.replaceCharacters(in: local, with: run.replacement)
         }
         anchorTrailingJoiners(in: text)

@@ -125,7 +125,7 @@ struct Hotbar: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("hotbar")
         .padding(Self.padding)
-        .glassEffect(.regular, in: .rect(cornerRadius: Self.thickness / 2))
+        .barMaterial(in: .rect(cornerRadius: Self.thickness / 2))
         #if DEBUG
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
             SelectionProbe.log("hotbar frame \(frame)")
@@ -272,6 +272,17 @@ struct Hotbar: View {
                 editor.insertRule()
             } label: {
                 Label("Horizontal Rule", systemImage: "minus")
+            }
+            Divider()
+            Button {
+                editor.insertFormula(display: false)
+            } label: {
+                Label("Inline Formula", systemImage: "function")
+            }
+            Button {
+                editor.insertFormula(display: true)
+            } label: {
+                Label("Display Formula", systemImage: "x.squareroot")
             }
         } label: {
             HotbarIcon(systemImage: "textformat")
@@ -421,7 +432,7 @@ private struct HotbarTrack: Layout {
 
 /// An options row's controls, hugged when they fit beside the bar and
 /// scrolled along it when they don't, as the bar's tools are. Inside the
-/// row's glass, so the capsule's ends stay put while the controls scroll.
+/// row's surface, so the capsule's ends stay put while the controls scroll.
 struct OptionsRowTrack<Content: View>: View {
     var isVertical: Bool
     @ViewBuilder var content: Content
@@ -435,10 +446,10 @@ struct OptionsRowTrack<Content: View>: View {
     }
 }
 
-/// The options row's glass, around what the selected tool can be set to.
+/// The options row's surface, around what the selected tool can be set to.
 ///
 /// 40pt thick, drawn at the bar's end of the row: the controls are 4pt
-/// thicker than that, toward the page, and the glass doesn't cover the reach.
+/// thicker than that, toward the page, and the surface doesn't cover the reach.
 struct InkOptionsRow: View {
     @Bindable var editor: NoteEditor
     var isVertical: Bool
@@ -456,7 +467,7 @@ struct InkOptionsRow: View {
                         width: isVertical ? OptionsRowStyle.thickness : nil,
                         height: isVertical ? nil : OptionsRowStyle.thickness
                     )
-                    .glassEffect(.regular, in: .capsule)
+                    .barMaterial(in: .capsule)
             }
     }
 }

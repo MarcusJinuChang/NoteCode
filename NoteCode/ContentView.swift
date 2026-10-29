@@ -41,6 +41,9 @@ struct ContentView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// The Home card the open note came from, for the way back (W3).
+    @State private var homeLaunch: HomeLaunch?
+
     /// What the list's search field holds.
     @State private var searchText = ""
 
@@ -220,10 +223,14 @@ struct ContentView: View {
     private var splitView: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             noteList(showsToasts: columnVisibility != .detailOnly)
+                // The joined control carries the list button, in a note.
+                .toolbar(removing: selection == nil || isCompact ? nil : .sidebarToggle)
         } detail: {
             Group {
                 if selection != nil {
                     noteDetail
+                        // Home's card is where the note shrinks to.
+                        .transition(.noteToHome(homeLaunch, reduceMotion: reduceMotion))
                 } else {
                     home
                 }
@@ -283,6 +290,7 @@ struct ContentView: View {
                 revealing: openedSearch,
                 onDelete: { delete(page) },
                 onGoHome: houseButtonAction,
+                onToggleList: isCompact ? nil : { toggleNoteList() },
                 onShowSettings: { showsSettings = true },
                 startsRenaming: page == newPage
             )
@@ -301,7 +309,8 @@ struct ContentView: View {
 
     private var home: some View {
         HomeView(
-            onOpen: open,
+            onOpen: { open($0) },
+            onOpenFrom: { open($0, from: $1) },
             onNewNote: newNote,
             onNewNoteFromTemplate: { newNote(from: $0) },
             onImport: { showsImporter = true },
@@ -433,7 +442,8 @@ struct ContentView: View {
 
     /// Opens a note from Home. Not from a search: Home has none, so the note
     /// shows no matches.
-    private func open(_ page: Page) {
+    private func open(_ page: Page, from launch: HomeLaunch? = nil) {
+        homeLaunch = launch
         openedSearch = NoteSearch("")
         selection = page
     }
@@ -441,7 +451,7 @@ struct ContentView: View {
     /// Closes the open note and shows Home, with the list beside it: the
     /// house in a note's header, and ⇧⌘H.
     private func goHome() {
-        selection = nil
+        withAnimation(.smooth(duration: 0.38)) { selection = nil }
         withAnimation { columnVisibility = .all }
         compactPath = []
     }
