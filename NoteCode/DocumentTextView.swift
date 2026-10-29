@@ -19,6 +19,7 @@ struct DocumentTextView: UIViewRepresentable {
     /// from the page's own setting and the app-wide default — see
     /// `RunDestinationPreference`.
     var runDestination: CodeDestination = .default
+    var runSite: CodeDestination = .default
 
     /// The page's hotbar state. Optional so the editor still stands alone in
     /// tests and previews.
@@ -180,6 +181,7 @@ struct DocumentTextView: UIViewRepresentable {
         // through a stale one.
         context.coordinator.text = $text
         context.coordinator.runDestination = runDestination
+        context.coordinator.runSite = runSite
         context.coordinator.editor = editor
         context.coordinator.showMarkdown = showMarkdown
         context.coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
@@ -224,6 +226,8 @@ struct DocumentTextView: UIViewRepresentable {
     final class Coordinator: NSObject, UITextViewDelegate {
         var text: Binding<String>
         var runDestination: CodeDestination = .default
+        /// The site the page would use if it weren't pointed at the app.
+        var runSite: CodeDestination = .default
         var editor: NoteEditor?
         let documentCache = DocumentCache()
 
@@ -546,10 +550,37 @@ struct DocumentTextView: UIViewRepresentable {
         func run(_ target: CodeBlockTarget, from textView: UITextView) {
             guard let language = target.language, language.canRun else { return }
 
+            // The gate comes first (R4): a free reader's Run opens the paywall
+            // and does nothing else, and Pro's runs in the panel when the page
+            // points there. Without a service none of this exists.
+            switch RunRoute.route(
+                hasRunner: editor?.run.isAvailable == true,
+                isPro: editor?.pro?.isPro == true,
+                destination: runDestination
+            ) {
+            case .paywall:
+                editor?.onRunNeedsPro?()
+                return
+            case .inApp:
+                textView.resignFirstResponder()
+                editor?.runInApp(target)
+                return
+            case .redirect:
+                break
+            }
+
+            openAtSite(code: target.code, language: language, destination: runDestination, from: textView)
+        }
+
+        /// Opens a block at a site: today's redirect. A page pointed at "In
+        /// NoteCode" uses the site it would otherwise (`runSite`).
+        func openAtSite(
+            code: String, language: CodeLanguage, destination: CodeDestination, from textView: UITextView?
+        ) {
             let request = CodeDestination.request(
-                for: target.code,
+                for: code,
                 language: language,
-                preferring: runDestination
+                preferring: destination == .inApp ? runSite : destination
             )
 
             if let code = request.pasteboardCode {
@@ -558,7 +589,7 @@ struct DocumentTextView: UIViewRepresentable {
 
             // Dismiss the keyboard first. Leaving for Safari with it up means
             // coming back to a view that has to re-lay-out under it.
-            textView.resignFirstResponder()
+            textView?.resignFirstResponder()
             UIApplication.shared.open(request.url)
         }
 
@@ -589,7 +620,9 @@ struct DocumentTextView: UIViewRepresentable {
             refreshFenceVisibility(in: textView, repositioning: false)
             refreshHeadingMarkers(in: textView)
             refreshCaretFormatting(in: textView)
-            overlay?.update(targets: CodeBlockAction.targets(in: source, blocks: blocks))
+            let targets = CodeBlockAction.targets(in: source, blocks: blocks)
+            overlay?.update(targets: targets)
+            editor?.run.update(blocks: targets)
             scheduleHighlighting(for: textView, source: source, blocks: blocks)
         }
 

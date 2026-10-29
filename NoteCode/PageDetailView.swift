@@ -48,7 +48,7 @@ struct PageDetailView: View {
     /// model: it is a preference about this device, not a property of a note,
     /// and it has to have a value before any page exists.
     @AppStorage(RunDestinationPreference.appDefaultKey)
-    private var appDefaultDestination: String = CodeDestination.default.id
+    private var appDefaultDestination: String = CodeDestination.preferredDefault().id
 
     @Environment(\.modelContext) private var modelContext
     @Query private var folders: [Folder]
@@ -63,6 +63,14 @@ struct PageDetailView: View {
     /// The page the note was last read at on this device, read once as the
     /// note opens: the page then writes its own place back as it is read.
     @State private var resumingAtPage: Int?
+
+    @Environment(ProStatus.self) private var pro: ProStatus?
+
+    /// The window's width, for the Run dock's half-window limit.
+    @State private var windowWidth: CGFloat = 0
+    /// Run was chosen by a free reader: Pro's, so it explains instead of
+    /// opening. P2's paywall replaces this alert.
+    @State private var showsRunIsPro = false
 
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.displayScale) private var screenScale
@@ -217,7 +225,7 @@ struct PageDetailView: View {
                     .padding(.vertical, 8)
             }
 #endif
-            content
+            runLayout
         }
         .navigationTitle($page.title)
 #if os(iOS)
@@ -243,6 +251,13 @@ struct PageDetailView: View {
         .toolbarBackground(.visible, for: .navigationBar)
 #endif
 
+#if canImport(UIKit)
+        .modifier(RunPanelHost(
+            editor: editor, isCompact: isCompact, showsRunIsPro: $showsRunIsPro,
+            windowWidth: $windowWidth, transaction: { pro?.signedTransaction ?? "" }, pro: pro
+        ))
+        .toolbar { runToggleItem }
+#endif
         .sheet(isPresented: $showsInfo) {
             NoteInfoView(page: page, pageCount: openPageCount)
         }
@@ -348,6 +363,48 @@ struct PageDetailView: View {
     }
 
     // MARK: Header
+
+#if canImport(UIKit)
+    /// The Notes | Run control, in the middle of the top bar.
+    @ToolbarContentBuilder
+    private var runToggleItem: some ToolbarContent {
+        if editor.run.isAvailable {
+            ToolbarItem(placement: .principal) {
+                NotesRunToggle(
+                    isRun: editor.run.isOpen,
+                    showsProMark: !(pro?.isPro ?? false)
+                ) { wantsRun in
+                    if !wantsRun {
+                        withAnimation(.snappy) { editor.run.isOpen = false }
+                    } else if pro?.isPro == true {
+                        withAnimation(.snappy) { editor.run.isOpen = true; editor.run.isCollapsed = false }
+                    } else {
+                        showsRunIsPro = true
+                    }
+                }
+            }
+        }
+    }
+
+    /// The note, with the Run panel docked at its right where there is room.
+    /// The panel narrows the page's area and nothing else: the page's zoom
+    /// and place are its own.
+    private var runLayout: some View {
+        HStack(spacing: 0) {
+            content
+            if editor.run.isOpen, !isCompact {
+                RunDock(
+                    session: editor.run,
+                    transaction: { pro?.signedTransaction ?? "" },
+                    onShow: { editor.scroll(toBlock: $0) },
+                    availableWidth: windowWidth
+                )
+                .transition(.move(edge: .trailing))
+            }
+        }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { windowWidth = $0 }
+    }
+#endif
 
     /// Home beside the sidebar button; Share and ••• on the right, in the label colour, not the accent,
     /// which belongs to the tools and the page. The sidebar button on the
@@ -504,6 +561,9 @@ struct PageDetailView: View {
             DocumentTextView(
                 text: $page.content,
                 runDestination: RunDestinationPreference.resolve(
+                    page.runDestinationLevels(appDefault: appDefaultDestination)
+                ),
+                runSite: RunDestinationPreference.resolveSite(
                     page.runDestinationLevels(appDefault: appDefaultDestination)
                 ),
                 editor: editor,
@@ -722,6 +782,8 @@ struct PageDetailView: View {
             .padding(.horizontal, 8)
             .disabled(page.isTextLocked)
     }
+
+    private var runLayout: some View { content }
 #endif
 }
 

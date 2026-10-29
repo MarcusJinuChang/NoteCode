@@ -567,7 +567,7 @@ extension WritingSettings {
 
 private struct CodeSettings: View {
     @AppStorage(RunDestinationPreference.appDefaultKey)
-    private var appDefault: String = CodeDestination.default.id
+    private var appDefault: String = CodeDestination.preferredDefault().id
 
     @AppStorage(CodeKeys.enabledKey) private var codeKeys = CodeKeys.enabledByDefault
     @AppStorage(CodeIndent.widthKey) private var indentWidth = CodeIndent.defaultWidth
@@ -620,7 +620,7 @@ private struct CodeSettings: View {
     /// The built-in sites, and the custom one in use, so choosing something
     /// else doesn't make it vanish from the list.
     private var destinations: [CodeDestination] {
-        var list = CodeDestination.builtIns
+        var list = CodeDestination.choices()
         let current = RunDestinationPreference.resolve([appDefault])
         if case .custom = current { list.append(current) }
         return list

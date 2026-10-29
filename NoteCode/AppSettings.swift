@@ -111,6 +111,11 @@ nonisolated enum AppIconChoice: String, CaseIterable, Identifiable, Sendable {
 /// what build this is.
 nonisolated enum AppInfo {
 
+    /// Our run proxy (`server/run-proxy/`), which Run in the app talks to. With
+    /// `nil` Run in the app doesn't exist: no In NoteCode choice, no Pro gate on
+    /// the run button, no panel. Never a Judge0 address or key; the proxy owns those.
+    static let runService: URL? = URL(string: "https://notecode-run-proxy.changm2608.workers.dev")
+
     /// Where Send Feedback writes to. `nil` until there is an address to
     /// publish, and the row is left out until then: a mail button that opens
     /// a message to nobody is the kind of placeholder App Review rejects.
