@@ -273,7 +273,25 @@ final class NoteEditor {
         }
         canvas?.clearPaperKitSelection()
         page.selection.select(ids: inserted)
+        lastInserted = inserted
         return true
+    }
+
+    /// What the last Insert put on the page, for `reselectInserted`.
+    @ObservationIgnored private var lastInserted: Set<MarkupOrderedSet.ElementID> = []
+
+    /// Selects what the last Insert added again, if the Select tool is still
+    /// the tool and nothing is selected: the popover's dismissal and
+    /// PaperKit's own callbacks arrive after the insert returns, and the
+    /// options row must not be left without its object. Does nothing once
+    /// the reader has chosen something else.
+    func reselectInserted() {
+        guard mode == .ink, inkTool.kind == .lasso, let selection = page?.selection,
+              selection.isEmpty, !lastInserted.isEmpty
+        else { return }
+        selection.select(ids: lastInserted)
+        selection.refresh()
+        lastInserted = []
     }
 
     /// Takes in what the reader drew that is still on its way into the

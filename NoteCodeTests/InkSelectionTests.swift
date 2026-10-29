@@ -414,6 +414,84 @@ struct InkSelectionTests {
         #expect(rig.selection.ids.count == 1)
         #expect(rig.canvas.controller.selection.isEmpty, "PaperKit's own selection is let go")
     }
+
+    /// What InkInserter does for a shape: PaperKit's own delegate path, as the
+    /// popover calls it, rather than a markup assigned by hand.
+    @Test("Inserting a shape through PaperKit's own path leaves it selected, with the row's model showing")
+    func insertedShapeShowsOptions() async throws {
+        let rig = Rig()
+        let sender = MarkupEditViewController(supportedFeatureSet: .latest)
+
+        _ = rig.editor.insertIntoInk(extent: CGSize(width: 100, height: 80)) { controller in
+            controller.markupEditViewController(sender, insertNewShape: .rectangle)
+        }
+
+        var settled = false
+        let end = Date(timeIntervalSinceNow: 3)
+        while Date() < end {
+            if !rig.selection.ids.isEmpty { settled = true; break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(settled, "the inserted shape is selected")
+        // PaperKit's undo and delegate callbacks arrive after the insert
+        // returns; whatever they do must not take the selection away.
+        try? await Task.sleep(for: .milliseconds(500))
+        #expect(!rig.selection.isEmpty, "still selected once PaperKit has finished")
+        #expect(rig.editor.inkTool.kind == .lasso)
+        #expect(rig.editor.selection?.bounds != nil, "the row has a box to sit by")
+        #expect(rig.canvas.controller.selection.isEmpty)
+    }
+
+    @Test("Inserting a photo leaves it selected too")
+    func insertedPhotoShowsOptions() async throws {
+        let rig = Rig()
+        let inserter = InkInserter()
+        inserter.editor = rig.editor
+        let context = CGContext(
+            data: nil, width: 40, height: 30, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!
+        context.setFillColor(UIColor.red.cgColor)
+        context.fill(CGRect(x: 0, y: 0, width: 40, height: 30))
+
+        inserter.insert(photo: context.makeImage()!)
+
+        let end = Date(timeIntervalSinceNow: 3)
+        while rig.selection.isEmpty, Date() < end { try? await Task.sleep(for: .milliseconds(10)) }
+        #expect(!rig.selection.isEmpty, "the photo is selected")
+        #expect(rig.editor.inkTool.kind == .lasso)
+        #expect(rig.selection.bounds != nil)
+    }
+
+    @Test("A selection lost after Insert returns is given back once, and only while Select is the tool")
+    func reselectsInserted() async throws {
+        let rig = Rig()
+        let sender = MarkupEditViewController(supportedFeatureSet: .latest)
+        _ = rig.editor.insertIntoInk(extent: CGSize(width: 100, height: 80)) { controller in
+            controller.markupEditViewController(sender, insertNewShape: .rectangle)
+        }
+        rig.selection.clear()
+        #expect(rig.selection.isEmpty)
+
+        rig.editor.reselectInserted()
+        #expect(!rig.selection.isEmpty, "the row has its object back")
+
+        rig.selection.clear()
+        rig.editor.reselectInserted()
+        #expect(rig.selection.isEmpty, "only once")
+    }
+
+    @Test("Reselecting does nothing after the reader picks another tool")
+    func noReselectAfterToolChange() {
+        let rig = Rig()
+        let sender = MarkupEditViewController(supportedFeatureSet: .latest)
+        _ = rig.editor.insertIntoInk(extent: CGSize(width: 100, height: 80)) { controller in
+            controller.markupEditViewController(sender, insertNewShape: .rectangle)
+        }
+        rig.editor.inkTool.kind = .pen
+        rig.editor.reselectInserted()
+        #expect(rig.selection.isEmpty)
+    }
 }
 
 #endif
