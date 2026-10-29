@@ -89,7 +89,9 @@ nonisolated extension MarkdownFormatting {
             break
         }
 
-        for inline in block.inlines where inline.kind.isMarker {
+        // A formula's dollars are not hidden: a drawable formula is one object
+        // (`FormulaEditing`) and one that isn't shows them as typed.
+        for inline in block.inlines where inline.kind.isMarker && inline.kind.markup.map({ if case .math = $0 { true } else { false } }) != true {
             stretches.append(HiddenStretch(range: absolute(inline.range), pinsAfter: false))
         }
 

@@ -385,6 +385,38 @@ final class PrintedNote {
         return pages
     }
 
+    /// A line's formulas, drawn as vectors after the line (LaTeX, step 6,
+    /// docs/design/latex.md › PDF). The line's own draw of the attachment is
+    /// switched off first: `NSTextLineFragment.draw` is no safe way to draw
+    /// one (measured: 15 dark pixels of a fraction), and two copies would
+    /// show as a heavier formula.
+    ///
+    private func blankFormulaImages(on line: NSTextLineFragment) {
+        let string = line.attributedString
+        let range = NSIntersectionRange(line.characterRange, NSRange(location: 0, length: string.length))
+        guard range.length > 0 else { return }
+        string.enumerateAttribute(.attachment, in: range) { value, at, _ in
+            guard string.attribute(FormulaAttachment.sourceKey, at: at.location, effectiveRange: nil) != nil else { return }
+            (value as? NSTextAttachment)?.image = nil
+        }
+    }
+
+    /// - Parameter origin: the line's top left in the context.
+    private func drawFormulas(on line: NSTextLineFragment, at origin: CGPoint, in context: CGContext) {
+        let string = line.attributedString
+        let range = NSIntersectionRange(line.characterRange, NSRange(location: 0, length: string.length))
+        guard range.length > 0 else { return }
+        let padding = textView.textContainer.lineFragmentPadding
+        let room = textView.textContainer.size.width - 2 * padding
+        string.enumerateAttribute(FormulaAttachment.sourceKey, in: range) { value, at, _ in
+            guard let source = value as? FormulaAttachment.Source else { return }
+            let x = origin.x + line.locationForCharacter(at: at.location).x
+            let lift = (string.attribute(.baselineOffset, at: at.location, effectiveRange: nil) as? CGFloat) ?? 0
+            let baseline = origin.y + line.glyphOrigin.y - lift
+            FormulaAttachment.drawVector(source, at: CGPoint(x: x, y: baseline), room: source.display ? room : nil, in: context)
+        }
+    }
+
     /// Draws one sheet's text into a context whose origin is the sheet's top
     /// left, in page points.
     func draw(_ paragraphs: [Paragraph], onSheet sheet: CGRect, in context: CGContext) {
@@ -429,8 +461,10 @@ final class PrintedNote {
                 }
                 for line in paragraph.lines {
                     let bounds = line.typographicBounds
+                    blankFormulaImages(on: line)
                     line.draw(at: CGPoint(x: origin.x + bounds.minX, y: origin.y + bounds.minY), in: context)
                     code?.drawWrapMark(for: line, at: origin, in: context)
+                    drawFormulas(on: line, at: CGPoint(x: origin.x + bounds.minX, y: origin.y + bounds.minY), in: context)
                 }
                 // A checklist's box, with its item's first line. Hashes in
                 // the margin are never printed: nothing here draws them.
