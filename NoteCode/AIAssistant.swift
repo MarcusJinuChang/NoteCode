@@ -72,6 +72,10 @@ final class AIAssistant {
 
     private(set) var state = AIState.idle
 
+    /// Set when a free reader asked for an AI action: the paywall is up
+    /// instead of the sheet, and no model session was started.
+    var needsPro = false
+
     /// The run the sheet is showing; the sheet is up while this is set.
     var job: AIJob?
 
@@ -81,8 +85,13 @@ final class AIAssistant {
     /// still unwinding can't write over a newer run.
     @ObservationIgnored private var generation = 0
 
-    init(client: any TextModelClient) {
+    /// Whether the reader has Pro. The app's assistant reads `ProStatus`;
+    /// tests that aren't about the gate leave it open.
+    @ObservationIgnored let isPro: @MainActor () -> Bool
+
+    init(client: any TextModelClient, isPro: @escaping @MainActor () -> Bool = { true }) {
         self.client = client
+        self.isPro = isPro
     }
 
     var availability: AIAvailability {
@@ -100,6 +109,10 @@ final class AIAssistant {
 
     func begin(_ job: AIJob) {
         stop()
+        guard isPro() else {
+            needsPro = true
+            return
+        }
         self.job = job
 
         if case .unavailable(let reason) = availability {

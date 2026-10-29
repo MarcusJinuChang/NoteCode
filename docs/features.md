@@ -62,7 +62,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Caret on empty space | A tap below the last line adds the blank lines needed and puts the caret there, one undo step; gaps between sheets in print and compressed are not handled | built (feedback #7) | |
 | Outline and page badge | Headings list jumps to a heading; "2 / 5" shows the page | built | `navigation-and-the-text-options-row.md` |
 | Find in note | System find | built | `the-note-page.md` |
-| Summarise Note | ••• › Summarise Note: an on-device summary in a sheet (long notes in up to 4 pieces); Copy or Insert Below | built; unverified on device | `ai-features.md` |
+| Summarise Note | Pro. ••• › Summarise Note: an on-device summary in a sheet (long notes in up to 4 pieces); Copy or Insert Below | built; unverified on device | `ai-features.md` |
 | LaTeX | | planned, design note done (`docs/design/latex.md`), needs SwiftMath package added by Marcus | `latex.md` |
 | Free text boxes | PaperKit has one through Insert; a text-box tool is not designed | idea (feedback #18) | |
 
@@ -83,7 +83,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Line numbers | Setting, off by default | built | `code-languages-and-keys.md` |
 | Wrapped lines | Continue past their indentation, with a mark | built | `code-blocks-room-around-and-inside.md` |
 | Return in a block | A thin extra gap after Return was reported on 1.0 | not reproduced on `main` (feedback #14, #31); retest on the iPad | `code-blocks-room-around-and-inside.md` |
-| Explain Code | Edit menu › Explain Block, or the Explain chip in the text row, on a block: Apple's on-device model explains it in a sheet; Copy, or Insert Below as a quote or output block (undoable) | built; unverified on device | `ai-features.md` |
+| Explain Code | Pro. Edit menu › Explain Block, or the Explain chip in the text row, on a block: Apple's on-device model explains it in a sheet; Copy, or Insert Below as a quote or output block (undoable) | built; unverified on device | `ai-features.md` |
 | Running code in the app | Pro. Runner layer (R1) built: job, result, client for our proxy, Java `Main` rename, compiler-error lines, reads-input hint; no UI or proxy yet (R2–R4). Contract: `docs/design/run-proxy-contract.md` | planned | `RunServiceClient.swift`, `JavaMain.swift`, `CompilerMessages.swift`, `ReadsInput.swift` |
 
 ## 4. Drawing and ink
@@ -171,5 +171,6 @@ Sheet with General, Notes, Writing, Code, Drawing and About
 | App icon | Drawn by a script; Default, Dark, Tinted plus two alternates | built | `AGENTS.md` › Shipping |
 | Privacy | Nothing collected; manifest lists UserDefaults only | built; pages not hosted | `AGENTS.md` › Shipping |
 | Storage | SwiftData, schema version 1 frozen by hashes; falls back to memory with a warning | built | `AGENTS.md` › The model |
-| Pro status | `ProStatus`: whether the reader has Pro (`com.marcus.NoteCode.pro.monthly`, $4.99 a month), its expiry and the signed transaction for the Run proxy; purchase, Restore, Manage; `-debug-pro on\|off`. Nothing reads it yet (paywall P2, ads P3, Run R4) | built (P1) | `the-list-s-foot-and-the-tip-jar.md`, `ProStatus.swift` |
+| Pro status | `ProStatus`: whether the reader has Pro (`com.marcus.NoteCode.pro.monthly`, $4.99 a month), its expiry and the signed transaction for the Run proxy; purchase, Restore, Manage; `-debug-pro on\|off`. The AI actions read it (P2); ads P3, Run R4 will | built (P1) | `the-list-s-foot-and-the-tip-jar.md`, `ProStatus.swift` |
+| Paywall and AI gate | `PaywallView`: what Pro gives, this iPad's AI availability, price and period, Subscribe, Restore, Terms of Use, Privacy Policy (when `AppInfo.privacyPolicy` is set). A free reader's Explain or Summarise opens it instead of the sheet and starts no model session (`AIAssistant.needsPro`). Settings › Pro: status, renewal, Manage, Restore. Not yet opened from Run (R3/R4) or Remove ads (P3) | built (P2); unverified on device | `ai-features.md`, `PaywallView.swift`, `ProSettings.swift` |
 | Ads and Pro, group notes | | planned or idea (stream L) | ROADMAP |
