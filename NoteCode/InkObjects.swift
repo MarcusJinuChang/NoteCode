@@ -127,9 +127,13 @@ nonisolated enum InkCommands {
 
     /// A copy of `stroke` in another colour. Same id, so it is the same
     /// object to the canvas, to `InkCapture` and to undo.
+    ///
+    /// A pixel eraser's stroke comes back as it was: it has no colour, and
+    /// its ink isn't one `PKInk.InkType` can name (`InkContent.inkIdentifier`).
     static func recoloured(_ stroke: PKStroke, to color: UIColor) -> PKStroke {
+        guard let type = PKInk.InkType(rawValue: InkContent.inkIdentifier(of: stroke.ink)) else { return stroke }
         var copy = PKStroke(
-            ink: PKInk(stroke.ink.inkType, color: color), path: stroke.path,
+            ink: PKInk(type, color: color), path: stroke.path,
             transform: stroke.transform, mask: stroke.mask, randomSeed: stroke.randomSeed)
         copy.id = stroke.id
         return copy

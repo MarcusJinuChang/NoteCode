@@ -856,6 +856,33 @@ struct PageViewTests {
         harness.page.canvas.onMarkupChanged?()
     }
 
+    /// What PaperKit's pixel eraser adds over `stroke`: not the stroke cut
+    /// apart, but a stroke of its own in `com.apple.ink.eraser`, an ink
+    /// `PKInk.InkType` has no case for (simulator, 28 October).
+    private static func eraserStroke(over stroke: PKStroke) -> PKStroke {
+        var eraser = stroke
+        eraser.ink = PKInkReference(inkType: __PKInkType(rawValue: "com.apple.ink.eraser"), color: .clear) as PKInk
+        return eraser
+    }
+
+    @Test("A pixel erase is taken in and saved")
+    func pixelEraseIsSaved() async {
+        let harness = Harness(text: Self.severalPages)
+        var reported = 0
+        harness.page.onInkChanged = { _ in reported += 1 }
+        let drawn = Self.stroke(at: 300)
+
+        Self.draw([drawn], on: harness)
+        #expect(await Self.waitFor { reported == 1 })
+        // Taken in off the main thread, where reading the eraser's
+        // `inkType` trapped.
+        Self.draw([Self.eraserStroke(over: drawn)], on: harness)
+        #expect(await Self.waitFor { reported == 2 })
+
+        let inks = harness.page.ink.subelements.strokes.map { ($0.ink as PKInkReference).inkType.rawValue }
+        #expect(inks == [PKInk.InkType.pen.rawValue, "com.apple.ink.eraser"])
+    }
+
     /// Where a stroke shows ink: its mask's parts with area to speak of,
     /// leaving out the specks `InkPages.shown` adds to keep its frame whole.
     private static func inked(_ stroke: PKStroke) -> CGRect {

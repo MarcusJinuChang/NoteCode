@@ -169,6 +169,26 @@ struct InkObjectCommandTests {
         #expect(try #require(recoloured).strokeColor == UIColor.red.cgColor)
     }
 
+    @Test("Recolour leaves a pixel eraser's stroke erasing")
+    func recolourKeepsEraser() throws {
+        // PaperKit's pixel eraser adds a stroke in an ink `PKInk.InkType`
+        // has no case for, and the Select tool can take it with the ink.
+        var eraser = Self.stroke(from: CGPoint(x: 100, y: 100), to: CGPoint(x: 200, y: 100))
+        eraser.ink = PKInkReference(inkType: __PKInkType(rawValue: "com.apple.ink.eraser"), color: .clear) as PKInk
+        var note = PaperMarkup(bounds: CGRect(x: 0, y: 0, width: 816, height: 1056))
+        note.subelements.append(contentsOf: [eraser])
+
+        let red = InkCommands.recoloured(note, ids: [eraser.elementID], to: .red)
+
+        var found: PKStroke?
+        for element in red.subelements {
+            found = element as? PKStroke
+        }
+        let stroke = try #require(found)
+        #expect((stroke.ink as PKInkReference).inkType.rawValue == "com.apple.ink.eraser")
+        #expect(stroke.id == eraser.id)
+    }
+
     @Test("Delete takes the chosen objects and no others")
     func deleteTakes() {
         let a = Self.stroke(from: CGPoint(x: 100, y: 100), to: CGPoint(x: 200, y: 100))
