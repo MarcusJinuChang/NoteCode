@@ -14,8 +14,9 @@ Laid out from the 12 September mockup.
     button on iPad, on the split view or on the detail, so a custom ☰ sat
     beside it and was dropped rather than kept as a duplicate.
   - **Title menu** (`NoteTitleMenu`): Rename (the system's `RenameButton`,
-    disabled while the text is locked), Pin, Move to Folder, Remove from
-    Folder, Lock Text, Duplicate, Get Info, Delete. Delete asked once, in an
+    disabled while the text is locked), Pin, Move to Folder (its submenu
+    has Top Level), Get Info, Manage (Lock Text, Duplicate), Delete — six, since
+    S2 (28 Oct). Delete asked once, in an
     alert, until v3 phase 1; now it asks nothing and moves the note to
     Recently Deleted, and a toast offers Undo (see "Recently Deleted").
     `ContentView.delete` clears the selection first, as the list does, and
