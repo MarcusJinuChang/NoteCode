@@ -273,6 +273,17 @@ struct Hotbar: View {
             } label: {
                 Label("Horizontal Rule", systemImage: "minus")
             }
+            Divider()
+            Button {
+                editor.insertFormula(display: false)
+            } label: {
+                Label("Inline Formula", systemImage: "function")
+            }
+            Button {
+                editor.insertFormula(display: true)
+            } label: {
+                Label("Display Formula", systemImage: "x.squareroot")
+            }
         } label: {
             HotbarIcon(systemImage: "textformat")
         }

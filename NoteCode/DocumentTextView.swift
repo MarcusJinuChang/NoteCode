@@ -294,6 +294,8 @@ struct DocumentTextView: UIViewRepresentable {
         /// direction an arrow key walked it.
         private var lastCaret = 0
         private var isNormalizingCaret = false
+        /// The formula editor now showing (`FormulaEditor`).
+        var formulaEditor: UIViewController?
 
         /// Set while the coordinator applies an edit of its own (a Backspace
         /// at a hidden marker, a list's Return), so `shouldChangeTextIn`
@@ -820,6 +822,12 @@ struct DocumentTextView: UIViewRepresentable {
                 UIAction(title: "Heading 5") { _ in editor.setHeading(level: 5) },
                 UIAction(title: "Heading 6") { _ in editor.setHeading(level: 6) },
                 UIAction(title: "Body") { _ in editor.setHeading(level: 0) },
+                UIAction(title: "Inline Formula", image: UIImage(systemName: "function")) { _ in
+                    editor.insertFormula(display: false)
+                },
+                UIAction(title: "Display Formula", image: UIImage(systemName: "x.squareroot")) { _ in
+                    editor.insertFormula(display: true)
+                },
             ])
 
             return UIMenu(options: .displayInline, children: [inline, format])
@@ -870,12 +878,27 @@ struct DocumentTextView: UIViewRepresentable {
 
         /// The offset a caret landing on `offset` should stand at.
         func caretStop(for offset: Int, direction: Int, in textView: UITextView) -> Int {
-            MarkdownFormatting.caretStop(
+            let spans = formulaSpans(in: textView, touching: NSRange(location: offset, length: 0))
+            let inFormula = FormulaEditing.caretStop(
+                for: offset, direction: direction, spans: spans, in: textView.textStorage.mutableString
+            )
+            if inFormula != offset { return inFormula }
+            return MarkdownFormatting.caretStop(
                 for: offset,
                 direction: direction,
                 in: textView.textStorage.mutableString,
                 codeRanges: codeRanges(in: textView.textStorage)
             )
+        }
+
+        /// The formulas the note draws as attachments near `window` (LaTeX,
+        /// step 5). Nothing when the note is not rendered, or has no `$`.
+        func formulaSpans(in textView: UITextView, touching window: NSRange? = nil) -> [FormulaEditing.Span] {
+            guard rendersMarkdown else { return [] }
+            let storage = textView.textStorage
+            guard storage.mutableString.range(of: "$").location != NSNotFound else { return [] }
+            let source = storage.string.nativeUTF8
+            return FormulaEditing.spans(in: documentCache.blocks(for: source), source: source, touching: window)
         }
 
         /// Moves a collapsed caret off the inside of a hidden marker.
@@ -887,6 +910,22 @@ struct DocumentTextView: UIViewRepresentable {
         /// the stretch's stop.
         ///
         private func normalizeCaret(in textView: UITextView) {
+            // A selection with an edge inside a formula takes the formula whole.
+            if rendersMarkdown, !isNormalizingCaret, editCount == editCountAtLastSelection,
+               textView.selectedRange.length > 0, textView.markedTextRange == nil {
+                let selection = textView.selectedRange
+                let snapped = FormulaEditing.snapped(
+                    selection,
+                    spans: formulaSpans(in: textView, touching: selection),
+                    in: textView.textStorage.mutableString
+                )
+                if snapped != selection {
+                    isNormalizingCaret = true
+                    textView.selectedRange = snapped
+                    isNormalizingCaret = false
+                }
+                return
+            }
             guard rendersMarkdown, !isNormalizingCaret,
                   editCount == editCountAtLastSelection,
                   textView.selectedRange.length == 0,
@@ -973,8 +1012,15 @@ struct DocumentTextView: UIViewRepresentable {
                   replacement.isEmpty, range.length >= 1,
                   NSMaxRange(range) == textView.selectedRange.location
             else { return nil }
+            // Backspace after a formula deletes all of it: one undo step.
+            let caret = NSMaxRange(range)
+            if let edit = FormulaEditing.backspace(
+                at: caret, spans: formulaSpans(in: textView, touching: NSRange(location: caret, length: 0)), in: text
+            ) {
+                return edit
+            }
             return MarkdownFormatting.backspace(
-                at: NSMaxRange(range), in: text, codeRanges: codeRanges(in: storage)
+                at: caret, in: text, codeRanges: codeRanges(in: storage)
             )
         }
 

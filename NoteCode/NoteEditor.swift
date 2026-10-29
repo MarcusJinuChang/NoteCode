@@ -205,6 +205,10 @@ final class NoteEditor {
     /// Run or copy the code block the caret is in, if it's in one. The text
     /// view's coordinator sets these: it owns the blocks and where they run.
     @ObservationIgnored var runBlockAtCaret: (() -> Void)?
+
+    /// Opens the formula editor for a new formula, inline or display; Done
+    /// inserts it. The coordinator sets it (`FormulaEditor`).
+    @ObservationIgnored var presentNewFormula: ((_ display: Bool) -> Void)?
     @ObservationIgnored var copyBlockAtCaret: (() -> Void)?
 
     /// The on-device assistant (Explain Code, Summarise Note). One per note,
@@ -473,6 +477,12 @@ final class NoteEditor {
     /// Makes the lines at the caret a quote, or takes the quote off them.
     func toggleQuote() {
         perform { MarkdownFormatting.toggleQuote(in: $0, selection: $1) }
+    }
+
+    /// Style ▾ › Inline Formula and Display Formula.
+    func insertFormula(display: Bool) {
+        guard mode == .text, !isTextLocked else { return }
+        presentNewFormula?(display)
     }
 
     /// A horizontal rule below the caret's line.

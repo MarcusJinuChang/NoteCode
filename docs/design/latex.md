@@ -285,10 +285,41 @@ spike found no required-reason API in SwiftMath's sources).
 - Not tested against a ground truth of "the block replaced by its attachment":
   the swapped text has no trailing anchor, so it differs by that 1.71pt.
 
+## Built in step 5 (editing)
+
+- `FormulaEditing` (pure) finds the drawable formulas from the parse
+  (`FormulaValidity`, the same answer the layout swaps by) and holds the rules:
+  inside an inline formula (between its two edges) the caret has no place and
+  goes to the edge it came from, or the nearer one for a tap; both edges are
+  real places. A block's inside, and its closing line, go to its start or to
+  the start of the line below it (the closing line is 1pt high). Backspace from
+  after a formula, or inside one, deletes the whole span; from the start of the
+  line below a block it deletes the block and the break after it. A selection
+  edge inside a formula is moved outwards (`snapped`). All of it is one
+  `replace(_:withText:)`, so one undo step.
+- A formula's dollars are no longer hidden markers in `hiddenStretches`: a
+  drawable one is handled above, and an undrawable one shows them, so the caret
+  must be able to stand beside them.
+- `MarkerTapTarget.formula` (a third gesture target): an inline formula's
+  attachment (padded 4pt), or any point on a block's first line. Found in a
+  locked note too, whose editor is read-only. A hold on one does nothing.
+- `FormulaEditor` is a SwiftUI popover (a page sheet where narrow) hosted from
+  the coordinator: source in a monospaced `TextEditor`, the formula drawn live
+  from `FormulaAttachment` above it, SwiftMath's message beneath when the TeX
+  can't be drawn. Done is off while the source is empty; Remove deletes.
+  What is written is `FormulaEditing.cleaned`: an inline formula is one line
+  with no space against its dollars, a `$` is escaped to `\$` (or the formula
+  would end there), a block drops its blank lines. A formula edited to
+  something undrawable stays in the note, dimmed, to be fixed in place.
+- Style ▾ › Inline Formula / Display Formula (hotbar menu, the edit menu's
+  Format submenu, ⇧⌘M and ⌥⌘M) open the same popover empty, or seeded with the
+  selection; Done inserts. A display formula takes lines of its own. Not in a
+  code block.
+
 ## Unverified
 
 On an iPad; the view-provider variant; display-block look on a real page (heights, centring and the ink's position are tested in the simulator); sharpness at zoom; the 1.1 scale by eye;
 `NSTextLineFragment.draw` with a formula in the PDF (the vector draw into a PDF
-context ran and wrote 88KB, but the page wasn't looked at); a real tap;
+context ran and wrote 88KB, but the page wasn't looked at); a real tap and the popover's arrow, size and keyboard;
 VoiceOver (label the attachment with its source); the built app's size with
 the font bundle.
