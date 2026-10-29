@@ -240,6 +240,9 @@ struct PageDetailView: View {
         )) { job in
             AIResultSheet(editor: editor, job: job)
         }
+        .sheet(isPresented: Binding(get: { editor.ai.needsPro }, set: { editor.ai.needsPro = $0 })) {
+            PaywallView(reason: "Explain Code and Summarise Note are part of NoteCode Pro.")
+        }
         .onChange(of: aiSettings, initial: true) { _, settings in
             settings.apply(to: editor.ai)
         }

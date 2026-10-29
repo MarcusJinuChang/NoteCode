@@ -128,6 +128,7 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
     /// The tip jar with stand-in tips, so its row and sheet can be looked at
     /// without the products in App Store Connect (`DebugTipStore`).
     var tipJar = false
+    var paywall = false
     /// Pro on or off, with nothing asked of StoreKit (`DebugProStore`).
     var pro: Bool?
 
@@ -137,7 +138,7 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
 
     var isActive: Bool {
         note != nil || mode != nil || orientation != nil || paper != nil || textSize != nil || page != nil || thenMode != nil
-            || writesReport || firstLaunch || home || tipJar || pro != nil
+            || writesReport || firstLaunch || home || tipJar || paywall || pro != nil
     }
 
     static let current = parse(ProcessInfo.processInfo.arguments)
@@ -226,6 +227,8 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
                 options.keepsDefaults = true
             case "-debug-tip-jar":
                 options.tipJar = true
+            case "-debug-paywall":
+                options.paywall = true
             case "-debug-pro":
                 if let raw = value(for: flag) {
                     switch raw {

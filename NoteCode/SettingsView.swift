@@ -215,6 +215,11 @@ struct SettingsView: View {
                     Label("General", systemImage: "gearshape")
                 }
                 NavigationLink {
+                    ProSettings()
+                } label: {
+                    Label("Pro", systemImage: "star")
+                }
+                NavigationLink {
                     NotesSettings(onExportFinished: { count in
                         dismiss()
                         onExportFinished(count)
