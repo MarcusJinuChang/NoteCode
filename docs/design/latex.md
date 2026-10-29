@@ -335,6 +335,30 @@ spike found no required-reason API in SwiftMath's sources).
   formula note stays small, the thumbnail version.
 - Not looked at by eye: the page in a PDF viewer.
 
+## Built in step 7 (info, outline, copy, paste)
+
+- **Get Info**: `NoteInfo` skips a `$$` block whole and any word inside an
+  inline formula (dollar to dollar, found from the parse's math markers, as
+  colour tags already are). An escaped `\$5` is prose and counts.
+- **Outline**: needed no change. A title is the unmarked inline text, so a
+  formula's dollars were already dropped; tests keep it so, and keep a `#` line
+  inside a `$$` block out of the outline.
+- **Copy** (`RichCopy`): a line in a `$$` block (found by parsing the note, and
+  only when it holds `$$`) is copied whole in Menlo; in a prose line each
+  inline formula is copied from its opening dollar to its closing one in Menlo,
+  since the glyphs hold only the TeX. The plain text and the app's own Markdown
+  type are untouched.
+- **Paste** (`RichPaste.escapingAccidentalMath`): on the written Markdown, the
+  dollars the parser reads as math markers are escaped to `\$`, back to front.
+  Escaped dollars and dollars in code are not markers, so they stay. It runs on
+  the whole paste, so the lines of a pasted `$$` block are escaped together. The
+  note around the paste isn't consulted (a pasted lone `$` beside a `$` already
+  on the line can still pair); the rule applies only to rich pastes, as plain
+  ones go to the text view. A line whose pasted dollars would pair is also a
+  line that doesn't read back through `StyledLine`, so it is written plain and
+  loses its bold and links; the dollars are escaped all the same.
+- Not looked at on an iPad: RTF opened in Pages or Mail.
+
 ## Unverified
 
 On an iPad; the view-provider variant; display-block look on a real page (heights, centring and the ink's position are tested in the simulator); sharpness at zoom; the 1.1 scale by eye;

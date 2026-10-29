@@ -83,10 +83,36 @@ nonisolated enum RichPaste {
         for glyph in glyphs {
             if glyph.text == "\n" { lines.append([]) } else { lines[lines.count - 1].append(glyph) }
         }
-        let written = lines.enumerated().map { index, line in
+        let written = escapingAccidentalMath(in: lines.enumerated().map { index, line in
             self.line(line, body: body, listMarkerAllowed: index > 0 || atLineStart)
-        }.joined(separator: "\n")
+        }.joined(separator: "\n"))
         return written == glyphs.map(\.text).joined() ? nil : written
+    }
+
+    /// `markdown` with the dollars that would make a formula the source never
+    /// had written as `\$`: "$a+1$" pasted into a note would draw
+    /// "a+1" as TeX. A `$` that is already escaped, or in code, isn't a
+    /// formula to the parser and is left as it is; so is a text with no `$`.
+    static func escapingAccidentalMath(in markdown: String) -> String {
+        guard markdown.contains("$") else { return markdown }
+        var markers: [Range<String.Index>] = []
+        for block in DocumentParser.parse(markdown) {
+            if let math = block.mathBlock {
+                markers += [math.openingRange, math.closingRange]
+            }
+            for node in block.inlines {
+                if case .math? = node.kind.markup { markers.append(node.range) }
+            }
+        }
+        guard !markers.isEmpty else { return markdown }
+        // Back to front, so an insertion doesn't move the ones still to do.
+        var written = markdown
+        for marker in markers.sorted(by: { $0.lowerBound > $1.lowerBound }) {
+            for index in written[marker].indices.reversed() where written[index] == "$" {
+                written.insert("\\", at: index)
+            }
+        }
+        return written
     }
 
     // MARK: Glyphs
