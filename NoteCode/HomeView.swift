@@ -64,6 +64,7 @@ struct HomeView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(ProStatus.self) private var pro: ProStatus?
 
     /// An iPhone or a folded Duo: one hand's width, so cards are smaller and
     /// the grids have two columns.
@@ -86,6 +87,8 @@ struct HomeView: View {
                 populated(sections)
             }
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) { AdSlot(placement: .home) }
+        .task { await AdConsent.shared.homeAppeared(isPro: pro?.isPro ?? true) }
         .coordinateSpace(.named("home"))
         .onGeometryChange(for: CGSize.self) { $0.size } action: { homeSize = $0 }
         .navigationTitle("Home")

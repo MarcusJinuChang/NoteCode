@@ -19,9 +19,15 @@ struct ListFoot: View {
     /// The tip jar, or `nil` where there is none (previews, tests).
     var tipJar: TipJar?
     var onOpenTipJar: () -> Void
+    @Environment(ProStatus.self) private var pro: ProStatus?
+    @State private var consent = AdConsent.shared
 
     var body: some View {
         Section {
+            // Guarded here too: an empty AdSlot would still be a blank row.
+            if adBannerShows(isPro: pro?.isPro ?? true, canRequestAds: consent.canRequestAds) {
+                AdSlot(placement: .list)
+            }
             if let tipJar, tipJar.isAvailable {
                 Button(action: onOpenTipJar) {
                     Label("Tip Jar", systemImage: "heart")

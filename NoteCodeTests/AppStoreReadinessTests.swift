@@ -14,13 +14,22 @@ import Testing
 @Suite("Ready for the App Store")
 struct AppStoreReadinessTests {
 
-    @Test("The privacy manifest ships in the app, tracking and collecting nothing")
+    @Test("The privacy manifest ships in the app and declares what the ad SDK tracks")
     func privacyManifest() throws {
         let manifest = try Self.privacyManifest()
 
-        #expect(manifest["NSPrivacyTracking"] as? Bool == false)
-        #expect((manifest["NSPrivacyTrackingDomains"] as? [Any])?.isEmpty == true)
-        #expect((manifest["NSPrivacyCollectedDataTypes"] as? [Any])?.isEmpty == true)
+        // Ads (P3): tracking is on, with the domains Google's SDK contacts,
+        // and every collected type is for third-party advertising, unlinked
+        // from the reader. Notes are never among them.
+        #expect(manifest["NSPrivacyTracking"] as? Bool == true)
+        let domains = try #require(manifest["NSPrivacyTrackingDomains"] as? [String])
+        #expect(domains.contains("doubleclick.net") && domains.contains("googlesyndication.com"))
+        let collected = try #require(manifest["NSPrivacyCollectedDataTypes"] as? [[String: Any]])
+        #expect(!collected.isEmpty)
+        for item in collected {
+            #expect(item["NSPrivacyCollectedDataTypeLinked"] as? Bool == false)
+            #expect(item["NSPrivacyCollectedDataTypePurposes"] as? [String] == ["NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising"])
+        }
     }
 
     @Test("The manifest gives the app's own settings as its reason to read UserDefaults")
