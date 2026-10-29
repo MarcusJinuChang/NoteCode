@@ -89,3 +89,20 @@ What an upload checks before a person sees the app (4 Oct).
     from the script's geometry), and the icon on a real Home Screen with
     Increase Contrast or a tint colour (the system composes both).
 
+
+## Ads (P3)
+
+Banners only, for readers without Pro (`AdBanner.swift`, `AdConfig.swift`,
+`AdConsent.swift`). Release uses the real app and unit ids, every other build
+Google's test ids (`AdConfig.units(forRelease:)`, pinned in `AdTests`).
+`Info.plist` carries `GADApplicationIdentifier`, the ATT reason and Google's
+`SKAdNetworkItems` (50 ids as of 28 Oct 2026; refresh when the SDK is updated).
+
+- **Order**: Home's first visit runs the UMP consent flow, then starts the SDK;
+  no ad is requested before. The ATT prompt is asked from the second Home visit
+  on, never at launch. Without ATT consent the request carries `npa=1`.
+- **Privacy manifest**: `NSPrivacyTracking` is true, with Google's tracking
+  domains and data types, all for third-party advertising and unlinked from
+  the reader. `AppStoreReadinessTests` pins this.
+- **Age rating**: if asked, the app contains ads; general-audience AdMob
+  banners, not aimed at children.
