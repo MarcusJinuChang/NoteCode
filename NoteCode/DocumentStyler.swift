@@ -302,9 +302,8 @@ enum DocumentStyler {
                     styled.addAttribute(.foregroundColor, value: markerColor, range: marker)
                 }
 
-            case .math:
-                // Plain prose until formulas are drawn (LaTeX step 4).
-                break
+            case .math(let math):
+                styleDisplayFormula(layout, math: math, source: source, typography: typography, to: styled)
 
             case .rule:
                 // An ordinary line of text with its dashes hidden; its
@@ -636,6 +635,34 @@ enum DocumentStyler {
     /// dollars and all, in `secondaryLabel`, so it reads as TeX that didn't
     /// take rather than as prose. The layout leaves its dollars showing too
     /// (`MarkdownLayout.formulaRun`), so the two agree.
+    /// A `$$` block. Drawable: its first line takes the formula's height
+    /// (fixed, centred) and its source lines one point each, so the block
+    /// takes the room of the formula and no more. Not drawable: prose, dimmed.
+    private static func styleDisplayFormula(_ layout: BlockLayout, math: MathBlock, source: String, typography: NoteTypography, to storage: NSMutableAttributedString) {
+        guard let tex = FormulaValidity.check(String(source[math.contentRange])).tex,
+              let height = DisplayFormula.paragraphHeight(tex: tex, font: typography.prose)
+        else {
+            storage.addAttribute(.foregroundColor, value: UIColor.secondaryLabel, range: layout.range)
+            return
+        }
+        let text = source as NSString
+        var location = layout.range.location
+        let end = NSMaxRange(layout.range)
+        var first = true
+        while location < end {
+            var lineEnd = location
+            while lineEnd < end, text.character(at: lineEnd) != 0x0A { lineEnd += 1 }
+            let range = NSRange(location: location, length: min(lineEnd + 1, end) - location)
+            let style = NSMutableParagraphStyle()
+            style.minimumLineHeight = first ? height : DisplayFormula.sourceLineHeight
+            style.maximumLineHeight = style.minimumLineHeight
+            style.alignment = first ? .center : .left
+            storage.addAttribute(.paragraphStyle, value: style, range: range)
+            first = false
+            location = lineEnd + 1
+        }
+    }
+
     private static func dimUndrawableFormulas(in layout: BlockLayout, source: String, to storage: NSMutableAttributedString) {
         let inlines = layout.inlines
         guard inlines.count == layout.block.inlines.count else { return }

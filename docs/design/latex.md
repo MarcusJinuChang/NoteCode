@@ -262,10 +262,32 @@ spike found no required-reason API in SwiftMath's sources).
 - Bitmap scale is fixed at 3, not the page's zoom: sharpness at zoom is still
   unverified.
 
+## Built in step 4 (display blocks)
+
+- `MarkdownLayout.Run.Kind.displayFormula(tex:)` is a `$$` block's first line
+  (all of it, `$$ x $$` included); every other non-empty line of the block is
+  `.joiners`. An undrawable or blank block gets no runs and the styler dims it
+  (`DocumentStyler.styleDisplayFormula`).
+- **The opening-line height, resolved** (probes, 29 Oct, simulator, 17pt): the
+  `NSTextAttachment` line did grow-and-not-clamp because the attachment *hung
+  below the baseline* (`bounds.y = -descent`): a fixed line holding one came
+  out taller than asked by about its descent less the font's (a sum over a
+  fraction asked 50 gave 66.3), whatever the baseline offset. With the
+  attachment sitting on the baseline (`make(fitting:)`: `bounds.y = 0`, its
+  descent part of its height) the line is exactly the height asked plus a
+  constant 1.71pt TextKit adds to every fixed line, which `DisplayFormula.slack`
+  takes off. The formula is raised by `gap - font descent - slack` so its bottom
+  is 8pt above the line's end; the ink then has equal white above and below
+  (`DisplayFormulaTests.inkInLine`, three formulas).
+- Source lines are `min = max = 1` and measure 2.71pt (the same constant).
+- Centring is the paragraph style's `.center`; a formula wider than the column
+  is scaled down by `FittingAttachment.attachmentBounds` (no floor).
+- Not tested against a ground truth of "the block replaced by its attachment":
+  the swapped text has no trailing anchor, so it differs by that 1.71pt.
+
 ## Unverified
 
-On an iPad; the view-provider variant; display-block heights and centring
-(see above, failed in the probe); sharpness at zoom; the 1.1 scale by eye;
+On an iPad; the view-provider variant; display-block look on a real page (heights, centring and the ink's position are tested in the simulator); sharpness at zoom; the 1.1 scale by eye;
 `NSTextLineFragment.draw` with a formula in the PDF (the vector draw into a PDF
 context ran and wrote 88KB, but the page wasn't looked at); a real tap;
 VoiceOver (label the attachment with its source); the built app's size with

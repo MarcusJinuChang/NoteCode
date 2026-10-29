@@ -45,6 +45,10 @@ enum MarkdownLayout {
         /// (`$$x$$` in a line), and how many units the opening marker takes,
         /// so the TeX's own attributes (colour, size) can be found.
         case formula(tex: String, display: Bool, opening: Int)
+        /// The first line of a `$$` block: the whole line is the formula's
+        /// attachment, centred on a line of its own (`DisplayFormula`). The
+        /// block's other lines are `.joiners`.
+        case displayFormula(tex: String)
     }
 
     /// U+FFFC, which the text view draws as the formula's attachment.
@@ -60,7 +64,7 @@ enum MarkdownLayout {
             case .joiners: String(repeating: joiner, count: range.length)
             case .bullet:  String(bullet)
             case .box:     String(box) + String(repeating: joiner, count: max(range.length - 1, 0))
-            case .formula: String(attachmentCharacter) + String(repeating: joiner, count: max(range.length - 1, 0))
+            case .formula, .displayFormula: String(attachmentCharacter) + String(repeating: joiner, count: max(range.length - 1, 0))
             }
         }
     }
@@ -77,9 +81,11 @@ enum MarkdownLayout {
         var runs: [Run] = []
         for layout in layouts {
             switch layout.block.kind {
-            case .code, .math:
-                // A display block's source is shown as typed until its
-                // formulas are drawn (LaTeX step 4).
+            case .code:
+                continue
+
+            case .math(let math):
+                runs += displayRuns(of: layout, math: math, in: source)
                 continue
 
             case .paragraph:
@@ -113,6 +119,31 @@ enum MarkdownLayout {
                 }
                 index += 1
             }
+        }
+        return runs
+    }
+
+    /// A `$$` block drawable as a formula: its first line becomes the
+    /// attachment and every other non-empty line collapses to joiners (their
+    /// height is the styler's, `DisplayFormula.sourceLineHeight`). An
+    /// undrawable block keeps its source, dimmed by the styler.
+    static func displayRuns(of layout: DocumentStyler.BlockLayout, math: MathBlock, in source: String) -> [Run] {
+        guard let tex = FormulaValidity.check(String(source[math.contentRange])).tex else { return [] }
+        var runs: [Run] = []
+        let text = source as NSString
+        var location = layout.range.location
+        let end = NSMaxRange(layout.range)
+        while location < end {
+            var lineEnd = location
+            while lineEnd < end, text.character(at: lineEnd) != 0x0A { lineEnd += 1 }
+            let length = lineEnd - location
+            if length > 0 {
+                let range = NSRange(location: location, length: length)
+                runs.append(Run(range: range, kind: runs.isEmpty ? .displayFormula(tex: tex) : .joiners))
+            } else if runs.isEmpty {
+                return []
+            }
+            location = lineEnd + 1
         }
         return runs
     }
@@ -195,6 +226,18 @@ enum MarkdownLayout {
                 text.setAttributes(attributes, range: local)
                 if let attachment = FormulaAttachment.make(tex: tex, pointSize: size, display: display) {
                     text.addAttribute(.attachment, value: attachment, range: NSRange(location: local.location, length: 1))
+                }
+                continue
+            }
+            if case .displayFormula(let tex) = run.kind {
+                let attributes = text.attributes(at: local.location, effectiveRange: nil)
+                let font = attributes[.font] as? UIFont
+                text.mutableString.replaceCharacters(in: local, with: run.replacement)
+                text.setAttributes(attributes, range: local)
+                if let attachment = FormulaAttachment.make(tex: tex, pointSize: font?.pointSize ?? 17, display: true, fitting: true) {
+                    text.addAttribute(.attachment, value: attachment, range: NSRange(location: local.location, length: 1))
+                    let lift = DisplayFormula.baselineLift(tex: tex, font: font ?? .preferredFont(forTextStyle: .body))
+                    text.addAttribute(.baselineOffset, value: lift, range: NSRange(location: local.location, length: 1))
                 }
                 continue
             }

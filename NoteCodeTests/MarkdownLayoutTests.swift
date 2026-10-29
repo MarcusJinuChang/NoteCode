@@ -47,7 +47,7 @@ struct MarkdownLayoutTests {
             case .box:
                 // The box keeps one unit, the em space it is drawn in.
                 text.replaceCharacters(in: run.range, with: String(MarkdownLayout.box))
-            case .formula:
+            case .formula, .displayFormula:
                 // A formula keeps its one attachment character.
                 text.replaceCharacters(in: run.range, with: String(MarkdownLayout.attachmentCharacter))
             }
@@ -185,7 +185,7 @@ struct MarkdownLayoutTests {
             case .joiners: hidden.formUnion(run.range.location..<NSMaxRange(run.range))
             case .box:     hidden.formUnion(run.range.location + 1..<NSMaxRange(run.range))
             case .bullet:  break
-            case .formula: hidden.formUnion(run.range.location + 1..<NSMaxRange(run.range))
+            case .formula, .displayFormula: hidden.formUnion(run.range.location + 1..<NSMaxRange(run.range))
             }
         }
 

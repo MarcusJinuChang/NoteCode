@@ -48,28 +48,30 @@ enum FormulaAttachment {
 
     /// The attachment for `tex` (already through `TeXAliases`) at the text's
     /// `pointSize`, or nil when SwiftMath can't typeset it.
-    static func make(tex: String, pointSize: CGFloat, display: Bool) -> NSTextAttachment? {
+    private static func drawn(tex: String, pointSize: CGFloat, display: Bool) -> Drawn? {
         let key = Key(tex: tex, points: pointSize, display: display)
-        let drawn: Drawn
-        if let cached = cache[key] {
-            drawn = cached
-        } else {
-            guard let fresh = render(tex: tex, pointSize: pointSize * sizeScale, display: display) else { return nil }
-            if cache.count >= cacheLimit { cache.removeAll(keepingCapacity: true) }
-            cache[key] = fresh
-            drawn = fresh
-        }
-        let attachment = NSTextAttachment()
+        if let cached = cache[key] { return cached }
+        guard let fresh = render(tex: tex, pointSize: pointSize * sizeScale, display: display) else { return nil }
+        if cache.count >= cacheLimit { cache.removeAll(keepingCapacity: true) }
+        cache[key] = fresh
+        return fresh
+    }
+
+    /// `fitting` is for a display block, whose formula scales down to the
+    /// column rather than running off it (`FittingAttachment`).
+    static func make(tex: String, pointSize: CGFloat, display: Bool, fitting: Bool = false) -> NSTextAttachment? {
+        guard let drawn = drawn(tex: tex, pointSize: pointSize, display: display) else { return nil }
+        let attachment = fitting ? FittingAttachment() : NSTextAttachment()
         attachment.image = drawn.image
         // The attachment sits on the baseline; a descender hangs below it by
         // the formula's descent (measured within 0.5pt, latex.md › Drawing).
-        attachment.bounds = CGRect(x: 0, y: -drawn.metrics.descent, width: drawn.metrics.width, height: drawn.metrics.ascent + drawn.metrics.descent)
+        attachment.bounds = CGRect(x: 0, y: fitting ? 0 : -drawn.metrics.descent, width: drawn.metrics.width, height: drawn.metrics.ascent + drawn.metrics.descent)
         return attachment
     }
 
     /// Metrics only, for tests.
     static func metrics(tex: String, pointSize: CGFloat, display: Bool) -> Metrics? {
-        render(tex: tex, pointSize: pointSize * sizeScale, display: display)?.metrics
+        drawn(tex: tex, pointSize: pointSize, display: display)?.metrics
     }
 
     private static func render(tex: String, pointSize: CGFloat, display: Bool) -> Drawn? {
@@ -100,6 +102,65 @@ enum FormulaAttachment {
             label.layer.render(in: context.cgContext)
         }.withRenderingMode(.alwaysTemplate)
         return Drawn(image: image, metrics: metrics)
+    }
+}
+
+/// A display block's formula: the same image, scaled down when it is wider
+/// than the line it lands on (the text container's width is pinned per note,
+/// so the answer depends on the note alone). No floor.
+final class FittingAttachment: NSTextAttachment {
+    override func attachmentBounds(
+        for attributes: [NSAttributedString.Key: Any],
+        location: any NSTextLocation,
+        textContainer: NSTextContainer?,
+        proposedLineFragment: CGRect,
+        position: CGPoint
+    ) -> CGRect {
+        let natural = bounds
+        let room = proposedLineFragment.width
+        guard natural.width > room, room > 0 else { return natural }
+        let scale = room / natural.width
+        return CGRect(x: 0, y: natural.minY * scale, width: natural.width * scale, height: natural.height * scale)
+    }
+}
+
+/// How much room a display formula takes, and where it sits in it.
+/// A fixed height on the opening line (the code fences' header does the same,
+/// latex.md › Drawing), because TextKit would not grow the line to the
+/// attachment's bounds in the probe.
+enum DisplayFormula {
+    /// Space above and below the formula.
+    static let gap: CGFloat = 8
+    /// The `$$` block's other lines: the smallest height TextKit keeps.
+    static let sourceLineHeight: CGFloat = 1
+
+    /// The formula's own room: its height and the gap above and below.
+    static func lineHeight(tex: String, pointSize: CGFloat) -> CGFloat? {
+        guard let m = FormulaAttachment.metrics(tex: tex, pointSize: pointSize, display: true) else { return nil }
+        return (m.ascent + m.descent + 2 * gap).rounded(.up)
+    }
+
+    /// The fixed height to ask TextKit for. Measured (29 Oct, probes at 17pt):
+    /// a line holding an attachment that hangs below the baseline comes out
+    /// taller than the height asked for, by about the attachment's descent less
+    /// the font's, whatever the baseline offset (a sum over a fraction asked
+    /// 50 gave 66.3). So a display formula's attachment sits *on* the baseline
+    /// (`make(fitting:)`: its descent is part of its height) and is raised by
+    /// `baselineLift` instead.
+    static func paragraphHeight(tex: String, font: UIFont) -> CGFloat? {
+        lineHeight(tex: tex, pointSize: font.pointSize).map { $0 - slack }
+    }
+
+    /// What TextKit adds to every fixed-height line (measured: a line asked for
+    /// 1pt is 2.71pt, one asked for H - 1.71 is H), at 17pt.
+    static let slack: CGFloat = 1.7129
+
+    /// Below the baseline the line has the font's descent and the slack; the
+    /// attachment is raised by the gap less that, so its bottom is `gap` above
+    /// the line's end.
+
+    static func baselineLift(tex: String, font: UIFont) -> CGFloat {
+        gap - CodeBlockRoom.descent(of: font) - slack
     }
 }
 

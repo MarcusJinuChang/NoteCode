@@ -44,6 +44,16 @@ struct FormulaLayoutTests {
                 text.replaceCharacters(in: run.range, with: String(MarkdownLayout.bullet))
             case .box:
                 text.replaceCharacters(in: run.range, with: String(MarkdownLayout.box))
+            case .displayFormula(let tex):
+                let attributes = storage.attributes(at: run.range.location, effectiveRange: nil)
+                let size = (attributes[.font] as? UIFont)?.pointSize ?? 17
+                let replacement = NSMutableAttributedString(string: String(MarkdownLayout.attachmentCharacter), attributes: attributes)
+                if let attachment = FormulaAttachment.make(tex: tex, pointSize: size, display: true, fitting: true) {
+                    replacement.addAttribute(.attachment, value: attachment, range: NSRange(location: 0, length: 1))
+                    let font = attributes[.font] as? UIFont ?? .preferredFont(forTextStyle: .body)
+                    replacement.addAttribute(.baselineOffset, value: DisplayFormula.baselineLift(tex: tex, font: font), range: NSRange(location: 0, length: 1))
+                }
+                text.replaceCharacters(in: run.range, with: replacement)
             case .formula(let tex, let display, let opening):
                 let attributes = storage.attributes(at: run.range.location + opening, effectiveRange: nil)
                 let size = (attributes[.font] as? UIFont)?.pointSize ?? 17
