@@ -51,8 +51,7 @@ struct RunPanel: View {
                             .font(.subheadline.weight(isChosen ? .semibold : .regular))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .foregroundStyle(isChosen ? Color.white : Color.primary)
-                            .background(isChosen ? Color.accentColor : Color(.tertiarySystemFill), in: Capsule())
+                            .chipFill(isChosen, in: Capsule())
                     }
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(isChosen ? .isSelected : [])
@@ -420,10 +419,10 @@ struct NotesRunToggle: View {
                 Text(title).font(.subheadline.weight(.medium))
                 if mark {
                     Text("PRO")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.caption2.weight(.bold))
                         .padding(.horizontal, 4).padding(.vertical, 1)
-                        .background(Color.accentColor, in: Capsule())
-                        .foregroundStyle(.white)
+                        .accentFill(in: Capsule())
+                        .accessibilityHidden(true)
                 }
             }
             .padding(.horizontal, 14)
@@ -432,14 +431,36 @@ struct NotesRunToggle: View {
             .foregroundStyle(.primary)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(mark ? "\(title), part of Pro" : title)
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+/// The block strip's chip: the accent when chosen (the same fill as Home's
+/// buttons, so the accent setting reaches it), a quiet fill otherwise.
+private struct ChipFill<S: Shape>: ViewModifier {
+    let chosen: Bool
+    let shape: S
+
+    func body(content: Content) -> some View {
+        if chosen {
+            content.accentFill(in: shape)
+        } else {
+            content.foregroundStyle(.primary).background(Color(.tertiarySystemFill), in: shape)
+        }
+    }
+}
+
+private extension View {
+    func chipFill<S: Shape>(_ chosen: Bool, in shape: S) -> some View {
+        modifier(ChipFill(chosen: chosen, shape: shape))
     }
 }
 
 // MARK: - The host
 
 /// What a note window adds for Run: the runner, the bottom sheet in a compact
-/// width, the free reader's alert, and the debug stub's autorun.
+/// width, the free reader's paywall, and the debug stub's autorun.
 struct RunPanelHost: ViewModifier {
     var editor: NoteEditor
     var isCompact: Bool
@@ -471,10 +492,8 @@ struct RunPanelHost: ViewModifier {
                     .presentationDetents([.medium, .large])
                     .presentationBackgroundInteraction(.enabled(upThrough: .medium))
             }
-            .alert("Run is part of NoteCode Pro", isPresented: $showsRunIsPro) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text("Run your code in the app with NoteCode Pro. Copy stays free.")
+            .sheet(isPresented: $showsRunIsPro) {
+                PaywallView(reason: "Run in the app is part of NoteCode Pro.")
             }
     }
 }
