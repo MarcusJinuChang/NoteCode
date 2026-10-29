@@ -370,7 +370,6 @@ struct TextSizeEditorTests {
         #expect(harness.committed.isEmpty, "…and the note catches up after the pause")
         await harness.wait()
         #expect(harness.committed == [19])
-        #expect(harness.editor.sizeAwaitingConfirmation == nil)
     }
 
     @Test("A run of picks lays the note out once, at the last size")
@@ -401,49 +400,49 @@ struct TextSizeEditorTests {
         #expect(harness.committed.first == .some(nil), "17 is nil in the model: \(harness.committed)")
     }
 
-    @Test("A note with ink asks first, and changes only on Change")
-    func inkAsks() async {
+    @Test("A note with ink changes the same way, with no question")
+    func inkChangesAtOnce() async {
         let harness = Harness(withInk: true)
         harness.editor.setTextSize(19)
         await harness.wait()
 
-        #expect(harness.editor.sizeAwaitingConfirmation == 19)
-        #expect(harness.committed.isEmpty, "nothing changes until the reader says so")
-
-        harness.editor.confirmTextSize()
         #expect(harness.committed == [19])
-        #expect(harness.editor.sizeAwaitingConfirmation == nil)
         #expect(harness.editor.textSize == 19)
-    }
 
-    @Test("Cancel puts the stepper back at the note's size")
-    func inkCancel() async {
-        let harness = Harness(withInk: true)
-        harness.editor.syncTextSize(to: 16)
-        harness.editor.setTextSize(17)
-        await harness.wait()
-        #expect(harness.editor.sizeAwaitingConfirmation == 17)
-
-        harness.editor.cancelTextSize()
-
-        #expect(harness.editor.textSize == 16)
-        #expect(harness.editor.sizeAwaitingConfirmation == nil)
-        #expect(harness.committed.isEmpty)
-    }
-
-    @Test("Once answered, the question isn't asked again for that note")
-    func askedOncePerOpening() async {
-        let harness = Harness(withInk: true)
-        harness.editor.setTextSize(19)
-        await harness.wait()
-        harness.editor.confirmTextSize()
         harness.editor.syncTextSize(to: 19)
-
         harness.editor.setTextSize(21)
         await harness.wait()
-
-        #expect(harness.editor.sizeAwaitingConfirmation == nil)
         #expect(harness.committed == [19, 21])
+    }
+
+    @Test("A size change is one undo step, and redo brings it back")
+    func sizeUndoes() async {
+        let harness = Harness(withInk: true)
+        harness.window.makeKeyAndVisible()
+        harness.textView.becomeFirstResponder()
+        harness.editor.setTextSize(21)
+        await harness.wait()
+        #expect(harness.committed == [21])
+
+        let undo = harness.textView.undoManager
+        #expect(undo?.canUndo == true)
+        undo?.undo()
+        #expect(harness.committed == [21, nil] as [Int?], "undo goes back to 17, stored as nothing: \(harness.committed)")
+        #expect(harness.editor.textSize == 17 && harness.editor.appliedTextSize == 17)
+        undo?.redo()
+        #expect(harness.committed.last == 21 && harness.editor.appliedTextSize == 21)
+    }
+
+    @Test("A line spacing change is one undo step")
+    func spacingUndoes() {
+        let harness = Harness(withInk: false)
+        var committed: [Int?] = []
+        harness.editor.commitLineSpacing = { committed.append($0) }
+        harness.editor.setLineSpacing(6)
+        harness.textView.undoManager?.undo()
+        #expect(committed == [6, nil] as [Int?] && harness.editor.appliedLineSpacing == 0)
+        harness.textView.undoManager?.redo()
+        #expect(committed.last == 6 && harness.editor.appliedLineSpacing == 6)
     }
 
     @Test("A locked note's text size can't be changed")
