@@ -49,9 +49,9 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Inline marks | Bold, italic, strikethrough, underline, inline code, highlight (six colours); applied per character; the bar lights the state at the caret | built | `formatting-per-character.md`, `obsidian-s-other-marks-and-blocks.md` |
 | Typing style | A press with a caret sets what the next characters will be | built | `typing-style.md` |
 | Nested formatting | A real parser, not spans; bold inside colour inside italic | built | `inline-nesting.md` |
-| Text colour | Colour menu in the text options row, written as an Obsidian-compatible span | built | `coloured-and-sized-text.md` |
+| Text colour | Row of swatches (and a Default ring) in the text options row, written as an Obsidian-compatible span | built | `coloured-and-sized-text.md` |
 | Text size | Seven steps (14 to 23) plus any size per run with `+` and `−` | built | `coloured-and-sized-text.md`, `navigation-and-the-text-options-row.md` |
-| Line spacing presets (pt) | Menu in the text row: Default, +2, +4, +6, +8, +12 pt; line height only; stored per note (`Page.lineSpacing`, so ModelFreezeTests' hash changed) | built (feedback #2) | `navigation-and-the-text-options-row.md` |
+| Line spacing presets (pt) | Under More in the text row: Default, +2, +4, +6, +8, +12 pt; line height only; stored per note (`Page.lineSpacing`, so ModelFreezeTests' hash changed) | built (feedback #2) | `navigation-and-the-text-options-row.md` |
 | Lists | Bulleted, numbered, checklist; Return continues, Tab and Shift-Tab indent, Backspace unwinds | built | `writing-hidden-…md` |
 | Checklists | `- [ ]` boxes you tap | built | `MarkerTaps.swift` |
 | Links | Markdown links, tappable | built | `writing-hidden-…md` |
@@ -128,7 +128,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 |---|---|---|---|
 | Header | Home, list, editable title with menu, Share, ••• | built | `the-note-page.md` |
 | Hotbar | Docks left, bottom or right; undo, redo, text/draw toggle, then the mode's tools | built | `the-note-page.md` |
-| Options rows | Text row (size, colour, and so on) and ink row (palette, widths, eraser mode) beside the bar | built | `navigation-and-the-text-options-row.md` |
+| Options rows | Text row (B/I/U/S, colour swatches, highlight, size, More; opaque, no glass) and ink row (palette, widths, eraser mode) beside the bar | built | `navigation-and-the-text-options-row.md` |
 | Settings inside a note | Settings at the foot of the note's ••• menu | built (feedback #11) | |
 | Keyboard shortcuts | One table: formatting, headings, tools, view modes, run and copy block, find, print, new note and folder, home, settings | built; unchecked with a real keyboard | `keyboard-edit-menu-…md` |
 | Edit menu | Format entries on selection | built | `keyboard-edit-menu-…md` |
