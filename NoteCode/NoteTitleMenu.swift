@@ -54,6 +54,14 @@ struct NoteTitleMenu: View {
         }
 
         Menu("Move to Folder", systemImage: "folder") {
+            // Top Level is the old "Remove from Folder" row, kept here so the
+            // menu stays at six items.
+            if page.folder != nil {
+                Button("Top Level", systemImage: "tray") {
+                    withAnimation { page.folder = nil }
+                }
+                Divider()
+            }
             ForEach(NoteListSections(pages: [], folders: folders).allFolders) { folder in
                 Button(folder.path) {
                     withAnimation { page.folder = folder }
@@ -64,22 +72,17 @@ struct NoteTitleMenu: View {
             Button("New Folder…", systemImage: "folder.badge.plus", action: onNewFolder)
         }
 
-        if page.folder != nil {
-            Button("Remove from Folder", systemImage: "folder.badge.minus") {
-                withAnimation { page.folder = nil }
-            }
-        }
-
-        Button(
-            page.isTextLocked ? "Unlock Text" : "Lock Text",
-            systemImage: page.isTextLocked ? "lock.open" : "lock"
-        ) {
-            page.isTextLocked.toggle()
-        }
-
-        Button("Duplicate", systemImage: "plus.square.on.square", action: onDuplicate)
-
         Button("Get Info", systemImage: "info.circle", action: onGetInfo)
+
+        Menu("Manage", systemImage: "ellipsis.circle") {
+            Button(
+                page.isTextLocked ? "Unlock Text" : "Lock Text",
+                systemImage: page.isTextLocked ? "lock.open" : "lock"
+            ) {
+                page.isTextLocked.toggle()
+            }
+            Button("Duplicate", systemImage: "plus.square.on.square", action: onDuplicate)
+        }
 
         if let onDelete {
             Divider()

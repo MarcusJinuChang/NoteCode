@@ -626,16 +626,18 @@ struct NoteList: View {
         ) {
             withAnimation { folder.isPinned.toggle() }
         }
-        Menu("New Note", systemImage: "square.and.pencil") {
-            newNoteButtons(in: folder)
-        }
-        Button("New Folder Inside…", systemImage: "folder.badge.plus") {
-            closedFolders.remove(folder.persistentModelID)
-            editingFolder = .new(moving: nil, in: folder)
-        }
         Button("Rename…", systemImage: "pencil") {
             editingFolder = .rename(folder)
         }
+        Menu("New", systemImage: "plus") {
+            newNoteButtons(in: folder)
+            Divider()
+            Button("Folder Inside…", systemImage: "folder.badge.plus") {
+                closedFolders.remove(folder.persistentModelID)
+                editingFolder = .new(moving: nil, in: folder)
+            }
+        }
+        Divider()
         Menu("Move To", systemImage: "folder") {
             Button("Top Level", systemImage: "tray") {
                 move(folder, into: nil)

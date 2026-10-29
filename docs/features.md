@@ -32,7 +32,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Templates | Lecture, Problem and Lab; text only | built | `insert-and-templates.md` |
 | Welcome note | First launch note | built | `organising-notes.md` |
 | Recently Deleted | Delete moves a note there with an Undo toast; restore; purged after a period; folders go with their notes | built | `recently-deleted-and-folder-faces.md` |
-| Note menu | Rename, Pin, Move to Folder, Remove from Folder, Lock Text, Duplicate, Get Info, Delete | built | `the-note-page.md` |
+| Note menu | Rename, Pin, Move to Folder (with Top Level), Get Info, Manage (Lock Text, Duplicate), Delete | built | `the-note-page.md` |
 | Text lock | Read-only text, ink still works | built | `the-note-page.md` |
 | Get Info | Counts and dates | built | `NoteInfoView.swift` |
 | Thumbnails and reopening | Cards draw the note; a note reopens at its last page | built | `home-…md` |
