@@ -113,28 +113,30 @@ nonisolated enum HomeDate {
     }
 }
 
-/// The line of a note Home quotes under its title: the first line of prose.
+/// The line of a note Home quotes under its title: the first line of prose,
+/// as the page draws it, with the Markdown markers left out.
 nonisolated enum HomeExcerpt {
 
-    /// The first line that is neither blank, a heading, a fence nor inside a
-    /// code block, cut to a length a card holds. `nil` for a note with no
-    /// prose.
-    static func of(_ content: String, limit: Int = 160) -> String? {
-        var inCode = false
-        var scanned = 0
-        for line in content.split(separator: "\n", omittingEmptySubsequences: false) {
-            // A note that opens with a screenful of code has nothing to quote;
-            // don't walk a long note looking.
-            scanned += 1
-            if scanned > 400 { return nil }
+    /// How much of a note is read: a note that opens with a screenful of code
+    /// has nothing to quote, and parsing a long note for one line is waste.
+    private static let scanned = 4_000
 
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("```") {
-                inCode.toggle()
-                continue
+    /// The first line that is neither blank, a heading, a rule, a fence nor
+    /// inside a code block, with its markers (and a list's bullet, a quote's
+    /// `>`) dropped, cut to a length a card holds. A line with no text left
+    /// is passed over. `nil` for a note with no prose.
+    static func of(_ content: String, limit: Int = 160) -> String? {
+        let source = String(content.prefix(scanned))
+        for block in DocumentParser.parse(source) {
+            switch block.kind {
+            case .code, .heading, .rule: continue
+            case .paragraph, .listItem, .blockQuote: break
             }
-            if inCode || trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
-            return String(trimmed.prefix(limit))
+            // Same projection as the outline's titles: the words between the
+            // markers, a link's text without its address.
+            let words = block.inlines.filter { !$0.kind.isMarker }.map { String(source[$0.range]) }.joined()
+            let text = words.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty { return String(text.prefix(limit)) }
         }
         return nil
     }
