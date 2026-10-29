@@ -268,3 +268,46 @@ struct RichPasteTests {
         }
     }
 }
+
+@Suite("Rich paste: dollars that aren't formulas")
+struct RichPasteMathTests {
+
+    static func bold(_ text: String) -> PastedRun {
+        PastedRun(text: text, attributes: PastedAttributes(bold: true, pointSize: 12))
+    }
+
+    static func plain(_ text: String) -> PastedRun {
+        PastedRun(text: text, attributes: PastedAttributes(pointSize: 12))
+    }
+
+    @Test("Dollars that would pair are escaped, or they'd draw as a formula")
+    func pairs() {
+        let written = RichPaste.markdown(from: [Self.plain("set $a+1$ and $b "), Self.bold("today")])
+        #expect(written == "set \\$a+1\\$ and $b today",
+                "escaped; the line's bold is dropped, as a line that doesn't read back is written plain")
+        // And it no longer parses a formula.
+        #expect(DocumentParser.parse(written ?? "").allSatisfy { block in
+            !block.isMath && !block.inlines.contains { if case .math? = $0.kind.markup { true } else { false } }
+        })
+    }
+
+    @Test("Prices (the parser's own currency rule), a lone dollar and one in code are left alone")
+    func leftAlone() {
+        #expect(RichPaste.markdown(from: [Self.plain("it costs $5 "), Self.bold("only")]) == "it costs $5 **only**")
+        #expect(RichPaste.markdown(from: [Self.plain("costs $5 and $6 "), Self.bold("x")]) == "costs $5 and $6 **x**")
+        #expect(RichPaste.escapingAccidentalMath(in: "a \\$a and \\$b") == "a \\$a and \\$b")
+        let code = PastedRun(text: "$a $b", attributes: PastedAttributes(monospaced: true, pointSize: 10))
+        #expect(RichPaste.markdown(from: [Self.plain("run "), code, Self.plain(" now")]) == "run `$a $b` now")
+    }
+
+    @Test("Display dollars over lines are escaped too")
+    func displayBlock() {
+        let written = RichPaste.markdown(from: [Self.bold("x"), Self.plain("\n$$\ny\n$$")])
+        #expect(written == "**x**\n\\$\\$\ny\n\\$\\$")
+    }
+
+    @Test("Text with no dollar is untouched")
+    func noDollar() {
+        #expect(RichPaste.escapingAccidentalMath(in: "plain **bold** text") == "plain **bold** text")
+    }
+}

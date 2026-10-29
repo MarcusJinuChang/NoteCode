@@ -104,4 +104,12 @@ struct NoteInfoTests {
     func displayNames() {
         #expect(CodeLanguage.allCases.map(\.displayName) == ["C++", "Java", "Python", "C", "JavaScript", "Rust", "Go", "SQL"])
     }
+
+    @Test("Words inside a formula aren't words")
+    func mathIsNotWords() {
+        let info = NoteInfo(content: "The sum $\\sum_{i=1}^{n} i$ is big\n$$\n\\frac{a}{b} + c\n$$\nend")
+
+        #expect(info.words == 5, "The, sum, is, big, end")
+        #expect(NoteInfo(content: "costs \\$5 and \\$6").words == 4)
+    }
 }
