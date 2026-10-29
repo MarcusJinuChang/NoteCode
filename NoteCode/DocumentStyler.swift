@@ -298,6 +298,10 @@ enum DocumentStyler {
                     styled.addAttribute(.foregroundColor, value: markerColor, range: marker)
                 }
 
+            case .math:
+                // Plain prose until formulas are drawn (LaTeX step 4).
+                break
+
             case .rule:
                 // An ordinary line of text with its dashes hidden; its
                 // fragment draws the line through it.

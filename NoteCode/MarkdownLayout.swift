@@ -68,7 +68,9 @@ enum MarkdownLayout {
         var runs: [Run] = []
         for layout in layouts {
             switch layout.block.kind {
-            case .code:
+            case .code, .math:
+                // A block's source is shown as typed until the formulas are
+                // drawn (LaTeX step 4).
                 continue
 
             case .paragraph:

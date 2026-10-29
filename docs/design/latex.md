@@ -35,6 +35,17 @@ simulator with `xcodebuild test -scheme LaTeXSpike-Package`; `SPIKE|` lines).
   first pass as code spans and links; `BlockNode.Kind.math(MathBlock)` for
   `$$` blocks, line-aligned like `.code` (there is already a
   `// .math arrives with a later step` in `DocumentNode.swift`).
+- **Built in step 1** (as the parser now does it): `\$` is `InlineNode.Kind.escape`
+  (a marker with no partner, so `closing` still always closes the innermost
+  open pair); `MathBlock` carries the `$$` ranges, the TeX range and an FNV
+  hash for `styleDetail`; "within 50 lines" is 50 lines in all, both `$$`
+  lines included (`DocumentParser.maxMathLines`); a fence line ends the
+  search for a close; a mid-line `$$ x $$` may have spaces, `$ x$` may not;
+  a closing-`$` search skips code spans and `\$`; the leftmost opener wins, so
+  `$5 for $x$` reads `5 for $x` as a formula (Pandoc does too; `\$5` is the
+  way out). Blank-only TeX is text. Styler and layout treat a math block as
+  prose until step 3/4.
+
 - **Whether the TeX is valid is a separate question**, asked of
   `MTMathListBuilder.build(fromString:error:)` (Foundation only, no UIKit),
   through one cached `FormulaValidity` that both the styler and

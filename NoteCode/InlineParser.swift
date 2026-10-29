@@ -55,6 +55,8 @@ nonisolated enum InlineParser {
             case opening(InlineMarkup)
             case closing(InlineMarkup)
             case address
+            /// A `\` before a `$`.
+            case escape
         }
 
         var kind: Kind
@@ -92,6 +94,8 @@ nonisolated enum InlineParser {
                     destination = outside.destination
                 }
                 nodes.append(InlineNode(kind: .closing(markup), range: piece.range, attributes: attributes, destination: piece.destination))
+            case .escape:
+                nodes.append(InlineNode(kind: .escape, range: piece.range, attributes: attributes, destination: destination))
             case .address:
                 var linked = attributes
                 linked.link = true
@@ -162,6 +166,27 @@ nonisolated enum InlineParser {
                     pieces.append(Piece(kind: .opening(.inlineCode), range: cursor..<contentStart))
                     pieces.append(Piece(kind: .closing(.inlineCode), range: closing..<end))
                     cursor = end
+                    continue
+                }
+
+            case "\\":
+                // `\$` is a dollar. It is the only escape there is, and it
+                // is read here, past code (found first) and inside a link's
+                // text, but never inside a formula, which is skipped whole.
+                let next = text.index(after: cursor)
+                if next < limit, text[next] == "$" {
+                    pieces.append(Piece(kind: .escape, range: cursor..<next))
+                    cursor = text.index(after: next)
+                    continue
+                }
+
+            case "$" where allowsLinks:
+                // A formula is an atom: nothing inside is read, so `$a*b*c$`
+                // has no emphasis. Not in a link's text, where it is text.
+                if let math = mathSpan(in: text, at: cursor, limit: limit) {
+                    pieces.append(Piece(kind: .opening(.math(math.style)), range: math.opening))
+                    pieces.append(Piece(kind: .closing(.math(math.style)), range: math.closing))
+                    cursor = math.closing.upperBound
                     continue
                 }
 
@@ -388,6 +413,63 @@ nonisolated enum InlineParser {
             if sum % 3 == 0, !(opener.length % 3 == 0 && closer.length % 3 == 0) { return false }
         }
         return true
+    }
+
+    // MARK: Math
+
+    /// A formula starting at the `$` at `open`, and where it ends.
+    ///
+    /// Pandoc's rule, which Obsidian's follows. Inline: the opening `$` has a
+    /// non-space after it, the closing one a non-space before it and no digit
+    /// after, so `costs $5 and $10` and `$5–$10` stay text. `$$`: a closing
+    /// `$$`, and anything but blanks between, spaces allowed (`$$ x $$`).
+    /// `\$` never closes either. A code span in between is skipped whole, so a
+    /// `$` in one is not a closer; one that starts before a formula still wins
+    /// over it, because it is found first, left to right.
+    static func mathSpan(
+        in text: String,
+        at open: String.Index,
+        limit: String.Index
+    ) -> (style: MathStyle, opening: Range<String.Index>, closing: Range<String.Index>)? {
+        let afterOpen = text.index(after: open)
+        guard afterOpen < limit else { return nil }
+        let isDisplay = text[afterOpen] == "$"
+        let contentStart = isDisplay ? text.index(after: afterOpen) : afterOpen
+        guard contentStart < limit else { return nil }
+        if !isDisplay, text[contentStart].isWhitespace { return nil }
+
+        var cursor = contentStart
+        while cursor < limit {
+            let character = text[cursor]
+            if character == "\\" {
+                // Whatever follows is not a closer; `\$` is the case that matters.
+                cursor = text.index(after: cursor)
+                if cursor < limit { cursor = text.index(after: cursor) }
+                continue
+            }
+            if character == "`" {
+                let next = text.index(after: cursor)
+                if let closing = firstIndex(of: "`", in: text, from: next, limit: limit), closing > next {
+                    cursor = text.index(after: closing)
+                    continue
+                }
+            }
+            if character == "$" {
+                let after = text.index(after: cursor)
+                if isDisplay {
+                    if after < limit, text[after] == "$", cursor > contentStart,
+                       text[contentStart..<cursor].contains(where: { !$0.isWhitespace }) {
+                        return (.display, open..<contentStart, cursor..<text.index(after: after))
+                    }
+                } else if cursor > contentStart,
+                          !text[text.index(before: cursor)].isWhitespace,
+                          after >= limit || !text[after].isNumber {
+                    return (.inline, open..<contentStart, cursor..<after)
+                }
+            }
+            cursor = text.index(after: cursor)
+        }
+        return nil
     }
 
     // MARK: Links

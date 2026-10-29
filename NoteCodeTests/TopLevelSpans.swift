@@ -25,6 +25,7 @@ struct TopLevelSpan: Equatable {
         case spanClose
         case underline
         case highlight(HighlightColour)
+        case math(MathStyle)
 
         init(_ markup: InlineMarkup) {
             switch markup {
@@ -36,6 +37,7 @@ struct TopLevelSpan: Equatable {
             case .styled(let style): self = .spanOpen(style)
             case .underline:         self = .underline
             case .highlight(let colour): self = .highlight(colour)
+            case .math(let style):   self = .math(style)
             }
         }
 
@@ -66,7 +68,7 @@ struct TopLevelSpan: Equatable {
                 switch node.kind {
                 case .opening: depth += 1
                 case .closing: depth -= 1
-                case .text: break
+                case .text, .escape: break
                 }
                 if depth == 0, let open = pending {
                     read.append(TopLevelSpan(kind: open.kind, range: open.start..<node.range.upperBound, contentRange: open.contentStart..<node.range.lowerBound))
@@ -92,7 +94,7 @@ struct TopLevelSpan: Equatable {
             case .opening(let markup):
                 pending = (Kind(markup), node.range.lowerBound, node.range.upperBound)
                 depth = 1
-            case .closing:
+            case .closing, .escape:
                 break
             }
         }

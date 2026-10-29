@@ -45,6 +45,7 @@ func inlineHTML(_ line: String) -> String {
         case .styled:        "span"
         case .underline:     "u"
         case .highlight:     "mark"
+        case .math:          "math"
         }
     }
 
@@ -63,6 +64,8 @@ func inlineHTML(_ line: String) -> String {
             html += "<\(tag(markup))>"
         case .closing(let markup):
             html += "</\(tag(markup))>"
+        case .escape:
+            html += String(line[node.range])
         }
     }
     return html
@@ -377,6 +380,8 @@ struct NestingInlineTests {
                 case .closing(let markup):
                     #expect(open.popLast() == markup, "\(line)")
                     attributes = outside.popLast() ?? .plain
+                    #expect(node.attributes == attributes, "\(line)")
+                case .escape:
                     #expect(node.attributes == attributes, "\(line)")
                 case .text:
                     var expected = attributes

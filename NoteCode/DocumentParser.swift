@@ -18,6 +18,10 @@ nonisolated enum DocumentParser {
     /// fence deliberately produces a code block running to the end of the
     /// document — otherwise nothing would highlight until the user typed the
     /// closing fence, which AGENTS.md rules out.
+    /// The most lines a `$$` block can take, both `$$` lines included. A
+    /// `$$` that doesn't close within them is text.
+    static let maxMathLines = 50
+
     static func parse(_ text: String) -> [BlockNode] {
         var blocks: [BlockNode] = []
 
@@ -34,8 +38,11 @@ nonisolated enum DocumentParser {
         var openFence: (start: String.Index, contentStart: String.Index, info: String, backticks: Int)?
         // Position of the next code block among code blocks, in document order.
         var ordinal = 0
+        // The lines a math block has taken, which are not read on their own.
+        var mathEnd = 0
 
         for (offset, line) in lines.enumerated() {
+            if offset < mathEnd { continue }
             let lineStart = line.startIndex
             // Start of the next line, i.e. this line including its terminator.
             let lineEnd = offset + 1 < lines.count ? lines[offset + 1].startIndex : text.endIndex
@@ -67,6 +74,9 @@ nonisolated enum DocumentParser {
                 openFence = nil
             } else if let fence {
                 openFence = (start: lineStart, contentStart: lineEnd, info: fence.info, backticks: fence.backticks)
+            } else if let math = mathBlock(in: text, lines: lines, at: offset) {
+                blocks.append(math.block)
+                mathEnd = math.end
             } else {
                 // A trailing empty line sits at the very end of the string and
                 // spans nothing. Emitting it would add a zero-length block.
@@ -99,6 +109,65 @@ nonisolated enum DocumentParser {
     }
 
     // MARK: Private
+
+    /// A `$$` block starting at line `offset`, and the offset of the line
+    /// after it, or `nil` where the line isn't one.
+    ///
+    /// The line starts with `$$`. If it also ends with one, with something
+    /// between, that is the whole block (`$$ x $$`); if it ends with none, the
+    /// block runs to the first line that ends with `$$`, in at most
+    /// `maxMathLines` lines and not past a fence (a fence below would
+    /// otherwise be swallowed). `$$x$$ and more` is neither, so it is a
+    /// paragraph with a display formula in it. Nothing but blanks between is
+    /// no formula either.
+    private static func mathBlock(
+        in text: String,
+        lines: [Substring],
+        at offset: Int
+    ) -> (block: BlockNode, end: Int)? {
+        let first = lines[offset]
+        guard first.hasPrefix("$$") else { return nil }
+        let contentStart = text.index(first.startIndex, offsetBy: 2)
+
+        // The `$$` that ends `line`, past trailing blanks, unless escaped.
+        func closing(of line: Substring) -> Range<String.Index>? {
+            var end = line.endIndex
+            while end > line.startIndex, line[text.index(before: end)] == " " || line[text.index(before: end)] == "\t" {
+                end = text.index(before: end)
+            }
+            let start = line.index(end, offsetBy: -2, limitedBy: line.startIndex)
+            guard let start, line[start..<end] == "$$" else { return nil }
+            if start > line.startIndex, line[text.index(before: start)] == "\\" { return nil }
+            return start..<end
+        }
+
+        func block(closing closer: Range<String.Index>, ending lastOffset: Int) -> (block: BlockNode, end: Int)? {
+            let contentRange = contentStart..<closer.lowerBound
+            guard text[contentRange].contains(where: { !$0.isWhitespace }) else { return nil }
+            let lastEnd = lastOffset + 1 < lines.count ? lines[lastOffset + 1].startIndex : text.endIndex
+            let math = MathBlock(
+                openingRange: first.startIndex..<contentStart,
+                closingRange: closer,
+                contentRange: contentRange,
+                contentHash: CodeBlockID.hash(String(text[contentRange]))
+            )
+            return (BlockNode(kind: .math(math), range: first.startIndex..<lastEnd, contentRange: contentRange), lastOffset + 1)
+        }
+
+        // `$$` alone, or `$$$`, ends in `$$` but with the opening's own.
+        if let closer = closing(of: first), closer.lowerBound >= contentStart {
+            return block(closing: closer, ending: offset)
+        }
+        if let closer = closing(of: first), closer.lowerBound < contentStart, first.count > 2 { return nil }
+
+        let last = min(lines.count, offset + maxMathLines)
+        for index in (offset + 1)..<max(offset + 1, last) {
+            let line = lines[index]
+            if fenceInfo(line) != nil { return nil }
+            if let closer = closing(of: line) { return block(closing: closer, ending: index) }
+        }
+        return nil
+    }
 
     /// One source line of prose: a heading if it starts with `#`, otherwise a
     /// paragraph. Either way its content is scanned for inline spans.
