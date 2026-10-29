@@ -124,11 +124,14 @@ func render(_ palette: Palette, pixels: Int, flavour: Flavour) -> CGImage {
     ctx.addPath(brackets)
     ctx.strokePath()
 
-    // Pencil: translate(-1 0) rotate(18 60 60), filled and stroked 1.2 in one
-    // colour. Body rect 55,38 10x36 rx 2; tip M55 77 H65 L60 89 Z (the 3pt gap
+    // Pencil: translate(-1 -2.8) rotate(18 60 60), filled and stroked 1.2 in one
+    // colour. Turned, it spans y 37.5 to 88.1 with the stroke, against the
+    // chevrons' 33.0 to 87.0 (stroke caps included), so it sat 4.5 below
+    // their top tip and hung 1.2 past their bottom. The -2.8 leaves 1.6 above
+    // and 1.6 below. Body rect 55,38 10x36 rx 2; tip M55 77 H65 L60 89 Z (the 3pt gap
     // between them is the notch).
     ctx.saveGState()
-    ctx.translateBy(x: -1, y: 0)
+    ctx.translateBy(x: -1, y: -2.8)
     ctx.translateBy(x: 60, y: 60)
     ctx.rotate(by: 18 * .pi / 180)
     ctx.translateBy(x: -60, y: -60)

@@ -60,9 +60,9 @@ struct AppIconTests {
         // The grid is 120 units over 1024 pixels. Three points that are solid
         // colour whatever the antialiasing: the corner (the background), the
         // left bracket's vertex (18, 60), and the middle of the pencil's body,
-        // (60, 56) turned 18 degrees about (60, 60) and shifted 1 left.
+        // (60, 56) turned 18 degrees about (60, 60) and shifted 1 left, 2.8 up.
         let turn = 18.0 * .pi / 180
-        let pencil = (x: 60 + 4 * sin(turn) - 1, y: 60 - 4 * cos(turn))
+        let pencil = (x: 60 + 4 * sin(turn) - 1, y: 60 - 4 * cos(turn) - 2.8)
 
         for choice in AppIconChoice.allCases {
             let image = try Self.pixels(at: Self.source(choice))
