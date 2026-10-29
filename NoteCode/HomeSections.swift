@@ -129,7 +129,7 @@ nonisolated enum HomeExcerpt {
         let source = String(content.prefix(scanned))
         for block in DocumentParser.parse(source) {
             switch block.kind {
-            case .code, .heading, .rule: continue
+            case .code, .heading, .rule, .math: continue
             case .paragraph, .listItem, .blockQuote: break
             }
             // Same projection as the outline's titles: the words between the
