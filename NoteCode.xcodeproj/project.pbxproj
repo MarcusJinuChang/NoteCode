@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		2C84E67A3092A745005E3DBA /* SwiftMath in Frameworks */ = {isa = PBXBuildFile; productRef = 2C84E6793092A745005E3DBA /* SwiftMath */; };
+		2C84E67D3093079A005E3DBA /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = 2C84E67C3093079A005E3DBA /* GoogleMobileAds */; };
 		AA000000000000000000AA01 /* HighlightSwift in Frameworks */ = {isa = PBXBuildFile; productRef = AA000000000000000000AA02 /* HighlightSwift */; };
 /* End PBXBuildFile section */
 
@@ -70,6 +71,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2C84E67D3093079A005E3DBA /* GoogleMobileAds in Frameworks */,
 				2C84E67A3092A745005E3DBA /* SwiftMath in Frameworks */,
 				AA000000000000000000AA01 /* HighlightSwift in Frameworks */,
 			);
@@ -134,6 +136,7 @@
 			packageProductDependencies = (
 				AA000000000000000000AA02 /* HighlightSwift */,
 				2C84E6793092A745005E3DBA /* SwiftMath */,
+				2C84E67C3093079A005E3DBA /* GoogleMobileAds */,
 			);
 			productName = NoteCode;
 			productReference = 2CED7DC830159629004AF5C1 /* NoteCode.app */;
@@ -220,6 +223,7 @@
 			packageReferences = (
 				AA000000000000000000AA03 /* XCRemoteSwiftPackageReference "HighlightSwift" */,
 				2C84E6783092A745005E3DBA /* XCRemoteSwiftPackageReference "SwiftMath" */,
+				2C84E67B3093079A005E3DBA /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 2CED7DC930159629004AF5C1 /* Products */;
@@ -643,6 +647,14 @@
 				minimumVersion = 1.7.3;
 			};
 		};
+		2C84E67B3093079A005E3DBA /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googleads/swift-package-manager-google-mobile-ads.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 13.11.0;
+			};
+		};
 		AA000000000000000000AA03 /* XCRemoteSwiftPackageReference "HighlightSwift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/appstefan/HighlightSwift";
@@ -658,6 +670,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 2C84E6783092A745005E3DBA /* XCRemoteSwiftPackageReference "SwiftMath" */;
 			productName = SwiftMath;
+		};
+		2C84E67C3093079A005E3DBA /* GoogleMobileAds */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2C84E67B3093079A005E3DBA /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */;
+			productName = GoogleMobileAds;
 		};
 		AA000000000000000000AA02 /* HighlightSwift */ = {
 			isa = XCSwiftPackageProductDependency;
