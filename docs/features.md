@@ -78,7 +78,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Block header | Name, Run and Copy buttons in the block's corner | built | `code-blocks-room-around-and-inside.md` |
 | Run | Redirect to a free compiler: Compiler Explorer (code in the link) or Programiz or OnlineGDB or a custom site (code copied); chosen per note, folder or app | built | `AGENTS.md`, `CodeDestination.swift` |
 | Run panel | Notes \| Run control in the top bar opens a pane at the page's right (360pt, dragged 280pt to half the window, collapses to an edge tab; a bottom sheet in a compact width): block strip, Run, Output and Input tabs, per-block input and last result (dimmed when the code changed). `RunSession`; `-debug-run-stub`. `AppInfo.runService` supplies the runner; with `nil` none of it is visible | built (R3, R4) | `code-languages-and-keys.md`, `RunPanel.swift`, `RunSession.swift` |
-| Run in the app | A free reader's ▷, ⌘R and the edit menu's Run open the paywall (the alert until P2) and do nothing else; Pro's run in the panel when the page's destination is **In NoteCode** (`CodeDestination.inApp`, id `notecode`, first in the menu and the default when `runService` is set; resolved page → folder → app). Each run sends `ProStatus.signedTransaction`; a 402 refreshes `ProStatus` and opens the paywall. Offline, capped or service down: the panel says which, with *Open on a Site Instead*. **Keep in Note** writes or replaces the ```` ```output ```` block under the code (one undo step); a compile error's `file:line` is a link that puts the caret on that line. `RunRoute`, `KeepInNote` | built (R4) | `RunRouting.swift`, `CodeDestination.swift`, `RunPanel.swift` |
+| Run in the app | A free reader's ▷, ⌘R and the edit menu's Run open the paywall (`PaywallView`, "Run in the app is part of NoteCode Pro.") and do nothing else; the Run segment of the top bar carries a small PRO mark for them; Pro's run in the panel when the page's destination is **In NoteCode** (`CodeDestination.inApp`, id `notecode`, first in the menu and the default when `runService` is set; resolved page → folder → app). Each run sends `ProStatus.signedTransaction`; a 402 refreshes `ProStatus` and opens the paywall. Offline, capped or service down: the panel says which, with *Open on a Site Instead*. **Keep in Note** writes or replaces the ```` ```output ```` block under the code (one undo step); a compile error's `file:line` is a link that puts the caret on that line. `RunRoute`, `KeepInNote` | built (R4) | `RunRouting.swift`, `CodeDestination.swift`, `RunPanel.swift` |
 | Copy block | Copies the code with a Copied toast | built | `keyboard-edit-menu-…md` |
 | Code keys row | ⇥ ⇤ and brackets above the keyboard | built | `code-languages-and-keys.md` |
 | Indentation | Return keeps indent and opens a level after `{`; Tab and Backspace move a level; width is a setting | built | `code-languages-and-keys.md` |
@@ -86,7 +86,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Wrapped lines | Continue past their indentation, with a mark | built | `code-blocks-room-around-and-inside.md` |
 | Return in a block | A thin extra gap after Return was reported on 1.0 | not reproduced on `main` (feedback #14, #31); retest on the iPad | `code-blocks-room-around-and-inside.md` |
 | Explain Code | Pro. Edit menu › Explain Block, or the Explain chip in the text row, on a block: Apple's on-device model explains it in a sheet; Copy, or Insert Below as a quote or output block (undoable) | built; unverified on device | `ai-features.md` |
-| Running code in the app | Pro. Runner layer (R1) built: job, result, client for our proxy, Java `Main` rename, compiler-error lines, reads-input hint; no UI or proxy yet (R2–R4). Contract: `docs/design/run-proxy-contract.md` | planned | `RunServiceClient.swift`, `JavaMain.swift`, `CompilerMessages.swift`, `ReadsInput.swift` |
+| Running code in the app | Pro. Runner layer (R1), proxy (R2), panel (R3) and wiring (R4); see "Run panel" and "Run in the app" above. Contract: `docs/design/run-proxy-contract.md` | built (R1–R4); unverified on device | `RunServiceClient.swift`, `JavaMain.swift`, `CompilerMessages.swift`, `ReadsInput.swift` |
 
 ## 4. Drawing and ink
 
@@ -153,7 +153,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 
 ## 8. Settings
 
-Sheet with General, Notes, Writing, Code, Drawing and About
+Sheet with General, Pro, Notes, Writing, Code, Drawing and Help and About
 (`SettingsView.swift`, `DrawingSettings.swift`); design in `settings.md`.
 
 | Page | Contains | Missing |
@@ -163,7 +163,8 @@ Sheet with General, Notes, Writing, Code, Drawing and About
 | Writing | Show Markdown, Autocorrect, Markers (four rows), On-Device Assistant (switch, Answer Length, Insert As) | |
 | Code | Run Code In, Code Keys, Indent Width, Line Numbers | |
 | Drawing | Finger Draws, Erases, Size, Colour Set, Pens and Highlighters palettes, Pencil actions, Add Pages While Drawing, Return to Previous Tool, Reset Colours | |
-| About | Version, licences, tip jar, privacy and feedback rows once set | |
+| Pro | Status (Pro or Free), renewal, Manage, Restore, See NoteCode Pro (`ProSettings.swift`) | |
+| Help and About | Welcome note and screen, version, licences, tip jar, privacy and feedback rows once set (`AppInfo.privacyPolicy` and `.feedbackAddress` are still `nil`) | |
 
 ## 9. Shell and release
 
@@ -174,5 +175,5 @@ Sheet with General, Notes, Writing, Code, Drawing and About
 | Privacy | Nothing collected; manifest lists UserDefaults only | built; pages not hosted | `AGENTS.md` › Shipping |
 | Storage | SwiftData, schema version 1 frozen by hashes; falls back to memory with a warning | built | `AGENTS.md` › The model |
 | Pro status | `ProStatus`: whether the reader has Pro (`com.marcus.NoteCode.pro.monthly`, $4.99 a month), its expiry and the signed transaction for the Run proxy; purchase, Restore, Manage; `-debug-pro on\|off`. The AI actions read it (P2); ads P3, Run R4 will | built (P1) | `the-list-s-foot-and-the-tip-jar.md`, `ProStatus.swift` |
-| Paywall and AI gate | `PaywallView`: what Pro gives, this iPad's AI availability, price and period, Subscribe, Restore, Terms of Use, Privacy Policy (when `AppInfo.privacyPolicy` is set). A free reader's Explain or Summarise opens it instead of the sheet and starts no model session (`AIAssistant.needsPro`). Settings › Pro: status, renewal, Manage, Restore. Not yet opened from Run (R3/R4) or Remove ads (P3) | built (P2); unverified on device | `ai-features.md`, `PaywallView.swift`, `ProSettings.swift` |
+| Paywall and AI gate | `PaywallView`: what Pro gives, this iPad's AI availability, price and period, Subscribe, Restore, Terms of Use, Privacy Policy (when `AppInfo.privacyPolicy` is set). A free reader's Explain or Summarise opens it instead of the sheet and starts no model session (`AIAssistant.needsPro`). Settings › Pro: status, renewal, Manage, Restore. Run opens it too ("Run in the app is part of NoteCode Pro."); not yet from Remove ads (P3, not on the integration branch), though its feature list already promises "No ads" | built (P2); unverified on device | `ai-features.md`, `PaywallView.swift`, `ProSettings.swift` |
 | Ads and Pro, group notes | | planned or idea (stream L) | ROADMAP |

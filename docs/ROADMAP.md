@@ -136,7 +136,7 @@ note combining, code sort.
   stored data needs a schema version (AGENTS.md › The model).
 - Tips are consumable In-App Purchases that unlock nothing, not an outside
   link (guideline 3.1.1).
-- Running code in-app stays out of scope; Run is a redirect.
+- Running code in-app is Pro, through our own proxy (1.0 plan, Decision on R); the free run button stays a redirect to a compiler site.
 - Room around text and code is line height, never paragraph spacing, so the
   three view modes paginate alike.
 
