@@ -46,3 +46,24 @@ features) after the release.
   checked:** dark mode, a real sandbox purchase in TestFlight, Ask to Buy on
   screen, VoiceOver's announcement, the haptic, the mail and policy rows
   (their values are still `nil`).
+
+## Pro status (P1, 27 Oct)
+`ProStatus` (`ProStatus.swift`) is the one place Run, AI and ads read whether
+the reader has Pro, kept apart from `TipJar`: tips record nothing, Pro is state.
+- **One product**, `com.marcus.NoteCode.pro.monthly`, $4.99, no yearly plan, no
+  trial. It is in `NoteCodeTests/NoteCode.storekit` beside the tips (one file to
+  select in the scheme, none added to the project).
+- **`ProStore`** is what it needs from a store: `StoreKitProStore` in the app,
+  a fake in the tests, `DebugProStore` under `-debug-pro on|off`.
+- **Fed by** `Transaction.currentEntitlements` at launch (`start()`), and
+  `Transaction.updates` while running. Both are finished. A revoked transaction
+  ends Pro; an expired one does too, through `isPro` comparing the expiry with
+  now. `signedTransaction` is the JWS (`jwsRepresentation`) for R4's proxy, nil
+  for a free reader.
+- **`TipJar`'s listener now finishes only tip transactions**, so it can't
+  consume the subscription's.
+- **Checked:** `ProStatusTests`; the mutation (a revoked transaction kept as
+  Pro) fails two of them. **Not checked:** that `finish()` took on the
+  subscription (the test session listed it unfinished anyway), a refund
+  arriving through `Transaction.updates` (the test session sent none; the
+  launch path is tested), Manage Subscriptions, a sandbox purchase.

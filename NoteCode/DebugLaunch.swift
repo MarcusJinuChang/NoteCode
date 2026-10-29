@@ -128,6 +128,8 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
     /// The tip jar with stand-in tips, so its row and sheet can be looked at
     /// without the products in App Store Connect (`DebugTipStore`).
     var tipJar = false
+    /// Pro on or off, with nothing asked of StoreKit (`DebugProStore`).
+    var pro: Bool?
 
     /// Arguments that couldn't be used. Reported rather than ignored, so a
     /// typo can't pass for a check that ran.
@@ -135,7 +137,7 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
 
     var isActive: Bool {
         note != nil || mode != nil || orientation != nil || paper != nil || textSize != nil || page != nil || thenMode != nil
-            || writesReport || firstLaunch || home || tipJar
+            || writesReport || firstLaunch || home || tipJar || pro != nil
     }
 
     static let current = parse(ProcessInfo.processInfo.arguments)
@@ -224,6 +226,14 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
                 options.keepsDefaults = true
             case "-debug-tip-jar":
                 options.tipJar = true
+            case "-debug-pro":
+                if let raw = value(for: flag) {
+                    switch raw {
+                    case "on":  options.pro = true
+                    case "off": options.pro = false
+                    default:    options.problems.append("\(flag): \"\(raw)\" isn't on or off")
+                    }
+                }
             default:
                 if flag.hasPrefix("-debug-") {
                     options.problems.append("unknown argument \(flag)")

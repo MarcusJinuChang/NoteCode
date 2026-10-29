@@ -21,6 +21,8 @@ struct NoteCodeApp: App {
         // Finishes tips that arrive outside a purchase, and asks the store
         // for the tips, so the list's foot knows whether to offer them.
         TipJar.shared.start()
+        // Reads whether the reader has Pro, and listens for renewals and refunds.
+        ProStatus.shared.start()
 #if DEBUG && canImport(UIKit)
         // See DebugLaunch.swift. A no-op unless a -debug- argument was passed.
         let session = DebugSession.shared
@@ -47,6 +49,7 @@ struct NoteCodeApp: App {
                 ContentView(storageIsEphemeral: storage.isEphemeral, openedPage: openedPage)
                     .modelContainer(container)
                     .environment(TipJar.shared)
+                    .environment(ProStatus.shared)
                     .modifier(AppearanceModifier())
             } else {
                 StorageUnavailableView(reason: storage.reason)

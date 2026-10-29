@@ -1,8 +1,6 @@
 {
   "identifier" : "4A6C2B1E",
-  "nonRenewingSubscriptions" : [
-
-  ],
+  "nonRenewingSubscriptions" : [],
   "products" : [
     {
       "displayPrice" : "0.99",
@@ -54,12 +52,38 @@
     "_failTransactionsEnabled" : false,
     "_locale" : "en_US",
     "_storefront" : "USA",
-    "_storeKitErrors" : [
-
-    ]
+    "_storeKitErrors" : []
   },
   "subscriptionGroups" : [
-
+    {
+      "id" : "6754100100",
+      "localizations" : [],
+      "name" : "NoteCode Pro",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "4.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6754100101",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "No ads, Run with output and input, and the on-device AI features.",
+              "displayName" : "NoteCode Pro",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.marcus.NoteCode.pro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "NoteCode Pro Monthly",
+          "subscriptionGroupID" : "6754100100",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : []
+        }
+      ]
+    }
   ],
   "version" : {
     "major" : 3,

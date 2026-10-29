@@ -171,4 +171,5 @@ Sheet with General, Notes, Writing, Code, Drawing and About
 | App icon | Drawn by a script; Default, Dark, Tinted plus two alternates | built | `AGENTS.md` › Shipping |
 | Privacy | Nothing collected; manifest lists UserDefaults only | built; pages not hosted | `AGENTS.md` › Shipping |
 | Storage | SwiftData, schema version 1 frozen by hashes; falls back to memory with a warning | built | `AGENTS.md` › The model |
+| Pro status | `ProStatus`: whether the reader has Pro (`com.marcus.NoteCode.pro.monthly`, $4.99 a month), its expiry and the signed transaction for the Run proxy; purchase, Restore, Manage; `-debug-pro on\|off`. Nothing reads it yet (paywall P2, ads P3, Run R4) | built (P1) | `the-list-s-foot-and-the-tip-jar.md`, `ProStatus.swift` |
 | Ads and Pro, group notes | | planned or idea (stream L) | ROADMAP |
