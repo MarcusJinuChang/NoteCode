@@ -166,3 +166,12 @@ v3 phase 6 (14 Oct, `docs/archive/ui-design-v3-implementation.md`).
   - **Not checked:** the Pencil, ink on a note whose spacing changed, print
     and compressed layout on screen, the menu's look in dark mode, a note
     with sized text at a large spacing, the PDF in the share sheet.
+
+- **Rearranged for 1.0 (T2, 28 Oct).** In prose and lists the row reads Bold,
+  Italic, Underline, Strikethrough | Default ring + the six `TextColour`
+  swatches, highlight | size `+ 17 −` | More. **More** holds what moved: Body and
+  H1–H3 (prose only), Quote, Link (disabled inside a link), the three lists,
+  Outdent, Indent and a Line Spacing submenu. Code blocks keep size, language,
+  indent, + Output and Explain. The row's face is an opaque `systemBackground`
+  capsule with a hairline, no glass (the ink row's is W4's). Not checked on a
+  device or at 11-inch portrait; the row scrolls along the bar if it is too long.
