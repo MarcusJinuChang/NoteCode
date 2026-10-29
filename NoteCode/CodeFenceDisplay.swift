@@ -36,6 +36,9 @@ extension DocumentTextView.Coordinator {
         self.editor = editor
         editor?.rendersMarkdown = rendersMarkdown
         editor?.showsLineNumbers = showsLineNumbers
+        // The first parse came before the editor was connected.
+        let source = (textView.text ?? "").nativeUTF8
+        editor?.run.update(blocks: CodeBlockAction.targets(in: source, blocks: documentCache.blocks(for: source)))
         editor?.modeDidChange = { [weak self, weak textView] in
             guard let self, let textView else { return }
             refreshFenceVisibility(in: textView)

@@ -130,6 +130,9 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
     var tipJar = false
     /// Pro on or off, with nothing asked of StoreKit (`DebugProStore`).
     var pro: Bool?
+    /// Run answers with a canned result and the panel opens on the first
+    /// block and runs it (`DebugRunStub`).
+    var runStub: DebugRunStubKind?
 
     /// Arguments that couldn't be used. Reported rather than ignored, so a
     /// typo can't pass for a check that ran.
@@ -137,7 +140,7 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
 
     var isActive: Bool {
         note != nil || mode != nil || orientation != nil || paper != nil || textSize != nil || page != nil || thenMode != nil
-            || writesReport || firstLaunch || home || tipJar || pro != nil
+            || writesReport || firstLaunch || home || tipJar || pro != nil || runStub != nil
     }
 
     static let current = parse(ProcessInfo.processInfo.arguments)
@@ -234,6 +237,8 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
                     default:    options.problems.append("\(flag): \"\(raw)\" isn't on or off")
                     }
                 }
+            case "-debug-run-stub":
+                options.runStub = choice(value(for: flag), for: flag)
             default:
                 if flag.hasPrefix("-debug-") {
                     options.problems.append("unknown argument \(flag)")

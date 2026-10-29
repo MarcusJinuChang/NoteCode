@@ -141,3 +141,27 @@ v3 phase 4 (13 Oct, `docs/archive/ui-design-v3-implementation.md`).
   only keyboard used; the Output panel's selection highlight (orange at 30% on
   a near-black panel) beyond looking at it; line numbers at 4+ digits on
   screen (the area is tested for five); the macOS app running (it builds).
+
+## The Run panel (R3, 28 Oct)
+
+- **A pane, not a frame.** `PageDetailView.runLayout` puts `RunDock` beside the
+  note's content in an `HStack`. The page is handed a narrower area and nothing
+  else; its zoom and top line are its own (`PageView` already handles an area
+  that changes width). Width is `RunDockWidth`: 360pt to start, 280pt to half
+  the window, `@AppStorage` app-wide. In a compact width `RunPanelHost` shows
+  the same `RunPanel` as a bottom sheet, medium and large, with background
+  interaction on at medium so the page stays usable.
+- **State is `RunSession`** (one per `NoteEditor`, fed from the coordinator's
+  parse like the action bars). Results and input are kept by block *ordinal*
+  and moved by `RunSession.remap` after each parse: an unchanged block is
+  followed to its new ordinal, an edited one stays where it is, and its result
+  is then stale (`ranHash != contentHash`, dimmed with "Code changed since this
+  run"). Output blocks and SQL are not in the strip.
+- **The runner is injected.** `RunServiceFactory.make()` returns the debug stub
+  under `-debug-run-stub ok|compile-error|runtime-error|time-limit|capped`,
+  which also opens the panel and runs the first block after a second; with no
+  runner the Notes | Run control isn't shown. R4 supplies the real client.
+- **Free readers**: the Run segment carries a PRO mark and, until P2's
+  paywall exists on main, opens an alert saying Run is Pro's.
+- Not in R3: Keep in Note, compile-error links, the ▷/⌘R wiring, the
+  offline fallback button (all R4).

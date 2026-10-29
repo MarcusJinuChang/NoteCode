@@ -589,7 +589,9 @@ struct DocumentTextView: UIViewRepresentable {
             refreshFenceVisibility(in: textView, repositioning: false)
             refreshHeadingMarkers(in: textView)
             refreshCaretFormatting(in: textView)
-            overlay?.update(targets: CodeBlockAction.targets(in: source, blocks: blocks))
+            let targets = CodeBlockAction.targets(in: source, blocks: blocks)
+            overlay?.update(targets: targets)
+            editor?.run.update(blocks: targets)
             scheduleHighlighting(for: textView, source: source, blocks: blocks)
         }
 

@@ -205,6 +205,9 @@ final class NoteEditor {
     /// Run or copy the code block the caret is in, if it's in one. The text
     /// view's coordinator sets these: it owns the blocks and where they run.
     @ObservationIgnored var runBlockAtCaret: (() -> Void)?
+
+    /// The Run panel's state for this note (RunPanel).
+    @ObservationIgnored let run = RunSession()
     @ObservationIgnored var copyBlockAtCaret: (() -> Void)?
 
     /// The on-device assistant (Explain Code, Summarise Note). One per note,
@@ -1252,6 +1255,11 @@ final class NoteEditor {
         let entries = NoteOutline.entries(in: (textView?.text ?? "").nativeUTF8)
         let top = page?.topLineCharacter() ?? 0
         return (entries, NoteOutline.currentIndex(in: entries, atCharacter: top))
+    }
+
+    /// The Run panel's chips: the note scrolls to a block's opening fence.
+    func scroll(toBlock block: RunBlock) {
+        page?.scroll(toLineAt: block.location)
     }
 
     /// An outline tap: the heading's line at the top of the page.

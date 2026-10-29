@@ -77,6 +77,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Syntax highlighting | HighlightSwift with a custom theme; each role 4.5:1 | built | `colour.md` |
 | Block header | Name, Run and Copy buttons in the block's corner | built | `code-blocks-room-around-and-inside.md` |
 | Run | Redirect to a free compiler: Compiler Explorer (code in the link) or Programiz or OnlineGDB or a custom site (code copied); chosen per note, folder or app | built | `AGENTS.md`, `CodeDestination.swift` |
+| Run panel | Notes \| Run control in the top bar opens a pane at the page's right (360pt, dragged 280pt to half the window, collapses to an edge tab; a bottom sheet in a compact width): block strip, Run, Output and Input tabs, per-block input and last result (dimmed when the code changed). `RunSession`; `-debug-run-stub`. Nothing reaches it until R4 supplies a runner; Keep in Note and error links are R4 | built (R3) | `code-languages-and-keys.md`, `RunPanel.swift`, `RunSession.swift` |
 | Copy block | Copies the code with a Copied toast | built | `keyboard-edit-menu-…md` |
 | Code keys row | ⇥ ⇤ and brackets above the keyboard | built | `code-languages-and-keys.md` |
 | Indentation | Return keeps indent and opens a level after `{`; Tab and Backspace move a level; width is a setting | built | `code-languages-and-keys.md` |
