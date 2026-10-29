@@ -226,6 +226,7 @@ enum MarkdownLayout {
                 text.setAttributes(attributes, range: local)
                 if let attachment = FormulaAttachment.make(tex: tex, pointSize: size, display: display) {
                     text.addAttribute(.attachment, value: attachment, range: NSRange(location: local.location, length: 1))
+                    text.addAttribute(FormulaAttachment.sourceKey, value: FormulaAttachment.Source(tex: tex, pointSize: size, display: display), range: NSRange(location: local.location, length: 1))
                 }
                 continue
             }
@@ -236,6 +237,7 @@ enum MarkdownLayout {
                 text.setAttributes(attributes, range: local)
                 if let attachment = FormulaAttachment.make(tex: tex, pointSize: font?.pointSize ?? 17, display: true, fitting: true) {
                     text.addAttribute(.attachment, value: attachment, range: NSRange(location: local.location, length: 1))
+                    text.addAttribute(FormulaAttachment.sourceKey, value: FormulaAttachment.Source(tex: tex, pointSize: font?.pointSize ?? 17, display: true), range: NSRange(location: local.location, length: 1))
                     let lift = DisplayFormula.baselineLift(tex: tex, font: font ?? .preferredFont(forTextStyle: .body))
                     text.addAttribute(.baselineOffset, value: lift, range: NSRange(location: local.location, length: 1))
                 }

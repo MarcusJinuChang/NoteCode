@@ -316,6 +316,25 @@ spike found no required-reason API in SwiftMath's sources).
   selection; Done inserts. A display formula takes lines of its own. Not in a
   code block.
 
+## Built in step 6 (PDF and thumbnails)
+
+- `MarkdownLayout.laidOut` puts a `FormulaAttachment.Source` (tex, text point
+  size, display) under `FormulaAttachment.sourceKey` on each formula's U+FFFC.
+  `PrintedNote.draw` reads it after each line: it blanks the attachment's
+  bitmap first (so the line's own draw can't add a second, heavier copy) and
+  calls `FormulaAttachment.drawVector`, which typesets the formula again and
+  draws the display list into the context (y flipped, baseline `descent` below
+  the label's origin). Concrete black; a coloured span prints black, as paper is
+  light. A display block scales to the column as on screen and is lifted by its
+  `baselineOffset`.
+- The x is `locationForCharacter`; the baseline is the line's `glyphOrigin.y`
+  less the lift. Thumbnails share `PrintedNote.draw`, so they get formulas for
+  free. `NoteThumbnail.version` is 8 (7 was taken by the paper styles).
+- Tests (`NotePDFTests`): an inline and a display formula leave ink on the
+  sheet (the display one centred), the source is not in the PDF's text, a
+  formula note stays small, the thumbnail version.
+- Not looked at by eye: the page in a PDF viewer.
+
 ## Unverified
 
 On an iPad; the view-provider variant; display-block look on a real page (heights, centring and the ink's position are tested in the simulator); sharpness at zoom; the 1.1 scale by eye;

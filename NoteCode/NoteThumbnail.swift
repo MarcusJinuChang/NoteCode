@@ -28,7 +28,8 @@ nonisolated enum NoteThumbnail {
     /// (16 Oct). 5: spans that nest, whose markers were drawn before (text
     /// overhaul, phase 2, 18 Oct). 6: underline, highlight, quotes and rules,
     /// which a note written before drew as their markers (phase 6, 19 Oct).
-    static let version = 7
+    /// 7: paper styles. 8: formulas, which the thumbnail now draws (LaTeX, step 6).
+    static let version = 8
 
     /// Pixels per page point: a Letter page is 449 by 581.
     ///

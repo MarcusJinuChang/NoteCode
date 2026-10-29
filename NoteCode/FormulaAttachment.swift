@@ -15,6 +15,9 @@ import SwiftMath
 
 enum FormulaAttachment {
 
+    /// The attribute carrying a formula's `Source` on its attachment character.
+    static let sourceKey = NSAttributedString.Key("NoteCode.formulaSource")
+
     /// Latin Modern is smaller than the system font at the same point size
     /// (x-height 84%), so a formula is set a little larger (docs/design/latex.md
     /// › Size). Provisional, to be judged on screen.
@@ -67,6 +70,53 @@ enum FormulaAttachment {
         // the formula's descent (measured within 0.5pt, latex.md › Drawing).
         attachment.bounds = CGRect(x: 0, y: fitting ? 0 : -drawn.metrics.descent, width: drawn.metrics.width, height: drawn.metrics.ascent + drawn.metrics.descent)
         return attachment
+    }
+
+    /// What a paper draw needs to typeset a formula again: kept on the
+    /// formula's U+FFFC in a laid-out paragraph (`MarkdownLayout.laidOut`).
+    final class Source: NSObject {
+        let tex: String
+        /// The text's point size, before `sizeScale`.
+        let pointSize: CGFloat
+        let display: Bool
+        init(tex: String, pointSize: CGFloat, display: Bool) {
+            self.tex = tex
+            self.pointSize = pointSize
+            self.display = display
+        }
+    }
+
+    /// Draws `source` as vectors (paths and an embedded font subset, so a PDF
+    /// stays small and sharp at any zoom), its baseline starting at `origin` in
+    /// a UIKit (y down) context, in concrete black: paper is light. Scaled down
+    /// about the origin to `room` when wider, as a display block's attachment is.
+    /// Returns false when SwiftMath can't typeset it.
+    @discardableResult
+    static func drawVector(_ source: Source, at origin: CGPoint, room: CGFloat? = nil, in context: CGContext) -> Bool {
+        let label = MTMathUILabel()
+        label.displayErrorInline = false
+        label.fontSize = source.pointSize * sizeScale
+        label.labelMode = source.display ? .display : .text
+        label.textColor = .black
+        label.latex = source.tex
+        guard label.error == nil else { return false }
+        let fit = label.intrinsicContentSize
+        guard fit.width > 0, fit.height > 0 else { return false }
+        label.frame = CGRect(origin: .zero, size: fit)
+        label.layoutIfNeeded()
+        guard let list = label.displayList else { return false }
+        var scale: CGFloat = 1
+        if let room, room > 0, list.width > room { scale = room / list.width }
+        context.saveGState()
+        context.translateBy(x: origin.x, y: origin.y)
+        // The display list is y up from its baseline.
+        context.scaleBy(x: scale, y: -scale)
+        // The label placed the list with its baseline `descent` above its
+        // frame's bottom (left aligned, no insets).
+        context.translateBy(x: 0, y: -list.descent)
+        list.draw(context)
+        context.restoreGState()
+        return true
     }
 
     /// Metrics only, for tests.
