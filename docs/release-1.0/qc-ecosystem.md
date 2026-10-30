@@ -184,7 +184,7 @@ Read honestly:
   students think in semesters. The 12-month cost is the headline number and
   it is high. Apple also treats the monthly-only structure as fine, but the
   conversion cost is likely greater than the revenue per annual subscriber
-  lost. The proxy economics (R-run.md: Judge0 costs at most $1.53/month at
+  lost. The proxy economics (archive/release-1.0/R-run.md: Judge0 costs at most $1.53/month at
   the cap) leave room for a ~$39.99/yr plan with margin. I would add it
   after 1.0 rather than delay the release, or add it now if it is a few lines
   in `ProStatus` and one more product in App Store Connect; it is a decision
@@ -196,7 +196,7 @@ Read honestly:
 - **A semester or student price** (e.g. $14.99 for 4 months, or an
   education offer code) is the usual answer in this market; also post-1.0.
 - Apple's 15% Small Business Program rate is already assumed
-  (R-run.md); confirm enrolment before launch.
+  (archive/release-1.0/R-run.md); confirm enrolment before launch.
 
 Verdict: the *monthly* price is in line with add-on subscriptions in this
 market and the proxy costs support it; the *absence of an annual plan*

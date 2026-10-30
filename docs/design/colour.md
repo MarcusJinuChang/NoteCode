@@ -52,7 +52,7 @@ The UI redesign's palette (7 Oct, phase 1 of `docs/archive/ui-design-v2-implemen
 
 ## Colour sets, highlighters and the hotbar swatch (21 to 23 Oct)
 
-From Marcus's 1.0 testing (feedback-plan.md, stream C): dark-mode colours too
+From Marcus's 1.0 testing (docs/archive/feedback-plan.md, stream C): dark-mode colours too
 dull, light mode a little uncanny, the hotbar swatches need refining, the icons
 read as basic, and the original palette should be restorable. **Built 23 Oct** (branch `claude/c-colour-proposal-50a2d1`): highlighters
 and the swatch, as below; icons are not built. Revised after Marcus looked at
@@ -185,7 +185,7 @@ works for a colour the reader adds. Light mode shows the stored value.
 ### Icons: decision
 
 **Recommendation: draw a custom set, staged, with SF Symbols kept for the
-system chrome.** Marcus has asked for custom (feedback-plan, Answered 3), and
+system chrome.** Marcus has asked for custom (docs/archive/feedback-plan.md, Answered 3), and
 restyling SF Symbols (weight, hierarchical or palette rendering, one optical
 size) is a cheap first step that doesn't change what the glyphs are, so it
 can't fix "basic". **Still open**: not answered since the first version.

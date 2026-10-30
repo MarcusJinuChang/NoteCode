@@ -4,7 +4,7 @@
 //
 //  The Run panel: a block strip, Run, and Output | Input tabs. Self-contained
 //  so it can be docked at the page's right edge, shown in a bottom sheet, or
-//  later floated. docs/release-1.0/R-run.md › R3.
+//  later floated. docs/archive/release-1.0/R-run.md › R3.
 //
 
 #if canImport(UIKit)

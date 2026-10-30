@@ -132,9 +132,11 @@ What the app contains: [docs/features.md](docs/features.md) — every feature by
 works, and what is missing or planned. Read it before reading code to find out whether
 something exists, and update its rows in the same PR that adds, changes or removes a feature.
 
-Planning docs: `docs/ROADMAP.md` (status and what is left); the working plan is
-`docs/release-1.0/README.md` (a session reads its Rules and its own stream's file);
-finished plans are in `docs/archive/`.
+Planning docs: `docs/ROADMAP.md` (status, what is left, and the After 1.0 list);
+the 1.0 plan is finished and lives in `docs/archive/release-1.0/` with the other
+finished plans in `docs/archive/`. Still live for submission:
+`docs/release-1.0/qc-ecosystem.md` (App Review and launch analysis) and
+`docs/release-1.0/R5-submission.md` (review notes, privacy label, by-hand steps).
 Everything still to see on a real iPad, in the order of a walk through the app:
 [docs/ipad-test-checklist.md](docs/ipad-test-checklist.md).
 

@@ -6,12 +6,12 @@ reading code, and to find the design note that has the detail. What is still to
 be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-checklist.md).
 
 - **Status:** *built* (merged to `main`), *partial* (built, with a named gap),
-  *missing* (wanted, not built), *planned* (scheduled in `docs/feedback-plan.md`),
+  *missing* (wanted, not built), *planned* (not in 1.0; see `docs/ROADMAP.md` › After 1.0),
   *idea* (not decided), *stalled* (decided to wait).
 - **Built does not mean checked on a real iPad.** What is unchecked on the iPad
   is in `docs/ROADMAP.md` › Verification debt.
 - **Feedback #n** is the item's number in Marcus's 21 Oct testing list, kept in
-  `docs/feedback-plan.md` with its stream and order.
+  `docs/archive/feedback-plan.md` with its stream and order.
 - **Keep it current:** a PR that adds, changes or removes a feature updates its
   row here (same PR). A new feature gets a row in the right section. The "how
   it works" column stays one line; the reasoning goes in `docs/design/`.
@@ -37,7 +37,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Get Info | Counts and dates | built | `NoteInfoView.swift` |
 | Thumbnails and reopening | Cards draw the note; a note reopens at its last page | built | `home-…md` |
 | Search | By title and text; Find in Note inside a note | built | `organising-notes.md` |
-| iCloud sync | Model is shaped for CloudKit; nothing syncs | planned (stream L) | ROADMAP |
+| iCloud sync | Model is shaped for CloudKit; nothing syncs | planned (After 1.0) | ROADMAP |
 | Face ID locking, note combining | | idea | ROADMAP |
 
 ## 2. Writing (text)
@@ -108,7 +108,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Return to previous tool after a selection | Settings › Drawing › Return to Previous Tool, off by default; after Delete or a tap on empty space | built (24 Oct) (feedback #16) | `object-system.md` |
 | Ink storage | `drawingData` is plain PaperKit bytes or an `NCOB` container with an object table (anchors, groups); empty table writes the plain bytes | built (24 Oct) | `object-system.md` |
 | Hover mark follows the tool | The Pencil hover mark lags a tool or property change; the app draws no mark, PaperKit does | measured, PaperKit's; options in `pages.md` (feedback #17) | |
-| Text-anchored ink, more shapes, logic gates | | planned (stream L) | ROADMAP |
+| Text-anchored ink, more shapes, logic gates | | planned (After 1.0) | ROADMAP |
 
 ## 5. Pages and layout
 
@@ -164,7 +164,7 @@ Sheet with General, Pro, Notes, Writing, Code, Drawing and Help and About
 | Code | Run Code In, Code Keys, Indent Width, Line Numbers | |
 | Drawing | Finger Draws, Erases, Size, Colour Set, Pens and Highlighters palettes, Pencil actions, Add Pages While Drawing, Return to Previous Tool, Reset Colours | |
 | Pro | Status (Pro or Free), renewal, Manage, Restore, See NoteCode Pro (`ProSettings.swift`) | |
-| Help and About | Welcome note and screen, version, licences, tip jar, privacy row (always) and feedback row once set (`AppInfo.feedbackAddress` is still `nil`) | |
+| Help and About | Welcome note and screen, version, licences, tip jar, privacy row (always) and feedback and feature-request rows once `AppInfo.feedbackAddress` is set (still `nil` in 1.0: ROADMAP › After 1.0) | |
 
 ## 9. Shell and release
 
@@ -174,7 +174,7 @@ Sheet with General, Pro, Notes, Writing, Code, Drawing and Help and About
 | App icon | Drawn by a script; Default, Dark, Tinted plus two alternates | built | `AGENTS.md` › Shipping |
 | Privacy | Notes never leave the device. Run (Pro) sends a block's code and input to our proxy and Judge0; ads (free) send what Google's SDK collects, unlinked. Manifest declares the ad data and UserDefaults. Policy rewritten for both (`docs/site/privacy.md`) | policy drafted; Marcus publishes it to `gh-pages` | `docs/design/shipping.md` › Privacy, Run and ads |
 | Storage | SwiftData, schema version 1 frozen by hashes; falls back to memory with a warning | built | `AGENTS.md` › The model |
-| Pro status | `ProStatus`: whether the reader has Pro (`com.marcus.NoteCode.pro.monthly`, $4.99 a month), its expiry and the signed transaction for the Run proxy; purchase, Restore, Manage; `-debug-pro on\|off`. The AI actions read it (P2); ads P3, Run R4 will | built (P1) | `the-list-s-foot-and-the-tip-jar.md`, `ProStatus.swift` |
+| Pro status | `ProStatus`: whether the reader has Pro (`com.marcus.NoteCode.pro.monthly`, $4.99 a month), its expiry and the signed transaction for the Run proxy; purchase, Restore, Manage; `-debug-pro on\|off`. The AI actions read it (P2); ads (P3) and Run (R4) read it too | built (P1) | `the-list-s-foot-and-the-tip-jar.md`, `ProStatus.swift` |
 | Paywall and AI gate | `PaywallView`: what Pro gives, this iPad's AI availability, price and period, Subscribe, Restore, Terms of Use, Privacy Policy (always: `AppInfo.privacyPolicy` is set). A free reader's Explain or Summarise opens it instead of the sheet and starts no model session (`AIAssistant.needsPro`). Settings › Pro: status, renewal, Manage, Restore. Run opens it too ("Run in the app is part of NoteCode Pro."), and so does Remove ads (P3) | built (P2); unverified on device | `ai-features.md`, `PaywallView.swift`, `ProSettings.swift` |
 | Ads | Banner for readers without Pro, at Home's foot and in the list's foot, with Remove ads opening the paywall. UMP consent form first (EEA/UK), then the Mobile Ads SDK starts; the ATT prompt waits for a second Home visit, never launch. Refused or unasked tracking: non-personalised (`npa`). Test ids in Debug, real ids in Release (`AdConfig`) | built (P3); unverified on device | `shipping.md`, `AdConfig.swift`, `AdConsent.swift`, `AdBanner.swift` |
-| Ads and Pro, group notes | | planned or idea (stream L) | ROADMAP |
+| Group notes, sign-in | Needs a server; nothing else in the app does | idea | ROADMAP |

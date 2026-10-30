@@ -1,94 +1,68 @@
 # NoteCode roadmap
 
-Source of truth for status and what is left. Revised 19 October 2026.
-What the app contains, feature by feature, is `docs/features.md`; the current
-working plan is `docs/feedback-plan.md`.
+Source of truth for status and what is left. Revised 29 October 2026, at 1.0.
+What the app contains, feature by feature, is `docs/features.md`. The 1.0 plan
+is finished and archived in `docs/archive/release-1.0/`; what is still live for
+submission is `docs/release-1.0/R5-submission.md` and `qc-ecosystem.md`.
 Feature-by-feature design notes are in `docs/design/` (index in AGENTS.md);
 finished plans are in `docs/archive/`. The long per-branch history this file
 used to carry is in git (`git log -p docs/ROADMAP.md`).
 
 | | |
 |---|---|
-| Drawing layer | Done 3 Oct (deadline was 10 Oct) |
-| TestFlight 1 | Planned Sat 17 Oct, iPad only. Whether it went out is not recorded in the repo |
-| App Store submission | Nov 2026, with the iPhone and Duo layouts |
+| Drawing layer | Done 3 Oct |
+| 1.0 | Everything planned is built and merged to `main` (29 Oct); waiting on the by-hand release steps below |
+| App Store submission | Nov 2026 |
 | Duo launch | 23 Oct 2026 (runs iOS 27.1) |
 | Second version | AI + feedback, Mar 2027 |
 
-## Status (19 Oct)
+## Status (29 Oct)
 
-Everything planned for the first release is **built and merged to `main`**
-(80 PRs). Roughly 30,000 lines of app code in 110 files and 25,000 lines of
-tests. On 19 Oct all 1,484 unit tests (167 suites) pass on the iPad Pro
-13-inch simulator; UI tests were not run.
+The 1.0 plan (streams B, O, S, T, W, L, R, P, F) and three QC passes are
+merged to `main`. Unit tests: all 1,858 tests (211 suites) pass on the iPad Pro 13-inch simulator (29 Oct, `-only-testing:NoteCodeTests -parallel-testing-enabled NO`, about 500s). UI tests were not run.
 
-Built:
+Built, beyond the first release's drawing layer, editor, Home, folders,
+Import/Export, Settings and tip jar:
 
-- Drawing layer on PaperKit: Pencil/finger ink, separate ink undo, Letter
-  pages in three view modes, pinch zoom, ink cut cleanly across page breaks,
-  PDF export.
-- Editor on TextKit 2: code blocks with Run (redirect to a free compiler) and
-  Copy, eight languages, hidden Markdown markers, lists, checklists, links.
-- v3: Home and title screen, thumbnails, reopening at the last page,
-  Recently Deleted, nested and draggable folders, search, outline, templates,
-  Import / Export All, Settings, tip jar.
-- Page fills the window, accent colour, Add Page.
-- iPhone and Duo layouts (compact-width stack, fold avoidance), checked in
-  the simulator only.
-- Text overhaul, phases 1-6: any text size, per-character formatting, a
-  nesting parser, a typing style, paste and copy with formatting, underline,
-  highlight, quotes, rules and H4-H6.
-- Model frozen as schema version 1 (guarded by `ModelFreezeTests`).
+- **LaTeX** (SwiftMath): inline and display formulas drawn in the page,
+  editable by a popover, vector in the PDF and thumbnails, handled by Get
+  Info, outline, copy and paste.
+- **Run in the app (Pro):** a panel beside the page, output kept in the
+  note, through `server/run-proxy` on Cloudflare and hosted Judge0. The free
+  Run button is still a redirect to a compiler site.
+- **Pro and ads:** $4.99 a month subscription (no ads, in-app Run, the AI
+  features), a paywall, and banner ads with consent first for free readers.
+- **The note window:** one pan on the page, a sheet look, a joined
+  list/Home control with the note shrinking into its card, no Liquid Glass.
+- **Text:** instant size changes with undo and no alert, a rearranged
+  hotbar. **Objects:** selection stays after Insert, smooth resize.
+  **Sidebar:** drag to Recently Deleted, a shorter menu.
+- Fixes: Home's excerpt, the app icon's pencil, the pixel eraser crash, a
+  Run result landing on the wrong block.
 
 ## What is left
 
-### Blocking the App Store submission
+### By hand, to release (Marcus)
 
-1. **Turn on iPhone.** The NoteCode target still has
-   `TARGETED_DEVICE_FAMILY = 2` (iPad only) although the iPhone layout is
-   built. Changing it touches `project.pbxproj`, which carries Marcus's local
-   signing edit; do it by hand, not by an agent.
-2. **Host the pages** in `docs/site/` (`privacy.md`, `support.md`), fill the
-   `DATE` and `EMAIL ADDRESS` placeholders, then set `AppInfo.privacyPolicy`
-   and `AppInfo.feedbackAddress` (`AppSettings.swift`, both `nil` now). Each
-   footer row appears only when its value is set.
-3. **App Store Connect:** Paid Applications agreement with banking and tax;
-   the three tip products (`com.marcus.NoteCode.tip.small|medium|large`)
-   submitted with the build; Small Business Program; screenshots, description,
-   privacy label ("nothing collected"), review notes.
-4. **Bump the build number** for every upload (build 2 is current).
+1. **Bump the build number** in `project.pbxproj` for the upload.
+2. **Publish the pages:** `docs/site/privacy.md` and `support.md` to the
+   `gh-pages` branch (steps in `R5-submission.md`), then set
+   `AppInfo.feedbackAddress` (`nil` now; the privacy link is already set).
+3. **Deploy the run proxy** and set `PRO_PRODUCT_IDS` (it fails closed until
+   then); `server/run-proxy/README.md`.
+4. **App Store Connect:** Paid Applications agreement, the three tip products
+   and the `com.marcus.NoteCode.pro.monthly` subscription submitted with the
+   build; privacy label and review notes from `R5-submission.md`; screenshots,
+   description; Small Business Program.
+5. **Walk `docs/ipad-test-checklist.md`** on the iPad.
 
 ### Verification debt (built, never seen on the real thing)
 
-These are the things most likely to be wrong, because every check so far was
-the simulator or a unit test. Do these on the iPad before submitting:
-
-- **Folder and note drag-and-drop.** Fixed 24 Oct: a `List` never delivered a
-  drop to any SwiftUI modifier, so the list takes it from its collection view
-  (`ListDropBridge`; design/organising-notes.md). A note on a folder and on
-  Library is tested on the iPad; still to see: the outline and lines while
-  dragging, arranging folders by their edges, and dragging to the list's edge.
-  Moves from the menus work regardless.
-- **Text overhaul "done means" list** (archive/text-system-overhaul.md): the
-  six on-screen checks, including `.md` opening in Obsidian and a mixed-size
-  note's PDF.
-- **Paper styles** (`design/paper-styles.md`): ••• › Paper and Settings › Notes
-  › Paper by a tap; pinch to 4x on grid and dots with ink drawn along a rule
-  (does it stay on its points, is the stroke crisp, any shimmer); print layout
-  and compressed; a long note scrolling smoothly with dots; the PDF in the
-  share sheet and in Files.
-- **Page-fills-window chrome:** header, floating bottom bar, side-bar strip,
-  Reduce Motion.
-- **Pencil:** latency, palm rejection, squeeze/double-tap, the lasso on cut
-  strokes, Insert (photo, shapes) and dragging inserted objects.
-- **Hardware keyboard:** the whole shortcut table (the simulator can't send
-  chords), Tab / Shift-Tab, the code-keys row hiding.
-- **Export / import:** `fileExporter` writing a folder in Files, Import's
-  picker, a second window ("Open in Another Window").
-- **Tip jar** with a real sandbox purchase in TestFlight.
-- **A physical Duo** after 23 Oct (fold avoidance was simulator-only).
-- Light/dark and Increase Contrast sweeps; iPad 11-inch and portrait for the
-  newer features.
+The whole list, in walking order, is `docs/ipad-test-checklist.md`. Most
+likely to be wrong, because every check so far was the simulator or a unit
+test: drag and drop in the list, the Pencil with the new single pan, ink-mode
+gestures, the Run panel and the sandbox purchase, the formula popover,
+hardware-keyboard chords, export and import in Files, a physical Duo.
 
 ### Known problems
 
@@ -108,29 +82,38 @@ the simulator or a unit test. Do these on the iPad before submitting:
 - So are the Judge0 CE language ids in `server/run-proxy/languages.json`
   (read from ce.judge0.com on 26 Oct; the site has no "latest" alias).
 
-## After the submission
+## After 1.0
 
-In this order (see AGENTS.md › Open questions for the unscheduled ones):
+The ranked gaps are from the cohesion QC (#111, effort in brackets; its
+first two, the Privacy Policy link and "No ads" with no ads, were fixed by R5
+and P3); the rest are items the QC and R5 left unbuilt.
 
-1. **iCloud sync.** Needs Signing & Capabilities; the model is already
-   shaped for CloudKit. Important once the iPhone app exists.
-2. **Paper styles** (blank, dots, grid, lined): built 24 Oct, see `docs/design/paper-styles.md`. Was postponed after breaking on page geometry.
-3. **LaTeX** (SwiftMath, always rendered, never caret-dependent).
-4. **Text-anchored ink**, before our own object system.
-5. **AI for March:** one or two features (explain this code block, summarise
-   this page) on Apple's on-device Foundation Models, so the app still
-   collects nothing.
-6. **Our own object system** (tap- and pen-first, rectangular selection),
-   replacing PaperKit's shapes. Its storage is the one format change after
-   release.
-7. **More shapes**, logic gates among them.
-8. Ads plus a Pro subscription (removes ads, carries the AI features); needs
-   an ad SDK, a tracking prompt, a new privacy label and a new
-   `privacy.md`, so it lands with Pro.
+1. **Support address.** `AppInfo.feedbackAddress` is `nil`, so a student has no
+   way to report a bug or ask for a feature (XS). Possibly switch the support
+   email to notecodesupport@gmail.com (the page, `support.md` and the setting).
+2. **iCloud sync or backup.** Only Export All today; a lost iPad loses every
+   note (L). The model is shaped for CloudKit.
+3. **Text-anchored ink.** Typing above a drawing leaves the ink behind (L).
+4. **Run for free students** is Pro only with no trial; a free student sees
+   the paywall on first tap (S, policy call).
+5. **The macOS editor** is a plain `TextEditor`, and iPhone is built but not
+   turned on (L).
 
-Not in any order: infinite canvas, side-by-side pages, A4, the macOS editor
-(still a plain `TextEditor`), sign-in and group notes, Face ID note locking,
-note combining, code sort.
+Unbuilt from the QC and R5:
+
+- A **disclosure the first time Run is used** (QC item 7): what is sent and to whom.
+- A **Settings › Privacy Options row** to reopen the consent form (QC item 5).
+- **`server/run-proxy`: wrangler 4 and `@cloudflare/vitest-plugin`.** It
+  is on wrangler 3.90 and `@cloudflare/vitest-pool-workers` 0.5; upgrade both
+  and re-run its tests.
+
+Then, in the old order (AGENTS.md › Open questions for the unscheduled ones):
+**our own object system** (tap- and pen-first, rectangular selection; its
+storage is the one format change after release), **more shapes** (logic
+gates), **more AI features and a higher Pro price**.
+
+Not in any order: infinite canvas, side-by-side pages, A4, sign-in and group
+notes, Face ID note locking, note combining, code sort.
 
 ## Decisions standing
 
