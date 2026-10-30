@@ -105,6 +105,8 @@ the simulator or a unit test. Do these on the iPad before submitting:
 - Weight and italic are not drawn in syntax colours (`ColorRun` carries
   colour only).
 - Pinned Compiler Explorer compiler ids are a maintenance item.
+- So are the Judge0 CE language ids in `server/run-proxy/languages.json`
+  (read from ce.judge0.com on 26 Oct; the site has no "latest" alias).
 
 ## After the submission
 

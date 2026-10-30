@@ -164,7 +164,7 @@ Sheet with General, Pro, Notes, Writing, Code, Drawing and Help and About
 | Code | Run Code In, Code Keys, Indent Width, Line Numbers | |
 | Drawing | Finger Draws, Erases, Size, Colour Set, Pens and Highlighters palettes, Pencil actions, Add Pages While Drawing, Return to Previous Tool, Reset Colours | |
 | Pro | Status (Pro or Free), renewal, Manage, Restore, See NoteCode Pro (`ProSettings.swift`) | |
-| Help and About | Welcome note and screen, version, licences, tip jar, privacy and feedback rows once set (`AppInfo.privacyPolicy` and `.feedbackAddress` are still `nil`) | |
+| Help and About | Welcome note and screen, version, licences, tip jar, privacy row (always) and feedback row once set (`AppInfo.feedbackAddress` is still `nil`) | |
 
 ## 9. Shell and release
 
@@ -172,9 +172,9 @@ Sheet with General, Pro, Notes, Writing, Code, Drawing and Help and About
 |---|---|---|---|
 | Tip jar | Three consumable tips; unlocks nothing | built; needs App Store Connect | `the-list-s-foot-and-the-tip-jar.md` |
 | App icon | Drawn by a script; Default, Dark, Tinted plus two alternates | built | `AGENTS.md` › Shipping |
-| Privacy | Nothing collected; manifest lists UserDefaults only | built; pages not hosted | `AGENTS.md` › Shipping |
+| Privacy | Notes never leave the device. Run (Pro) sends a block's code and input to our proxy and Judge0; ads (free) send what Google's SDK collects, unlinked. Manifest declares the ad data and UserDefaults. Policy rewritten for both (`docs/site/privacy.md`) | policy drafted; Marcus publishes it to `gh-pages` | `docs/design/shipping.md` › Privacy, Run and ads |
 | Storage | SwiftData, schema version 1 frozen by hashes; falls back to memory with a warning | built | `AGENTS.md` › The model |
 | Pro status | `ProStatus`: whether the reader has Pro (`com.marcus.NoteCode.pro.monthly`, $4.99 a month), its expiry and the signed transaction for the Run proxy; purchase, Restore, Manage; `-debug-pro on\|off`. The AI actions read it (P2); ads P3, Run R4 will | built (P1) | `the-list-s-foot-and-the-tip-jar.md`, `ProStatus.swift` |
-| Paywall and AI gate | `PaywallView`: what Pro gives, this iPad's AI availability, price and period, Subscribe, Restore, Terms of Use, Privacy Policy (when `AppInfo.privacyPolicy` is set). A free reader's Explain or Summarise opens it instead of the sheet and starts no model session (`AIAssistant.needsPro`). Settings › Pro: status, renewal, Manage, Restore. Run opens it too ("Run in the app is part of NoteCode Pro."), and so does Remove ads (P3) | built (P2); unverified on device | `ai-features.md`, `PaywallView.swift`, `ProSettings.swift` |
+| Paywall and AI gate | `PaywallView`: what Pro gives, this iPad's AI availability, price and period, Subscribe, Restore, Terms of Use, Privacy Policy (always: `AppInfo.privacyPolicy` is set). A free reader's Explain or Summarise opens it instead of the sheet and starts no model session (`AIAssistant.needsPro`). Settings › Pro: status, renewal, Manage, Restore. Run opens it too ("Run in the app is part of NoteCode Pro."), and so does Remove ads (P3) | built (P2); unverified on device | `ai-features.md`, `PaywallView.swift`, `ProSettings.swift` |
 | Ads | Banner for readers without Pro, at Home's foot and in the list's foot, with Remove ads opening the paywall. UMP consent form first (EEA/UK), then the Mobile Ads SDK starts; the ATT prompt waits for a second Home visit, never launch. Refused or unasked tracking: non-personalised (`npa`). Test ids in Debug, real ids in Release (`AdConfig`) | built (P3); unverified on device | `shipping.md`, `AdConfig.swift`, `AdConsent.swift`, `AdBanner.swift` |
 | Ads and Pro, group notes | | planned or idea (stream L) | ROADMAP |

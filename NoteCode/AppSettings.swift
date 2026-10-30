@@ -121,9 +121,10 @@ nonisolated enum AppInfo {
     /// a message to nobody is the kind of placeholder App Review rejects.
     static let feedbackAddress: String? = nil
 
-    /// The privacy policy's page, which an upload requires. `nil` until it
-    /// exists, and the row is left out until then.
-    static let privacyPolicy: URL? = nil
+    /// The privacy policy's page (the `gh-pages` branch's `privacy.md`; its
+    /// text is drafted in `docs/site/privacy.md`). Never optional: the
+    /// paywall and the App Store both need the link to exist.
+    static let privacyPolicy = URL(string: "https://marcusjinuchang.github.io/NoteCode/privacy")!
 
     /// The `mailto:` link for Send Feedback, or `nil` without an address.
     static func feedbackURL(address: String? = feedbackAddress) -> URL? {
