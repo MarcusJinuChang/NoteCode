@@ -5,6 +5,10 @@
 
 import Foundation
 import Testing
+#if canImport(UIKit)
+import SwiftUI
+import UIKit
+#endif
 @testable import NoteCode
 
 @Suite("Ads", .serialized)
@@ -157,4 +161,33 @@ struct AdTests {
         #expect(platform.calls.isEmpty, "Pro never hears from the ad stack")
         #expect(!pro.privacyOptionsRequired)
     }
+
+#if canImport(UIKit)
+    @Test("The banner takes the width it is given, never its ad's")
+    func bannerFitsItsPlace() async throws {
+        // Narrower than the 320pt banner the ad stack starts from. Sized from
+        // its own width, the banner held Home at 1720pt in an 1180pt window.
+        let scene = try #require(UIApplication.shared.connectedScenes.first as? UIWindowScene)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 300, height: 400)
+        let host = UIHostingController(rootView: AdBanner(unitID: AdPlacement.home.unitID(), personalised: false))
+        window.rootViewController = host
+        window.isHidden = false
+        defer { window.isHidden = true }
+        for _ in 0..<10 {
+            try await Task.sleep(for: .milliseconds(50))
+            host.view.layoutIfNeeded()
+        }
+
+        let banner = try #require(Self.bannerView(in: host.view))
+        #expect(banner.convert(banner.bounds, to: window).width <= 300)
+        #expect(host.sizeThatFits(in: CGSize(width: 300, height: 400)).width <= 300)
+    }
+
+    /// The SDK's banner, found by class name: the tests don't link the SDK.
+    private static func bannerView(in view: UIView) -> UIView? {
+        if NSStringFromClass(type(of: view)) == "GADBannerView" { return view }
+        return view.subviews.lazy.compactMap { bannerView(in: $0) }.first
+    }
+#endif
 }

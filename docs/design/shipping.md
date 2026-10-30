@@ -106,6 +106,11 @@ Google's test ids (`AdConfig.units(forRelease:)`, pinned in `AdTests`).
 - **Order**: Home's first visit runs the UMP consent flow, then starts the SDK;
   no ad is requested before. The ATT prompt is asked from the second Home visit
   on, never at launch. Without ATT consent the request carries `npa=1`.
+- **Size**: the large anchored adaptive size for the width the slot is
+  given, measured on a placeholder the banner lies over. Measured on the
+  banner itself, the width fed back on itself (a `BannerView` won't be
+  narrower than its ad) and Home grew to 1720pt in an 1180pt window, cut off
+  on both sides and, in landscape, not scrolling (30 Oct; `AdTests`).
 - **Privacy manifest**: `NSPrivacyTracking` is true, with Google's tracking
   domains and data types, all for third-party advertising and unlinked from
   the reader. `AppStoreReadinessTests` pins this.

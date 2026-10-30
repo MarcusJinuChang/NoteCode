@@ -39,17 +39,32 @@ struct AdSlot: View {
 
 #if canImport(UIKit)
 /// `BannerView` at the adaptive anchored size for the width it is given.
+///
+/// The width is measured on a placeholder that takes what its container
+/// offers, and the banner lies over it at the size worked out from that
+/// width, so the banner never sets the layout's width. Measured on the
+/// banner itself it fed back on itself: a `BannerView` won't be narrower than
+/// its ad, each ad was sized from the last one's width, and Home grew to
+/// 1720pt in an 1180pt window (`AdTests.bannerFitsItsPlace`).
 struct AdBanner: View {
     let unitID: String
     let personalised: Bool
     @State private var width: CGFloat = 0
 
     var body: some View {
-        let size = width > 0 ? largeAnchoredAdaptiveBanner(width: width) : AdSizeBanner
-        BannerRepresentable(unitID: unitID, personalised: personalised, size: size)
-            .frame(height: size.size.height)
-            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+        let size = width > 0 ? largeAnchoredAdaptiveBanner(width: width) : nil
+        Color.clear
             .frame(maxWidth: .infinity)
+            .frame(height: size?.size.height ?? 0)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+            .overlay {
+                // Not before the width is known, so no ad is asked for at a
+                // size about to be replaced.
+                if let size {
+                    BannerRepresentable(unitID: unitID, personalised: personalised, size: size)
+                        .frame(width: min(size.size.width, width), height: size.size.height)
+                }
+            }
     }
 }
 
@@ -73,6 +88,11 @@ private struct BannerRepresentable: UIViewRepresentable {
         context.coordinator.loadedWidth = size.size.width
         banner.adSize = size
         banner.load(request())
+    }
+
+    /// The size it is offered, never the ad's own: see `AdBanner`.
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: BannerView, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? size.size.width, height: size.size.height)
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
