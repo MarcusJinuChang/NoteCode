@@ -5,7 +5,7 @@
 //  The Run panel's state for one open note: which block is chosen, what was
 //  typed as input for each, and the last result of each. No UI and no UIKit,
 //  so the rules about staleness and about surviving edits are testable alone.
-//  docs/release-1.0/R-run.md › R3.
+//  docs/archive/release-1.0/R-run.md › R3.
 //
 
 import Foundation

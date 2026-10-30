@@ -4,7 +4,7 @@
 //
 //  What a tap on Run does (the gate, then in the app or a site), and what
 //  Keep in Note writes. Foundation only, so both are testable alone.
-//  docs/release-1.0/R-run.md › R4.
+//  docs/archive/release-1.0/R-run.md › R4.
 //
 
 import Foundation

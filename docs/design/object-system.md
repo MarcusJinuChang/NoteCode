@@ -1,6 +1,6 @@
 # The object system
 
-Design note for phase 6 of `docs/feedback-plan.md` (stream O), 21 Oct. Design
+Design note for phase 6 of `docs/archive/feedback-plan.md` (stream O), 21 Oct. Design
 and two spikes only; nothing here is built. Written from the code on `main` at
 `6fabdfd`, PaperKit's iOS 27.1 and macOS 27.0 interfaces, and
 `scripts/spikes/`. It follows "Isolate risk": each spike answers one assumption

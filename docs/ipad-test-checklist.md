@@ -2,14 +2,14 @@
 
 Everything the design notes and the roadmap say was never seen on a real iPad,
 in the order you would walk through the app, one check to a line with what you
-should see. Built 24 Oct from the "On-iPad checklist", "Not checked" and
+should see. Built 24 Oct, and extended 29 Oct with the 1.0 steps' own lines (their PR numbers are given as #n), from the "On-iPad checklist", "Not checked" and
 "Unverified" sections of `docs/design/` and `docs/ROADMAP.md` (Verification
 debt), de-duplicated. Mark a line `[x]` when it works, and write what you saw
 beside it when it doesn't.
 
 Each line ends with where it came from: **FB n** is item n of the 21 Oct
-feedback list (`docs/feedback-plan.md`, "Item index and retest"); otherwise the
-design note's file name (`pages` is `docs/design/pages.md`) or **ROADMAP**.
+feedback list (`docs/archive/feedback-plan.md`, "Item index and retest"); otherwise the
+design note's file name (`pages` is `docs/design/pages.md`) **ROADMAP**, or a 1.0 step (**T1**, **L5**… with its PR).
 Where a check is for one item, "if it doesn't" says the first thing to look at.
 
 Done on a real iPad already (24 Oct, `ListDragUITests`, run from the Mac):
@@ -25,8 +25,13 @@ of its folder. Both are in section 2 below only for what that test cannot see.
 - [ ] The title screen in dark mode, and with Reduce Motion on (it fades, doesn't slide). — home-the-title-screen
 - [ ] A note's thumbnail updates after an edit; a note with ink has ink in its thumbnail. — home-the-title-screen
 - [ ] The side bar always shows beside Home (sidebar beside Home, not over it). — **FB 3**
+- [ ] Going Home from a note: the note shrinks into the card it was opened from (a note opened from the list shrinks toward the middle); with Reduce Motion on it cross-fades. The joined list/Home pill at the top left reads in light and dark, and the system's own sidebar button is gone. — **W3** #101
+- [ ] Home's excerpt for a note shows its text, not its Markdown (no `#`, `**`, `-`); a line like `#include` stays as typed. — **B1** #85
+- [ ] Home and the list's foot show a banner while you are free, with "Remove ads"; buying Pro removes them at once. First Home visit asks for consent (EEA/UK) and no ATT prompt at launch; the ATT prompt comes on a later Home visit. — **P3** #112
 - [ ] The page fills the window: header (Home, ☰, title; lock, Share, •••), floating bottom bar, the side-bar strip all look right, with Reduce Motion on too. — the-page-fills-the-window, ROADMAP
 - [ ] Page edge doesn't touch the screen edge: a buffer on the sides the hotbar doesn't take, top included. — **FB 1**
+- [ ] Scrolling by dragging anywhere, the grey surround included: one pan; a zoomed page pans diagonally and a sideways fling carries on. No space can be pulled open above the page; the bottom still bounces. The scroll indicator sits at the window's edge and fades; the page has a hairline edge and soft shadow in both appearances, and the top bar's hairline does not double. In ink mode: two-finger scrolling, PaperKit's lasso and a pinch still behave (if not, fall back to the split pans). — **W2** #99
+- [ ] No Liquid Glass anywhere: the hotbar, the pen and text rows, the code keys row, the top bars and the Home/list pill share one opaque bar tone with a hairline; is it right against the surround in light mode? — **W4** #104
 - [ ] Settings from inside a note: ☰ › ••• › Settings opens the sheet. — **FB 11**, settings
 
 ## 2. The list and drag and drop
@@ -39,6 +44,8 @@ of its folder. Both are in section 2 below only for what that test cannot see.
 - [ ] Drag a note or folder onto the Library header: it leaves its folder / goes to the top. — organising-notes
 - [ ] Drag near the top or bottom edge of a long list: the list scrolls under the finger. — organising-notes (unchecked)
 - [ ] Press and hold a row without moving: the context menu, not a drag; press, hold half a second and move at once: it lifts. — organising-notes
+- [ ] Drag a note or folder onto Recently Deleted: it goes there (a folder with its notes) and the row can be restored; the lift now starts quicker. If the drag still feels slow, `-debug-probe` shows where. — **S1** #87
+- [ ] Long-press menu is shorter: Lock Text and Duplicate are under Manage; Delete is still a visible item. — **S2** #94
 - [ ] Move to Folder in a note's menu, and Move To in a folder's menu, still work with no dragging. — organising-notes
 - [ ] A moved note keeps its date; the list's order doesn't change because of a move. — organising-notes
 - [ ] "+" makes a note without opening it; holding it offers the other orientation, From Template and a folder. — **FB 12**, navigation
@@ -61,6 +68,8 @@ of its folder. Both are in section 2 below only for what that test cannot see.
 - [ ] Obsidian marks: `==highlight==`, `<u>`, a quote of two lines with a nested level (bars continuous), a rule, H4 to H6; the Quote chip and Highlight menu by a tap; Style ▾'s new items. — obsidian-s-other-marks-and-blocks
 - [ ] Text colour and size: pick a colour from the menu, recolour one word beside another; the size control is dim with no caret on a word, live on one; + steps 17 to 22; Custom…, Default, ••• › Text Size, ⌘+ and ⌘−; a selection in several sizes shows a dash. — coloured-and-sized-text
 - [ ] Coloured and sized text in the PDF (share sheet) and with a selection across several lines. — coloured-and-sized-text
+- [ ] Text size: the stepper, Custom… and a selection's size apply at once with no alert (also on a note with ink); one ⌘Z undoes a size change, redo works; headings follow the body size. Same for line spacing. — **T1** #82
+- [ ] The text options row: Bold, Italic, Underline, Strikethrough, then colour swatches (Default ring clears), highlight, size, More (Body/H1–H3, Quote, Link, lists, indent, Line Spacing). It fits an 11-inch portrait iPad or scrolls; opaque capsule, light and dark. — **T2** #95
 - [ ] Line spacing presets in points (••• or the text row): a pick applies at once; no change to the date or undo stack; off in ink mode and for a locked note. — **FB 2**, navigation
 - [ ] The text options row: the order, the outline popover jumping to a heading, the page badge, a dock other than the bottom, Link's alert. — navigation-and-the-text-options-row
 - [ ] Autocorrect outside code turned off (Settings): prose doesn't autocorrect, code never does. — **FB 19**
@@ -73,13 +82,23 @@ of its folder. Both are in section 2 below only for what that test cannot see.
 - [ ] Type ``` and a language: the block appears as you type, with its closing fence missing too; type the fence closed and open again. — code-block-fences, code-blocks-room
 - [ ] Tap the language name: the menu opens and retags the block; C++, Java and Python highlight. "Plain Text" is called Code. — code-block-fences, **FB 15**
 - [ ] A real finger on Run, Copy and the language name: each fires (not swallowed by the text view); a tap below the last block adds lines and raises the keyboard. — code-blocks-room, the-note-page, AGENTS (action bars)
-- [ ] Run opens the compiler site chosen; Copy puts the code on the pasteboard. — code-blocks-room (taps on Run and Copy)
+- [ ] Pro with a site chosen as the destination: Run opens that compiler site; Copy puts the code on the pasteboard. A free reader's Run opens the paywall instead. — code-blocks-room (taps on Run and Copy), **R4** #103
 - [ ] The panel's room: 14pt into each margin, the text on the column, a caret on a fence line, light mode, landscape and other text sizes. — code-blocks-room
 - [ ] Return inside a block: lines keep the same height (no thin extra space under the border). — **FB 14**
 - [ ] The keys row (⇥, brackets, …) appears in a block and hides with a hardware keyboard; Tab and ⇧Tab indent; indentation width follows Settings; line numbers up to 4 digits. — code-languages-and-keys
 - [ ] The Output block: selection highlight is visible; "Insert Output Block" from the edit menu. — code-languages-and-keys
 - [ ] An awkward border where ink crosses a code block (highlighter over code). — **FB 22**
 - [ ] A block scrolled out of view and back after changing state draws the new state; find highlights on a hidden fence. — code-block-fences
+
+### Run in the app (Pro)
+
+- [ ] Notes | Run control in the top bar (PRO mark while free). The panel opens at the page's right at 360pt, drags from 280pt to half the window and is remembered, collapses to an edge tab; in a compact width or Split View it is a bottom sheet (medium keeps the page usable). The page's zoom and place don't move across open, resize and shut in all three layouts. — **R3** #100
+- [ ] Sandbox Pro, destination In NoteCode: ▷, ⌘R and the edit menu's Run run a C++, a Java and a Python block; stdout in the code font, compile errors and stderr in the error colour, Stop works, input from the Input tab reaches the program. — **R4** #103, **R2** #90
+- [ ] Edit the block after a run: the result dims with "Code changed since this run"; delete or edit the running block mid-run: Run isn't ignored and a late answer doesn't land on another block. — **R3**, **QC bugs** #113
+- [ ] Keep in Note writes or replaces the ` ```output ` block under the code, one ⌘Z removes it, and it does nothing in a locked note. A `file:line` in a compile error puts the caret on that line. — **R4** #103
+- [ ] Airplane mode, the daily cap and a proxy outage each show their own message with "Open on a Site Instead". — **R4** #103
+- [ ] Chips and the PRO badge follow a custom accent (a pale accent gets a black label); the badge scales with Dynamic Type; VoiceOver says "Run, part of Pro". Run panel in dark mode. — **QC cohesion** #111
+- [ ] After the proxy is deployed: one run per language confirms the Judge0 ids and one bill per run; `PRO_PRODUCT_IDS` is set (a run fails closed with 402 until then). — **R2** #90
 
 ## 5. Select tool and ink
 
@@ -98,6 +117,8 @@ do the steps, pull `tmp/selectionprobe.log` with
 - [ ] Back to the previous tool after a selection (Settings option). — **FB 16**
 - [ ] Recolour text from ink mode with the lasso (unlocked notes; locked and code lines select no text); undo it from text mode. — **FB 26**, object-system
 - [ ] Insert a photo and a shape: popover opens, the button un-lights, the element can be dragged and scaled with a finger and with the Pencil; the Pencil-only lock; two fingers. — insert-and-templates, object-system, ROADMAP
+- [ ] After Insert, the new object stays selected and the options row shows (shape, photo, line, text box); choosing another tool lets go. — **O1** #88
+- [ ] Moving and scaling a selection is smooth on a note with thousands of strokes, with finger and Pencil; one ⌘Z after release; zoomed in, the drag may look soft until release. — **O2** #97
 - [ ] Pencil: latency, palm rejection, squeeze and double-tap, the lasso on cut strokes, the eraser on a stopped stroke. — ROADMAP, pages
 - [ ] Pixel eraser, Pencil lifted after each: across one stroke, across several, on a note with thousands of strokes; then text mode and back, and leave and reopen the note: no crash, the gaps stay. Lasso an erased stroke and recolour it: the gap doesn't fill in. — pixel eraser crash, 28 Oct
 - [ ] Pencil double tap in text mode swaps to the pencil; if nothing happens, the fallback is a `UIPencilInteraction` on the text view. — **FB 23**, the-note-page
@@ -105,6 +126,16 @@ do the steps, pull `tmp/selectionprobe.log` with
 - [ ] Draw through a code block's panel and along a quote: the stroke is clean, no awkward border. — **FB 22**
 - [ ] The live drag of a selection at thousands of strokes and at zoom stays smooth; the overlay above the canvas in print layout. — object-system
 - [ ] Ink in light mode and Increase Contrast. — colour
+
+## 5b. LaTeX
+
+- [ ] Inline `$x^2$` draws inside the line in the text's colour and size, baseline-aligned, sharp at high zoom; `\$5` stays a price; a formula that can't be drawn keeps its dollars, dimmed. — **L1–L3** #83, #96, #102
+- [ ] A `$$` block draws centred on a line of its own (its gap of 8pt above and below looks right), scales down when wider than the column, and its source lines are nearly flat. Block heights hold at other text sizes (the 1.71pt allowance was measured at 17pt). — **L4** #105
+- [ ] Tap a formula: the editor popover (a page sheet when narrow) with live preview and SwiftMath's message for bad TeX; Done writes back, Remove deletes, Done is off while empty; locked notes open read-only. — **L5** #106
+- [ ] Arrow keys and taps never leave the caret inside a formula; Backspace deletes a whole formula in one undo step; selections never half-cover one; the end of a note that finishes with a block can still be typed after. — **L5** #106
+- [ ] Style ▾ › Inline Formula and Display Formula, ⇧⌘M and ⌥⌘M, edit menu Format; seeded from the selection; not inside code. — **L5** #106
+- [ ] Share ▸ PDF and a thumbnail show formulas as crisp vectors in black, once each, with no TeX source. — **L6** #107
+- [ ] Get Info doesn't count words in a formula; the outline shows a heading's TeX without dollars; copy gives the source in Menlo; a rich paste with `$` is escaped as `\$` (a pasted lone `$` can still pair with one on the line). — **L7** #108
 
 ## 6. Pages and paper
 
@@ -134,10 +165,18 @@ do the steps, pull `tmp/selectionprobe.log` with
 - [ ] Open every page of Settings once (only the section list was ever seen): each row does what it says and persists. — settings
 - [ ] Settings › General › Appearance with a note open changes the look at once. — settings
 - [ ] App Icon (General): three previews; choosing one shows iOS's "changed the icon" alert and the Home Screen icon follows; Dark and Tinted Home Screen styles. — settings, AGENTS (app icon)
+- [ ] The icon's pencil sits centred between the chevrons at every size; the upper margin is tight, so check it on the Home Screen. — **B2** #86
 - [ ] Open Note After Creating (Notes) on and off; New Notes orientation; Plain Text is called Code. — settings, **FB 12, 15**
 - [ ] Marker dimming rows: Off, Dim, Full each on screen, in dark mode. — **FB 9**, settings
 - [ ] Haptics where they are offered. — settings
 - [ ] Tip jar (list's foot): rows appear in TestFlight with real products; a sandbox purchase thanks you; Feature Request, Send Feedback, Privacy Policy rows once the addresses are set. — the-list-s-foot-and-the-tip-jar, ROADMAP
+
+## 8b. Pro, paywall and privacy
+
+- [ ] Sandbox: the paywall shows $4.99 per month, Subscribe, Restore Purchases, Terms of Use and Privacy Policy, and the AI line matches this iPad's Apple Intelligence state; Subscribe works and the paywall says you have Pro. Try it at the largest Dynamic Type size. — **P1, P2** #91, #98, #111
+- [ ] Settings › Pro shows Pro and the renewal date; Manage Subscription opens the system sheet; Restore works on a second install; as a free reader See NoteCode Pro opens the paywall. A refund or expiry turns Pro off. `-debug-pro on` and `off` both launch. — **P1, P2** #91, #98
+- [ ] Free (`-debug-pro off`): Explain Block and ••• › Summarise Note open the paywall, nothing generates; Pro: Explain runs. — **P2** #98
+- [ ] Settings › Help and About: Privacy Policy row opens the page; the Feedback rows are absent until `AppInfo.feedbackAddress` is set. — **R5** #114, **QC** #111
 
 ## 9. On-device assistant (Apple Intelligence on)
 
