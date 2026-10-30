@@ -13,8 +13,7 @@ import SwiftUI
 ///
 /// **A row exists only if it works**, as in Settings: the tip jar once the
 /// App Store has answered with its products, the mail rows once
-/// `AppInfo.feedbackAddress` is set, the policy once `AppInfo.privacyPolicy`
-/// is. Until then the foot is the mark alone.
+/// `AppInfo.feedbackAddress` is set. The policy row is always there.
 struct ListFoot: View {
     /// The tip jar, or `nil` where there is none (previews, tests).
     var tipJar: TipJar?
@@ -44,10 +43,8 @@ struct ListFoot: View {
                     Label("Send Feedback", systemImage: "envelope")
                 }
             }
-            if let url = AppInfo.privacyPolicy {
-                Link(destination: url) {
-                    Label("Privacy Policy", systemImage: "hand.raised")
-                }
+            Link(destination: AppInfo.privacyPolicy) {
+                Label("Privacy Policy", systemImage: "hand.raised")
             }
         } footer: {
             VStack(spacing: 6) {

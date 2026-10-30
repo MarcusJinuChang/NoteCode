@@ -17,13 +17,18 @@ scrollable document (Obsidian-style) where:
 Primary use case: CS133 (C++) and general algorithm practice (Java/Python), so
 code blocks need to support at least C++, Java, and Python.
 
-Running code in-app was deliberately out of scope until the 1.0 plan, which adds it as a Pro feature through a proxy (R1–R4; see docs/features.md › Run in the app); the free path below is still a redirect. Every option needed either a
-paid API, a self-hosted sandbox on a VPS, or a multi-megabyte WebAssembly
-runtime with a four-second cold start — all for a feature whose value is lowest
-exactly when the app is being used, since nobody runs code during a lecture.
+Running code in-app was out of scope until the 1.0 plan, because every option
+needed a paid API, a self-hosted sandbox on a VPS, or a multi-megabyte
+WebAssembly runtime with a four-second cold start. 1.0 adds it as a Pro
+feature: with the destination "In NoteCode", Run sends the block's code and
+input over HTTPS to our proxy (`server/run-proxy`, on Cloudflare), which
+runs it on hosted Judge0 and returns the output (R1–R4; see docs/features.md
+› Run in the app). Nothing is compiled or executed on the device, and the
+proxy stores only a day's run count per subscription. That changes what the
+app promises about privacy; see docs/design/shipping.md.
 
-The run button is a redirect, not an execution: `CodeDestination` opens a free
-online compiler, and nothing in the app ever runs a program. Two ways the code
+The free path is still a redirect: `CodeDestination` opens a free online
+compiler, and the app itself runs nothing. Two ways the code
 gets there, and the difference decides how the button behaves:
 
 - **In the link.** Compiler Explorer encodes a whole session in the URL path, so

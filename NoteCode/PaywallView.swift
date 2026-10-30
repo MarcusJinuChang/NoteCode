@@ -119,9 +119,7 @@ struct PaywallView: View {
 
                 Section {
                     Link(PaywallContent.termsTitle, destination: PaywallContent.terms)
-                    if let policy = AppInfo.privacyPolicy {
-                        Link(PaywallContent.privacyTitle, destination: policy)
-                    }
+                    Link(PaywallContent.privacyTitle, destination: AppInfo.privacyPolicy)
                 }
             }
             .navigationTitle(PaywallContent.title)

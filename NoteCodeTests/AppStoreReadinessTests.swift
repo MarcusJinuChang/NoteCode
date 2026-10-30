@@ -50,6 +50,21 @@ struct AppStoreReadinessTests {
         #expect(Bundle.main.object(forInfoDictionaryKey: "ITSAppUsesNonExemptEncryption") as? Bool == false)
     }
 
+    @Test("The privacy policy link is https, and the drafted page covers Run and ads")
+    func privacyPolicyPage() throws {
+        #expect(AppInfo.privacyPolicy.scheme == "https")
+
+        // docs/site/privacy.md is the text published on gh-pages. Read it from
+        // the source tree; on a machine without the tree there is nothing to check.
+        let page = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("docs/site/privacy.md")
+        guard let text = try? String(contentsOf: page, encoding: .utf8) else { return }
+        for phrase in ["Judge0", "Running code in the app", "Ads", "tracking", "Pro"] {
+            #expect(text.contains(phrase), "privacy.md should mention \(phrase)")
+        }
+    }
+
     @Test("The app declares no background modes, since it uses none")
     func noBackgroundModes() {
         #expect(Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") == nil)

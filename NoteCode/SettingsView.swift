@@ -661,9 +661,7 @@ private struct AboutSettings: View {
                 if let feedback = AppInfo.feedbackURL() {
                     Link("Send Feedback", destination: feedback)
                 }
-                if let policy = AppInfo.privacyPolicy {
-                    Link("Privacy Policy", destination: policy)
-                }
+                Link("Privacy Policy", destination: AppInfo.privacyPolicy)
                 NavigationLink("Acknowledgements") { AcknowledgementsPage() }
                 LabeledContent("Version", value: AppInfo.versionString())
             }

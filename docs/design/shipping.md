@@ -10,12 +10,17 @@ What an upload checks before a person sees the app (4 Oct).
   Today that's only UserDefaults, through `@AppStorage`, for the app's own
   settings (`CA92.1`). Calling one from another category — file
   timestamps, system boot time, disk space, active keyboards — means adding
-  its reason. `CACurrentMediaTime` isn't on Apple's list. Notes never leave
-  the device, so nothing is collected or tracked; a server would change
-  that.
+  its reason. `CACurrentMediaTime` isn't on Apple's list. The manifest
+  is no longer empty of collection: since P3 it declares what Google's ad
+  SDK collects, all unlinked, tracking, for third-party advertising (see
+  "Ads" below and "Privacy, Run and ads" at the end). The SDK carries a
+  privacy manifest of its own, merged at build; ours covers the app's
+  declarations. Notes still never leave the device.
 - **Exempt encryption.** `ITSAppUsesNonExemptEncryption` is `NO` in
-  Info.plist: the only network traffic is the system opening a compiler's
-  page over HTTPS. Encryption of the app's own would change the answer.
+  Info.plist: the app's own network traffic is HTTPS through `URLSession` (the
+  run service, StoreKit, the ad SDK's requests) and the system opening a
+  compiler's page, which is exempt. Encryption of the app's own, beyond
+  what the OS provides, would change the answer.
 - **No background modes or entitlements it doesn't use.** Xcode's template
   declared push as a background mode and had an unused entitlements file
   for iCloud and push; both went on 4 Oct, since a mode the app never uses
@@ -48,10 +53,10 @@ What an upload checks before a person sees the app (4 Oct).
   number for every upload. The edit sits in Marcus's working tree beside his
   signing change and is not committed (see above).
 - **Privacy and support pages** are drafted in `docs/site/privacy.md` and
-  `support.md` for Marcus to host: nothing collected, notes stay on the device,
-  Run sends a block's code to the compiler site the reader picked. They carry
-  `DATE` and `EMAIL ADDRESS` placeholders. When they're hosted, set
-  `AppInfo.privacyPolicy` and `.feedbackAddress` and the two About rows appear.
+  `support.md`; Marcus copies them to the `gh-pages` branch (`privacy.md` is
+  the page at `AppInfo.privacyPolicy`, which is now always set, so the
+  paywall, Settings and the list's foot always link it). R5 rewrote them for
+  Run and ads. `.feedbackAddress` is still `nil`.
 - **The app icon** (10 Oct, phase 7 of `docs/archive/ui-design-v2-implementation.md`):
   the set had no images, which fails an upload; it has them now. They are
   **drawn by `scripts/make-icons.swift`** (Core Graphics, the Logo board's
@@ -106,3 +111,24 @@ Google's test ids (`AdConfig.units(forRelease:)`, pinned in `AdTests`).
   the reader. `AppStoreReadinessTests` pins this.
 - **Age rating**: if asked, the app contains ads; general-audience AdMob
   banners, not aimed at children.
+
+## Privacy, Run and ads (R5)
+
+What the policy, the manifest and the App Store label have to agree on:
+
+| Data | Where | Linked | Tracking | Label entry |
+|---|---|---|---|---|
+| Code and input, on an explicit Run (Pro) | our proxy, then Judge0 | no | no | **Other User Content**, App Functionality |
+| Device ID, advertising data, product interaction, coarse location, crash and performance data, other diagnostics | Google AdMob (free readers) | no | yes, only if ATT is allowed | each as in `PrivacyInfo.xcprivacy` |
+| Subscription id (opaque), IP | proxy, a day's/minute's count only | no | no | not collected (not stored beyond the counters; not linked to identity) |
+
+- **Judge0's retention is unverified.** Judge0 stores a submission to hand
+  back by token; the hosted service's retention period is not published
+  where we could find it. The policy says it "may keep submissions for a time
+  we do not control" and tells readers not to run secrets. Marcus should ask
+  RapidAPI/Judge0 and tighten or loosen the sentence.
+- **Not built, still on the QC list**: the first-Run disclosure in the panel
+  (QC item 7) and the Settings › Privacy Options row (item 5). The policy
+  doesn't promise either.
+- Review notes, label choices and the hand-done steps: `docs/release-1.0/R5-submission.md`.
+
