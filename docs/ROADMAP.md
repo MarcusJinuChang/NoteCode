@@ -39,6 +39,9 @@ Import/Export, Settings and tip jar:
   **Sidebar:** drag to Recently Deleted, a shorter menu.
 - Fixes: Home's excerpt, the app icon's pencil, the pixel eraser crash, a
   Run result landing on the wrong block.
+- From the ecosystem QC (30 Oct): the paywall's cancel-24-hours line and
+  Try Again when the price doesn't load; Help and About › Ad Privacy Options
+  where UMP requires it; a notice before the first run in the app.
 
 ## What is left
 
@@ -101,8 +104,6 @@ and P3); the rest are items the QC and R5 left unbuilt.
 
 Unbuilt from the QC and R5:
 
-- A **disclosure the first time Run is used** (QC item 7): what is sent and to whom.
-- A **Settings › Privacy Options row** to reopen the consent form (QC item 5).
 - **`server/run-proxy`: wrangler 4 and `@cloudflare/vitest-plugin`.** It
   is on wrangler 3.90 and `@cloudflare/vitest-pool-workers` 0.5; upgrade both
   and re-run its tests.

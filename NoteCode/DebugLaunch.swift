@@ -514,7 +514,8 @@ enum DebugLaunch {
         }
 
         if !options.keepsDefaults {
-            for key in [WelcomeScreen.shownKey, WelcomeNote.madeKey, NoteMemory.lastOpenedKey, NoteMemory.placesKey] {
+            for key in [WelcomeScreen.shownKey, WelcomeNote.madeKey, NoteMemory.lastOpenedKey, NoteMemory.placesKey,
+                        RunDisclosure.key] {
                 defaults.removeObject(forKey: key)
             }
             if options.home {

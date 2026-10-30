@@ -16,6 +16,10 @@ struct ProStatusTests {
         var held: ProEntitlement?
         var outcome: ProPurchaseOutcome = .cancelled
         var fails = false
+        /// The store answers with no product, as when it isn't attached to the build.
+        var productMissing = false
+        /// The store can't be reached.
+        var productThrows = false
         private var continuation: AsyncStream<ProEntitlement>.Continuation?
 
         struct Failed: LocalizedError {
@@ -25,7 +29,8 @@ struct ProStatusTests {
         init(held: ProEntitlement? = nil) { self.held = held }
 
         func product(id: String) async throws -> ProProduct? {
-            ProProduct(id: id, name: "NoteCode Pro", price: "$4.99")
+            if productThrows { throw Failed() }
+            return productMissing ? nil : ProProduct(id: id, name: "NoteCode Pro", price: "$4.99")
         }
         func currentEntitlement(for id: String) async -> ProEntitlement? { held }
         func purchase(id: String) async throws -> ProPurchaseOutcome {
@@ -171,6 +176,31 @@ struct ProStatusTests {
         let pro = status(FakeStore())
         await pro.loadedProduct()
         #expect(pro.product?.price == "$4.99")
+        #expect(!pro.productFailed)
+    }
+
+    /// QC S5: a reviewer whose store didn't answer saw "Loading the price…"
+    /// on a disabled button for ever.
+    @Test("No product, or no store, is a failure the paywall can retry; a retry that works clears it")
+    func productFailure() async throws {
+        for missing in [true, false] {
+            let store = FakeStore()
+            store.productMissing = missing
+            store.productThrows = !missing
+            let pro = status(store)
+
+            await pro.loadedProduct()
+            #expect(pro.product == nil)
+            #expect(pro.productFailed, "missing: \(missing)")
+
+            store.productMissing = false
+            store.productThrows = false
+            pro.loadProduct()
+            #expect(!pro.productFailed, "Try Again goes back to loading at once")
+            try await waitFor { pro.product != nil }
+            #expect(!pro.productFailed)
+            #expect(pro.product?.price == "$4.99")
+        }
     }
 
     @Test("-debug-pro on and off, and a bad value")

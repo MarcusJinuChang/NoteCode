@@ -67,6 +67,7 @@ struct RunWiringTests {
         let runner = CountingRunner()
         runner.error = .notSubscribed
         let session = RunSession()
+        session.defaults = RunSessionTests.defaults()
         session.runner = runner
         session.update(blocks: [Self.target(0, "print(1)")])
         var told = 0

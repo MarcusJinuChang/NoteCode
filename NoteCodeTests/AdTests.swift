@@ -19,6 +19,11 @@ struct AdTests {
         func startSDK() async { calls.append("start") }
         func trackingAllowed() -> Bool? { nil }
         func requestTracking() async { calls.append("tracking") }
+        /// What UMP says about Privacy Options. A read, so not in `calls`.
+        var optionsRequired = false
+        func updateConsentInfo() async { calls.append("update") }
+        func privacyOptionsRequired() -> Bool { optionsRequired }
+        func presentPrivacyOptions() async { calls.append("options") }
     }
 
     private func defaults() -> UserDefaults {
@@ -96,5 +101,60 @@ struct AdTests {
         let consent = AdConsent(platform: platform, defaults: defaults())
         await consent.homeAppeared(isPro: true)
         #expect(platform.calls.isEmpty)
+    }
+
+    // QC A4: a way to change the consent answer (guideline 5.1.1(ii)).
+
+    @Test("Where UMP requires it, Home's consent turns on Ad Privacy Options, and the row opens Google's form")
+    func privacyOptionsAfterHome() async {
+        let platform = FakePlatform()
+        platform.optionsRequired = true
+        let consent = AdConsent(platform: platform, defaults: defaults())
+        #expect(!consent.privacyOptionsRequired)
+        await consent.homeAppeared(isPro: false)
+        #expect(consent.privacyOptionsRequired)
+
+        await consent.settingsAppeared(isPro: false)
+        #expect(platform.calls == ["consent", "start"], "UMP was already asked this launch")
+
+        await consent.showPrivacyOptions()
+        #expect(platform.calls.last == "options")
+    }
+
+    @Test("Declining the consent form still offers Ad Privacy Options, to change the answer")
+    func privacyOptionsAfterDecline() async {
+        let platform = FakePlatform()
+        platform.consentGranted = false
+        platform.optionsRequired = true
+        let consent = AdConsent(platform: platform, defaults: defaults())
+        await consent.homeAppeared(isPro: false)
+        #expect(consent.privacyOptionsRequired)
+    }
+
+    @Test("A launch straight into a note: Help and About asks UMP once, showing nothing, then knows")
+    func privacyOptionsWithoutHome() async {
+        let platform = FakePlatform()
+        platform.optionsRequired = true
+        let consent = AdConsent(platform: platform, defaults: defaults())
+        await consent.settingsAppeared(isPro: false)
+        await consent.settingsAppeared(isPro: false)
+        #expect(platform.calls == ["update"])
+        #expect(consent.privacyOptionsRequired)
+    }
+
+    @Test("Where UMP doesn't require it, or for Pro, there is no row")
+    func noPrivacyOptions() async {
+        let outside = FakePlatform()
+        let consent = AdConsent(platform: outside, defaults: defaults())
+        await consent.homeAppeared(isPro: false)
+        await consent.settingsAppeared(isPro: false)
+        #expect(!consent.privacyOptionsRequired)
+
+        let platform = FakePlatform()
+        platform.optionsRequired = true
+        let pro = AdConsent(platform: platform, defaults: defaults())
+        await pro.settingsAppeared(isPro: true)
+        #expect(platform.calls.isEmpty, "Pro never hears from the ad stack")
+        #expect(!pro.privacyOptionsRequired)
     }
 }

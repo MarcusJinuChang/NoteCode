@@ -632,6 +632,8 @@ private struct CodeSettings: View {
 private struct AboutSettings: View {
     var onOpenWelcomeNote: () -> Void
     var onShowWelcomeScreen: () -> Void
+    @Environment(ProStatus.self) private var pro: ProStatus?
+    @State private var consent = AdConsent.shared
 
     var body: some View {
         Form {
@@ -662,11 +664,18 @@ private struct AboutSettings: View {
                     Link("Send Feedback", destination: feedback)
                 }
                 Link("Privacy Policy", destination: AppInfo.privacyPolicy)
+                // Where the law lets the reader change their answer to
+                // Google's consent form; UMP says where (AdConsent).
+                if consent.privacyOptionsRequired {
+                    Button("Ad Privacy Options") { Task { await consent.showPrivacyOptions() } }
+                        .accessibilityIdentifier("adPrivacyOptionsButton")
+                }
                 NavigationLink("Acknowledgements") { AcknowledgementsPage() }
                 LabeledContent("Version", value: AppInfo.versionString())
             }
         }
         .navigationTitle("Help and About")
+        .task { await consent.settingsAppeared(isPro: pro?.isPro ?? true) }
     }
 }
 

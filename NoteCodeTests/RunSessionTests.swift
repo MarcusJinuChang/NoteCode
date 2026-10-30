@@ -29,8 +29,19 @@ struct StubRunner: CodeRunning {
         )
     }
 
-    private func session(_ codes: [String], runner: any CodeRunning = StubRunner()) -> RunSession {
+    /// Defaults of the test's own, where the reader has or hasn't agreed to
+    /// `RunDisclosure`; with it agreed, a run goes straight out.
+    static func defaults(disclosed: Bool = true) -> UserDefaults {
+        let name = "RunSessionTests-\(UUID().uuidString)"
+        let d = UserDefaults(suiteName: name)!
+        d.removePersistentDomain(forName: name)
+        if disclosed { RunDisclosure.markAccepted(in: d) }
+        return d
+    }
+
+    private func session(_ codes: [String], runner: any CodeRunning = StubRunner(), disclosed: Bool = true) -> RunSession {
         let s = RunSession()
+        s.defaults = Self.defaults(disclosed: disclosed)
         s.runner = runner
         s.update(blocks: codes.enumerated().map { target($0.offset, $0.element) })
         return s
@@ -188,6 +199,7 @@ actor GatedRunner: CodeRunning {
     @Test func aRunWhoseBlockWasRemovedDoesNotAnswerForTheNextRun() async throws {
         let gate = GatedRunner()
         let s = RunSession()
+        s.defaults = RunSessionTests.defaults()
         s.runner = gate
         s.update(blocks: [target(0, "first")])
         s.run(transaction: "jws")
@@ -209,5 +221,73 @@ actor GatedRunner: CodeRunning {
             Issue.record("no result for the second run"); return
         }
         #expect(result.stdout == "second")
+    }
+}
+
+/// QC R3: the reader is told where code goes before the first run sends it.
+@MainActor
+@Suite("The first run's notice") struct RunDisclosureTests {
+    private func session(_ codes: [String], runner: any CodeRunning = StubRunner(), disclosed: Bool = true) -> RunSession {
+        let s = RunSession()
+        s.defaults = RunSessionTests.defaults(disclosed: disclosed)
+        s.runner = runner
+        s.update(blocks: codes.enumerated().map { ordinal, code in
+            CodeBlockTarget(
+                id: CodeBlockID(ordinal: ordinal, code: code),
+                range: NSRange(location: 0, length: code.utf16.count),
+                language: .python, code: code, tag: "python"
+            )
+        })
+        return s
+    }
+
+    @Test("The first run is held for the notice; nothing reaches the service until the reader agrees")
+    func firstRunIsHeld() async {
+        let runner = CountingRunner()
+        let s = session(["print(1)"], runner: runner, disclosed: false)
+        s.tab = .input
+        s.run(transaction: "jws")
+        #expect(s.awaitsDisclosure)
+        #expect(!s.isRunning)
+        #expect(s.tab == .output, "the notice is on the Output tab")
+        #expect(runner.runs == 0)
+
+        s.acceptDisclosure()
+        await s.task?.value
+        #expect(!s.awaitsDisclosure)
+        #expect(runner.runs == 1)
+        #expect(s.record(for: s.blocks[0]) != nil)
+        #expect(RunDisclosure.isAccepted(in: s.defaults))
+    }
+
+    @Test("Not Now sends nothing, and the next Run asks again")
+    func notNow() {
+        let runner = CountingRunner()
+        let s = session(["print(1)"], runner: runner, disclosed: false)
+        s.run(transaction: "jws")
+        s.declineDisclosure()
+        #expect(!s.awaitsDisclosure)
+        #expect(runner.runs == 0)
+        #expect(!RunDisclosure.isAccepted(in: s.defaults))
+        s.run(transaction: "jws")
+        #expect(s.awaitsDisclosure)
+    }
+
+    @Test("Once agreed, it is remembered: another note's session runs at once")
+    func remembered() async {
+        let defaults = RunSessionTests.defaults(disclosed: false)
+        let first = session(["print(1)"], disclosed: false)
+        first.defaults = defaults
+        first.run(transaction: "jws")
+        first.acceptDisclosure()
+        await first.task?.value
+
+        let runner = CountingRunner()
+        let second = session(["print(2)"], runner: runner)
+        second.defaults = defaults
+        second.run(transaction: "jws")
+        #expect(!second.awaitsDisclosure)
+        await second.task?.value
+        #expect(runner.runs == 1)
     }
 }

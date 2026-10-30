@@ -93,6 +93,7 @@ of its folder. Both are in section 2 below only for what that test cannot see.
 ### Run in the app (Pro)
 
 - [ ] Notes | Run control in the top bar (PRO mark while free). The panel opens at the page's right at 360pt, drags from 280pt to half the window and is remembered, collapses to an edge tab; in a compact width or Split View it is a bottom sheet (medium keeps the page usable). The page's zoom and place don't move across open, resize and shut in all three layouts. — **R3** #100
+- [ ] The first Run in the app (`-debug-first-launch` clears it): the panel opens on "Before your first run" with the Privacy Policy link, and nothing runs; Not Now leaves it and the next ▷ asks again; Run runs the block and the notice never shows again. Readable in light and dark. — **QC** R3
 - [ ] Sandbox Pro, destination In NoteCode: ▷, ⌘R and the edit menu's Run run a C++, a Java and a Python block; stdout in the code font, compile errors and stderr in the error colour, Stop works, input from the Input tab reaches the program. — **R4** #103, **R2** #90
 - [ ] Edit the block after a run: the result dims with "Code changed since this run"; delete or edit the running block mid-run: Run isn't ignored and a late answer doesn't land on another block. — **R3**, **QC bugs** #113
 - [ ] Keep in Note writes or replaces the ` ```output ` block under the code, one ⌘Z removes it, and it does nothing in a locked note. A `file:line` in a compile error puts the caret on that line. — **R4** #103
@@ -176,6 +177,8 @@ do the steps, pull `tmp/selectionprobe.log` with
 - [ ] Sandbox: the paywall shows $4.99 per month, Subscribe, Restore Purchases, Terms of Use and Privacy Policy, and the AI line matches this iPad's Apple Intelligence state; Subscribe works and the paywall says you have Pro. Try it at the largest Dynamic Type size. — **P1, P2** #91, #98, #111
 - [ ] Settings › Pro shows Pro and the renewal date; Manage Subscription opens the system sheet; Restore works on a second install; as a free reader See NoteCode Pro opens the paywall. A refund or expiry turns Pro off. `-debug-pro on` and `off` both launch. — **P1, P2** #91, #98
 - [ ] Free (`-debug-pro off`): Explain Block and ••• › Summarise Note open the paywall, nothing generates; Pro: Explain runs. — **P2** #98
+- [ ] The paywall with no network (airplane mode, fresh launch): "Couldn't reach the App Store." with Try Again instead of a price; Try Again with the network back shows $4.99. The renewal text ends with the cancel-24-hours sentence. — **QC** S4, S5
+- [ ] Ad Privacy Options (free, an EEA or UK region or VPN): after Home's consent form, Help and About has the row and it opens Google's form; change the answer and the banner follows. Outside those regions, and for Pro, no row. Also after a launch straight into a note. — **QC** A4
 - [ ] Settings › Help and About: Privacy Policy row opens the page; the Feedback rows are absent until `AppInfo.feedbackAddress` is set. — **R5** #114, **QC** #111
 
 ## 9. On-device assistant (Apple Intelligence on)
