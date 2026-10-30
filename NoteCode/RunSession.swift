@@ -74,6 +74,14 @@ final class RunSession {
 
     @ObservationIgnored private(set) var task: Task<Void, Never>?
 
+    /// Where it's kept that the reader agreed to `RunDisclosure`.
+    /// Replaceable so a test doesn't write the device's own.
+    @ObservationIgnored var defaults = UserDefaults.standard
+    /// The first run's transaction, held while the panel says where code goes.
+    /// Nothing is sent until the reader agrees.
+    private(set) var heldTransaction: String?
+    var awaitsDisclosure: Bool { heldTransaction != nil }
+
     var isAvailable: Bool { runner != nil }
 
     /// The chosen block, or the first when none is chosen or it is gone.
@@ -165,9 +173,17 @@ final class RunSession {
     // MARK: Running
 
     /// Runs the chosen block. `transaction` is the subscription's signed
-    /// transaction (`ProStatus.signedTransaction`).
+    /// transaction (`ProStatus.signedTransaction`). Until the reader has
+    /// agreed to `RunDisclosure`, the run is held instead: every way of
+    /// running (▷, ⌘R, the edit menu, the panel) comes through here.
     func run(transaction: String) {
         guard let runner, let block = chosen, !isRunning else { return }
+        guard RunDisclosure.isAccepted(in: defaults) else {
+            heldTransaction = transaction
+            tab = .output
+            return
+        }
+        heldTransaction = nil
         let job = RunJob(
             language: block.language, code: block.code,
             stdin: input(for: block), transaction: transaction
@@ -191,6 +207,18 @@ final class RunSession {
             }
             self?.finish(outcome, hash: hash, generation: mine)
         }
+    }
+
+    /// The reader agreed: remembered, and the held run goes ahead.
+    func acceptDisclosure() {
+        guard let transaction = heldTransaction else { return }
+        RunDisclosure.markAccepted(in: defaults)
+        run(transaction: transaction)
+    }
+
+    /// Not now: nothing is sent, and the next Run asks again.
+    func declineDisclosure() {
+        heldTransaction = nil
     }
 
     func cancel() {

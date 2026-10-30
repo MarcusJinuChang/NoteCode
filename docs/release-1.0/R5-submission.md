@@ -27,6 +27,10 @@ as it should be) and `docs/site/support.md`.
 >
 > Subscription: NoteCode Pro, $4.99/month, auto-renewing. Terms of Use (Apple
 > standard EULA) and the Privacy Policy are linked on the paywall.
+>
+> Explain Code and Summarise Note run on the device and need Apple
+> Intelligence; on an iPad without it the paywall says so. Run and the
+> removal of ads work on every iPad.
 
 ## App Privacy label (App Store Connect › App Privacy)
 

@@ -82,6 +82,9 @@ struct PaywallTests {
         #expect(PaywallContent.privacyTitle == "Privacy Policy")
         #expect(PaywallContent.terms.host == "www.apple.com")
         #expect(PaywallContent.renewal.contains("cancel"))
+        #expect(PaywallContent.renewal.contains("at least 24 hours before the end of the current period"),
+                "Apple's cancellation wording (QC S4)")
+        #expect(PaywallContent.retry == "Try Again")
         #expect(PaywallContent.features.map(\.id) == ["ads", "run", "ai"])
         #expect(PaywallContent.priceLine(nil) != "$4.99 per month")
     }

@@ -114,3 +114,23 @@ nonisolated enum KeepInNote {
         return location
     }
 }
+
+/// Where Run sends code, said once before the first run in the app and
+/// agreed to with Run (App Review 5.1.1 and 5.1.2: the reader is told before
+/// their text leaves the iPad). Says what the privacy page's "Running code
+/// in the app" says.
+nonisolated enum RunDisclosure {
+    static let key = "runDisclosureAccepted"
+    static let title = "Before your first run"
+    static let message = "Run sends this block's code and its input to NoteCode's run service, which runs them on Judge0, an online code-execution service, and sends back the output. Nothing else in your notes is sent. Judge0 may keep what it runs for a while, so leave passwords and keys out of code you run."
+    static let run = "Run"
+    static let notNow = "Not Now"
+
+    static func isAccepted(in defaults: UserDefaults) -> Bool {
+        defaults.bool(forKey: key)
+    }
+
+    static func markAccepted(in defaults: UserDefaults) {
+        defaults.set(true, forKey: key)
+    }
+}

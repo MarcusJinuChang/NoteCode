@@ -117,11 +117,48 @@ private struct RunOutputView: View {
     var body: some View {
         ZStack {
             Color(CodeOutputPanel.fillColor)
-            if let block = session.chosen {
+            if session.awaitsDisclosure {
+                disclosure
+            } else if let block = session.chosen {
                 content(for: block)
             } else {
                 note("Add a fenced code block, tagged cpp, java, python and so on, and it appears here.")
             }
+        }
+    }
+
+    /// Said once, before the first run sends anything (`RunDisclosure`).
+    private var disclosure: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(RunDisclosure.title)
+                    .font(.headline)
+                    .foregroundStyle(Color(CodeOutputPanel.textColor))
+                Text(RunDisclosure.message)
+                    .font(.subheadline)
+                    .foregroundStyle(Color(CodeOutputPanel.labelColor))
+                // Underlined: in the panel's colours a bare link reads as text.
+                Link(destination: AppInfo.privacyPolicy) {
+                    Text(PaywallContent.privacyTitle).underline()
+                }
+                .font(.subheadline)
+                .tint(Color(CodeOutputPanel.controlColor))
+                HStack(spacing: 10) {
+                    Button {
+                        session.acceptDisclosure()
+                    } label: {
+                        Label(RunDisclosure.run, systemImage: "play.fill").font(.subheadline.weight(.semibold))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("runDisclosureRun")
+                    Button(RunDisclosure.notNow) { session.declineDisclosure() }
+                        .font(.subheadline)
+                        .buttonStyle(.bordered)
+                        .tint(Color(CodeOutputPanel.controlColor))
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

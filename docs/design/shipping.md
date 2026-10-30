@@ -127,8 +127,10 @@ What the policy, the manifest and the App Store label have to agree on:
   where we could find it. The policy says it "may keep submissions for a time
   we do not control" and tells readers not to run secrets. Marcus should ask
   RapidAPI/Judge0 and tighten or loosen the sentence.
-- **Not built, still on the QC list**: the first-Run disclosure in the panel
-  (QC item 7) and the Settings › Privacy Options row (item 5). The policy
-  doesn't promise either.
+- **The first-Run notice and Ad Privacy Options** (QC items 7 and 5, built
+  30 Oct). The panel holds the first run in the app and says where the code
+  goes before anything is sent (`RunDisclosure`, the policy's own words in
+  short); Help and About has an Ad Privacy Options row where UMP requires
+  one (`AdConsent.privacyOptionsRequired`). The policy names both.
 - Review notes, label choices and the hand-done steps: `docs/release-1.0/R5-submission.md`.
 

@@ -28,6 +28,12 @@ protocol AdPlatform {
     func trackingAllowed() -> Bool?
     /// Shows the ATT prompt (a no-op if already answered).
     func requestTracking() async
+    /// UMP: update the consent state and show nothing.
+    func updateConsentInfo() async
+    /// Whether UMP says the reader must be able to change their answer.
+    func privacyOptionsRequired() -> Bool
+    /// Google's privacy options form, where they change it.
+    func presentPrivacyOptions() async
 }
 
 @Observable
@@ -38,10 +44,16 @@ final class AdConsent {
     private(set) var canRequestAds = false
     /// Non-personalised unless the reader allowed tracking.
     var personalised: Bool { platform.trackingAllowed() == true }
+    /// Whether Help and About offers Ad Privacy Options: UMP says so where
+    /// the law gives the reader a way to change their answer (App Review
+    /// 5.1.1(ii)).
+    private(set) var privacyOptionsRequired = false
 
     private let platform: AdPlatform
     private let defaults: UserDefaults
     private var gathering = false
+    /// UMP has been asked this launch. Its answers aren't kept between launches.
+    private var consentInfoUpdated = false
     private static let visitsKey = "adHomeVisits"
 
     init(platform: AdPlatform, defaults: UserDefaults) {
@@ -63,11 +75,31 @@ final class AdConsent {
         let visits = homeVisits
         defaults.set(visits + 1, forKey: Self.visitsKey)
         if !canRequestAds {
-            guard await platform.gatherConsent() else { return }
+            let granted = await platform.gatherConsent()
+            consentInfoUpdated = true
+            privacyOptionsRequired = platform.privacyOptionsRequired()
+            guard granted else { return }
             await platform.startSDK()
             canRequestAds = true
         }
         if visits >= 1 { await platform.requestTracking() }
+    }
+
+    /// Help and About appeared. A launch that opened straight into a note
+    /// hasn't asked UMP yet, so its row would be missing; this asks, showing
+    /// nothing. Pro: nothing, as at Home.
+    func settingsAppeared(isPro: Bool) async {
+        guard !isPro, !gathering else { return }
+        if !consentInfoUpdated {
+            await platform.updateConsentInfo()
+            consentInfoUpdated = true
+        }
+        privacyOptionsRequired = platform.privacyOptionsRequired()
+    }
+
+    /// The Ad Privacy Options row: Google's form. Ads follow the new answer.
+    func showPrivacyOptions() async {
+        await platform.presentPrivacyOptions()
     }
 }
 
@@ -111,10 +143,38 @@ struct SystemAdPlatform: AdPlatform {
         _ = await ATTrackingManager.requestTrackingAuthorization()
     }
 
+    func updateConsentInfo() async {
+        await withCheckedContinuation { continuation in
+            ConsentInformation.shared.requestConsentInfoUpdate(with: RequestParameters()) { _ in
+                continuation.resume()
+            }
+        }
+    }
+
+    func privacyOptionsRequired() -> Bool {
+        ConsentInformation.shared.privacyOptionsRequirementStatus == .required
+    }
+
+    func presentPrivacyOptions() async {
+        await withCheckedContinuation { continuation in
+            ConsentForm.presentPrivacyOptionsForm(from: Self.frontViewController()) { _ in
+                continuation.resume()
+            }
+        }
+    }
+
     private static func rootViewController() -> UIViewController? {
         UIApplication.shared.connectedScenes
             .compactMap { ($0 as? UIWindowScene)?.keyWindow }
             .first?.rootViewController
+    }
+
+    /// The front-most controller: Settings is a sheet, and UIKit won't present
+    /// from a controller that is already presenting one.
+    private static func frontViewController() -> UIViewController? {
+        var front = rootViewController()
+        while let next = front?.presentedViewController { front = next }
+        return front
     }
 }
 #else
@@ -124,5 +184,8 @@ struct SystemAdPlatform: AdPlatform {
     func startSDK() async {}
     func trackingAllowed() -> Bool? { false }
     func requestTracking() async {}
+    func updateConsentInfo() async {}
+    func privacyOptionsRequired() -> Bool { false }
+    func presentPrivacyOptions() async {}
 }
 #endif

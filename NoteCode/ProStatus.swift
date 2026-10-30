@@ -84,6 +84,10 @@ final class ProStatus {
 
     private(set) var entitlement: ProEntitlement?
     private(set) var product: ProProduct?
+    /// The last ask for the product failed or found none (offline, or the
+    /// product not attached to the build), so the paywall offers Try Again
+    /// rather than "Loading the price…" for ever.
+    private(set) var productFailed = false
     private(set) var phase: Phase = .ready
 
     /// Whether Pro is on: an entitlement that isn't revoked or past its end.
@@ -137,12 +141,15 @@ final class ProStatus {
     /// be asked again.
     func loadProduct() {
         guard product == nil else { return }
-        Task { product = try? await store.product(id: Self.productID) }
+        productFailed = false
+        Task { await loadedProduct() }
     }
 
-    /// Waits for the product to be known, or gives up. For tests.
+    /// Asks for the product and waits for the answer. `loadProduct` doesn't
+    /// wait; tests do.
     func loadedProduct() async {
         product = try? await store.product(id: Self.productID)
+        productFailed = product == nil
     }
 
     /// Takes in a transaction that arrived on its own. A revoked one ends Pro.

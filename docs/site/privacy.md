@@ -1,6 +1,6 @@
 # NoteCode Privacy Policy
 
-_Last updated: 10/29/26_
+_Last updated: 10/30/26_
 
 NoteCode is a note-taking app for computer science coursework. It has no
 account and no analytics, and your notes are never uploaded. Three things do
@@ -27,7 +27,8 @@ the code block's text, the input you typed for it and its language are sent
 over HTTPS to NoteCode's run service, which passes them to Judge0, an online
 code-execution service, to be compiled and run. The result (output and
 errors) comes back to the app. Nothing is sent until you tap Run, and your
-other notes are never sent.
+other notes are never sent. The first time, the app says this before
+sending anything, and nothing is sent unless you choose Run.
 
 - **Our run service** (hosted on Cloudflare) does not store your code, input
   or output. It keeps only counts: how many runs a subscription has made today
@@ -73,7 +74,9 @@ receive it. Google's own policy describes it
   NoteCode may track you across apps and websites. If you decline, you still
   see ads, but they are not personalised and the advertising identifier is not
   used. You can change the tracking permission at any time in iPadOS Settings ›
-  Privacy & Security › Tracking, or remove the ads by subscribing to Pro.
+  Privacy & Security › Tracking, and your answer to Google's message in
+  NoteCode's Settings › Help and About › Ad Privacy Options (shown where the
+  law requires it), or remove the ads by subscribing to Pro.
 - **No ads, no data.** NoteCode does not show ads, or start Google's SDK, for
   readers with Pro. The notes, drawings and code you write are never given
   to the ad SDK.

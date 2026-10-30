@@ -14,7 +14,11 @@ import SwiftUI
 nonisolated enum PaywallContent {
     static let title = "NoteCode Pro"
     static let period = "per month"
-    static let renewal = "Renews every month until you cancel it in your Apple Account's subscriptions. Payment is charged to your Apple Account at confirmation of purchase."
+    static let renewal = "Renews every month until you cancel it in your Apple Account's subscriptions. Cancel at least 24 hours before the end of the current period to avoid the next charge. Payment is charged to your Apple Account at confirmation of purchase."
+    /// In place of the price when the store didn't answer or has no such
+    /// product, so a reader (or App Review) isn't left with a dead button.
+    static let priceFailed = "Couldn't reach the App Store."
+    static let retry = "Try Again"
     static let restore = "Restore Purchases"
     static let termsTitle = "Terms of Use"
     static let privacyTitle = "Privacy Policy"
@@ -97,6 +101,13 @@ struct PaywallView: View {
                 Section {
                     if pro.isPro {
                         Label("You have Pro. Thank you.", systemImage: "checkmark.seal.fill")
+                    } else if pro.productFailed {
+                        HStack {
+                            Text(PaywallContent.priceFailed).foregroundStyle(.secondary)
+                            Spacer()
+                            Button(PaywallContent.retry) { pro.loadProduct() }
+                                .accessibilityIdentifier("paywallRetry")
+                        }
                     } else {
                         Button {
                             Task { await pro.buy() }
