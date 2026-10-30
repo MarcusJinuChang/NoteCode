@@ -35,7 +35,11 @@ are compact, and get this; an unfolded Duo is regular and gets the iPad's.
   `PageDetailView.dock`): a side would take a third of a phone's width. The
   stored edge is left alone and comes back with a regular width.
 - **Home** has two-column grids, 16pt margins, no date, a Continue card with
-  a small thumbnail and no Open pill, and its buttons stacked.
+  a small thumbnail and no Open pill, and its buttons stacked. Home is the one
+  place width counts too: a regular Home under 700pt gets this layout
+  (`HomeLayout`), since beside the list on a portrait 11-inch (about 500pt)
+  the iPad's broke the card's title mid-word, dropped folder names and
+  wrapped the buttons (30 Oct).
 - **The Duo, measured in the 27.1 simulator** (`-debug-report` writes
   `sizeClass`, `windowSize`, `horizontalOffset` and `folds`). Folded it is
   compact, 466 by 678pt, with no fold regions, and the system runs the

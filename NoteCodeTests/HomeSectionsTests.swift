@@ -219,6 +219,16 @@ struct HomeSectionsTests {
     func excerptUnclosedFence() {
         #expect(HomeExcerpt.of("```python\nprint(1)\nstill code") == nil)
     }
+
+    @Test("Home is laid out as on a phone in a compact width, or a regular one too narrow for the iPad's")
+    func layout() {
+        #expect(HomeLayout.isCompact(compactSizeClass: true, width: 1180))
+        #expect(HomeLayout.isCompact(compactSizeClass: false, width: 500), "beside the list, portrait 11-inch")
+        #expect(!HomeLayout.isCompact(compactSizeClass: false, width: 704), "beside the list, portrait 13-inch")
+        #expect(!HomeLayout.isCompact(compactSizeClass: false, width: 744), "an iPad mini")
+        #expect(!HomeLayout.isCompact(compactSizeClass: false, width: 820), "a portrait 11-inch")
+        #expect(!HomeLayout.isCompact(compactSizeClass: false, width: 0), "not measured yet: the size class decides")
+    }
 }
 
 @Suite("Title screen")

@@ -141,3 +141,23 @@ nonisolated enum HomeExcerpt {
         return nil
     }
 }
+
+/// Whether Home is laid out as on a phone: two-column grids, a small Continue
+/// card, buttons stacked (docs/design/iphone-and-the-duo.md).
+///
+/// A compact width always is. So is a regular one narrower than the iPad
+/// layout fits, as beside the list on a portrait 11-inch (about 500pt): there
+/// the Continue card broke its title mid-word, folder tiles lost their names
+/// and the buttons wrapped.
+nonisolated enum HomeLayout {
+
+    /// The narrowest Home the iPad layout fits: the Continue card's
+    /// thumbnail, title and Open pill inside the 40pt margins.
+    static let regularMinimumWidth: CGFloat = 700
+
+    /// - Parameter width: Home's width, or 0 before it has been measured,
+    ///   when the size class decides alone.
+    static func isCompact(compactSizeClass: Bool, width: CGFloat) -> Bool {
+        compactSizeClass || (width > 0 && width < regularMinimumWidth)
+    }
+}

@@ -66,11 +66,13 @@ struct HomeView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(ProStatus.self) private var pro: ProStatus?
 
-    /// An iPhone or a folded Duo: one hand's width, so cards are smaller and
-    /// the grids have two columns.
+    /// An iPhone, a folded Duo, or a column too narrow for the iPad layout
+    /// (`HomeLayout`): cards are smaller and the grids have two columns.
 #if os(iOS)
     @Environment(\.horizontalSizeClass) private var sizeClass
-    private var isCompact: Bool { sizeClass == .compact }
+    private var isCompact: Bool {
+        HomeLayout.isCompact(compactSizeClass: sizeClass == .compact, width: homeSize.width)
+    }
 #else
     private var isCompact: Bool { false }
 #endif
