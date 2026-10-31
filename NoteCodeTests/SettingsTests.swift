@@ -22,7 +22,6 @@ struct SettingsTests {
         #expect(PageViewMode.defaultsKey == "pageViewMode")
         #expect(NoteSort.defaultsKey == "noteSort")
         #expect(ShowMarkdown.defaultsKey == "showMarkdown")
-        #expect(RunDestinationPreference.appDefaultKey == "runDestination.appDefault")
         #expect(NoteEditor.fingerDrawsKey == "fingerDraws")
         #expect(NoteEditor.returnToPreviousToolKey == "returnToPreviousTool")
         #expect(SelectionKind.defaultsKey == "selectionKind")

@@ -48,12 +48,12 @@ struct WelcomeScreen: View {
         Feature(
             symbol: "curlybraces",
             title: "Code that runs",
-            detail: "Type ``` and a language for a highlighted block. Run opens it in a free online compiler."
+            detail: "Type ``` and a language for a highlighted block. NoteCode Pro runs it beside the page."
         ),
         Feature(
             symbol: "pencil.line",
-            title: "Ink that stays put",
-            detail: "Draw with Apple Pencil or a finger. Strokes stay on the words they were drawn over."
+            title: "Ink on the same page",
+            detail: "Draw over text and code with Apple Pencil or a finger, then go back to typing."
         ),
         Feature(
             symbol: "doc.text",

@@ -44,12 +44,6 @@ struct PageDetailView: View {
     /// its name can be typed straight away.
     var startsRenaming = false
 
-    /// Where code blocks run when a page hasn't chosen for itself. Not in the
-    /// model: it is a preference about this device, not a property of a note,
-    /// and it has to have a value before any page exists.
-    @AppStorage(RunDestinationPreference.appDefaultKey)
-    private var appDefaultDestination: String = CodeDestination.preferredDefault().id
-
     @Environment(\.modelContext) private var modelContext
     @Query private var folders: [Folder]
 
@@ -181,7 +175,6 @@ struct PageDetailView: View {
 #endif
 
     @State private var showsInfo = false
-    @State private var isNamingCustomSite = false
 
     /// "New Folder…" in the title menu's Move to Folder: the folder editor,
     /// which moves this note into the folder it makes.
@@ -261,7 +254,6 @@ struct PageDetailView: View {
         .sheet(isPresented: $showsInfo) {
             NoteInfoView(page: page, pageCount: openPageCount)
         }
-        .runDestinationSiteAlert(isPresented: $isNamingCustomSite, pageSetting: $page.runDestination)
 #if canImport(UIKit)
         .sheet(item: Binding(
             get: { editor.ai.job },
@@ -472,13 +464,6 @@ struct PageDetailView: View {
             }
 #endif
 
-            RunDestinationMenu(
-                pageSetting: $page.runDestination,
-                folder: page.folder,
-                appDefault: $appDefaultDestination,
-                isNamingCustomSite: $isNamingCustomSite
-            )
-
 #if canImport(UIKit)
             // Seamless adds its own pages as ink reaches the end.
             if viewMode != .seamless {
@@ -560,12 +545,6 @@ struct PageDetailView: View {
         ZStack {
             DocumentTextView(
                 text: $page.content,
-                runDestination: RunDestinationPreference.resolve(
-                    page.runDestinationLevels(appDefault: appDefaultDestination)
-                ),
-                runSite: RunDestinationPreference.resolveSite(
-                    page.runDestinationLevels(appDefault: appDefaultDestination)
-                ),
                 editor: editor,
                 pageLayout: PageLayout(orientation: page.orientation, mode: viewMode),
                 paper: page.paper,

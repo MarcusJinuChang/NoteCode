@@ -395,7 +395,7 @@ struct RecentlyDeletedTests {
 
     // MARK: Duplicate
 
-    @Test("A copy has the note's text, ink, pages, size, folder and run destination")
+    @Test("A copy has the note's text, ink, pages, size and folder")
     func duplicateCopies() throws {
         let cs133 = folder("CS133")
         let original = note("Lecture 1", in: cs133)
@@ -403,7 +403,6 @@ struct RecentlyDeletedTests {
         original.drawingData = ink
         original.pageOrientation = PageOrientation.landscape.rawValue
         original.textSize = 19
-        original.runDestination = CodeDestination.onlineGDB.id
         try context.save()
 
         let copy = original.duplicated(in: context)
@@ -416,7 +415,6 @@ struct RecentlyDeletedTests {
         #expect(copy.pageOrientation == original.pageOrientation)
         #expect(copy.textSize == 19)
         #expect(copy.folder == cs133)
-        #expect(copy.runDestination == CodeDestination.onlineGDB.id)
         #expect(try stored().count == 2)
         #expect(Set(cs133.pages ?? []) == [original, copy])
     }
@@ -445,7 +443,6 @@ struct RecentlyDeletedTests {
         let copy = note("Scratch").duplicated(in: context)
 
         #expect(copy.folder == nil)
-        #expect(copy.runDestination == nil)
         #expect(copy.drawingData.isEmpty)
     }
 

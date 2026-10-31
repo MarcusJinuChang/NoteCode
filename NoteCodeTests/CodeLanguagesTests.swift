@@ -114,7 +114,7 @@ struct CodeLanguagesTests {
         (.go, "go", "gl1260"),
     ])
     func compilerExplorer(language: CodeLanguage, site: String, compiler: String) throws {
-        let request = CodeDestination.request(for: Self.sample, language: language, preferring: .compilerExplorer)
+        let request = CodeDestination.request(for: Self.sample, language: language)
         #expect(request.destination == .compilerExplorer)
         #expect(request.delivery == .inURL)
         #expect(request.pasteboardCode == nil)
@@ -129,57 +129,36 @@ struct CodeLanguagesTests {
         // Java: a fixed file name. JavaScript: its only compilers are V8
         // builds that show bytecode and can't execute.
         #expect(!CodeDestination.compilerExplorer.supports(language))
-        let request = CodeDestination.request(for: Self.sample, language: language, preferring: .compilerExplorer)
+        let request = CodeDestination.request(for: Self.sample, language: language)
         #expect(request.destination == .programiz)
         #expect(request.delivery == .pasteboard)
         #expect(request.pasteboardCode == Self.sample)
     }
 
-    @Test("OnlineGDB has no JavaScript page, so JavaScript goes to Programiz")
-    func onlineGDBJavaScript() {
-        #expect(!CodeDestination.onlineGDB.supports(.javascript))
-        let request = CodeDestination.request(for: "console.log(1)", language: .javascript, preferring: .onlineGDB)
-        #expect(request.destination == .programiz)
-        #expect(request.url.absoluteString == "https://www.programiz.com/javascript/online-compiler/")
-    }
-
-    @Test("Every language but SQL has a page on Programiz", arguments: CodeLanguage.allCases.filter(\.canRun))
-    func programiz(language: CodeLanguage) {
+    /// A block too long for a Compiler Explorer link reaches these.
+    @Test("Every language but SQL has a page on Programiz", arguments: [
+        (CodeLanguage.cpp, "https://www.programiz.com/cpp-programming/online-compiler/"),
+        (.python, "https://www.programiz.com/python-programming/online-compiler/"),
+        (.c, "https://www.programiz.com/c-programming/online-compiler/"),
+        (.rust, "https://www.programiz.com/rust/online-compiler/"),
+        (.go, "https://www.programiz.com/golang/online-compiler/"),
+        (.java, "https://www.programiz.com/java-programming/online-compiler/"),
+        (.javascript, "https://www.programiz.com/javascript/online-compiler/"),
+    ])
+    func programiz(language: CodeLanguage, expected: String) {
         #expect(CodeDestination.programiz.supports(language))
-        let request = CodeDestination.request(for: Self.sample, language: language, preferring: .programiz)
+        let long = String(repeating: "x = 1 # a line long enough to fill a link\n", count: 300)
+        let code = CodeDestination.compilerExplorer.supports(language) ? long : Self.sample
+        let request = CodeDestination.request(for: code, language: language)
         #expect(request.destination == .programiz)
         #expect(request.delivery == .pasteboard)
-        #expect(request.url.host == "www.programiz.com")
-    }
-
-    @Test("The landing pages are the ones verified on the live sites", arguments: [
-        (CodeDestination.programiz, CodeLanguage.c, "https://www.programiz.com/c-programming/online-compiler/"),
-        (.programiz, .javascript, "https://www.programiz.com/javascript/online-compiler/"),
-        (.programiz, .rust, "https://www.programiz.com/rust/online-compiler/"),
-        (.programiz, .go, "https://www.programiz.com/golang/online-compiler/"),
-        (.onlineGDB, .c, "https://www.onlinegdb.com/online_c_compiler"),
-        (.onlineGDB, .rust, "https://www.onlinegdb.com/online_rust_compiler"),
-        (.onlineGDB, .go, "https://www.onlinegdb.com/online_go_compiler"),
-    ])
-    func landingPages(destination: CodeDestination, language: CodeLanguage, expected: String) {
-        let request = CodeDestination.request(for: Self.sample, language: language, preferring: destination)
         #expect(request.url.absoluteString == expected)
-    }
-
-    @Test("A custom destination takes every language that runs")
-    func custom() throws {
-        let site = try #require(CodeDestination.custom(fromTyped: "vscode.dev"))
-        for language in CodeLanguage.allCases where language.canRun {
-            #expect(site.supports(language))
-        }
-        #expect(!site.supports(.sql))
     }
 
     @Test("SQL is in no destination's list")
     func sqlIsCopyOnly() {
-        for destination in CodeDestination.builtIns {
-            #expect(!destination.supports(.sql))
-        }
+        #expect(!CodeDestination.programiz.supports(.sql))
+        #expect(!CodeDestination.compilerExplorer.supports(.sql))
     }
 
     // MARK: The menu

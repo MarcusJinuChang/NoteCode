@@ -22,13 +22,12 @@ Laid out from the 12 September mockup.
     `ContentView.delete` clears the selection first, as the list does, and
     brings the list back, since the ☰ went with the page.
   - **Right:** Share (`NoteShareButton`) and •••: a View section (the
-    mode's `title` and `systemImage` from PageViewMenu.swift), Run Code In
-    (`RunDestinationMenu`, now a submenu) and Find in Note. All in the label
-    colour (`.tint(.primary)` on each item), not the accent.
+    mode's `title` and `systemImage` from PageViewMenu.swift) and Find in
+    Note. All in the label colour (`.tint(.primary)` on each item), not the
+    accent. Run Code In went on 30 Oct with the choice of where code runs.
   - **Alerts can't hang off menu content.** It's gone the moment an item is
-    chosen. The custom-site alert (`runDestinationSiteAlert`) and New Folder's
-    name alert are attached to the page's own view, and the menu raises a
-    binding.
+    chosen. New Folder's name alert is attached to the page's own view, and
+    the menu raises a binding.
   - **A new note opens with Rename active** (`RenameOnAppear`, from
     `ContentView.newPage`, set by `NoteList.onNewPage`), through the
     environment's `rename` action, which only a view under the

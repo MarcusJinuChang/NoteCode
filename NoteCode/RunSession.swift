@@ -276,12 +276,13 @@ nonisolated enum RunPresentation {
     }
 
     /// Whether the panel offers to open the block on a site: when the service
-    /// can't run it right now. Not for a refused subscription (the paywall
-    /// opens) nor a block too large for the service, which a site may take.
+    /// can't run it right now, or it is too large for the service, which a site
+    /// may take. Not offline, where a site can't be reached either, nor for a
+    /// refused subscription (the paywall opens).
     static func offersSite(after error: RunServiceError) -> Bool {
         switch error {
-        case .offline, .capped, .serviceDown, .tooLarge: true
-        case .notSubscribed: false
+        case .capped, .serviceDown, .tooLarge: true
+        case .offline, .notSubscribed: false
         }
     }
 

@@ -153,6 +153,15 @@ struct StubRunner: CodeRunning {
         #expect(RunPresentation.statusLine(RunResult(status: .timeLimit)) == "Time limit")
     }
 
+    @Test("A site is offered when the service can't run a block, never offline, where a site can't load either")
+    func siteOffer() {
+        #expect(RunPresentation.offersSite(after: .capped(RunCap(scope: .daily))))
+        #expect(RunPresentation.offersSite(after: .serviceDown))
+        #expect(RunPresentation.offersSite(after: .tooLarge))
+        #expect(!RunPresentation.offersSite(after: .offline))
+        #expect(!RunPresentation.offersSite(after: .notSubscribed))
+    }
+
     @Test func dockWidthClamps() {
         #expect(RunDockWidth.clamped(100, available: 1200) == 280)
         #expect(RunDockWidth.clamped(900, available: 1200) == 600)

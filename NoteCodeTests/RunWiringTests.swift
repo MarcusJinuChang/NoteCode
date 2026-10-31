@@ -2,7 +2,7 @@
 //  RunWiringTests.swift
 //  NoteCodeTests
 //
-//  R4: the gate, the in-app destination, Keep in Note and the error links.
+//  R4: the gate, Keep in Note and the error links.
 //
 
 #if canImport(UIKit)
@@ -27,28 +27,19 @@ final class CountingRunner: CodeRunning, @unchecked Sendable {
 @MainActor
 struct RunWiringTests {
 
-    // MARK: The gate and the destination
+    // MARK: The gate
 
-    @Test("A free reader's Run opens the paywall whatever the page points at")
-    func freeGate() {
-        for destination in [CodeDestination.inApp, .programiz, .compilerExplorer] {
-            #expect(RunRoute.route(hasRunner: true, isPro: false, destination: destination) == .paywall)
-        }
-    }
-
-    @Test("Pro runs in the app when the page points there, otherwise redirects")
-    func proRoute() {
-        #expect(RunRoute.route(hasRunner: true, isPro: true, destination: .inApp) == .inApp)
-        #expect(RunRoute.route(hasRunner: true, isPro: true, destination: .onlineGDB) == .redirect)
+    @Test("A free reader's Run opens the paywall; Pro's runs in the app")
+    func gate() {
+        #expect(RunRoute.route(hasRunner: true, isPro: false) == .paywall)
+        #expect(RunRoute.route(hasRunner: true, isPro: true) == .inApp)
     }
 
     @Test("With no service nothing in-app is visible, and nothing is gated")
     func noService() {
-        #expect(RunRoute.route(hasRunner: false, isPro: false, destination: .inApp) == .redirect)
+        #expect(RunRoute.route(hasRunner: false, isPro: false) == .redirect)
+        #expect(RunRoute.route(hasRunner: false, isPro: true) == .redirect)
         #expect(RunServiceFactory.make(service: nil) == nil || DebugLaunchOptions.current.runStub != nil)
-        #expect(!CodeDestination.choices(inAppAvailable: false).contains(.inApp))
-        #expect(RunDestinationPreference.resolve([nil, "notecode"], inAppAvailable: false) == .default)
-        #expect(RunDestinationPreference.resolve([], inAppAvailable: false) == .default)
     }
 
     @Test("A free reader's tap reaches no service")
@@ -56,7 +47,7 @@ struct RunWiringTests {
         let runner = CountingRunner()
         let session = RunSession()
         session.runner = runner
-        if RunRoute.route(hasRunner: session.isAvailable, isPro: false, destination: .inApp) == .inApp {
+        if RunRoute.route(hasRunner: session.isAvailable, isPro: false) == .inApp {
             session.run(transaction: "")
         }
         #expect(runner.runs == 0)
@@ -75,21 +66,6 @@ struct RunWiringTests {
         session.run(transaction: "jws")
         await session.task?.value
         #expect(told == 1)
-    }
-
-    @Test("The destination resolves to in-app and back")
-    func resolution() {
-        #expect(RunDestinationPreference.resolve([], inAppAvailable: true) == .inApp)
-        #expect(RunDestinationPreference.resolve([nil, nil, "notecode"], inAppAvailable: true) == .inApp)
-        #expect(RunDestinationPreference.resolve(["programiz", nil, "notecode"], inAppAvailable: true) == .programiz)
-        #expect(RunDestinationPreference.resolve(["notecode", "godbolt"], inAppAvailable: true) == .inApp)
-        #expect(CodeDestination(id: CodeDestination.inApp.id) == .inApp)
-        // The site it falls back to skips the app.
-        #expect(RunDestinationPreference.resolveSite(["notecode", "onlinegdb"]) == .onlineGDB)
-        #expect(RunDestinationPreference.resolveSite(["notecode"]) == .default)
-        // A redirect asked of "In NoteCode" lands on a site.
-        let request = CodeDestination.request(for: "x", language: .cpp, preferring: .inApp)
-        #expect(request.destination == .default)
     }
 
     // MARK: Keep in Note

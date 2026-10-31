@@ -18,7 +18,7 @@ the version string, the licence text, the palette reset) are `AppSettings.swift`
   (Export All Notes… came with v3 phase 7; see "Notes in and out".)
 - **Every row binds the key its owner already uses**, through the owner's
   constant (`HotbarDock.defaultsKey`, `NoteSort.defaultsKey`,
-  `RunDestinationPreference.appDefaultKey`, `NoteEditor.fingerDrawsKey`, …),
+  `NoteEditor.fingerDrawsKey`, …),
   never a second spelling. `SettingsTests.keysAreStable` pins the stored
   names, since renaming one orphans what a device saved. Finger Draws needed
   no new key: `fingerDraws` was already per device (10 Oct, before this phase),

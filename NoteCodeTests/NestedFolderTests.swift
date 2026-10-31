@@ -315,15 +315,6 @@ struct NestedFolderTests {
         _ = outside
     }
 
-    @Test("Run destinations are inherited down the folders")
-    func runDestinationInherits() {
-        let cs = folder("CS133"), labs = folder("Labs", in: cs)
-        cs.runDestination = "onlinegdb"
-        let n = note("N", in: labs)
-        let levels = n.runDestinationLevels(appDefault: "app")
-        #expect(RunDestinationPreference.resolve(levels).id == CodeDestination.onlineGDB.id)
-    }
-
     // MARK: Home and export
 
     @Test("Home's tiles are the top-level folders, counting the folders in them")

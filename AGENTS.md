@@ -20,36 +20,32 @@ code blocks need to support at least C++, Java, and Python.
 Running code in-app was out of scope until the 1.0 plan, because every option
 needed a paid API, a self-hosted sandbox on a VPS, or a multi-megabyte
 WebAssembly runtime with a four-second cold start. 1.0 adds it as a Pro
-feature: with the destination "In NoteCode", Run sends the block's code and
+feature: Run sends the block's code and
 input over HTTPS to our proxy (`server/run-proxy`, on Cloudflare), which
 runs it on hosted Judge0 and returns the output (R1–R4; see docs/features.md
 › Run in the app). Nothing is compiled or executed on the device, and the
 proxy stores only a day's run count per subscription. That changes what the
 app promises about privacy; see docs/design/shipping.md.
 
-The free path is still a redirect: `CodeDestination` opens a free online
-compiler, and the app itself runs nothing. Two ways the code
-gets there, and the difference decides how the button behaves:
+Free readers' Run opens the paywall. There is no choice of where code runs
+(removed 30 Oct): Judge0 runs every language Run offers. A free online compiler
+is only the Run panel's way out when a run can't happen (the day's runs used
+up, the service down, a block too large) and Run itself in a build without a
+service. `CodeDestination.request(for:language:)` picks it, two ways:
 
 - **In the link.** Compiler Explorer encodes a whole session in the URL path, so
   the student lands on a finished run. Verified against the live site; the
   compiler ids are pinned and are a maintenance item, since the site has no
   "latest" alias and 1,197 compilers.
-- **On the pasteboard.** Programiz and OnlineGDB keep the editor's contents in
-  the browser, with no way to be handed a program, so the code is copied and the
-  student pastes on arrival. This is the fallback for every other site, which is
-  what makes an arbitrary custom URL a usable destination.
+- **On the pasteboard.** Programiz keeps the editor's contents in the browser,
+  with no way to be handed a program, so the code is copied and the student
+  pastes on arrival. Everything that can't go in a link goes here: Java,
+  JavaScript, and a block too long for one.
 
 Compiler Explorer does not get Java: its executor compiles into a fixed
 filename, so `public class Main` fails there with an error about the file name.
 It does not get JavaScript either, whose only compilers there are V8 builds that
-cannot execute (see "Code: languages, the keys row…").
-A destination that can't take a language hands the block to one that can rather
-than failing, which is why `RunRequest` reports where it actually went.
-
-The destination resolves through levels, most specific first — page, then
-its folder, then app-wide (`Page.runDestinationLevels`). The folder is one
-more element of the array `resolve` walks, not another branch.
+cannot execute (see "Code: languages, the keys row…"). Those go to Programiz.
 
 ## Tech stack
 

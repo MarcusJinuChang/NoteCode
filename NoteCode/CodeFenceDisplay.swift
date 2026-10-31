@@ -76,7 +76,7 @@ extension DocumentTextView.Coordinator {
             run(target, from: textView)
         }
         editor?.run.openAtSite = { [weak self, weak textView] block in
-            self?.openAtSite(code: block.code, language: block.language, destination: .inApp, from: textView)
+            self?.openAtSite(code: block.code, language: block.language, from: textView)
         }
         editor?.run.keepInNote = { [weak self, weak textView] ordinal, output in
             guard let self, let textView else { return }

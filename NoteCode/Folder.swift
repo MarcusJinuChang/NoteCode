@@ -24,10 +24,8 @@ extension NoteSchemaV1 {
         /// Whether the folder is pinned to the top of the list.
         var isPinned: Bool = false
 
-        /// Where the code blocks of this folder's notes run when a note
-        /// hasn't chosen for itself — a `CodeDestination.id`, or `nil` to
-        /// follow the app-wide default. Sits between the two in
-        /// `Page.runDestinationLevels(appDefault:)`.
+        /// Unused since 30 Oct, like `Page.runDestination`: kept so version
+        /// 1's hashes stay as they are.
         var runDestination: String?
 
         /// The folder's colour — a `FolderColor` raw value — or `nil`, which

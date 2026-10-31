@@ -15,12 +15,6 @@ import UIKit
 struct DocumentTextView: UIViewRepresentable {
     @Binding var text: String
 
-    /// Where this page's run buttons send a code block. Resolved by the caller
-    /// from the page's own setting and the app-wide default — see
-    /// `RunDestinationPreference`.
-    var runDestination: CodeDestination = .default
-    var runSite: CodeDestination = .default
-
     /// The page's hotbar state. Optional so the editor still stands alone in
     /// tests and previews.
     var editor: NoteEditor? = nil
@@ -180,8 +174,6 @@ struct DocumentTextView: UIViewRepresentable {
         // persists, so hand it the current binding or it will keep writing
         // through a stale one.
         context.coordinator.text = $text
-        context.coordinator.runDestination = runDestination
-        context.coordinator.runSite = runSite
         context.coordinator.editor = editor
         context.coordinator.showMarkdown = showMarkdown
         context.coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
@@ -225,9 +217,6 @@ struct DocumentTextView: UIViewRepresentable {
     /// Owns the UIKit delegate callbacks and forwards edits back into SwiftUI.
     final class Coordinator: NSObject, UITextViewDelegate {
         var text: Binding<String>
-        var runDestination: CodeDestination = .default
-        /// The site the page would use if it weren't pointed at the app.
-        var runSite: CodeDestination = .default
         var editor: NoteEditor?
         let documentCache = DocumentCache()
 
@@ -544,21 +533,18 @@ struct DocumentTextView: UIViewRepresentable {
             return CodeBlockAction.target(atCaret: caret, in: targets, sourceLength: textView.textStorage.length)
         }
 
-        /// Hands a block to whichever site the page is pointed at.
+        /// Runs a block: in the panel for Pro, the paywall for everyone else.
         ///
-        /// Nothing is executed here or anywhere else in the app. Where the code
-        /// travels in the link the student lands on a finished run; where it
-        /// can't, it goes on the pasteboard and they paste it on arrival.
+        /// Nothing is executed on the device: the panel sends the block to our
+        /// run service. Only a build without one hands it to a site instead.
         func run(_ target: CodeBlockTarget, from textView: UITextView) {
             guard let language = target.language, language.canRun else { return }
 
             // The gate comes first (R4): a free reader's Run opens the paywall
-            // and does nothing else, and Pro's runs in the panel when the page
-            // points there. Without a service none of this exists.
+            // and does nothing else. Without a service none of this exists.
             switch RunRoute.route(
                 hasRunner: editor?.run.isAvailable == true,
-                isPro: editor?.pro?.isPro == true,
-                destination: runDestination
+                isPro: editor?.pro?.isPro == true
             ) {
             case .paywall:
                 editor?.onRunNeedsPro?()
@@ -571,19 +557,16 @@ struct DocumentTextView: UIViewRepresentable {
                 break
             }
 
-            openAtSite(code: target.code, language: language, destination: runDestination, from: textView)
+            openAtSite(code: target.code, language: language, from: textView)
         }
 
-        /// Opens a block at a site: today's redirect. A page pointed at "In
-        /// NoteCode" uses the site it would otherwise (`runSite`).
-        func openAtSite(
-            code: String, language: CodeLanguage, destination: CodeDestination, from textView: UITextView?
-        ) {
-            let request = CodeDestination.request(
-                for: code,
-                language: language,
-                preferring: destination == .inApp ? runSite : destination
-            )
+        /// Opens a block on a site (`CodeDestination.request(for:language:)`):
+        /// the panel's way out when a run can't happen, and Run itself in a
+        /// build without a service. Where the code travels in the link the
+        /// student lands on a finished run; where it can't, it goes on the
+        /// pasteboard and they paste it on arrival.
+        func openAtSite(code: String, language: CodeLanguage, from textView: UITextView?) {
+            let request = CodeDestination.request(for: code, language: language)
 
             if let code = request.pasteboardCode {
                 UIPasteboard.general.string = code

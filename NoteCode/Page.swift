@@ -24,24 +24,19 @@ extension NoteSchemaV1 {
         var createdAt: Date = Date.now
         var modifiedAt: Date = Date.now
 
-        /// Which online compiler this page's run buttons open — a
-        /// `CodeDestination.id`, or `nil` to follow its folder, and then the
-        /// app-wide default.
-        ///
-        /// Optional so that existing pages migrate without a mapping, and because
-        /// "not set" is a real state: a page that never chooses should follow the
-        /// default as it changes rather than freeze whatever it was on the day the
-        /// page was written. See `runDestinationLevels(appDefault:)`.
+        /// Unused since 30 Oct, when the choice of where code runs went: our
+        /// run service runs every block. It held a site's id. Kept so version
+        /// 1's hashes stay as they are (docs/design/the-model.md); it can go
+        /// before the release, with the hashes updated.
         var runDestination: String?
 
         /// Which way up this note's pages are — a `PageOrientation` raw value, or
         /// `nil` for a note that has never chosen, which is portrait.
         ///
-        /// Stored as a string, like `runDestination`, so existing notes migrate
-        /// without a mapping. Unlike that setting, a note keeps whatever it is
-        /// given rather than following a default: orientation sets where lines
-        /// wrap, and a default that changed would re-wrap every note that had
-        /// never chosen.
+        /// Stored as a string so existing notes migrate without a mapping. A
+        /// note keeps whatever it is given rather than following a default:
+        /// orientation sets where lines wrap, and a default that changed would
+        /// re-wrap every note that had never chosen.
         var pageOrientation: String?
 
         /// The folder this note is filed in, or `nil` for a note at the top of
@@ -119,14 +114,6 @@ extension Page {
     var orientation: PageOrientation {
         get { pageOrientation.flatMap(PageOrientation.init(rawValue:)) ?? .default }
         set { pageOrientation = newValue.rawValue }
-    }
-
-    /// Where this note's code blocks could run, most specific first, for
-    /// `RunDestinationPreference.resolve`: the note's own choice, its
-    /// folder's, the folders above that in turn, then the app-wide default.
-    func runDestinationLevels(appDefault: String) -> [String?] {
-        let folders = folder.map { [$0] + $0.ancestors } ?? []
-        return [runDestination] + folders.map(\.runDestination) + [appDefault]
     }
 }
 
@@ -264,7 +251,6 @@ extension Page {
         copy.lineSpacing = lineSpacing
         copy.paperStyle = paperStyle
         copy.minimumPageCount = minimumPageCount
-        copy.runDestination = runDestination
         context.insert(copy)
         // After the insert, like `Page.create`: relationships are set on a
         // note the context already knows.

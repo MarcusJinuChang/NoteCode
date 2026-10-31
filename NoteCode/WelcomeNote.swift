@@ -91,7 +91,7 @@ nonisolated enum WelcomeNote {
 
     ## Code
 
-    Three backticks and a language start a code block. Run opens it in a free online compiler; nothing runs on the iPad. Copy puts it on the clipboard.
+    Three backticks and a language start a code block. With NoteCode Pro, the run button runs it beside the page and shows what it prints. Copy puts it on the clipboard.
 
     ```python
     def greet(name):
@@ -102,7 +102,7 @@ nonisolated enum WelcomeNote {
 
     ## Ink
 
-    Tap the pencil in the bar to draw on the page. The Pencil always draws; a finger draws too, or scrolls, as the hand button says. Ink stays on the words it was drawn over.
+    Tap the pencil in the bar to draw on the page. The Pencil always draws; a finger draws too, or scrolls, as the hand button says.
 
     ## Pages
 

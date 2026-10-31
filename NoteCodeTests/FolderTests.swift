@@ -97,40 +97,4 @@ struct FolderTests {
 
         #expect(cs133.pages?.map(\.title) == [kept.title])
     }
-
-    // MARK: Run destination
-
-    @Test("A note runs where it chose, then where its folder chose, then the default")
-    func runDestinationLevels() {
-        let cs133 = folder("CS133")
-        let page = note("Lecture", in: cs133)
-        let appDefault = CodeDestination.programiz.id
-
-        func resolved() -> CodeDestination {
-            RunDestinationPreference.resolve(page.runDestinationLevels(appDefault: appDefault))
-        }
-
-        #expect(resolved() == .programiz)
-
-        cs133.runDestination = CodeDestination.compilerExplorer.id
-        #expect(resolved() == .compilerExplorer)
-
-        page.runDestination = CodeDestination.onlineGDB.id
-        #expect(resolved() == .onlineGDB)
-
-        page.runDestination = nil
-        page.folder = nil
-        #expect(resolved() == .programiz)
-    }
-
-    @Test("A folder setting nothing recognises is passed over")
-    func unknownFolderDestination() {
-        let cs133 = folder("CS133")
-        cs133.runDestination = "from-a-newer-build"
-        let page = note("Lecture", in: cs133)
-
-        let levels = page.runDestinationLevels(appDefault: CodeDestination.onlineGDB.id)
-
-        #expect(RunDestinationPreference.resolve(levels) == .onlineGDB)
-    }
 }
