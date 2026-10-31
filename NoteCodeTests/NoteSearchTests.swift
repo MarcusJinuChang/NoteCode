@@ -57,6 +57,39 @@ struct NoteSearchTests {
         #expect(NoteSearch("invariant").match(title: "", content: content)?.excerpt == "The loop invariant holds.")
     }
 
+    @Test("The excerpt is the words the page draws, not the Markdown typed",
+          arguments: [
+              ("# CS133 Lecture 4", "CS133", "CS133 Lecture 4"),
+              ("## Big-O **notation** recap", "notation", "Big-O notation recap"),
+              ("- [ ] review *heaps* tonight", "heaps", "review heaps tonight"),
+              ("> a [link](https://example.com) to read", "read", "a link to read"),
+              ("Call `foo()` twice", "twice", "Call foo() twice"),
+          ])
+    func excerptIsPlainText(line: String, term: String, shown: String) {
+        let content = "Notes\n\n\(line)\n"
+        #expect(NoteSearch(term).match(title: "", content: content)?.excerpt == shown)
+    }
+
+    @Test("A match in code reads as typed: every character there is drawn")
+    func excerptInCode() {
+        let content = "Notes\n\n```cpp\n# define MAX 10\nint **p;\n```\n"
+        #expect(NoteSearch("define").match(title: "", content: content)?.excerpt == "# define MAX 10")
+        #expect(NoteSearch("int").match(title: "", content: content)?.excerpt == "int **p;")
+    }
+
+    @Test("A search for the markers themselves still shows the line it matched")
+    func excerptOfMarkerSearch() {
+        let excerpt = NoteSearch("**").match(title: "", content: "Some **bold** words\n")?.excerpt
+        #expect(excerpt == "Some **bold** words")
+    }
+
+    @Test("A coloured run's tags are not in the excerpt")
+    func excerptWithoutTags() throws {
+        let content = "Lead <span style=\"color:#FF0000\">factor</span> out\n"
+        let excerpt = try #require(NoteSearch("factor").match(title: "", content: content)?.excerpt)
+        #expect(excerpt == "Lead factor out")
+    }
+
     @Test("The excerpt comes from whichever word matches first in the text")
     func excerptFirstWord() {
         let content = "Heaps come first.\nThen sorting.\nThen heaps again."

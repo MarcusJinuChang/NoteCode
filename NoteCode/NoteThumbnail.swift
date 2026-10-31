@@ -98,6 +98,19 @@ nonisolated enum NoteThumbnail {
         return "\(owner)-\(milliseconds)\(rendersMarkdown ? "-r" : "")\(size)\(spacing)\(ruling).png"
     }
 
+    /// Whether the picture is shown dark: in a dark appearance, where the
+    /// page itself is `systemBackground` (black), not white (`PageView.pageColor`).
+    ///
+    /// The picture is still made once, on light paper in the light theme
+    /// (so one cached PNG serves both appearances), and shown inverted with
+    /// its hues turned back by half a turn, which is the same flip of
+    /// lightness the dark page applies to ink (docs/design/colour.md): white
+    /// paper to black, black text to white, a red pen to a light red, a code
+    /// panel to a dark one.
+    static func isShownDark(colorScheme: ColorScheme) -> Bool {
+        colorScheme == .dark
+    }
+
     /// The part of a cache name that is the note's alone, to find the older
     /// pictures of the same note.
     static func owner(ofCacheName name: String) -> Substring {
@@ -125,8 +138,8 @@ extension NoteThumbnail {
     /// (`PrintedNote`, `NotePDF.drawInk`) in light appearance, at
     /// `pixelsPerPagePoint`.
     ///
-    /// Paper is white: the picture is the page, not the app's surface, so it
-    /// is the same in a dark list.
+    /// Paper is white, always: one picture is made and cached for both
+    /// appearances, and a dark one is shown inverted (`isShownDark`).
     @MainActor
     static func render(_ source: Source) async -> UIImage? {
         let printed = await PrintedNote(
@@ -355,10 +368,13 @@ struct NoteThumbnailView: View {
     @State private var image: UIImage?
 #endif
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         paper
+            .modifier(DarkPaper(isDark: NoteThumbnail.isShownDark(colorScheme: colorScheme)))
             .overlay {
-                // The page's edge, so a white sheet reads on a white row.
+                // The page's edge, so a sheet reads on a row of its own colour.
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .strokeBorder(Color.primary.opacity(0.14), lineWidth: 0.5)
             }
@@ -369,6 +385,18 @@ struct NoteThumbnailView: View {
             // new text size, which leaves the date alone.
             .task(id: Picture(modifiedAt: page.modifiedAt, textSize: page.textSize, lineSpacing: page.lineSpacing, paper: page.paperStyle)) { await refresh() }
 #endif
+    }
+
+    /// The picture in a dark appearance (`NoteThumbnail.isShownDark`).
+    private struct DarkPaper: ViewModifier {
+        let isDark: Bool
+        func body(content: Content) -> some View {
+            if isDark {
+                content.colorInvert().hueRotation(.degrees(180))
+            } else {
+                content
+            }
+        }
     }
 
     @ViewBuilder

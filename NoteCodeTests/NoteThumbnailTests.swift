@@ -8,6 +8,7 @@
 
 import Foundation
 import SwiftData
+import SwiftUI
 import Testing
 @testable import NoteCode
 
@@ -31,6 +32,12 @@ struct NoteThumbnailRulesTests {
         context.insert(page)
         try context.save()
         return page
+    }
+
+    @Test("A thumbnail is shown dark in a dark appearance, light otherwise")
+    func darkPaper() {
+        #expect(NoteThumbnail.isShownDark(colorScheme: .dark))
+        #expect(!NoteThumbnail.isShownDark(colorScheme: .light))
     }
 
     // MARK: Prefix

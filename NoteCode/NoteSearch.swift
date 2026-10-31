@@ -120,8 +120,44 @@ nonisolated struct NoteSearch: Equatable, Sendable {
     /// it's far along: at a word, after an ellipsis.
     private static func excerpt(around match: Range<String.Index>, in content: String) -> String {
         let line = content.lineRange(for: match)
-        let before = content[line.lowerBound..<match.lowerBound].drop(while: \.isWhitespace)
-        let after = content[match.lowerBound..<line.upperBound]
+        // The words the page draws, not the Markdown typed: a heading's `#`
+        // and a line's `**` are left out. A match that sat inside a marker
+        // (a search for `**`) isn't in the words, and the line reads as typed.
+        if let plain = plainLine(line, in: content),
+           let found = plain.range(of: content[match], options: options) {
+            return shortened(plain, around: found)
+        }
+        let typed = String(content[line])
+        return shortened(typed, around: typed.range(of: content[match]) ?? typed.startIndex..<typed.startIndex)
+    }
+
+    /// The line as the page draws it: a block's words without its markers
+    /// (as the outline's titles and Home's excerpt have them), or the line as
+    /// is in a code block or formula, whose characters are all drawn.
+    ///
+    /// Parsed up to the end of the line only, which is all the context a
+    /// block needs to be told from code, and keeps a long note cheap.
+    private static func plainLine(_ line: Range<String.Index>, in content: String) -> String? {
+        let source = String(content[..<line.upperBound])
+        guard let block = DocumentParser.parse(source).last(where: { $0.range.lowerBound <= line.lowerBound }) else {
+            return nil
+        }
+        switch block.kind {
+        case .code, .math:
+            return String(source[line])
+        case .paragraph, .heading, .listItem, .blockQuote, .rule:
+            // Only a block that starts on this line is read as a block.
+            guard block.range.lowerBound == line.lowerBound else { return nil }
+            return block.inlines.filter { !$0.kind.isMarker }
+                .map { String(source[$0.range]) }.joined()
+                .replacingOccurrences(of: "\u{2060}", with: "")
+        }
+    }
+
+    /// `line` trimmed, and starting near `match` when it's far along.
+    private static func shortened(_ line: String, around match: Range<String.Index>) -> String {
+        let before = line[line.startIndex..<match.lowerBound].drop(while: \.isWhitespace)
+        let after = line[match.lowerBound...]
 
         var lead = String(before)
         if before.count > excerptLead {

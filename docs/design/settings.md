@@ -37,7 +37,8 @@ the version string, the licence text, the palette reset) are `AppSettings.swift`
   `showsSettings`; `HotbarUITests.testSettingsFromTheNoteMenu` taps it and
   looks for the sheet). Not checked by hand on an iPhone.
 - **Open Note After Creating** (21 Oct, Settings › Notes beside New Notes; key
-  `openNoteAfterCreating`, `NewNotes.opensAfterCreatingKey`, off by default).
+  `openNoteAfterCreating`, `NewNotes.opensAfterCreatingKey`, **on by default
+  since 31 Oct**: a "+" that made a note and showed nothing read as broken).
   Off, the list's "+" tap, its hold menu (Portrait/Landscape Pages and From
   Template), a folder's New Note menu and the empty list's New Note button
   make the note, file it in the open note's folder as always, leave the open
