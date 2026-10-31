@@ -36,7 +36,8 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Text lock | Read-only text, ink still works | built | `the-note-page.md` |
 | Get Info | Counts and dates | built | `NoteInfoView.swift` |
 | Thumbnails and reopening | Cards draw the note; a note reopens at its last page | built | `home-…md` |
-| Search | By title and text; a result shows the line it matched as the page draws it (no `#`, `**`, backticks, a link's address; code as typed); Find in Note inside a note | built | `organising-notes.md` |
+| Search | By title (a note's first line until it is renamed) and text; a result shows the line it matched as the page draws it (no `#`, `**`, backticks, a link's address; code as typed); Find in Note inside a note | built | `organising-notes.md` |
+| Note titles | A note is "Untitled" in storage until renamed; what shows (list, Home, search, top bar, PDF and file names, Duplicate) is its first non-empty line with the Markdown markers left out, cut to 60 characters, and "Untitled" only for an empty note. Renaming stores the name; clearing it goes back to the first line | built | `organising-notes.md` |
 | iCloud sync | Model is shaped for CloudKit; nothing syncs | planned (After 1.0) | ROADMAP |
 | Face ID locking, note combining | | idea | ROADMAP |
 
@@ -121,7 +122,8 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | The page fills the window | The hotbar floats over the page or takes a strip at a side | built, with a 10pt edge buffer (feedback #1) | `the-page-fills-the-window.md` |
 | Scrolling | The text view scrolls and its pan lives on the page: a drag anywhere (background included) scrolls, diagonally when zoomed, with sideways momentum; no give at the top; own indicator at the window edge (the text view's inside-the-page one is off); hairline under the top bar; page edge and shadow (W2) | built; feel on the iPad unchecked | `who-owns-scrolling.md` |
 | A4, side-by-side pages, infinite canvas | | idea | ROADMAP |
-| Paper styles | Blank, dots, grid, lined per note; spacing (Fine, Standard, Wide) and strength (Light, Standard, Strong) too; vector shape layers behind text and ink in each page body, so nothing is laid out and it stays on its points at every zoom and mode; printed and in thumbnails (0.75 alpha); ••• › Paper per note, Settings › Notes › Paper for new notes (default blank); Duplicate copies it, templates and Import take the default | built; not seen on a real iPad, the menu and the Settings rows not looked at | `paper-styles.md` |
+| Paper styles | Removed for the full release (31 Oct, Marcus): every note shows plain paper, with no menu, setting, template or debug argument for it. The drawing code is gone; `Page.paperStyle` stays in the model, unused, so version 1's hashes hold | removed | `paper-styles.md` |
+| Text alignment | A text alignment system (left, centre, right, justified) to come in place of paper styles | idea | ROADMAP |
 | Blank pages after moving between pages | Ink is absent about 130 to 200ms after a jump with 3,000 strokes while PaperKit draws the new region; not reproduced at "a few seconds" | measured, options in `pages.md` (feedback #27) | |
 
 ## 6. Interface

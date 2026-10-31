@@ -106,7 +106,12 @@ Google's test ids (`AdConfig.units(forRelease:)`, pinned in `AdTests`).
 
 - **Order**: Home's first visit runs the UMP consent flow, then starts the SDK;
   no ad is requested before. The ATT prompt is asked from the second Home visit
-  on, never at launch. Without ATT consent the request carries `npa=1`.
+  on, never at launch. A "visit" is Home in front of the reader
+  (`ConsentGate`): not its first appearance on a first launch, which comes
+  before the launch has decided about the title screen and then sits under it
+  (31 Oct; Google's form and the system's tracking prompt showed over the title
+  screen). `HomeView.consentMayStart` is false until the launch task has
+  claimed the title screen and while it is up. Without ATT consent the request carries `npa=1`.
 - **Size**: the standard anchored adaptive size (`AdSizing`, 31 Oct), for the
   width the slot is given, measured on a placeholder the banner lies over.
   It was the large anchored size, up to 150pt tall: a seventh of an iPad

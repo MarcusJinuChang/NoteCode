@@ -129,6 +129,10 @@ The support address (XS), ranked first here before, is set for 1.0.1.
 5. **An annual plan and a student price** (QC §3: ~$39.99 a year; a semester
    price or offer code). A product in App Store Connect and `ProStatus`.
 
+6. **Text alignment** (left, centre, right, justified), which comes in place
+   of the paper styles removed for 1.0 (31 Oct). Alignment moves lines, so
+   it has to meet the ink anchoring in 2 (M).
+
 Unbuilt from the QC and R5:
 
 - **`server/run-proxy`: wrangler 4 and `@cloudflare/vitest-plugin`.** It
@@ -138,6 +142,8 @@ Unbuilt from the QC and R5:
 - **Apple platform hooks** (QC §4): Spotlight indexing, App Intents (New
   Note, Open Last Note), a widget, a Share extension.
 - **PDF import and annotation**, and handwriting to text beyond Scribble.
+- **`Page.paperStyle`** is unused since the paper styles came out (31 Oct)
+  and kept only so version 1's hashes hold; drop it with the next one.
 - **`Page.runDestination` and `Folder.runDestination`** are unused since
   #118 and kept only so version 1's hashes hold; drop them before the
   release freezes the schema, or in version 2.

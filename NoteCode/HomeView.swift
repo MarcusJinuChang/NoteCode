@@ -46,6 +46,11 @@ struct HomeView: View {
     /// Makes a Welcome note and opens it, for an empty Home.
     var onOpenWelcomeNote: () -> Void
 
+    /// Whether Home is really in front of the reader (`ConsentGate`): consent
+    /// and so the tracking prompt wait for it, not for Home's first
+    /// appearance, which a first launch's title screen covers.
+    var consentMayStart = true
+
     // Every note, deleted ones included: `HomeSections` leaves those out.
     @Query(sort: \Page.modifiedAt, order: .reverse) private var pages: [Page]
     @Query private var folders: [Folder]
@@ -98,7 +103,10 @@ struct HomeView: View {
             }
             AdSlot(placement: .home, opaque: true)
         }
-        .task { await AdConsent.shared.homeAppeared(isPro: pro?.isPro ?? true) }
+        .task(id: consentMayStart) {
+            guard consentMayStart else { return }
+            await AdConsent.shared.homeAppeared(isPro: pro?.isPro ?? true)
+        }
         .coordinateSpace(.named("home"))
         .onGeometryChange(for: CGSize.self) { $0.size } action: { homeSize = $0 }
         .navigationTitle("Home")
@@ -249,7 +257,7 @@ struct HomeView: View {
                     .shadow(color: .black.opacity(0.08), radius: 3, y: 1)
 
                 VStack(alignment: .leading, spacing: isCompact ? 4 : 10) {
-                    Text(page.title)
+                    Text(page.displayTitle)
                         .font(isCompact ? .headline : .system(size: 26, weight: .bold))
                         .lineLimit(2)
                     HStack(spacing: 8) {
@@ -335,7 +343,7 @@ struct HomeView: View {
     }
 
     private func continueLabel(_ page: Page, place: NoteMemory.Place?) -> String {
-        var parts = ["Continue", page.title]
+        var parts = ["Continue", page.displayTitle]
         if let folder = page.folder { parts.append(folder.name) }
         if let place { parts.append("page \(min(place.number, place.of)) of \(place.of)") }
         return parts.joined(separator: ", ")
@@ -359,7 +367,7 @@ struct HomeView: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 128)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(page.title)
+                    Text(page.displayTitle)
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(1)
                     // "Today" turns into "Yesterday" at midnight, and a minute

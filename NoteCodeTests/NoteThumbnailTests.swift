@@ -108,20 +108,6 @@ struct NoteThumbnailRulesTests {
         #expect(NoteThumbnail.owner(ofCacheName: spaced) == NoteThumbnail.owner(ofCacheName: plain))
     }
 
-    @Test("Paper is in the cache name, blank leaves it as it was, and it is still a file name")
-    func paperIsInTheName() throws {
-        let page = try savedPage("A")
-        let id = try #require(page.settledID)
-        let date = Date(timeIntervalSince1970: 1_791_800_000)
-        let plain = try #require(NoteThumbnail.cacheName(for: id, modifiedAt: date))
-        #expect(plain == NoteThumbnail.cacheName(for: id, modifiedAt: date, paper: .blank))
-        let grid = try #require(NoteThumbnail.cacheName(for: id, modifiedAt: date, paper: PaperSetup(style: .grid)))
-        let fine = try #require(NoteThumbnail.cacheName(for: id, modifiedAt: date, paper: PaperSetup(style: .grid, spacing: .fine)))
-        #expect(Set([plain, grid, fine]).count == 3)
-        #expect(!fine.contains("/") && fine.contains("-pgrid_fine"))
-        #expect(NoteThumbnail.owner(ofCacheName: fine) == NoteThumbnail.owner(ofCacheName: plain))
-    }
-
     @Test("A note not yet saved has no cache name")
     func unsavedNoteHasNoName() {
         let page = Page(title: "New")

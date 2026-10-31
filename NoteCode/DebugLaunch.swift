@@ -101,8 +101,6 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
     var mode: PageViewMode?
     /// The seeded note's page orientation.
     var orientation: PageOrientation?
-    /// The seeded note's paper, as `PaperSetup.stored` writes it (`grid`, `dots/fine`).
-    var paper: String?
     /// The seeded note's text size, one of `NoteTypography.sizes`.
     var textSize: Int?
     /// A page to scroll to, counted from 1 as pages are on screen.
@@ -140,7 +138,7 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
     var problems: [String] = []
 
     var isActive: Bool {
-        note != nil || mode != nil || orientation != nil || paper != nil || textSize != nil || page != nil || thenMode != nil
+        note != nil || mode != nil || orientation != nil || textSize != nil || page != nil || thenMode != nil
             || writesReport || firstLaunch || home || tipJar || paywall || pro != nil || runStub != nil
     }
 
@@ -190,8 +188,6 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
                 options.mode = choice(value(for: flag), for: flag)
             case "-debug-orientation":
                 options.orientation = choice(value(for: flag), for: flag)
-            case "-debug-paper":
-                options.paper = value(for: flag)
             case "-debug-text-size":
                 if let raw = value(for: flag) {
                     if let size = Int(raw), NoteTypography.sizes.contains(size) {
@@ -252,9 +248,6 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
 
         if options.orientation != nil && options.note == nil {
             options.problems.append("-debug-orientation applies to a seeded note; add -debug-note")
-        }
-        if options.paper != nil && options.note == nil {
-            options.problems.append("-debug-paper applies to a seeded note; add -debug-note")
         }
         if options.textSize != nil && options.note == nil {
             options.problems.append("-debug-text-size applies to a seeded note; add -debug-note")
@@ -465,9 +458,6 @@ enum DebugLaunch {
         let page = Page(title: title, content: content)
         if let orientation = options.orientation {
             page.orientation = orientation
-        }
-        if let paper = options.paper {
-            page.paperStyle = paper
         }
         if let size = options.textSize {
             page.textSize = NoteTypography(bodySize: size).storedSize

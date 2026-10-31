@@ -56,7 +56,7 @@ struct NoteInfoView: View {
             // no height of its own (measured 3 Oct).
             .listSectionSpacing(.compact)
 #endif
-            .navigationTitle(page.title)
+            .navigationTitle(page.displayTitle)
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
 #endif

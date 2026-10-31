@@ -11,6 +11,16 @@ import Foundation
 import Testing
 @testable import NoteCode
 
+@Suite("AI entry points")
+struct AIMenuTitleTests {
+    @Test("A free reader's Explain and Summarise are marked Pro; Pro's are not")
+    func marks() {
+        #expect(AIAction.summariseNote.menuTitle(marksPro: true) == "Summarise Note (Pro)")
+        #expect(AIAction.summariseNote.menuTitle(marksPro: false) == "Summarise Note")
+        #expect(AIAction.explainBlock.menuTitle(marksPro: true) == "Explain Code (Pro)")
+    }
+}
+
 /// A model that says what a test scripts, and records what it was asked.
 final class FakeTextModel: TextModelClient, @unchecked Sendable {
     enum Script {

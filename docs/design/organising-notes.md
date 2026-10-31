@@ -156,6 +156,17 @@ so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
   something, and this is where a student working through a class's notes is.
   All creation goes through `Page.create`, so the tap, the menu and the folder
   menu can't disagree about what a new note is.
+- **A note without a name is called by its first line** (31 Oct,
+  `NoteTitle.swift`). `Page.title` is "Untitled" until the reader renames the
+  note, and `Page.displayTitle` is what every place that shows a title reads:
+  the stored name if the reader gave one, else the first non-empty line that
+  is not a fence or inside a code block, with the Markdown markers left out
+  (the parser's projection, as the outline's titles), cut to 60 characters,
+  else "Untitled". Cheap by design: it reads the first 2,000 bytes and parses
+  only the line it uses, so the list, search and sorts call it per row. It is
+  not stored, so no hash changes; the rename field starts from it, and
+  `Page.rename(to:)` stores a name only when it differs from what shows.
+  Templates and the Welcome note keep their stored names.
 - **The note menu is the title menu**: `NoteTitleMenu` is used by both, and the
   list passes `onRename` where the title uses the system's `RenameButton`, so
   rows and order can't drift. The list's Rename asks in the name alert

@@ -38,7 +38,9 @@ which holds version 1 and no stages (17 Oct, step 13 of docs/ROADMAP.md).
 - **Shaped for CloudKit**, so iCloud sync later needs no migration of its own:
   every relationship optional, every attribute optional or with a default,
   nothing `.unique`.
-- **Gone with the old notes**: `Page.paperStyle` (paper is postponed),
+- **Unused, kept**: `Page.paperStyle` (paper styles were removed on 31 Oct)
+  and `Page.runDestination`, so version 1's hashes hold.
+- **Gone with the old notes**:
   `Page.markdownLayout` and the legacy layout it chose, and the title menu's
   Hide Markdown Markers….
 - **Don't run an older branch on a device** whose store this build has opened:

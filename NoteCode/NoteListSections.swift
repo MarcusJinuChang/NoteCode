@@ -118,7 +118,7 @@ struct NoteListSections {
                 case .folder(let section):
                     (section.folder.name, lastModified(section.folder), section.folder.createdAt)
                 case .note(let page):
-                    (page.title, page.modifiedAt, page.createdAt)
+                    (page.displayTitle, page.modifiedAt, page.createdAt)
                 }
             }
             return sort.areInIncreasingOrder(keys(a), keys(b))

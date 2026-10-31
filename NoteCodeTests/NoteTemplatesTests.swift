@@ -91,8 +91,8 @@ struct NoteTemplatesTests {
         }
         #expect(links(in: content) == 0)
         #expect(links(in: Self.content(.lab)) == 0)
-        // Problem has one real link to type over.
-        #expect(links(in: Self.content(.problem)) == 1)
+        // Problem's `[link](https://)` opened Safari's start page.
+        #expect(links(in: Self.content(.problem)) == 0)
     }
 
     @Test("A Lab's steps are an unchecked list")

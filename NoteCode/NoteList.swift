@@ -361,7 +361,7 @@ struct NoteList: View {
             NoteThumbnailView(page: page)
                 .frame(width: Self.thumbnailSize.width, height: Self.thumbnailSize.height)
             VStack(alignment: .leading) {
-                Text(page.title)
+                Text(page.displayTitle)
                     .font(.headline)
                 HStack(spacing: 4) {
                     if page.isTextLocked {
@@ -403,7 +403,7 @@ struct NoteList: View {
                 NoteThumbnailView(page: page)
                     .frame(width: Self.thumbnailSize.width, height: Self.thumbnailSize.height)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(search.highlighted(page.title))
+                    Text(search.highlighted(page.displayTitle))
                         .font(.headline)
                     if let excerpt = result.match.excerpt {
                         Text(search.highlighted(excerpt))
@@ -756,7 +756,7 @@ struct NoteList: View {
     }
 
     private func startRenaming(_ page: Page) {
-        typedName = page.title
+        typedName = page.displayTitle
         renamingPage = page
         showsNameAlert = true
     }
@@ -764,7 +764,7 @@ struct NoteList: View {
     private func finishRenamingPage() {
         guard let page = renamingPage else { return }
         // An edit, as renaming from the title is: the date moves.
-        page.title = Page.title(fromTyped: typedName)
+        page.rename(to: typedName)
         page.modifiedAt = .now
     }
 

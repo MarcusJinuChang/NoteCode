@@ -32,6 +32,9 @@ nonisolated enum PaywallContent {
         let systemImage: String
     }
 
+    /// Under the list of what Pro adds, so it reads as what is left out.
+    static let freeNote = "Everything else in NoteCode stays free."
+
     static let features: [Feature] = [
         Feature(id: "ads", title: "No ads", detail: "The small ad at the foot of Home and the note list goes away.", systemImage: "rectangle.slash"),
         Feature(id: "run", title: "Run code in the app", detail: "Run a C++, C, Java, Python, JavaScript, Rust or Go block and see its output and give it input, beside the page.", systemImage: "play.fill"),
@@ -94,8 +97,10 @@ struct PaywallView: View {
                         .padding(.vertical, 2)
                     }
                 } header: {
-                    Text("Everything else in NoteCode stays free.")
+                    Text("What Pro adds")
                         .textCase(nil)
+                } footer: {
+                    Text(PaywallContent.freeNote)
                 }
 
                 Section {
