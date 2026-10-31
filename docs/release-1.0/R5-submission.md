@@ -7,21 +7,22 @@ as it should be) and `docs/site/support.md`.
 ## App Review notes (paste into App Review Information › Notes)
 
 > NoteCode is a notes app with syntax-highlighted code blocks. Run on a code
-> block has two modes. For free users it opens a free online compiler website
-> in Safari (Compiler Explorer, Programiz or OnlineGDB); nothing runs in the
-> app. For NoteCode Pro subscribers, Run sends the block's source code (and
-> any input they typed) over HTTPS to our server, which compiles and runs it
-> on a hosted service (Judge0) and returns the text output. Code is never
-> downloaded or executed on the device, and the app downloads no code or
-> executable content (Guideline 2.5.2).
+> block is part of NoteCode Pro; for free users it opens the paywall. For
+> subscribers, Run sends the block's source code (and any input they typed)
+> over HTTPS to our server, which compiles and runs it on a hosted service
+> (Judge0) and returns the text output. Code is never downloaded or executed
+> on the device, and the app downloads no code or executable content
+> (Guideline 2.5.2). If a run can't happen (the daily limit, or the service
+> down), the panel offers to open the code on a free online compiler website
+> in Safari (Compiler Explorer or Programiz) instead.
 >
 > To test Run: subscribe in the sandbox (Settings › Pro, or tap ▷ on a code
-> block), open any note with a ```python block, set the page's destination to
-> "In NoteCode" if it isn't already, and tap ▷. Output appears in the panel
-> beside the page.
+> block), open any note with a ```python block and tap ▷. The first run shows
+> a one-time notice saying where the code goes; tap Run. Output appears in
+> the panel beside the page.
 >
-> Free users see Google AdMob banner ads (Home list foot and note list). Pro
-> removes them. We show Google's consent form where required, then the App
+> Free users see Google AdMob banner ads (at the foot of Home and of the note
+> list). Pro removes them. We show Google's consent form where required, then the App
 > Tracking Transparency prompt on a later visit to Home. Declining still shows
 > non-personalised ads.
 >

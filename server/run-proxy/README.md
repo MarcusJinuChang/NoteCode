@@ -31,13 +31,18 @@ subscription (by original transaction id, so a reinstall doesn't reset it),
 Durable Object (atomic, unlike KV) and only for the current UTC day/minute.
 Request bodies are never logged.
 
-## Before the first deploy
+## Where it runs
 
-Two things to check:
+Deployed 28 Oct 2026 at `https://notecode-run-proxy.changm2608.workers.dev`
+(`AppInfo.runService`), with the `JUDGE0_KEY` secret set.
 
 1. `PRO_PRODUCT_IDS` is `com.marcus.NoteCode.pro.monthly`, P1's subscription.
    Add any new Pro product id there, or its runs are refused with 402.
-2. `languages.json` has the Judge0 ids, pinned on 26 Oct 2026 from
+2. `ALLOWED_ENVIRONMENTS` stays `Production,Sandbox` after release. App
+   Review and TestFlight buy in the sandbox on the production build, so
+   without `Sandbox` the reviewer's every run is a 402. An Xcode build signs
+   in the `Xcode` environment and gets 402; that is expected.
+3. `languages.json` has the Judge0 ids, pinned on 26 Oct 2026 from
    <https://ce.judge0.com/languages>. Judge0 has no "latest" alias, so check
    them when you upgrade. The hosted RapidAPI instance should match CE, but
    confirm with one run per language after deploying (and that each run is
@@ -51,8 +56,10 @@ npx wrangler secret put JUDGE0_KEY   # paste the RapidAPI key when asked
 npx wrangler deploy
 ```
 
-Then set `AppInfo.runService` in `AppSettings.swift` to the printed
-`https://notecode-run-proxy.<account>.workers.dev` URL.
+`AppInfo.runService` in `AppSettings.swift` is the printed
+`https://notecode-run-proxy.<account>.workers.dev` URL; a redeploy keeps it.
+Run wrangler from this folder: at the repo root, `npx` fetches wrangler 4,
+which this project isn't on yet.
 
 ## Tests
 

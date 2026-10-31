@@ -2,7 +2,7 @@
 Roadmap step 10, second and third parts: colour (17 Oct, branch
 `claude/text-colour`, on `claude/code-block-room`) and size (17 Oct, branch
 `claude/text-size`, on `claude/text-colour`). The format is step 3's
-recommendation (docs/research-notability-obsidian.md). `SpanStyle` holds the
+recommendation (docs/archive/research-notability-obsidian.md). `SpanStyle` holds the
 tag, `TextColour` the palette, `SpanSize` the sizes. Any size since 18 Oct
 (text overhaul, phase 1; docs/archive/text-system-overhaul.md).
 

@@ -70,6 +70,5 @@ v3 phase 1 (12 Oct, `docs/archive/ui-design-v3-implementation.md`).
     (`apply(to:moving:in:)`). Renaming a note from the list is still an alert.
   - `FolderBadge` is the symbol on its tint, 26pt in the list's rows.
 - **Duplicate** (`Page.duplicated(in:)`) copies text, ink, orientation, paper,
-  Markdown layout, text size, folder and run destination, and leaves the pin and
-  lock behind. A copy of a note with the old layout keeps it, since its ink
-  depends on the layout it was drawn on.
+  text size, line spacing, page count and folder, and leaves the pin and lock
+  behind.

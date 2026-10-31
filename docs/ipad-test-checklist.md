@@ -2,7 +2,7 @@
 
 Everything the design notes and the roadmap say was never seen on a real iPad,
 in the order you would walk through the app, one check to a line with what you
-should see. Built 24 Oct, and extended 29 Oct with the 1.0 steps' own lines (their PR numbers are given as #n), from the "On-iPad checklist", "Not checked" and
+should see. Built 24 Oct, extended 29 Oct with the 1.0 steps' own lines (their PR numbers are given as #n) and 31 Oct with #117, #118 and the QC's release lines, from the "On-iPad checklist", "Not checked" and
 "Unverified" sections of `docs/design/` and `docs/ROADMAP.md` (Verification
 debt), de-duplicated. Mark a line `[x]` when it works, and write what you saw
 beside it when it doesn't.
@@ -28,6 +28,8 @@ of its folder. Both are in section 2 below only for what that test cannot see.
 - [ ] Going Home from a note: the note shrinks into the card it was opened from (a note opened from the list shrinks toward the middle); with Reduce Motion on it cross-fades. The joined list/Home pill at the top left reads in light and dark, and the system's own sidebar button is gone. — **W3** #101
 - [ ] Home's excerpt for a note shows its text, not its Markdown (no `#`, `**`, `-`); a line like `#include` stays as typed. — **B1** #85
 - [ ] Home and the list's foot show a banner while you are free, with "Remove ads"; buying Pro removes them at once. First Home visit asks for consent (EEA/UK) and no ATT prompt at launch; the ATT prompt comes on a later Home visit. — **P3** #112
+- [ ] The banner stays inside Home's column in landscape and portrait (Home scrolls, nothing cut off at the sides). Beside the list on a portrait 11-inch, Home takes the phone layout: the Continue card's title whole, folder tiles named, the buttons stacked; as Pro (no banner) too. — #117
+- [ ] On the TestFlight build: the banners are the real units (no "Test Ad" label), or show no fill while the app isn't linked in AdMob. Add the iPad as an AdMob test device first: taps on your own live ads count as invalid traffic. — QC A-items
 - [ ] The page fills the window: header (Home, ☰, title; lock, Share, •••), floating bottom bar, the side-bar strip all look right, with Reduce Motion on too. — the-page-fills-the-window, ROADMAP
 - [ ] Page edge doesn't touch the screen edge: a buffer on the sides the hotbar doesn't take, top included. — **FB 1**
 - [ ] Scrolling by dragging anywhere, the grey surround included: one pan; a zoomed page pans diagonally and a sideways fling carries on. No space can be pulled open above the page; the bottom still bounces. The scroll indicator sits at the window's edge and fades; the page has a hairline edge and soft shadow in both appearances, and the top bar's hairline does not double. In ink mode: two-finger scrolling, PaperKit's lasso and a pinch still behave (if not, fall back to the split pans). — **W2** #99
@@ -76,13 +78,14 @@ of its folder. Both are in section 2 below only for what that test cannot see.
 - [ ] A new note opens with its title ready to rename. — the-note-page
 - [ ] Lock Text: the lock shows in the header; typing is refused, Copy works, a link still opens. — the-note-page
 - [ ] Paste from Safari, Notes, Pages and Mail keeps bold and links and brings no stray styles; copying out and pasting back keeps formatting; Allow Paste's prompt from another app. — paste-and-copy-with-formatting
+- [ ] Scribble: handwrite with the Pencil into the page in text mode and into the note's title field; the words land as typed text. The app has no handwriting-to-text of its own, so this is the only one. — **QC** §4.5
 
 ## 4. Code blocks
 
 - [ ] Type ``` and a language: the block appears as you type, with its closing fence missing too; type the fence closed and open again. — code-block-fences, code-blocks-room
 - [ ] Tap the language name: the menu opens and retags the block; C++, Java and Python highlight. "Plain Text" is called Code. — code-block-fences, **FB 15**
 - [ ] A real finger on Run, Copy and the language name: each fires (not swallowed by the text view); a tap below the last block adds lines and raises the keyboard. — code-blocks-room, the-note-page, AGENTS (action bars)
-- [ ] Pro with a site chosen as the destination: Run opens that compiler site; Copy puts the code on the pasteboard. A free reader's Run opens the paywall instead. — code-blocks-room (taps on Run and Copy), **R4** #103
+- [ ] Copy puts the code on the pasteboard with a Copied toast. A free reader's Run opens the paywall and nothing else. No menu anywhere offers a choice of where code runs (the note's •••, a folder's menu, Settings › Code). — code-blocks-room (taps on Run and Copy), **R4** #103, #118
 - [ ] The panel's room: 14pt into each margin, the text on the column, a caret on a fence line, light mode, landscape and other text sizes. — code-blocks-room
 - [ ] Return inside a block: lines keep the same height (no thin extra space under the border). — **FB 14**
 - [ ] The keys row (⇥, brackets, …) appears in a block and hides with a hardware keyboard; Tab and ⇧Tab indent; indentation width follows Settings; line numbers up to 4 digits. — code-languages-and-keys
@@ -94,12 +97,12 @@ of its folder. Both are in section 2 below only for what that test cannot see.
 
 - [ ] Notes | Run control in the top bar (PRO mark while free). The panel opens at the page's right at 360pt, drags from 280pt to half the window and is remembered, collapses to an edge tab; in a compact width or Split View it is a bottom sheet (medium keeps the page usable). The page's zoom and place don't move across open, resize and shut in all three layouts. — **R3** #100
 - [ ] The first Run in the app (`-debug-first-launch` clears it): the panel opens on "Before your first run" with the Privacy Policy link, and nothing runs; Not Now leaves it and the next ▷ asks again; Run runs the block and the notice never shows again. Readable in light and dark. — **QC** R3
-- [ ] Sandbox Pro, destination In NoteCode: ▷, ⌘R and the edit menu's Run run a C++, a Java and a Python block; stdout in the code font, compile errors and stderr in the error colour, Stop works, input from the Input tab reaches the program. — **R4** #103, **R2** #90
+- [ ] Sandbox Pro, on the TestFlight build (an Xcode build signs purchases in the "Xcode" environment, which the proxy answers with 402): ▷, ⌘R and the edit menu's Run run a C++, a Java and a Python block; stdout in the code font, compile errors and stderr in the error colour, Stop works, input from the Input tab reaches the program. — **R4** #103, **R2** #90
 - [ ] Edit the block after a run: the result dims with "Code changed since this run"; delete or edit the running block mid-run: Run isn't ignored and a late answer doesn't land on another block. — **R3**, **QC bugs** #113
 - [ ] Keep in Note writes or replaces the ` ```output ` block under the code, one ⌘Z removes it, and it does nothing in a locked note. A `file:line` in a compile error puts the caret on that line. — **R4** #103
-- [ ] Airplane mode, the daily cap and a proxy outage each show their own message; the cap and the outage offer "Open on a Site Instead", airplane mode doesn't. — **R4** #103
+- [ ] Airplane mode, the daily cap and a proxy outage each show their own message; the cap and the outage offer "Open on a Site Instead", airplane mode doesn't. That button takes a C++ block to Compiler Explorer with the code already there, and a Java block to Programiz with the code on the pasteboard. — **R4** #103, #118
 - [ ] Chips and the PRO badge follow a custom accent (a pale accent gets a black label); the badge scales with Dynamic Type; VoiceOver says "Run, part of Pro". Run panel in dark mode. — **QC cohesion** #111
-- [ ] After the proxy is deployed: one run per language confirms the Judge0 ids and one bill per run; `PRO_PRODUCT_IDS` is set (a run fails closed with 402 until then). — **R2** #90
+- [ ] One run in each of the seven languages (C++, C, Java, Python, JavaScript, Rust, Go) confirms the Judge0 ids in `languages.json`, and RapidAPI's dashboard shows one bill per run. (The proxy is deployed, 28 Oct; a non-Pro request answers 402.) — **R2** #90
 
 ## 5. Select tool and ink
 
@@ -180,6 +183,8 @@ do the steps, pull `tmp/selectionprobe.log` with
 - [ ] The paywall with no network (airplane mode, fresh launch): "Couldn't reach the App Store." with Try Again instead of a price; Try Again with the network back shows $4.99. The renewal text ends with the cancel-24-hours sentence. — **QC** S4, S5
 - [ ] Ad Privacy Options (free, an EEA or UK region or VPN): after Home's consent form, Help and About has the row and it opens Google's form; change the answer and the banner follows. Outside those regions, and for Pro, no row. Also after a launch straight into a note. — **QC** A4
 - [ ] Settings › Help and About: Privacy Policy row opens the page; the Feedback rows are absent until `AppInfo.feedbackAddress` is set. — **R5** #114, **QC** #111
+- [ ] After the pages are published to `gh-pages`: the Privacy Policy row and the paywall's link open the *new* page (dated 10/31/26, with Run and ads), and `/NoteCode/support` loads. — **R5** #114
+- [ ] The upload: App Store Connect didn't ask the export-compliance questions, so `ITSAppUsesNonExemptEncryption` survived in `Info.plist`. — **QC** A1
 
 ## 9. On-device assistant (Apple Intelligence on)
 

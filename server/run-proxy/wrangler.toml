@@ -15,7 +15,7 @@ GLOBAL_DAILY_RUNS = "1760"
 PRO_PRODUCT_IDS = "com.marcus.NoteCode.pro.monthly"
 # The app's bundle id, checked against the transaction.
 BUNDLE_ID = "com.marcus.NoteCode"
-# Accept TestFlight/sandbox transactions too. Set to "Production" for App Store only.
+# Keep Sandbox after release: App Review and TestFlight buy in the sandbox.
 ALLOWED_ENVIRONMENTS = "Production,Sandbox"
 JUDGE0_URL = "https://judge0-ce.p.rapidapi.com"
 JUDGE0_HOST = "judge0-ce.p.rapidapi.com"
