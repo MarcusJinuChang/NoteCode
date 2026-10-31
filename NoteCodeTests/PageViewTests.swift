@@ -1742,6 +1742,13 @@ struct PageViewTests {
         #expect(panned.minX == top.minX + 120)
     }
 
+    @Test("The text view's own indicator is off, so only the one at the window's edge shows")
+    func noIndicatorInsideThePage() {
+        let page = Harness(text: Self.severalPages).page
+        #expect(page.showsVerticalScrollIndicator == false)
+        #expect(page.textView.showsVerticalScrollIndicator == false)
+    }
+
     @Test("A sideways fling decays and covers a finite distance")
     func flingDecay() {
         let a = SidewaysFling.decayed(1000, over: 0.1)

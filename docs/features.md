@@ -60,7 +60,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Autocorrect | On in prose, off in code; Settings › Writing › Autocorrect turns prose off. Smart dashes turn `---` into "—-" while on | built (feedback #19) | `the-note-page.md` |
 | Marker dimming | Settings › Writing › Markers: heading marks, list bullets, checkboxes, code fences each Off / Dim (default) / Full | built (feedback #9) | `settings.md` |
 | Caret on empty space | A tap below the last line adds the blank lines needed and puts the caret there, one undo step; gaps between sheets in print and compressed are not handled | built (feedback #7) | |
-| Outline and page badge | Headings list jumps to a heading; "2 / 5" shows the page | built | `navigation-and-the-text-options-row.md` |
+| Outline and page badge | Headings list (exactly as tall as its rows) jumps to a heading; "2 / 5" shows the page | built | `navigation-and-the-text-options-row.md` |
 | Find in note | System find | built | `the-note-page.md` |
 | Summarise Note | Pro. ••• › Summarise Note: an on-device summary in a sheet (long notes in up to 4 pieces); Copy or Insert Below | built; unverified on device | `ai-features.md` |
 | LaTeX | Inline `$…$` (and `$$…$$` mid-line, display style) draws as a formula in the line, in the text's colour and size; a formula SwiftMath can't draw keeps its dollars and shows dimmed. A `$$` block (`$$`…`$$` over lines, or one line) draws as one centred formula on a line of its own, scaled down to fit the column, its source lines taking no room; an undrawable block shows as typed, dimmed. A drawn formula is one place for the caret; Backspace after it deletes all of it (one undo step); a selection never ends inside one. Tap opens an editor popover (sheet when narrow) with the source in monospace and a live preview — Done writes back as one undo step, Remove deletes it, read-only in a locked note. Style ▾ (hotbar, edit menu, ⇧⌘M / ⌥⌘M) inserts a new inline or display formula over the selection. The PDF and thumbnails draw each formula as vectors in black on the sheet, and don't print its source. Copy puts the source in Menlo (`$…$`, and every line of a `$$` block) in the RTF, the plain text unchanged; a rich paste escapes a `$` as `\$` when it would otherwise make a formula. Get Info doesn't count words inside a formula, and an outline title shows a formula's TeX without its dollars | inline layout (L3), display blocks (L4), editing (L5), PDF/thumbnails (L6) and info/outline/copy/paste (L7) built; unverified on device | `latex.md` |
@@ -73,7 +73,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Fenced blocks | Triple backticks anywhere become a block; detected while typing, before the closing fence | built | `code-block-fences.md` |
 | Languages | C++, Java, Python, C, JavaScript, Rust, Go, SQL; chosen from the hotbar or the block's name button | built | `code-languages-and-keys.md` |
 | Unmarked blocks | Shown as "Code" (stored key unchanged); plain styling | built (feedback #15) | |
-| Output blocks | An `output` fence for a program's result | built | `code-languages-and-keys.md` |
+| Output blocks | An `output` fence for a program's result, on the code panel's own light/dark colours | built | `code-languages-and-keys.md` |
 | Syntax highlighting | HighlightSwift with a custom theme; each role 4.5:1 | built | `colour.md` |
 | Block header | Name, Run and Copy buttons in the block's corner | built | `code-blocks-room-around-and-inside.md` |
 | Run | Pro runs in the app (below); free opens the paywall. No choice of where code runs (removed 30 Oct). A site is only the panel's way out (*Open on a Site Instead*) and Run in a build without a service: Compiler Explorer (code in the link) or Programiz (code copied) for Java, JavaScript and a block too long for a link | built | `AGENTS.md`, `CodeDestination.swift` |
@@ -119,7 +119,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Zoom | Pinch to zoom; zoom does not re-wrap text | built | `page-geometry-orientation-and-zoom.md` |
 | Add Page | Appends a page | built | `pages.md` |
 | The page fills the window | The hotbar floats over the page or takes a strip at a side | built, with a 10pt edge buffer (feedback #1) | `the-page-fills-the-window.md` |
-| Scrolling | The text view scrolls and its pan lives on the page: a drag anywhere (background included) scrolls, diagonally when zoomed, with sideways momentum; no give at the top; own indicator at the window edge; hairline under the top bar; page edge and shadow (W2) | built; feel on the iPad unchecked | `who-owns-scrolling.md` |
+| Scrolling | The text view scrolls and its pan lives on the page: a drag anywhere (background included) scrolls, diagonally when zoomed, with sideways momentum; no give at the top; own indicator at the window edge (the text view's inside-the-page one is off); hairline under the top bar; page edge and shadow (W2) | built; feel on the iPad unchecked | `who-owns-scrolling.md` |
 | A4, side-by-side pages, infinite canvas | | idea | ROADMAP |
 | Paper styles | Blank, dots, grid, lined per note; spacing (Fine, Standard, Wide) and strength (Light, Standard, Strong) too; vector shape layers behind text and ink in each page body, so nothing is laid out and it stays on its points at every zoom and mode; printed and in thumbnails (0.75 alpha); ••• › Paper per note, Settings › Notes › Paper for new notes (default blank); Duplicate copies it, templates and Import take the default | built; not seen on a real iPad, the menu and the Settings rows not looked at | `paper-styles.md` |
 | Blank pages after moving between pages | Ink is absent about 130 to 200ms after a jump with 3,000 strokes while PaperKit draws the new region; not reproduced at "a few seconds" | measured, options in `pages.md` (feedback #27) | |
@@ -128,12 +128,12 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 
 | Feature | How it works | Status | Detail |
 |---|---|---|---|
-| Header | One joined pill at the top left (list and Home, drawn icons), editable title with menu, Share, •••; the note shrinks into its Home card on the way home (cross-fade with Reduce Motion) | built (W3) | `the-note-page.md` |
+| Header | One joined pill at the top left (list and Home, drawn icons), editable title with menu, then the Notes \| Run switch (when Run is offered), Share, •••; the note shrinks into its Home card on the way home (cross-fade with Reduce Motion) | built (W3) | `the-note-page.md` |
 | Hotbar | Docks left, bottom or right; undo, redo, text/draw toggle, then the mode's tools | built | `the-note-page.md` |
 | Options rows | Text row (B/I/U/S, colour swatches, highlight, size, More; opaque, no glass) and ink row (palette, widths, eraser mode) beside the bar | built | `navigation-and-the-text-options-row.md` |
 | Settings inside a note | Settings at the foot of the note's ••• menu | built (feedback #11) | |
 | Keyboard shortcuts | One table: formatting, headings, tools, view modes, run and copy block, find, print, new note and folder, home, settings | built; unchecked with a real keyboard | `keyboard-edit-menu-…md` |
-| Edit menu | Format entries on selection | built | `keyboard-edit-menu-…md` |
+| Edit menu | Cut, Copy and Paste first, then Format entries on selection | built | `keyboard-edit-menu-…md` |
 | Pointer | Hover effects on controls | built | `keyboard-edit-menu-…md` |
 | Toasts, empty states | One toast at a time with Undo; empty states use the mark | built | `recently-deleted-…md`, `settings-toasts-polish-v3-phase-8.md` |
 | Accessibility | VoiceOver labels, Reduce Motion, Increase Contrast; the note body ignores Dynamic Type | built; sweeps unchecked | `settings-toasts-polish-…md` |
@@ -145,7 +145,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 
 | Feature | How it works | Status | Detail |
 |---|---|---|---|
-| Share | Menu with a primary action; PDF and Markdown | built | `notes-in-and-out-and-one-editor-per-note.md` |
+| Share | Menu with a primary action; PDF and Markdown; the sheet points at the button; the PDF's title and file name are the note's title (its first line if blank) | built | `notes-in-and-out-and-one-editor-per-note.md` |
 | PDF | Laid out afresh, text a line at a time, ink as a picture | built | `pages.md` |
 | Print | System print of the PDF | built | `keyboard-edit-menu-…md` |
 | Export All and Import | A folder of Markdown files and back | built; unchecked on the iPad | `notes-in-and-out-…md` |

@@ -249,7 +249,6 @@ struct PageDetailView: View {
             editor: editor, isCompact: isCompact, showsRunIsPro: $showsRunIsPro,
             windowWidth: $windowWidth, transaction: { pro?.signedTransaction ?? "" }, pro: pro
         ))
-        .toolbar { runToggleItem }
 #endif
         .sheet(isPresented: $showsInfo) {
             NoteInfoView(page: page, pageCount: openPageCount)
@@ -357,11 +356,13 @@ struct PageDetailView: View {
     // MARK: Header
 
 #if canImport(UIKit)
-    /// The Notes | Run control, in the middle of the top bar.
+    /// The Notes | Run control, on the right with Share and •••. Not
+    /// `.principal`, which replaces the title: the note's name and its menu
+    /// went, leaving a bare chevron.
     @ToolbarContentBuilder
     private var runToggleItem: some ToolbarContent {
         if editor.run.isAvailable {
-            ToolbarItem(placement: .principal) {
+            ToolbarItem(placement: .primaryAction) {
                 NotesRunToggle(
                     isRun: editor.run.isOpen,
                     showsProMark: !(pro?.isPro ?? false)
@@ -375,6 +376,7 @@ struct PageDetailView: View {
                     }
                 }
             }
+            .sharedBackgroundVisibility(.hidden)
         }
     }
 
@@ -425,6 +427,8 @@ struct PageDetailView: View {
         }
 
 #if canImport(UIKit)
+        runToggleItem
+
         ToolbarItem(placement: .primaryAction) {
             NoteShareButton(editor: editor, title: page.title, fallbackText: page.content)
                 .tint(.primary)

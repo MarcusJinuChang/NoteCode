@@ -6,7 +6,9 @@ v3 phase 6 (14 Oct, `docs/archive/ui-design-v3-implementation.md`).
   `#hashtag` isn't), computed when the popover opens and never stored. Outline
   in the note's ••• menu (it was a header button until 16 Oct; the popover now
   hangs off the ••• button) and ⌃⌘O (View menu, through `OpenNote.showOutline`)
-  open it; rows are indented by level from the note's highest, the heading
+  open it; each row is `NoteOutlineView.rowHeight` and the popover is exactly
+  as tall as its rows (it had 24pt extra, which showed as an empty row at the
+  bottom); rows are indented by level from the note's highest, the heading
   the reader is under is ticked (the last at or above the line at the top),
   and an empty heading reads "Untitled". Offsets are UTF-16, accumulated in
   one pass as `DocumentStyler.layouts` does.

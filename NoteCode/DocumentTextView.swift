@@ -768,7 +768,9 @@ struct DocumentTextView: UIViewRepresentable {
                 guard !target.code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                     return UIMenu(children: suggestedActions)
                 }
-                return UIMenu(children: [codeBlockMenu(for: target, in: textView)] + suggestedActions)
+                return UIMenu(children: EditMenuOrder.order(
+                    ours: [codeBlockMenu(for: target, in: textView)], system: suggestedActions
+                ))
             }
 
             // Formatting changes the text, and ink mode and a locked note
@@ -776,7 +778,7 @@ struct DocumentTextView: UIViewRepresentable {
             guard let editor, editor.mode == .text, !editor.isTextLocked else {
                 return UIMenu(children: suggestedActions)
             }
-            return UIMenu(children: [proseMenu(editor)] + suggestedActions)
+            return UIMenu(children: EditMenuOrder.order(ours: [proseMenu(editor)], system: suggestedActions))
         }
 
         /// Run Block and Copy Block, then Share, which was here first.

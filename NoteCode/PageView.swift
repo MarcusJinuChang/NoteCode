@@ -240,6 +240,10 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         isDirectionalLockEnabled = false
         alwaysBounceVertical = false
         showsVerticalScrollIndicator = false
+        // The text view is what scrolls, and its own indicator sits inside the
+        // page sheet. The note's indicator is `indicator` below, at the
+        // window's edge.
+        textView.showsVerticalScrollIndicator = false
         addSubview(pageEdge)
         addSubview(textView)
         adoptTextViewPan()
