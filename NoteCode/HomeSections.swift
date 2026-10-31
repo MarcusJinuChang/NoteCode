@@ -79,6 +79,20 @@ struct HomeSections {
 /// How Home dates a note: the words a person would use for how long ago it was.
 nonisolated enum HomeDate {
 
+    /// "Edited 5 minutes ago", "Edited yesterday", worked out against `now`,
+    /// so a view that is handed a new `now` each minute stays true.
+    static func edited(_ date: Date, now: Date = .now, locale: Locale = .current) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.locale = locale
+        formatter.dateTimeStyle = .named
+        formatter.unitsStyle = .full
+        // A note edited a moment ago is "now", not "0 seconds ago"; a date a
+        // little ahead of the clock (iCloud, a skewed clock) reads as now too.
+        let seconds = now.timeIntervalSince(date)
+        let shown = seconds < 60 ? now : date
+        return "Edited " + formatter.localizedString(for: shown, relativeTo: now)
+    }
+
     /// "Today", "Yesterday", the weekday for the rest of the last week, then
     /// the date ("21 Sep"), with the year when it isn't this one.
     static func label(
@@ -159,5 +173,21 @@ nonisolated enum HomeLayout {
     ///   when the size class decides alone.
     static func isCompact(compactSizeClass: Bool, width: CGFloat) -> Bool {
         compactSizeClass || (width > 0 && width < regularMinimumWidth)
+    }
+
+    /// The narrowest a folder tile may be: its 44pt badge, the gaps, and room
+    /// for a name like "Data Structures" on two lines. The 4 columns an iPad
+    /// layout used gave an iPad mini's landscape Home (beside the list) 170pt
+    /// a tile, and names were cut.
+    static let folderTileMinimumWidth: CGFloat = 200
+    static let folderTileSpacing: CGFloat = 16
+
+    /// How many folder tiles go across `contentWidth` (Home's width less its
+    /// margins): at most 4, and 2 at the least, which a phone's 2-column grid
+    /// is. Before the width is known (0), the layout's usual count.
+    static func folderColumns(contentWidth: CGFloat, isCompact: Bool) -> Int {
+        guard contentWidth > 0 else { return isCompact ? 2 : 4 }
+        let fit = Int((contentWidth + folderTileSpacing) / (folderTileMinimumWidth + folderTileSpacing))
+        return isCompact ? 2 : min(4, max(2, fit))
     }
 }

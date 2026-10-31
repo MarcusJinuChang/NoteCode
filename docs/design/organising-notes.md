@@ -200,7 +200,12 @@ so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
   accents and word boundaries. Results replace the sections while the field
   holds words, as one flat list: title matches first, then the reader's
   sort, since a search is for one note and sections of one row each read
-  slower. Each row shows the line of its first match. Ink isn't searched.
+  slower. Each row shows the line of its first match as the page draws it, not the
+  Markdown typed (31 Oct): the heading's `#`, `**`, backticks and a link's
+  address are left out, by the projection the outline and Home's excerpt use
+  (a block's non-marker inlines); a line in code is as typed, and a search
+  for a marker itself shows its line whole. The note is parsed up to the
+  matched line only, and only for notes that match. Ink isn't searched.
 - **A note opened from a result shows where it matched.** `ContentView`
   takes the search as the selection changes, not live, so typing in the
   field doesn't redraw the note under the list; `PageView.reveal` waits for

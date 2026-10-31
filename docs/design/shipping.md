@@ -107,8 +107,20 @@ Google's test ids (`AdConfig.units(forRelease:)`, pinned in `AdTests`).
 - **Order**: Home's first visit runs the UMP consent flow, then starts the SDK;
   no ad is requested before. The ATT prompt is asked from the second Home visit
   on, never at launch. Without ATT consent the request carries `npa=1`.
-- **Size**: the large anchored adaptive size for the width the slot is
-  given, measured on a placeholder the banner lies over. Measured on the
+- **Size**: the standard anchored adaptive size (`AdSizing`, 31 Oct), for the
+  width the slot is given, measured on a placeholder the banner lies over.
+  It was the large anchored size, up to 150pt tall: a seventh of an iPad
+  mini's landscape screen for an ad on a page about notes, with the link
+  and a see-through slot over Home's content. The standard one is at most
+  90pt (the 728 by 90 shape iPads fill), so the strip with its link is about
+  120pt. It fills as readily; the large size's draw is a higher bid, which a
+  free tier of a student app can give up. One line (`AdSizing.size`) to go
+  back.
+- **Home's slot is a strip below the page** (31 Oct): `HomeView` is the page
+  above and `AdSlot(opaque: true)` under it in a `VStack`, on the card
+  colour with a hairline above, so nothing scrolls under it. "Remove ads" is
+  in the strip under the banner, over nothing. (A safe-area inset of a
+  see-through view let Home scroll beneath the ad and the link.) Measured on the
   banner itself, the width fed back on itself (a `BannerView` won't be
   narrower than its ad) and Home grew to 1720pt in an 1180pt window, cut off
   on both sides and, in landscape, not scrolling (30 Oct; `AdTests`).

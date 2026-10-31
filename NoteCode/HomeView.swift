@@ -73,8 +73,12 @@ struct HomeView: View {
     private var isCompact: Bool {
         HomeLayout.isCompact(compactSizeClass: sizeClass == .compact, width: homeSize.width)
     }
+    /// A stack (`ContentView.compactStack`): the list is pushed over Home,
+    /// not beside it. A narrow regular width still has it beside.
+    private var listIsAScreenAway: Bool { sizeClass == .compact }
 #else
     private var isCompact: Bool { false }
+    private var listIsAScreenAway: Bool { false }
 #endif
 
     private let memory = NoteMemory()
@@ -82,14 +86,18 @@ struct HomeView: View {
     var body: some View {
         let sections = HomeSections(pages: pages, folders: folders, lastOpened: memory.lastOpenedKey())
 
-        Group {
-            if sections.hasNoNotes {
-                empty
-            } else {
-                populated(sections)
+        // The slot is below the page, not over it: Home's scroll view ends
+        // where the ad starts, so nothing scrolls under it.
+        VStack(spacing: 0) {
+            Group {
+                if sections.hasNoNotes {
+                    empty
+                } else {
+                    populated(sections)
+                }
             }
+            AdSlot(placement: .home, opaque: true)
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) { AdSlot(placement: .home) }
         .task { await AdConsent.shared.homeAppeared(isPro: pro?.isPro ?? true) }
         .coordinateSpace(.named("home"))
         .onGeometryChange(for: CGSize.self) { $0.size } action: { homeSize = $0 }
@@ -101,10 +109,13 @@ struct HomeView: View {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button("Settings", systemImage: "gearshape", action: onShowSettings)
                     .accessibilityIdentifier("homeSettingsButton")
-                Button("Search Notes", systemImage: "magnifyingglass", action: onSearch)
-                    .accessibilityIdentifier("homeSearchButton")
-                Button("New Note", systemImage: "plus", action: onNewNote)
-                    .accessibilityIdentifier("homeToolbarNewNote")
+                // The list is beside Home with its own search field and "+",
+                // and the page has a New Note button; only a stack, where the
+                // list is a screen away, needs a way to its search from here.
+                if listIsAScreenAway {
+                    Button("Search Notes", systemImage: "magnifyingglass", action: onSearch)
+                        .accessibilityIdentifier("homeSearchButton")
+                }
             }
             .sharedBackgroundVisibility(.hidden)
         }
@@ -155,7 +166,7 @@ struct HomeView: View {
                     .font(.title2.bold())
                     .padding(.top, 18)
                     .accessibilityAddTraits(.isHeader)
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: isCompact ? 2 : 4), spacing: 16) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: folderColumns), spacing: 16) {
                     ForEach(sections.folders) { tile in
                         folderTile(tile)
                     }
@@ -209,6 +220,14 @@ struct HomeView: View {
 
     private var gridSpacing: CGFloat { isCompact ? 12 : 24 }
 
+    /// Across, as many as keep a folder's name readable at Home's width.
+    private var folderColumns: Int {
+        HomeLayout.folderColumns(
+            contentWidth: min(homeSize.width, 1232) - (isCompact ? 32 : 80),
+            isCompact: isCompact
+        )
+    }
+
     // MARK: Cards
 
     private func open(_ page: Page) {
@@ -248,7 +267,10 @@ struct HomeView: View {
                         }
                         // A phone's card has room for where, not when.
                         if !isCompact {
-                            Text("Edited \(Text(page.modifiedAt, format: .relative(presentation: .named)))")
+                            // Re-read each minute: Home can stay open for hours.
+                            TimelineView(.everyMinute) { timeline in
+                                Text(HomeDate.edited(page.modifiedAt, now: timeline.date))
+                            }
                         }
                     }
                     .font(.subheadline)
@@ -340,10 +362,14 @@ struct HomeView: View {
                     Text(page.title)
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(1)
-                    Text(subtitle(of: page))
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    // "Today" turns into "Yesterday" at midnight, and a minute
+                    // is as fine as the card needs.
+                    TimelineView(.everyMinute) { timeline in
+                        Text(subtitle(of: page, now: timeline.date))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
             }
             .padding(12)
@@ -360,8 +386,8 @@ struct HomeView: View {
         .accessibilityHint("Opens the note")
     }
 
-    private func subtitle(of page: Page) -> String {
-        [page.folder?.name, HomeDate.label(for: page.modifiedAt)]
+    private func subtitle(of page: Page, now: Date) -> String {
+        [page.folder?.name, HomeDate.label(for: page.modifiedAt, now: now)]
             .compactMap { $0 }
             .joined(separator: " · ")
     }
@@ -373,16 +399,20 @@ struct HomeView: View {
             HStack(spacing: 14) {
                 FolderBadge(folder: tile.folder, diameter: 44)
                 VStack(alignment: .leading, spacing: 2) {
+                    // Two lines before it is cut: "Data Structures" in a quarter
+                    // of an iPad mini's Home lost its end.
                     Text(tile.folder.name)
                         .font(.headline)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
                     Text("^[\(tile.noteCount) note](inflect: true)")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 18)
+            .padding(.horizontal, isCompact ? 14 : 18)
+            .padding(.vertical, 10)
             .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
             .background(HomePalette.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))

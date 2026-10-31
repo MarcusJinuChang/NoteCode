@@ -206,6 +206,8 @@ struct NoteList: View {
         .toolbar {
             // Two items at most, so the sidebar keeps room for its title:
             // with Edit, Sort and New side by side, "NoteCode" didn't show.
+            // No glass behind either button: they sit on the bar's opaque
+            // surface like the buttons of every other bar (`BarMaterial`).
             ToolbarItem {
 #if os(iOS)
                 if editMode.isEditing {
@@ -219,6 +221,7 @@ struct NoteList: View {
                 listMenu
 #endif
             }
+            .sharedBackgroundVisibility(.hidden)
             ToolbarItem {
                 // A tap makes a note the way Settings › New Notes says; holding
                 // it offers the other orientation and a folder.
@@ -237,7 +240,16 @@ struct NoteList: View {
                 }
                 .accessibilityIdentifier("newNoteButton")
             }
+            .sharedBackgroundVisibility(.hidden)
         }
+#if os(iOS)
+        .toolbarBackground(BarMaterial.fill, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        // The sidebar's own surface is Home's grey, not the system's
+        // translucent sidebar material.
+        .scrollContentBackground(.hidden)
+        .background(HomePalette.background.ignoresSafeArea())
+#endif
 #if os(iOS)
         .environment(\.editMode, $editMode)
 #endif
@@ -527,21 +539,21 @@ struct NoteList: View {
     private var listMenu: some View {
         Menu {
 #if os(iOS)
-            Button("Edit", systemImage: "pencil") {
+            Button("Edit", systemImage: "checkmark.circle") {
                 withAnimation { editMode = .active }
             }
 #endif
             sortMenu
             Divider()
             Button("Import…", systemImage: "square.and.arrow.down", action: onImport)
-            Button("Export All Notes…", systemImage: "square.and.arrow.up.on.square", action: onExportAll)
+            Button("Export All Notes…", systemImage: "square.and.arrow.up", action: onExportAll)
             Divider()
             // The app's, not the list's: ⌘, opens it from anywhere, and Home
             // has a gear of its own.
             Button("Settings", systemImage: "gearshape", action: onShowSettings)
                 .accessibilityIdentifier("settingsButton")
         } label: {
-            Label("More", systemImage: "ellipsis")
+            Label("More", systemImage: "ellipsis.circle")
         }
     }
 

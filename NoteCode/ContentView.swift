@@ -181,8 +181,9 @@ struct ContentView: View {
                 NoteMemory().rememberOpened(selection)
                 withAnimation { columnVisibility = .detailOnly }
             } else {
-                // A note closed: Home, with the list beside it.
-                withAnimation { columnVisibility = .all }
+                // A note closed: Home, with the list beside it, on the curve
+                // the note shrinks on (`goHome`), not the default's.
+                withAnimation(Self.homeAnimation) { columnVisibility = .all }
             }
             if isCompact { syncCompactPath(toSelection: selection) }
         }
@@ -451,11 +452,23 @@ struct ContentView: View {
 
     /// Closes the open note and shows Home, with the list beside it: the
     /// house in a note's header, and ⇧⌘H.
+    ///
+    /// **One animation for all of it** (31 Oct). The note's shrinking, the
+    /// list coming in and the split view's change of style used to start on
+    /// three transactions, two of them on the default spring, and the list
+    /// popped in against a note still shrinking. Now the selection and the
+    /// column change in one transaction, and `onChange(of: selection)`
+    /// repeats the same column change on the same curve.
     private func goHome() {
-        withAnimation(.smooth(duration: 0.38)) { selection = nil }
-        withAnimation { columnVisibility = .all }
+        withAnimation(Self.homeAnimation) {
+            selection = nil
+            columnVisibility = .all
+        }
         compactPath = []
     }
+
+    /// The curve of the note shrinking to Home, and the list coming in with it.
+    static let homeAnimation: Animation = .smooth(duration: 0.38)
 
     /// Home's Show All: the list over Home.
     private func showList() {
