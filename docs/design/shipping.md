@@ -56,7 +56,8 @@ What an upload checks before a person sees the app (4 Oct).
   `support.md`; Marcus copies them to the `gh-pages` branch (`privacy.md` is
   the page at `AppInfo.privacyPolicy`, which is now always set, so the
   paywall, Settings and the list's foot always link it). R5 rewrote them for
-  Run and ads. `.feedbackAddress` is still `nil`.
+  Run and ads. `.feedbackAddress` is the support address,
+  `notecodesupport@gmail.com` (31 Oct).
 - **The app icon** (10 Oct, phase 7 of `docs/archive/ui-design-v2-implementation.md`):
   the set had no images, which fails an upload; it has them now. They are
   **drawn by `scripts/make-icons.swift`** (Core Graphics, the Logo board's

@@ -4,7 +4,7 @@ NoteCode is a note-taking app for computer science coursework: Markdown text,
 code blocks you can run (with NoteCode Pro), math, and handwriting with Apple
 Pencil, on Letter-sized pages.
 
-**Contact:** changm2608@gmail.com
+**Contact:** notecodesupport@gmail.com
 
 Please include your iPad model, iPadOS version and the build number from
 Settings › Help and About › Version.

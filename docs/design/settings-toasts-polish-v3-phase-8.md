@@ -9,8 +9,8 @@ list had arrived with the phase that needed it; this one filled what was left.
   that bold, italic, code and link marks stay hidden either way. No new keys, so
   `SettingsTests.keysAreStable` is unchanged. **No Paper row**: paper is
   postponed (see "Insert and templates"), and a row exists only if it works.
-  Send Feedback and Privacy Policy still wait for `AppInfo.feedbackAddress`
-  and `.privacyPolicy`.
+  Send Feedback and Privacy Policy waited for `AppInfo.feedbackAddress`
+  and `.privacyPolicy` (both set since).
 - **Toasts:** the only one missing was Copy Block's "Copied". The coordinator's
   one `copy` path (button, edit menu, ⇧⌘C) now calls `NoteEditor.onBlockCopied`,
   which `PageDetailView` points at the toast centre. `copyToasts` fails with the

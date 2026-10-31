@@ -330,8 +330,8 @@ Things that are decided in someone's head but not in the code. Move them up
 into a section above once they are settled.
 
 - Where text-anchored ink lands after 1.0. Wanted for its own sake, but it is
-  a phase, not a step; docs/ROADMAP.md › After 1.0 ranks it behind a support
-  address and iCloud sync.
+  a phase, not a step; docs/ROADMAP.md › After 1.0 ranks it behind iCloud
+  sync.
 - Side-by-side pages (a scrolling-direction setting): the text view scrolls
   itself and only vertically, so pages flowing sideways means something other
   than the text view owns scrolling — the same question "Who owns scrolling"
