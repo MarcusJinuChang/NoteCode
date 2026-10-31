@@ -77,6 +77,7 @@ struct PaywallTests {
     func strings() {
         let product = ProProduct(id: ProStatus.productID, name: "NoteCode Pro", price: "$4.99")
         #expect(PaywallContent.priceLine(product) == "$4.99 per month")
+        #expect(PaywallContent.freeNote == "Everything else in NoteCode stays free.")
         #expect(PaywallContent.restore == "Restore Purchases")
         #expect(PaywallContent.termsTitle == "Terms of Use")
         #expect(PaywallContent.privacyTitle == "Privacy Policy")

@@ -220,7 +220,7 @@ struct PageDetailView: View {
 #endif
             runLayout
         }
-        .navigationTitle($page.title)
+        .navigationTitle(Binding(get: { page.displayTitle }, set: { page.rename(to: $0) }))
 #if os(iOS)
         // A title in the bar's own line, not a large title above the page,
         // and on iPad leading, beside ☰, with the menu's chevron after it.
@@ -327,7 +327,7 @@ struct PageDetailView: View {
         .openNote(OpenNote(
             editor: editor,
             viewMode: $viewMode,
-            printNote: { [editor, title = page.title] in
+            printNote: { [editor, title = page.displayTitle] in
                 Task { await editor.printNote(title: title) }
             },
             showOutline: { showsOutline = true }
@@ -426,7 +426,7 @@ struct PageDetailView: View {
 
 #if canImport(UIKit)
         ToolbarItem(placement: .primaryAction) {
-            NoteShareButton(editor: editor, title: page.title, fallbackText: page.content)
+            NoteShareButton(editor: editor, title: page.displayTitle, fallbackText: page.content)
                 .tint(.primary)
         }
         .sharedBackgroundVisibility(.hidden)
@@ -489,8 +489,6 @@ struct PageDetailView: View {
             }
             .disabled(editor.mode != .text || page.isTextLocked)
 
-            NotePaperMenu(page: page)
-
             Button("Outline", systemImage: "list.bullet.indent") { showsOutline = true }
 
             Button("Find in Note", systemImage: "magnifyingglass") {
@@ -501,8 +499,8 @@ struct PageDetailView: View {
             .keyboardShortcut(.find)
 
             if editor.ai.offersFeatures {
-                Button(AIAction.summariseNote.title, systemImage: AIAction.summariseNote.systemImage) {
-                    editor.summariseNote(title: page.title)
+                Button(AIAction.summariseNote.menuTitle(marksPro: !(pro?.isPro ?? false)), systemImage: AIAction.summariseNote.systemImage) {
+                    editor.summariseNote(title: page.displayTitle)
                 }
                 .disabled(editor.mode != .text)
             }
@@ -547,7 +545,6 @@ struct PageDetailView: View {
                 text: $page.content,
                 editor: editor,
                 pageLayout: PageLayout(orientation: page.orientation, mode: viewMode),
-                paper: page.paper,
                 keyboardClearance: keyboardClearance,
                 restingClearance: CanvasGeometry.restingClearance(dock: dock, footprint: Hotbar.footprint),
                 areaInsets: UIEdgeInsets(

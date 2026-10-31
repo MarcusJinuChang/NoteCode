@@ -38,6 +38,9 @@ struct ContentView: View {
     /// Whether the title screen is over the window. Raised on a first launch
     /// and by Settings › Help and About › Welcome Screen.
     @State private var showsWelcomeScreen = false
+    /// Whether the launch has decided about the title screen, which it does
+    /// after the sidebar's launch delay. Consent waits for it (`ConsentGate`).
+    @State private var launchSettled = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -169,6 +172,7 @@ struct ContentView: View {
             }
             syncOpenNoteClaim()
             claimWelcomeScreenOnFirstLaunch()
+            launchSettled = true
             makeWelcomeNoteOnFirstLaunch()
             purgeExpiredNotes()
             pruneNoteMemory()
@@ -283,7 +287,7 @@ struct ContentView: View {
     @ViewBuilder
     private var noteDetail: some View {
         if let page = selection, isOpenElsewhere {
-            OpenElsewhereView(title: page.title, onGoHome: goHome)
+            OpenElsewhereView(title: page.displayTitle, onGoHome: goHome)
         } else if let page = selection {
             PageDetailView(
                 page: page,
@@ -318,7 +322,8 @@ struct ContentView: View {
             onShowFolder: { ask(.showFolder($0.persistentModelID)) },
             onSearch: { ask(.searchNotes) },
             onShowSettings: { showsSettings = true },
-            onOpenWelcomeNote: openWelcomeNote
+            onOpenWelcomeNote: openWelcomeNote,
+            consentMayStart: ConsentGate.isOpen(launchSettled: launchSettled, titleScreenUp: showsWelcomeScreen)
         )
     }
 

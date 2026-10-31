@@ -48,7 +48,7 @@ struct HomeSections {
         let live = pages.live.sorted {
             if $0.modifiedAt != $1.modifiedAt { return $0.modifiedAt > $1.modifiedAt }
             if $0.createdAt != $1.createdAt { return $0.createdAt > $1.createdAt }
-            return $0.title.localizedStandardCompare($1.title) == .orderedAscending
+            return $0.displayTitle.localizedStandardCompare($1.displayTitle) == .orderedAscending
         }
         hasNoNotes = live.isEmpty
 

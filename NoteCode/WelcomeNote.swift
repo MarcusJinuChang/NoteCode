@@ -61,12 +61,10 @@ extension Page {
     static func create(
         orientation: PageOrientation,
         in folder: Folder? = nil,
-        paper: PaperSetup = .preferred(),
         context: ModelContext
     ) -> Page {
         let page = Page()
         page.orientation = orientation
-        paper.apply(to: page)
         context.insert(page)
         page.folder = folder
         return page

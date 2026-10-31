@@ -123,7 +123,7 @@ Read the one that matches the area you are changing; do not read them all.
 | On-device assistant: Explain Code, Summarise Note | [docs/design/ai-features.md](docs/design/ai-features.md) |
 | LaTeX: inline and display formulas | [docs/design/latex.md](docs/design/latex.md) |
 | Selection, objects and the ink storage format | [docs/design/object-system.md](docs/design/object-system.md) |
-| Paper styles | [docs/design/paper-styles.md](docs/design/paper-styles.md) |
+| Paper styles (removed 31 Oct) | [docs/design/paper-styles.md](docs/design/paper-styles.md) |
 | The run proxy's contract | [docs/design/run-proxy-contract.md](docs/design/run-proxy-contract.md) |
 | The model (schema versions, freezing) | [docs/design/the-model.md](docs/design/the-model.md) |
 | Shipping (privacy, signing, icons) | [docs/design/shipping.md](docs/design/shipping.md) |
@@ -202,7 +202,6 @@ rebuilt copy of the app with logging.
 | `-debug-note pages\|code\|empty` | Opens a built-in note, in an in-memory store — the simulator's notes are untouched |
 | `-debug-note-file <path>` | Opens a note read from a file on the Mac |
 | `-debug-orientation portrait\|landscape` | The seeded note's pages |
-| `-debug-paper grid\|dots\|lined[/spacing[/strength]]` | The seeded note's paper |
 | `-debug-text-size 14\|15\|16\|17\|19\|21\|23` | The seeded note's text size |
 | `-debug-mode seamless\|compressed\|print` | Sets the view mode, in the saved setting the menu uses |
 | `-debug-ink-file <path>` | The seeded note's ink, read from a file on the Mac (`DrawingCodec` bytes), to look at a note with thousands of strokes |

@@ -146,10 +146,7 @@ do the steps, pull `tmp/selectionprobe.log` with
 - [ ] Draw down past the page foot: a page is added (end point decides); Add Page from the menu; the buffer while drawing. — **FB 8**, pages
 - [ ] A stroke across a page break stays on the same words in seamless, compressed and print layouts; undo and redo take a stroke and its overflow together. — pages
 - [ ] Move between pages by scrolling fast and by the outline: ink isn't blank for a moment. Note how long. — **FB 27**, pages
-- [ ] Long note (20 pages with dots) scrolls at speed without hitching. — paper-styles, pages
-- [ ] ••• › Paper: pick each style, spacing and strength; the tick follows; Blank hides Spacing and Strength; the note's date and the list order don't change. — paper-styles
-- [ ] Settings › Notes › Paper, then "+": the new note has that paper, an old note doesn't change. — paper-styles
-- [ ] Pinch-zoom to 4x on grid and dots and draw along a rule with the Pencil: paper stays on the same words and ink as you zoom, and is sharp, no shimmer. — paper-styles, ROADMAP
+- [ ] Long note (20 pages) scrolls at speed without hitching. — paper-styles, pages
 - [ ] Switch seamless, compressed and print layout and rotate the iPad: paper stays with its page body. — paper-styles
 - [ ] Share ▸ PDF, open it in Files: paper is faint and vector (zoom in), margins plain; the PDF of a quote across a page break. — paper-styles, obsidian-s-other-marks
 - [ ] Duplicate a ruled note; Export All with a ruled note that has ink. — paper-styles

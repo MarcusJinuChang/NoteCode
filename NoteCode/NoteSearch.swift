@@ -155,7 +155,7 @@ extension NoteSearch {
     /// Notes in Recently Deleted aren't found (`Page.isLive`).
     func results(in pages: [Page], sort: NoteSort) -> [Result] {
         pages.live
-            .compactMap { page in match(title: page.title, content: page.content).map { Result(page: page, match: $0) } }
+            .compactMap { page in match(title: page.displayTitle, content: page.content).map { Result(page: page, match: $0) } }
             .sorted { a, b in
                 if a.match.inTitle != b.match.inTitle { return a.match.inTitle }
                 return sort.areInIncreasingOrder(
