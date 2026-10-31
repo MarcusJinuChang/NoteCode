@@ -8,8 +8,8 @@ scrollable document (Obsidian-style) where:
 - Regular text is typed and formatted like a normal markdown note.
 - Triple-backtick fences (` ``` `) anywhere in the flow become syntax-highlighted
   code blocks — not separate files, just inline sections of the same page. Each
-  block carries a run and a copy button in its top-right corner, and run hands
-  the block to a free online compiler rather than executing anything locally.
+  block carries a run and a copy button in its top-right corner. Run is Pro:
+  it runs the block on our run service, never on the device (below).
 - A drawing layer (Notability-style) sits over the same page and can be toggled on
   to draw handwritten notes/diagrams with Apple Pencil, then toggled back to
   text/code editing without losing scroll position or leaving the page.
@@ -104,7 +104,7 @@ Read the one that matches the area you are changing; do not read them all.
 | Recently Deleted and folder faces | [docs/design/recently-deleted-and-folder-faces.md](docs/design/recently-deleted-and-folder-faces.md) |
 | Home, the title screen, thumbnails, reopening | [docs/design/home-the-title-screen-thumbnails-reopening.md](docs/design/home-the-title-screen-thumbnails-reopening.md) |
 | Writing: hidden Markdown markers, lists, checklists, links | [docs/design/writing-hidden-markdown-markers-lists-checklists.md](docs/design/writing-hidden-markdown-markers-lists-checklists.md) |
-| Code: languages, the keys row, indentation, line numbers, output | [docs/design/code-languages-and-keys.md](docs/design/code-languages-the-keys-row-indentation-line-num.md) |
+| Code: languages, the keys row, indentation, line numbers, output | [docs/design/code-languages-and-keys.md](docs/design/code-languages-and-keys.md) |
 | Insert and templates | [docs/design/insert-and-templates.md](docs/design/insert-and-templates.md) |
 | Navigation and the text options row | [docs/design/navigation-and-the-text-options-row.md](docs/design/navigation-and-the-text-options-row.md) |
 | Notes in and out, and one editor per note | [docs/design/notes-in-and-out-and-one-editor-per-note.md](docs/design/notes-in-and-out-and-one-editor-per-note.md) |
@@ -121,6 +121,10 @@ Read the one that matches the area you are changing; do not read them all.
 | Paste and copy with formatting | [docs/design/paste-and-copy-with-formatting.md](docs/design/paste-and-copy-with-formatting.md) |
 | Organising notes | [docs/design/organising-notes.md](docs/design/organising-notes.md) |
 | On-device assistant: Explain Code, Summarise Note | [docs/design/ai-features.md](docs/design/ai-features.md) |
+| LaTeX: inline and display formulas | [docs/design/latex.md](docs/design/latex.md) |
+| Selection, objects and the ink storage format | [docs/design/object-system.md](docs/design/object-system.md) |
+| Paper styles | [docs/design/paper-styles.md](docs/design/paper-styles.md) |
+| The run proxy's contract | [docs/design/run-proxy-contract.md](docs/design/run-proxy-contract.md) |
 | The model (schema versions, freezing) | [docs/design/the-model.md](docs/design/the-model.md) |
 | Shipping (privacy, signing, icons) | [docs/design/shipping.md](docs/design/shipping.md) |
 
@@ -170,7 +174,9 @@ Details (privacy manifest, encryption, signing, icons, the build number):
 ## Build/test
 
 Scheme `NoteCode`; targets `NoteCode`, `NoteCodeTests`, `NoteCodeUITests`.
-One SwiftPM dependency: HighlightSwift 1.1.0.
+SwiftPM dependencies: HighlightSwift 1.1.0 (code colours), SwiftMath 1.7.3
+(LaTeX), Google Mobile Ads 13.11.0 with User Messaging Platform 3.1.0 (ads
+and consent). The run proxy in `server/run-proxy` is its own npm project.
 
     xcodebuild test -project NoteCode.xcodeproj -scheme NoteCode \
       -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)'
@@ -207,9 +213,12 @@ rebuilt copy of the app with logging.
 | `-debug-first-launch` | A fresh install: an empty in-memory store and the first-launch flags cleared, so the title screen and the Welcome note appear |
 | `-debug-home` | Home over a few weeks of sample notes and three folders, in memory, with the title screen already seen and a note to continue at page 3 |
 | `-debug-keep-defaults` | With `-debug-home`: leaves the saved flags and remembered places alone, and stops the launch pruning or making anything, so it can run over a device's own notes (`ListDragUITests` does) |
-| `-debug-probe` | Writes `tmp/notecode-probe.log` in the app container: what the list's drag and drop deliver, and what drew (`-debug-probe-snapshot` adds window PNGs). Pull it with `xcrun devicectl device copy from --domain-type appDataContainer --domain-identifier com.marcus.NoteCode --source tmp/notecode-probe.log` |
+| `-debug-probe` | Writes `tmp/notecode-probe.log` in the app container: what the list's drag and drop deliver, and what drew (`-debug-probe-snapshot` adds window PNGs, `-debug-probe-watch` a drop watcher on the root view). Pull it with `xcrun devicectl device copy from --domain-type appDataContainer --domain-identifier com.marcus.NoteCode --source tmp/notecode-probe.log` |
 | `-debug-tip-jar` | The tip jar with three stand-in tips, each thanked after a moment, nothing charged (`DebugTipStore`) |
 | `-debug-paywall` | The paywall over whatever opens; with `-debug-pro off` it is the free reader's view |
+| `-debug-pro on\|off` | Pro or free for this launch, whatever StoreKit says |
+| `-debug-run-stub ok\|compile-error\|runtime-error\|time-limit\|capped` | Run in the app answers with that canned result after 400ms, with no proxy (`DebugRunStub`) |
+| `-debug-selection-probe` | Writes `tmp/selectionprobe.log`: what PaperKit's selection does on each tool and touch (docs/design/object-system.md, step 0) |
 
 The report lists mode, orientation, page count, scroll offset, scale, zoom, the
 top line (character, page, whether it starts the page, its text), the point
@@ -320,15 +329,15 @@ the same arguments in the scheme's Run → Arguments.
 Things that are decided in someone's head but not in the code. Move them up
 into a section above once they are settled.
 
-- Where text-anchored ink lands in the schedule. Wanted for its own sake, but
-  it is a phase, not a step, and November is committed.
-- What goes in before November. The candidate list in docs/ROADMAP.md is
-  planned properly once the drawing layer is done, alongside a UI design.
+- Where text-anchored ink lands after 1.0. Wanted for its own sake, but it is
+  a phase, not a step; docs/ROADMAP.md › After 1.0 ranks it behind a support
+  address and iCloud sync.
 - Side-by-side pages (a scrolling-direction setting): the text view scrolls
   itself and only vertically, so pages flowing sideways means something other
   than the text view owns scrolling — the same question "Who owns scrolling"
   settled the other way for zoom.
 - An infinite canvas against Letter pages: ink is stored in page coordinates,
   so an unbounded canvas is probably a second kind of note rather than a mode.
-- Group notes and comments need a server. Nothing else in the app does, and
-  Sign in with Apple was chosen partly because it doesn't.
+- Group notes and comments need a server that holds notes and accounts. The
+  run proxy holds neither (only a day's run count per subscription), and Sign
+  in with Apple was chosen partly because it needs no server of ours.

@@ -1,6 +1,6 @@
 # NoteCode Privacy Policy
 
-_Last updated: 10/30/26_
+_Last updated: 10/31/26_
 
 NoteCode is a note-taking app for computer science coursework. It has no
 account and no analytics, and your notes are never uploaded. Three things do
@@ -22,8 +22,7 @@ Your text is not sent anywhere for them.
 
 ## Running code in the app (NoteCode Pro)
 
-When a reader with NoteCode Pro taps Run and the destination is "In NoteCode",
-the code block's text, the input you typed for it and its language are sent
+When a reader with NoteCode Pro taps Run, the code block's text, the input you typed for it and its language are sent
 over HTTPS to NoteCode's run service, which passes them to Judge0, an online
 code-execution service, to be compiled and run. The result (output and
 errors) comes back to the app. Nothing is sent until you tap Run, and your
@@ -44,16 +43,15 @@ sending anything, and nothing is sent unless you choose Run.
   passwords, keys or other secrets in a code block you run. Judge0's privacy
   policy applies to what it keeps.
 
-Readers without Pro have no in-app Run. For them, and for anyone who picks a
-different destination, Run does the following instead.
+Readers without Pro have no Run: tapping it shows what NoteCode Pro includes,
+and nothing is sent.
 
-- **Run on an online compiler.** Tapping Run opens a compiler site in your
-  browser: Compiler Explorer, Programiz or OnlineGDB, or a site you entered
-  yourself. For some sites the block's code is placed in the link, so it is
-  sent to that site; for the others it is copied to your clipboard and you
-  paste it there. The site that gets it is the one you chose in Settings or
-  for that folder or note. Nothing is sent until you tap Run. Each site has its
-  own privacy policy.
+- **Opening a compiler site instead.** When a run can't happen (the day's
+  runs are used up, the run service is down, or the block is too large), the
+  Run panel offers *Open on a Site Instead*. Only if you tap it, a compiler
+  site opens in your browser: Compiler Explorer, with the block's code placed
+  in the link and so sent to that site, or Programiz, with the code copied to
+  your clipboard for you to paste there. Each site has its own privacy policy.
 
 ## Ads (readers without Pro)
 

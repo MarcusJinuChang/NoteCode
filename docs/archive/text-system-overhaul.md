@@ -36,7 +36,7 @@ or Obsidian does differently.
   text moves under the ink every time the caret does. Heading hashes stay
   drawn in the margin.
 - **The note stays Markdown with Obsidian's span tag.** No rich-text storage
-  (option F in docs/research-notability-obsidian.md §2.5): the styler,
+  (option F in docs/archive/research-notability-obsidian.md §2.5): the styler,
   formatting, lists, hidden markers, search and export are all built on the
   Markdown.
 - **Room is line height, never paragraph spacing**, so every mode paginates

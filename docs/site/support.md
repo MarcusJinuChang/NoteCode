@@ -1,7 +1,7 @@
 # NoteCode Support
 
 NoteCode is a note-taking app for computer science coursework: Markdown text,
-code blocks you can send to an online compiler, and handwriting with Apple
+code blocks you can run (with NoteCode Pro), math, and handwriting with Apple
 Pencil, on Letter-sized pages.
 
 **Contact:** changm2608@gmail.com
@@ -21,14 +21,15 @@ Notes you delete wait in Recently Deleted for 30 days (Settings › Notes, or th
 row at the foot of the note list). Swipe or hold a note there to restore it.
 
 **Does Run run my code in the app?**
-With NoteCode Pro, yes: set Settings › Code › Run Code In to *In NoteCode*, and
-the block's code and your input are sent to NoteCode's run service and Judge0
-to be compiled and run; the result appears in a panel beside the page. Without
-Pro, or with another destination, Run opens a free online compiler and nothing
-is executed on your iPad. Compiler Explorer receives the code in the link;
-Programiz and OnlineGDB get it by paste, so paste when the page opens. SQL has
-no site to run on and is Copy only. Please don't run code that contains
-passwords or keys. See the privacy policy for what is kept.
+With NoteCode Pro, Run sends the block's code and your input to NoteCode's run
+service and Judge0 to be compiled and run, and the result appears in a panel
+beside the page. Nothing is executed on your iPad. It runs C++, C, Java,
+Python, JavaScript, Rust and Go; SQL is Copy only. Without Pro, Run shows what
+Pro includes. If a run can't happen (the day's 30 runs are used up, or the
+service is down), the panel offers *Open on a Site Instead*: Compiler Explorer
+receives the code in the link, and Programiz gets it by paste, so paste when
+the page opens. Please don't run code that contains passwords or keys. See the
+privacy policy for what is kept.
 
 **Why do I see ads, and how do I remove them?**
 Readers without NoteCode Pro see banner ads from Google AdMob. Pro (Settings ›
