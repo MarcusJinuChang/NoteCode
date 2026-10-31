@@ -675,12 +675,10 @@ struct PageDetailView: View {
     /// of both. Only for a bar docked at the bottom: at a side, nothing rides
     /// up over the page.
     private var keyboardClearance: CGFloat {
-        guard dock == .bottom else { return 0 }
-        var clearance = Hotbar.barFootprint
-        if editor.mode == .text, !page.isTextLocked, !sheetCoversPage {
-            clearance += Hotbar.optionsGap + OptionsRowStyle.thickness + OptionsRowStyle.reachAmount
-        }
-        return clearance
+        Hotbar.keyboardClearance(
+            dock: dock,
+            showsTextRow: editor.mode == .text && !page.isTextLocked && !sheetCoversPage
+        )
     }
 
     /// The note scrolled: the badge shows the page, and goes a second after

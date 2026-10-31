@@ -83,11 +83,31 @@ struct Hotbar: View {
         barFootprint + optionsGap + OptionsRowStyle.thickness + OptionsRowStyle.reachAmount
     }
 
+    /// Room kept below the caret's line, above the bars, so the next lines
+    /// show too (31 Oct review: the bars covered the lines just below the
+    /// cursor, as the clearance stopped at the caret's own line). Three lines
+    /// of body text at its 22pt leading, in screen points.
+    static let linesBelowCaret: CGFloat = 66
+
+    /// How much of the page above the keyboard the bars cover, which the text
+    /// view is inset by so the caret and the lines after it stay clear. Only
+    /// for a bar docked at the bottom: at a side, nothing rides up over the
+    /// page.
+    static func keyboardClearance(dock: HotbarDock, showsTextRow: Bool) -> CGFloat {
+        guard dock == .bottom else { return 0 }
+        var clearance = barFootprint + linesBelowCaret
+        if showsTextRow {
+            clearance += optionsGap + OptionsRowStyle.thickness + OptionsRowStyle.reachAmount
+        }
+        return clearance
+    }
+
     /// The coordinate space drags are measured in. Named on the page, which
     /// stays still, rather than on the bar, which moves under the finger.
     static let coordinateSpace = "notePage"
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.coveredBySheet) private var coveredBySheet
 
     /// Insert's popover, which points at its button.
     @State private var inserter = InkInserter()
@@ -126,6 +146,7 @@ struct Hotbar: View {
         .accessibilityIdentifier("hotbar")
         .padding(Self.padding)
         .barMaterial(in: .rect(cornerRadius: Self.thickness / 2))
+        .dimsWhenCovered(coveredBySheet || textRowHidden, in: .rect(cornerRadius: Self.thickness / 2))
         #if DEBUG
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
             SelectionProbe.log("hotbar frame \(frame)")
@@ -136,7 +157,7 @@ struct Hotbar: View {
         // is whichever mode, tool or edge the bar is on. Inside the offset,
         // so it travels with the bar when the grip drags it.
         .overlay {
-            BesideBar(dock: dock, gap: Self.optionsGap, maxLength: maxRowLength) { optionsRow }
+            BesideBar(dock: dock, gap: Self.optionsGap, maxLength: maxRowLength, capsToBar: showsTextRow) { optionsRow }
         }
         .animation(.snappy, value: showsOptions)
         .animation(.snappy, value: showsTextRow)
@@ -234,7 +255,9 @@ struct Hotbar: View {
     @ViewBuilder
     private var textTools: some View {
         // Checkmarks show the state at the caret: with the markers hidden,
-        // this is the only place a heading's level or a struck word shows.
+        // this is the only place a heading's level shows. Headings only (Aa):
+        // the other styles have a slot of their own on the bar or a place in
+        // the text options row.
         Menu {
             // All six the parser reads. The text options row has chips for
             // the first three only: a row is for what is used most.
@@ -248,53 +271,23 @@ struct Hotbar: View {
                 get: { editor.caretFormatting.headingLevel == 0 },
                 set: { _ in editor.setHeading(level: 0) }
             ))
-            Divider()
-            Toggle(isOn: Binding(
-                get: { editor.formattingShown.underline },
-                set: { _ in editor.toggle(.underline) }
-            )) {
-                Label("Underline", systemImage: "underline")
-            }
-            Toggle(isOn: Binding(
-                get: { editor.formattingShown.strikethrough },
-                set: { _ in editor.toggle(.strikethrough) }
-            )) {
-                Label("Strikethrough", systemImage: "strikethrough")
-            }
-            Divider()
-            Toggle(isOn: Binding(
-                get: { editor.caretFormatting.quoteDepth > 0 },
-                set: { _ in editor.toggleQuote() }
-            )) {
-                Label("Quote", systemImage: "text.quote")
-            }
-            Button {
-                editor.insertRule()
-            } label: {
-                Label("Horizontal Rule", systemImage: "minus")
-            }
-            Divider()
-            Button {
-                editor.insertFormula(display: false)
-            } label: {
-                Label("Inline Formula", systemImage: "function")
-            }
-            Button {
-                editor.insertFormula(display: true)
-            } label: {
-                Label("Display Formula", systemImage: "x.squareroot")
-            }
         } label: {
             HotbarIcon(systemImage: "textformat")
         }
         .modifier(HotbarMenuStyle())
         .accessibilityLabel("Style")
 
-        button("Bold", "bold", isSelected: editor.formattingShown.bold) { editor.toggle(.bold) }
-        button("Italic", "italic", isSelected: editor.formattingShown.italic) { editor.toggle(.italic) }
+        // Bold, Italic, Underline and Strikethrough are in the text options
+        // row (and ⌘B, ⌘I, ⌘U); the slots are for what Aa used to hold.
         button("Inline Code", "chevron.left.forwardslash.chevron.right", isSelected: editor.formattingShown.code) {
             editor.toggle(.code)
         }
+        button("Quote", "text.quote", isSelected: editor.caretFormatting.quoteDepth > 0) {
+            editor.toggleQuote()
+        }
+        button("Horizontal Rule", "minus") { editor.insertRule() }
+        button("Inline Formula", "function") { editor.insertFormula(display: false) }
+        button("Display Formula", "x.squareroot") { editor.insertFormula(display: true) }
 
         // One menu for every kind of list, so the bar doesn't grow a button
         // for each.
@@ -455,6 +448,7 @@ struct InkOptionsRow: View {
     var isVertical: Bool
 
     @Environment(\.optionsRow) private var style
+    @Environment(\.coveredBySheet) private var coveredBySheet
 
     var body: some View {
         OptionsRowTrack(isVertical: isVertical) {
@@ -468,6 +462,14 @@ struct InkOptionsRow: View {
                         height: isVertical ? nil : OptionsRowStyle.thickness
                     )
                     .barMaterial(in: .capsule)
+            }
+            .overlay(alignment: style?.faceAlignment ?? .center) {
+                Color.clear
+                    .frame(
+                        width: isVertical ? OptionsRowStyle.thickness : nil,
+                        height: isVertical ? nil : OptionsRowStyle.thickness
+                    )
+                    .dimsWhenCovered(coveredBySheet, in: .capsule)
             }
     }
 }
@@ -485,10 +487,27 @@ private struct BesideBar<Row: View>: View {
     var dock: HotbarDock
     var gap: CGFloat
     var maxLength: CGFloat?
+    var capsToBar: Bool
     @ViewBuilder var row: Row
 
     var body: some View {
-        BesideBarLayout(dock: dock, gap: gap, maxLength: maxLength) { row }
+        BesideBarLayout(dock: dock, gap: gap, maxLength: maxLength, capsToBar: capsToBar) { row }
+    }
+}
+
+/// How long an options row may be along the bar.
+///
+/// The text row is never longer than the bar it hangs off (Marcus, 31 Oct: the
+/// secondary bar "should not be larger than the main hotbar"), and scrolls
+/// past that. It is the same scroll view as before (`OptionsRowTrack`), only
+/// offered less; no `ViewThatFits` choosing between a scrolling row and a
+/// plain one, which is what froze the bar (`HotbarTrack`). The pen's row keeps
+/// the page's length, since it is longer than a side-docked bar and a phone's
+/// 390pt is the limit that matters to it.
+enum RowLimit {
+    static func length(pageLimit: CGFloat?, barLength: CGFloat, capsToBar: Bool) -> CGFloat? {
+        guard capsToBar, barLength > 0 else { return pageLimit }
+        return min(pageLimit ?? barLength, barLength)
     }
 }
 
@@ -497,6 +516,8 @@ private struct BesideBarLayout: Layout {
     var gap: CGFloat
     /// The most the row may take along the bar; past it the row scrolls.
     var maxLength: CGFloat?
+    /// Whether the row may be no longer than the bar (`RowLimit`).
+    var capsToBar: Bool
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         // The bar's own size, which is all an overlay is offered.
@@ -505,9 +526,14 @@ private struct BesideBarLayout: Layout {
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         guard let row = subviews.first else { return }
+        let limit = RowLimit.length(
+            pageLimit: maxLength,
+            barLength: dock.isVertical ? bounds.height : bounds.width,
+            capsToBar: capsToBar
+        )
         let size = row.sizeThatFits(ProposedViewSize(
-            width: dock.isVertical ? nil : maxLength,
-            height: dock.isVertical ? maxLength : nil
+            width: dock.isVertical ? nil : limit,
+            height: dock.isVertical ? limit : nil
         ))
         let origin: CGPoint
         switch dock {

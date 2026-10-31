@@ -10,6 +10,16 @@
 
 import SwiftUI
 
+/// The groups of the row in prose and lists, in the order they sit along it:
+/// the size first (top or left), then Bold, Italic, Underline and
+/// Strikethrough, then colour and highlight, then More. Pure, so the order is
+/// tested (`TextRowLayoutTests`) and not only looked at.
+enum TextRowSection: Hashable {
+    case size, style, colour, more
+
+    static let prose: [TextRowSection] = [.size, .style, .colour, .more]
+}
+
 /// The row that floats beside the hotbar in text mode.
 ///
 /// It starts with the size control, `+ 17 −` across (`+` over `17` over `−`
@@ -29,6 +39,7 @@ struct TextOptionsRow: View {
     var isVertical: Bool
 
     @Environment(\.optionsRow) private var style
+    @Environment(\.coveredBySheet) private var coveredBySheet
 
     var body: some View {
         // Scrolls along the bar when it's longer than the space beside it
@@ -37,13 +48,22 @@ struct TextOptionsRow: View {
             HotbarStack(isVertical: isVertical) {
                 switch editor.caretFormatting.block {
                 case .paragraph, .listItem:
-                    InlineStyleButtons(editor: editor)
-                    HotbarDivider(isVertical: isVertical)
-                    ColourSwatches(editor: editor, isVertical: isVertical)
-                    HighlightMenu(editor: editor)
-                    HotbarDivider(isVertical: isVertical)
-                    SizeControl(editor: editor, isVertical: isVertical)
-                    MoreMenu(editor: editor)
+                    ForEach(TextRowSection.prose, id: \.self) { section in
+                        switch section {
+                        case .size:
+                            SizeControl(editor: editor, isVertical: isVertical)
+                        case .style:
+                            InlineStyleButtons(editor: editor)
+                        case .colour:
+                            ColourSwatches(editor: editor, isVertical: isVertical)
+                            HighlightMenu(editor: editor)
+                        case .more:
+                            MoreMenu(editor: editor)
+                        }
+                        if section != TextRowSection.prose.last {
+                            HotbarDivider(isVertical: isVertical)
+                        }
+                    }
                 case .code(let label, let kind, let isClosed):
                     SizeControl(editor: editor, isVertical: isVertical)
                     HotbarDivider(isVertical: isVertical)
@@ -60,6 +80,15 @@ struct TextOptionsRow: View {
                     width: isVertical ? OptionsRowStyle.thickness : nil,
                     height: isVertical ? nil : OptionsRowStyle.thickness
                 )
+        }
+        // Over the controls too, on the 40pt that is drawn, not the reach.
+        .overlay(alignment: style?.faceAlignment ?? .center) {
+            Color.clear
+                .frame(
+                    width: isVertical ? OptionsRowStyle.thickness : nil,
+                    height: isVertical ? nil : OptionsRowStyle.thickness
+                )
+                .dimsWhenCovered(coveredBySheet, in: .capsule)
         }
     }
 }
