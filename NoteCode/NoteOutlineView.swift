@@ -20,6 +20,17 @@ struct NoteOutlineView: View {
     /// How far each level indents, from the note's highest.
     private static let indent: CGFloat = 14
 
+    /// Every row is this tall, so the popover can be exactly as tall as its
+    /// rows. It was `rows * 44 + 24`, and the 24 showed as an empty row under
+    /// the last heading.
+    static let rowHeight: CGFloat = 44
+
+    /// The popover's height for `rows` headings: all of them up to 420pt,
+    /// then it scrolls; three rows' worth of room for "No Headings".
+    static func height(forRows rows: Int) -> CGFloat {
+        min(CGFloat(max(rows, 3)) * rowHeight, 420)
+    }
+
     var body: some View {
         Group {
             if entries.isEmpty {
@@ -32,7 +43,7 @@ struct NoteOutlineView: View {
                 list
             }
         }
-        .frame(width: 320, height: min(CGFloat(max(entries.count, 3)) * 44 + 24, 420))
+        .frame(width: 320, height: Self.height(forRows: entries.count))
         .presentationCompactAdaptation(.popover)
     }
 
@@ -58,8 +69,10 @@ struct NoteOutlineView: View {
                             }
                         }
                         .padding(.leading, CGFloat(entry.level - top) * Self.indent)
+                        .frame(height: Self.rowHeight)
                         .contentShape(.rect)
                     }
+                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(index == current ? .isSelected : [])
                     .accessibilityHint("Scrolls to this heading")
@@ -67,6 +80,7 @@ struct NoteOutlineView: View {
                 }
             }
             .listStyle(.plain)
+            .scrollBounceBehavior(.basedOnSize)
             .onAppear {
                 if let current { proxy.scrollTo(entries[current].id, anchor: .center) }
             }

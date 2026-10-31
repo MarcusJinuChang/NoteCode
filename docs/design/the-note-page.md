@@ -21,7 +21,9 @@ Laid out from the 12 September mockup.
     Recently Deleted, and a toast offers Undo (see "Recently Deleted").
     `ContentView.delete` clears the selection first, as the list does, and
     brings the list back, since the ☰ went with the page.
-  - **Right:** Share (`NoteShareButton`) and •••: a View section (the
+  - **Right:** the Notes | Run switch when Run is offered (31 Oct; it was
+    `.principal`, which replaced the title and its menu with the switch,
+    leaving a bare chevron), Share (`NoteShareButton`) and •••: a View section (the
     mode's `title` and `systemImage` from PageViewMenu.swift) and Find in
     Note. All in the label colour (`.tint(.primary)` on each item), not the
     accent. Run Code In went on 30 Oct with the choice of where code runs.

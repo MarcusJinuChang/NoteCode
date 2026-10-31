@@ -42,7 +42,10 @@ Phase 9 of `docs/archive/ui-design-v2-implementation.md` (12 Oct).
 - **[ and ]** step the selected tool's width (`InkToolState.stepWidth`): the
   pen's and the highlighter's three, the eraser's three sizes (from a custom
   size, the nearest preset that way), nothing for the lasso.
-- **The edit menu** (`textView(_:editMenuForTextInRanges:)`): on prose, Bold,
+- **The edit menu** (`textView(_:editMenuForTextInRanges:)`): the system's Cut,
+  Copy and Paste lead (`EditMenuOrder`, 31 Oct; the app's rows used to come
+  first, five of them filled the iPad menu's first page and Paste was on the
+  second), then, on prose, Bold,
   Italic, Code, then Format › (Strikethrough, Heading 1–3, Body); none when
   the note is locked or in ink mode. In a code block, Run Block (not for a
   block with no language the app knows), Copy Block, then Share Block, which

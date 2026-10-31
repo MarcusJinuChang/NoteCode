@@ -11,6 +11,12 @@ v3 phase 7 (14 Oct, `docs/archive/ui-design-v3-implementation.md`). The pure par
   touched. The text comes from the text view, as the PDF's does, so the last
   keystrokes are in it (`NoteEditor.currentText`); hiding markers is layout
   only, so the storage holds the Markdown as typed. Copy shows the Copied toast.
+- **The share sheet points at the button** in window coordinates
+  (`SharePopover.sourceRect`): the anchor view sits in the toolbar's hosting
+  view, and in landscape its own bounds put the popover in the window's
+  top-left corner (31 Oct; not seen on a device since). The PDF's title
+  metadata and file name are the note's title, or its first line when the
+  title is blank (`SharePopover.documentTitle`).
 - **File names** are `NoteFileName.stem(for:)`, which `NotePDF.fileName` now
   uses too: `/ \ :` become `-`, a leading `.` goes (or the file would be
   hidden), control characters go, 80 characters at most, never blank.

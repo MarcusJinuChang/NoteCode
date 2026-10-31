@@ -111,7 +111,13 @@ struct RunPanel: View {
 private struct RunOutputView: View {
     var session: RunSession
 
-    private static let error = Color(red: 1.0, green: 0.54, blue: 0.5)
+    /// Salmon on the dark panel, a deep red on the light one (the console
+    /// follows the code panel's appearance).
+    private static let error = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 1.0, green: 0.54, blue: 0.5, alpha: 1)
+            : UIColor(red: 0.72, green: 0.11, blue: 0.11, alpha: 1)
+    })
     private static let code = Font.system(.callout, design: .monospaced)
 
     var body: some View {
