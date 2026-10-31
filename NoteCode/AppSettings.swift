@@ -116,10 +116,11 @@ nonisolated enum AppInfo {
     /// the run button, no panel. Never a Judge0 address or key; the proxy owns those.
     static let runService: URL? = URL(string: "https://notecode-run-proxy.changm2608.workers.dev")
 
-    /// Where Send Feedback writes to. `nil` until there is an address to
-    /// publish, and the row is left out until then: a mail button that opens
-    /// a message to nobody is the kind of placeholder App Review rejects.
-    static let feedbackAddress: String? = nil
+    /// Where Send Feedback and Feature Request write to: the support address,
+    /// the same one the support and privacy pages publish. With `nil` both rows
+    /// are left out: a mail button that opens a message to nobody is the kind
+    /// of placeholder App Review rejects.
+    static let feedbackAddress: String? = "notecodesupport@gmail.com"
 
     /// The privacy policy's page (the `gh-pages` branch's `privacy.md`; its
     /// text is drafted in `docs/site/privacy.md`). Never optional: the

@@ -57,32 +57,30 @@ Import/Export, Settings and tip jar:
 
 Done: the run proxy is deployed (28 Oct, `JUDGE0_KEY` set,
 `PRO_PRODUCT_IDS` and `ALLOWED_ENVIRONMENTS` in `wrangler.toml`), W-9 sent,
-AdMob set up, the subscription created in App Store Connect.
+AdMob set up, the subscription created in App Store Connect, the support
+address chosen (31 Oct: `notecodesupport@gmail.com`, also the EU trader
+contact, in `AppInfo.feedbackAddress` and both pages).
 
 1. **Version and build number.** The App Store Connect version and
    `MARKETING_VERSION` must match; bump `CURRENT_PROJECT_VERSION` above the
    last upload, in both configurations.
-2. **The support address.** Decide it (`notecodesupport@gmail.com`, already
-   the EU trader contact, or the personal one `support.md` and `privacy.md`
-   carry now), then set `AppInfo.feedbackAddress` (`nil`, so the Feedback and
-   Feature Request rows are hidden).
-3. **Publish the pages** from `main`: `docs/site/privacy.md` and `support.md`
+2. **Publish the pages** from `main`: `docs/site/privacy.md` and `support.md`
    to `gh-pages`, the support link in its `index.md` (steps in
    `R5-submission.md`). `gh-pages` still has the 17 Oct page saying the app
    collects nothing and has no ads, and the build links it.
-4. **Ask RapidAPI/Judge0 how long submissions are kept**; edit the policy's
+3. **Ask RapidAPI/Judge0 how long submissions are kept**; edit the policy's
    Judge0 sentence, and drop "Other User Content" only if they keep nothing.
-5. **App Store Connect:** Paid Applications Agreement Active; EU trader
+4. **App Store Connect:** Paid Applications Agreement Active; EU trader
    status verified (or the EU out of Availability); Small Business Program;
    the three tips and the subscription with real review screenshots, attached
    to the version; privacy label and review notes from `R5-submission.md`;
    description (Terms of Use link, no sync yet), name, subtitle, keywords,
    13-inch screenshots; age rating (ads) and AdMob's content ceiling to match.
-6. **Upload and TestFlight**, signed in with a sandbox tester, and the iPad
+5. **Upload and TestFlight**, signed in with a sandbox tester, and the iPad
    added as an AdMob test device first. Walk `docs/ipad-test-checklist.md`
    on that build: purchases, Run (the proxy needs a sandbox transaction; an
    Xcode build gets 402) and real ad units can't be checked any other way.
-7. **After it's live:** link the app in AdMob; `app-ads.txt` needs a
+6. **After it's live:** link the app in AdMob; `app-ads.txt` needs a
    developer-site root (a `MarcusJinuChang.github.io` user-site repo), which
    the `/NoteCode/` project page can't serve.
 
@@ -118,7 +116,7 @@ The ranked gaps are from the cohesion QC (#111, effort in brackets; its
 first two, the Privacy Policy link and "No ads" with no ads, were fixed by R5
 and P3); the rest are items the QC and R5 left unbuilt.
 
-The support address (XS), ranked first here before, is now release step 2.
+The support address (XS), ranked first here before, is set for 1.0.1.
 
 1. **iCloud sync or backup.** Only Export All today; a lost iPad loses every
    note not in an iCloud device backup (L). The model is shaped for CloudKit.

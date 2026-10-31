@@ -173,7 +173,7 @@ do the steps, pull `tmp/selectionprobe.log` with
 - [ ] Open Note After Creating (Notes) on and off; New Notes orientation; Plain Text is called Code. — settings, **FB 12, 15**
 - [ ] Marker dimming rows: Off, Dim, Full each on screen, in dark mode. — **FB 9**, settings
 - [ ] Haptics where they are offered. — settings
-- [ ] Tip jar (list's foot): rows appear in TestFlight with real products; a sandbox purchase thanks you; Feature Request, Send Feedback, Privacy Policy rows once the addresses are set. — the-list-s-foot-and-the-tip-jar, ROADMAP
+- [ ] Tip jar (list's foot): rows appear in TestFlight with real products; a sandbox purchase thanks you; Feature Request and Send Feedback each open a mail to notecodesupport@gmail.com with its own subject; Privacy Policy opens the page. — the-list-s-foot-and-the-tip-jar, ROADMAP
 
 ## 8b. Pro, paywall and privacy
 
@@ -182,7 +182,7 @@ do the steps, pull `tmp/selectionprobe.log` with
 - [ ] Free (`-debug-pro off`): Explain Block and ••• › Summarise Note open the paywall, nothing generates; Pro: Explain runs. — **P2** #98
 - [ ] The paywall with no network (airplane mode, fresh launch): "Couldn't reach the App Store." with Try Again instead of a price; Try Again with the network back shows $4.99. The renewal text ends with the cancel-24-hours sentence. — **QC** S4, S5
 - [ ] Ad Privacy Options (free, an EEA or UK region or VPN): after Home's consent form, Help and About has the row and it opens Google's form; change the answer and the banner follows. Outside those regions, and for Pro, no row. Also after a launch straight into a note. — **QC** A4
-- [ ] Settings › Help and About: Privacy Policy row opens the page; the Feedback rows are absent until `AppInfo.feedbackAddress` is set. — **R5** #114, **QC** #111
+- [ ] Settings › Help and About: Privacy Policy row opens the page; Send Feedback opens a mail to notecodesupport@gmail.com. — **R5** #114, **QC** #111
 - [ ] After the pages are published to `gh-pages`: the Privacy Policy row and the paywall's link open the *new* page (dated 10/31/26, with Run and ads), and `/NoteCode/support` loads. — **R5** #114
 - [ ] The upload: App Store Connect didn't ask the export-compliance questions, so `ITSAppUsesNonExemptEncryption` survived in `Info.plist`. — **QC** A1
 

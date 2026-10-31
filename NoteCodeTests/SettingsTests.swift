@@ -55,8 +55,10 @@ struct SettingsTests {
 
     @Test("Send Feedback needs an address, and Privacy Policy a page")
     func rowsWaitForTheirTargets() {
-        // Nothing is published yet, so both rows are left out of About.
-        #expect(AppInfo.feedbackAddress == nil || AppInfo.feedbackURL() != nil)
+        // The support address is set, so About and the list's foot show both
+        // mail rows.
+        #expect(AppInfo.feedbackURL() != nil)
+        #expect(AppInfo.featureRequestURL() != nil)
         #expect(AppInfo.feedbackURL(address: nil) == nil)
         #expect(AppInfo.feedbackURL(address: "") == nil)
         let url = AppInfo.feedbackURL(address: "hello@example.com")

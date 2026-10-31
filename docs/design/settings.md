@@ -9,9 +9,8 @@ the version string, the licence text, the palette reset) are `AppSettings.swift`
   comes back (App Icon came with phase 7, see "Shipping"): New Notes and
   Welcome Note (both came with phase 8; New Notes is the "+" button's tap, so
   a row before then would have changed nothing), Send Feedback and Privacy
-  Policy (`AppInfo.feedbackAddress` and
-  `.privacyPolicy` are `nil` until Marcus gives one; each row appears when its
-  value does). Ad Privacy Options (Help and About) appears only where Google's
+  Policy (each appeared when `AppInfo.feedbackAddress` or `.privacyPolicy`
+  got its value; both have one now). Ad Privacy Options (Help and About) appears only where Google's
   UMP says the reader must be able to change their consent answer
   (`AdConsent.privacyOptionsRequired`). Not built, per the brief: Account, iCloud, Templates, Recently
   Deleted, Storage, Rate, What's New, code keys, indent, line numbers.

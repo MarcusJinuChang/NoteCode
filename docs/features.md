@@ -164,7 +164,7 @@ Sheet with General, Pro, Notes, Writing, Code, Drawing and Help and About
 | Code | Code Keys, Indent Width, Line Numbers | |
 | Drawing | Finger Draws, Erases, Size, Colour Set, Pens and Highlighters palettes, Pencil actions, Add Pages While Drawing, Return to Previous Tool, Reset Colours | |
 | Pro | Status (Pro or Free), renewal, Manage, Restore, See NoteCode Pro (`ProSettings.swift`) | |
-| Help and About | Welcome note and screen, version, licences, tip jar, privacy row (always) and feedback and feature-request rows once `AppInfo.feedbackAddress` is set (still `nil` in 1.0: ROADMAP › After 1.0) | |
+| Help and About | Welcome note and screen, version, licences, tip jar, privacy row (always) and feedback and feature-request rows, mailing `notecodesupport@gmail.com` (`AppInfo.feedbackAddress`, set 31 Oct) | |
 
 ## 9. Shell and release
 
