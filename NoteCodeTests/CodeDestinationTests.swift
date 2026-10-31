@@ -12,28 +12,12 @@ struct CodeDestinationTests {
 
     // MARK: Which site gets it
 
-    @Test("A destination that runs the language keeps the block")
-    func preferredDestinationIsUsed() {
-        let request = CodeDestination.request(
-            for: "print(1)",
-            language: .python,
-            preferring: .onlineGDB
-        )
-
-        #expect(request.destination == .onlineGDB)
-    }
-
-    /// The rule that stops a mismatched preference from producing a dead button.
-    @Test("A destination that can't run the language hands it on")
-    func unsupportedLanguageFallsBack() {
-        let request = CodeDestination.request(
-            for: "class A {}",
-            language: .java,
-            preferring: .compilerExplorer
-        )
-
-        #expect(request.destination == .default)
-        #expect(request.url.host() == "www.programiz.com")
+    @Test("Compiler Explorer gets what it can run; Java and JavaScript go to Programiz")
+    func siteByLanguage() {
+        for language in CodeLanguage.allCases where language.canRun {
+            let expected: CodeDestination = [.java, .javascript].contains(language) ? .programiz : .compilerExplorer
+            #expect(CodeDestination.request(for: "x", language: language).destination == expected, "\(language)")
+        }
     }
 
     @Test("Compiler Explorer is the one that can't take Java, or JavaScript")
@@ -47,11 +31,10 @@ struct CodeDestinationTests {
         #expect(!CodeDestination.compilerExplorer.supports(.javascript))
     }
 
-    @Test("The sites that take a paste take every language that runs, but OnlineGDB has no JavaScript")
-    func pasteboardDestinationsTakeEverything() {
+    @Test("Programiz takes every language that runs")
+    func programizTakesEverything() {
         for language in CodeLanguage.allCases where language.canRun {
-            #expect(CodeDestination.programiz.supports(language), "programiz / \(language)")
-            #expect(CodeDestination.onlineGDB.supports(language) == (language != .javascript), "onlinegdb / \(language)")
+            #expect(CodeDestination.programiz.supports(language), "\(language)")
         }
     }
 
@@ -59,56 +42,30 @@ struct CodeDestinationTests {
 
     @Test("Programiz cannot be prefilled, so the code rides the pasteboard")
     func programizUsesPasteboard() {
-        let request = CodeDestination.request(
-            for: "int main() {}",
-            language: .cpp,
-            preferring: .programiz
-        )
+        let request = CodeDestination.request(for: "class A {}", language: .java)
 
+        #expect(request.destination == .programiz)
         #expect(request.delivery == .pasteboard)
-        #expect(request.pasteboardCode == "int main() {}")
+        #expect(request.pasteboardCode == "class A {}")
     }
 
     @Test("Compiler Explorer carries the code, so nothing is copied")
     func compilerExplorerUsesTheLink() {
-        let request = CodeDestination.request(
-            for: "int main() {}",
-            language: .cpp,
-            preferring: .compilerExplorer
-        )
+        let request = CodeDestination.request(for: "int main() {}", language: .cpp)
 
         #expect(request.delivery == .inURL)
         #expect(request.pasteboardCode == nil)
     }
 
     /// Exact addresses on purpose. The failure this guards against is a
-    /// student landing on a C++ compiler holding Python, and only the whole
+    /// student landing on a compiler for another language, and only the whole
     /// path distinguishes those — "contains the language" passes for both.
-    @Test("Each language lands on its own compiler page")
+    @Test("Java and JavaScript land on their own Programiz pages")
     func languageSpecificLandingPages() {
-        let expected: [CodeLanguage: (programiz: String, gdb: String)] = [
-            .cpp: (
-                "https://www.programiz.com/cpp-programming/online-compiler/",
-                "https://www.onlinegdb.com/online_c++_compiler"
-            ),
-            .java: (
-                "https://www.programiz.com/java-programming/online-compiler/",
-                "https://www.onlinegdb.com/online_java_compiler"
-            ),
-            .python: (
-                "https://www.programiz.com/python-programming/online-compiler/",
-                "https://www.onlinegdb.com/online_python_compiler"
-            ),
-        ]
-
-        // The three the app began with; `CodeLanguagesTests` has the rest.
-        for (language, pages) in expected {
-            let programiz = CodeDestination.request(for: "x", language: language, preferring: .programiz)
-            let gdb = CodeDestination.request(for: "x", language: language, preferring: .onlineGDB)
-
-            #expect(programiz.url.absoluteString == pages.programiz)
-            #expect(gdb.url.absoluteString == pages.gdb)
-        }
+        #expect(CodeDestination.request(for: "x", language: .java).url.absoluteString
+            == "https://www.programiz.com/java-programming/online-compiler/")
+        #expect(CodeDestination.request(for: "x", language: .javascript).url.absoluteString
+            == "https://www.programiz.com/javascript/online-compiler/")
     }
 
     // MARK: The Compiler Explorer link
@@ -172,16 +129,17 @@ struct CodeDestinationTests {
 
     /// The program travels in the request path, so it meets everything between
     /// the device and their server that has an opinion about how long one is.
-    @Test("A block too long for a link falls back to the pasteboard")
+    @Test("A block too long for a link goes to Programiz's page for its language, on the pasteboard")
     func oversizedCodeFallsBack() {
         let huge = String(repeating: "int aVeryLongVariableName = 0;\n", count: 500)
 
         #expect(CodeDestination.compilerExplorerURL(code: huge, language: .cpp) == nil)
 
-        let request = CodeDestination.request(for: huge, language: .cpp, preferring: .compilerExplorer)
+        let request = CodeDestination.request(for: huge, language: .cpp)
         #expect(request.delivery == .pasteboard)
         #expect(request.pasteboardCode == huge)
-        #expect(request.destination == .compilerExplorer)
+        #expect(request.destination == .programiz)
+        #expect(request.url.absoluteString == "https://www.programiz.com/cpp-programming/online-compiler/")
     }
 
     @Test("A block that just fits still travels in the link")
@@ -191,62 +149,6 @@ struct CodeDestinationTests {
 
         #expect(url != nil)
         #expect((url?.absoluteString.count ?? .max) <= CodeDestination.maximumLinkedCodeLength)
-    }
-
-    // MARK: Custom sites
-
-    @Test("A site typed without a scheme is still a site")
-    func typedSiteGetsAScheme() {
-        let destination = CodeDestination.custom(fromTyped: "  vscode.dev  ")
-        #expect(destination == .custom(URL(string: "https://vscode.dev")!))
-    }
-
-    @Test("An explicit scheme is left alone")
-    func typedSiteKeepsItsScheme() {
-        #expect(
-            CodeDestination.custom(fromTyped: "http://localhost.localdomain:8888/lab")
-            == .custom(URL(string: "http://localhost.localdomain:8888/lab")!)
-        )
-    }
-
-    @Test("Something that isn't an address is rejected", arguments: ["", "   ", "hello", "not a url"])
-    func nonAddressesAreRejected(typed: String) {
-        #expect(CodeDestination.custom(fromTyped: typed) == nil)
-    }
-
-    @Test("A custom site takes every language and always wants a paste")
-    func customSiteBehaviour() throws {
-        let custom = try #require(CodeDestination.custom(fromTyped: "vscode.dev"))
-        let request = CodeDestination.request(for: "x = 1", language: .python, preferring: custom)
-
-        #expect(request.destination == custom)
-        #expect(request.delivery == .pasteboard)
-        #expect(request.url.absoluteString == "https://vscode.dev")
-    }
-
-    @Test("A custom site is named after its host, not its whole address")
-    func customSiteName() throws {
-        let custom = try #require(CodeDestination.custom(fromTyped: "vscode.dev/editor/x"))
-        #expect(custom.name == "vscode.dev")
-    }
-
-    // MARK: Persistence
-
-    @Test("Every destination survives a round trip through its id")
-    func idRoundTrips() throws {
-        let custom = try #require(CodeDestination.custom(fromTyped: "vscode.dev"))
-
-        for destination in CodeDestination.builtIns + [custom] {
-            #expect(CodeDestination(id: destination.id) == destination, "\(destination.id)")
-        }
-    }
-
-    /// The reason `init?(id:)` is failable rather than defaulting: a stored
-    /// preference a future build wrote should fall back, and `resolve` is the
-    /// one place that decides what to fall back *to*.
-    @Test("An unrecognised id is not a destination", arguments: ["", "replit", "custom:", "custom:nope"])
-    func unknownIDsAreRejected(id: String) {
-        #expect(CodeDestination(id: id) == nil)
     }
 
     // MARK: Helpers
@@ -264,44 +166,5 @@ struct CodeDestinationTests {
         let json = try #require(decodedJSONString(from: url))
         let object = try JSONSerialization.jsonObject(with: Data(json.utf8))
         return try #require(object as? [String: Any])
-    }
-}
-
-// MARK: - Levels
-
-@Suite("Choosing which destination a page uses")
-struct RunDestinationPreferenceTests {
-
-    @Test("Nothing set anywhere means the default")
-    func emptyResolvesToDefault() {
-        #expect(RunDestinationPreference.resolve([], inAppAvailable: false) == .default)
-        #expect(RunDestinationPreference.resolve([nil, nil], inAppAvailable: false) == .default)
-        // With a run service, the default is the app's own Run.
-        #expect(RunDestinationPreference.resolve([nil, nil], inAppAvailable: true) == .inApp)
-    }
-
-    @Test("The page wins over the app-wide setting")
-    func pageBeatsAppDefault() {
-        let resolved = RunDestinationPreference.resolve(["godbolt", "onlinegdb"])
-        #expect(resolved == .compilerExplorer)
-    }
-
-    @Test("A page that hasn't chosen follows the app-wide setting")
-    func unsetPageFollowsAppDefault() {
-        #expect(RunDestinationPreference.resolve([nil, "onlinegdb"]) == .onlineGDB)
-    }
-
-    /// The folder's level. Adding it was adding an element, not another
-    /// branch, so the ordering held for three levels before there were three.
-    @Test("A middle level is used only when the one above it is unset")
-    func middleLevelFillsIn() {
-        #expect(RunDestinationPreference.resolve([nil, "godbolt", "onlinegdb"]) == .compilerExplorer)
-        #expect(RunDestinationPreference.resolve(["programiz", "godbolt", nil]) == .programiz)
-    }
-
-    @Test("An id nothing recognises is skipped rather than obeyed")
-    func unknownIDsAreSkipped() {
-        #expect(RunDestinationPreference.resolve(["from-a-newer-build", "onlinegdb"]) == .onlineGDB)
-        #expect(RunDestinationPreference.resolve(["from-a-newer-build"], inAppAvailable: false) == .default)
     }
 }

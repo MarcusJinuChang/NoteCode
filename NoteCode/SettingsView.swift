@@ -566,26 +566,12 @@ extension WritingSettings {
 // MARK: - Code
 
 private struct CodeSettings: View {
-    @AppStorage(RunDestinationPreference.appDefaultKey)
-    private var appDefault: String = CodeDestination.preferredDefault().id
-
     @AppStorage(CodeKeys.enabledKey) private var codeKeys = CodeKeys.enabledByDefault
     @AppStorage(CodeIndent.widthKey) private var indentWidth = CodeIndent.defaultWidth
     @AppStorage(LineNumbers.defaultsKey) private var lineNumbers = LineNumbers.enabledByDefault
 
-    @State private var isNamingCustomSite = false
-
     var body: some View {
         Form {
-            Section {
-                Picker("Run Code In", selection: $appDefault) {
-                    ForEach(destinations) { Text($0.name).tag($0.id) }
-                }
-                Button("Another Site…") { isNamingCustomSite = true }
-            } footer: {
-                Text("Where new notes' code runs. A folder or a note can choose its own. Compiler Explorer can't run Java or JavaScript, so those go to a site that can. SQL has no free place to run, so it keeps Copy.")
-            }
-
             Section {
                 Toggle("Code Keys", isOn: $codeKeys)
                 // The picker shows whatever is stored, so a value it can't
@@ -607,23 +593,6 @@ private struct CodeSettings: View {
             }
         }
         .navigationTitle("Code")
-        .runDestinationSiteAlert(
-            isPresented: $isNamingCustomSite,
-            pageSetting: Binding {
-                appDefault
-            } set: { chosen in
-                if let chosen { appDefault = chosen }
-            }
-        )
-    }
-
-    /// The built-in sites, and the custom one in use, so choosing something
-    /// else doesn't make it vanish from the list.
-    private var destinations: [CodeDestination] {
-        var list = CodeDestination.choices()
-        let current = RunDestinationPreference.resolve([appDefault])
-        if case .custom = current { list.append(current) }
-        return list
     }
 }
 

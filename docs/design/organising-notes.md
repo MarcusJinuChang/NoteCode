@@ -58,8 +58,7 @@ so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
     Keeping its notes, what was in the folder (notes *and* folders) moves up
     one level, to the folder's own parent. Delete Now takes the group once,
     however many of its members are handed in.
-  - **Elsewhere.** Run destinations are inherited down the folders
-    (`Page.runDestinationLevels`); Home shows top-level folders, counting what
+  - **Elsewhere.** Home shows top-level folders, counting what
     is inside; Export All writes `CS133/Labs` as nested directories
     (`NoteExport.plan(folderNames:parents:items:)`); Move to Folder lists every
     folder by its path ("CS133 › Labs"); a folder's menu has New Folder

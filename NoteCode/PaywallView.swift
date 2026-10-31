@@ -34,7 +34,7 @@ nonisolated enum PaywallContent {
 
     static let features: [Feature] = [
         Feature(id: "ads", title: "No ads", detail: "The small ad at the foot of Home and the note list goes away.", systemImage: "rectangle.slash"),
-        Feature(id: "run", title: "Run code in the app", detail: "Run a C++, Java or Python block and see its output and give it input, beside the page.", systemImage: "play.fill"),
+        Feature(id: "run", title: "Run code in the app", detail: "Run a C++, C, Java, Python, JavaScript, Rust or Go block and see its output and give it input, beside the page.", systemImage: "play.fill"),
         Feature(id: "ai", title: "Explain Code and Summarise Note", detail: "Apple Intelligence reads a block or a note on this iPad. Nothing is sent anywhere.", systemImage: "sparkles"),
     ]
 

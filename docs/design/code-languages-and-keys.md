@@ -21,8 +21,8 @@ v3 phase 4 (13 Oct, `docs/archive/ui-design-v3-implementation.md`).
     returned: 0" with the program's output (Go's first compile took 17s cold).
     **The brief and canvas say JavaScript runs on Compiler Explorer. It can't:**
     its only JavaScript compilers are two V8 builds with `supportsExecute` false,
-    so JavaScript is Programiz by paste, like Java. OnlineGDB has no JavaScript
-    or SQL page either (404), so its `supportedLanguages` drops JavaScript too.
+    so JavaScript is Programiz by paste, like Java. (OnlineGDB, a choice
+    until 30 Oct, had no JavaScript or SQL page either.)
     The ids are a maintenance item: retired ones still show the code, with the
     compiler pane complaining.
   - Tags other than these are unknown, so a block tagged `ruby` still has no

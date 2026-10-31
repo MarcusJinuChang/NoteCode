@@ -15,18 +15,20 @@ nonisolated enum RunRoute: Equatable, Sendable {
     case paywall
     /// Run in the panel.
     case inApp
-    /// Hand the block to a site (today's redirect).
+    /// Hand the block to the site for its language: only without a service.
     case redirect
 
+    /// There is no choice of where to run (30 Oct): the service runs every
+    /// language Run offers, so a site is only the panel's way out when a run
+    /// can't happen (`RunPresentation.offersSite`).
+    ///
     /// - Parameters:
     ///   - hasRunner: there is a service to run on (`AppInfo.runService`).
     ///     Without one the app behaves as it did before R: no gate, no panel.
     ///   - isPro: `ProStatus.isPro`, the only thing read for the gate.
-    ///   - destination: the page's resolved destination.
-    static func route(hasRunner: Bool, isPro: Bool, destination: CodeDestination) -> RunRoute {
+    static func route(hasRunner: Bool, isPro: Bool) -> RunRoute {
         guard hasRunner else { return .redirect }
-        guard isPro else { return .paywall }
-        return destination == .inApp ? .inApp : .redirect
+        return isPro ? .inApp : .paywall
     }
 }
 

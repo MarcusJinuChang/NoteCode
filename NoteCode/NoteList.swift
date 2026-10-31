@@ -89,11 +89,6 @@ struct NoteList: View {
     @AppStorage(NewNotes.opensAfterCreatingKey)
     private var opensNewNote = NewNotes.opensAfterCreatingByDefault
 
-    /// Where code blocks run when nothing more specific says, for the
-    /// folder menu's "Default" row.
-    @AppStorage(RunDestinationPreference.appDefaultKey)
-    private var appDefaultDestination: String = CodeDestination.preferredDefault().id
-
     /// Folders the reader has closed. Folders start open, so a new folder's
     /// notes are never hidden behind a row nobody has tapped yet.
     @State private var closedFolders: Set<PersistentIdentifier> = []
@@ -648,34 +643,9 @@ struct NoteList: View {
                 Button(target.path) { move(folder, into: target) }
             }
         }
-        Picker(selection: runDestination(of: folder)) {
-            Text("Default (\(RunDestinationPreference.resolve([appDefaultDestination]).name))")
-                .tag(String?.none)
-            ForEach(CodeDestination.choices()) { destination in
-                Text(destination.name).tag(String?.some(destination.id))
-            }
-            // A custom site set at either level stays in the menu.
-            ForEach(customDestinations(for: folder)) { destination in
-                Text(destination.name).tag(String?.some(destination.id))
-            }
-        } label: {
-            Label("Run Code Blocks In", systemImage: "play.rectangle")
-        }
-        .pickerStyle(.menu)
         Divider()
         Button("Delete Folder…", systemImage: "trash", role: .destructive) {
             deleting = folder
-        }
-    }
-
-    private func customDestinations(for folder: Folder) -> [CodeDestination] {
-        [folder.runDestination, appDefaultDestination].compactMap { id -> CodeDestination? in
-            guard let id, let destination = CodeDestination(id: id),
-                  case .custom = destination else { return nil }
-            return destination
-        }
-        .reduce(into: [CodeDestination]()) { found, destination in
-            if !found.contains(destination) { found.append(destination) }
         }
     }
 
@@ -724,10 +694,6 @@ struct NoteList: View {
     /// Picking a key also picks the way round that reads naturally for it.
     private var sortKey: Binding<NoteSort.Key> {
         Binding { sort.key } set: { sort = sort.with(key: $0) }
-    }
-
-    private func runDestination(of folder: Folder) -> Binding<String?> {
-        Binding { folder.runDestination } set: { folder.runDestination = $0 }
     }
 
     private func isDeleting(_ folder: Folder) -> Binding<Bool> {

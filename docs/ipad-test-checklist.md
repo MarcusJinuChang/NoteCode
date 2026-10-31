@@ -97,7 +97,7 @@ of its folder. Both are in section 2 below only for what that test cannot see.
 - [ ] Sandbox Pro, destination In NoteCode: ▷, ⌘R and the edit menu's Run run a C++, a Java and a Python block; stdout in the code font, compile errors and stderr in the error colour, Stop works, input from the Input tab reaches the program. — **R4** #103, **R2** #90
 - [ ] Edit the block after a run: the result dims with "Code changed since this run"; delete or edit the running block mid-run: Run isn't ignored and a late answer doesn't land on another block. — **R3**, **QC bugs** #113
 - [ ] Keep in Note writes or replaces the ` ```output ` block under the code, one ⌘Z removes it, and it does nothing in a locked note. A `file:line` in a compile error puts the caret on that line. — **R4** #103
-- [ ] Airplane mode, the daily cap and a proxy outage each show their own message with "Open on a Site Instead". — **R4** #103
+- [ ] Airplane mode, the daily cap and a proxy outage each show their own message; the cap and the outage offer "Open on a Site Instead", airplane mode doesn't. — **R4** #103
 - [ ] Chips and the PRO badge follow a custom accent (a pale accent gets a black label); the badge scales with Dynamic Type; VoiceOver says "Run, part of Pro". Run panel in dark mode. — **QC cohesion** #111
 - [ ] After the proxy is deployed: one run per language confirms the Judge0 ids and one bill per run; `PRO_PRODUCT_IDS` is set (a run fails closed with 402 until then). — **R2** #90
 
