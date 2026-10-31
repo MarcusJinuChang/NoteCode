@@ -119,6 +119,7 @@ struct ContentView: View {
     var body: some View {
         navigation
         .environment(toasts)
+        .environment(\.coveredBySheet, showsSettings || showsExportAll)
         .overlay {
             if showsWelcomeScreen {
                 WelcomeScreen(onGetStarted: dismissWelcomeScreen)
