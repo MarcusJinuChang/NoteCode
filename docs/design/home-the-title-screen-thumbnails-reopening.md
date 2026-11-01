@@ -132,9 +132,33 @@ v3 phase 2 (12 Oct, `docs/archive/ui-design-v3-implementation.md`).
   - A note whose deletion has been saved is never read (AGENTS.md, drawing
     data): the store checks `modelContext` and `isDeleted` before touching it.
   - macOS draws a placeholder; `PrintedNote` is UIKit.
+- **Home polish (31 Oct, Marcus's list from the iPad):**
+  - **The toolbar's Search and + are gone beside the list.** Both did what
+    the list's own field and "+" do, with the list already beside Home
+    (`ask(.searchNotes)` only brought it in and focused the field), and
+    Home has a New Note button. Search stays in a compact stack, where the
+    list is a screen away (`HomeView.listIsAScreenAway`: the size class,
+    not `isCompact`, which a narrow regular width also sets). Settings stays.
+  - **"Edited … ago" ticks.** `HomeDate.edited(_:now:)` against a
+    `TimelineView(.everyMinute)`'s date; `Text(date, format: .relative)` is
+    formatted once and not again. Recent's "Today" is on the same timeline,
+    so it turns to "Yesterday" at midnight.
+  - **Thumbnails in dark.** The picture is still made once, on white, in the
+    light theme (one cached PNG for both appearances, no version bump), and
+    shown inverted with the hue turned back half a turn
+    (`NoteThumbnailView.DarkPaper`): lightness flips as the dark page flips
+    ink (colour.md), so paper goes black like the page (`systemBackground`),
+    text white, a code panel dark, a red pen a light red. An approximation:
+    saturated colours shift a little against what a real dark render gives.
+    A real one would pin `PrintedNote` and the ink to the dark values and
+    key the cache by appearance; not done for a 30 by 39 picture.
+  - **Folder tiles** go across by width (`HomeLayout.folderColumns`: 200pt
+    at least a tile, 2 to 4 columns), and a name may take two lines. Four
+    across in a 810pt Home beside the list on an iPad mini gave 170pt a tile.
+  - **The ad is a strip below the page** (shipping.md › Ads).
 - **Debug launch:** `-debug-first-launch` and `-debug-home` (see the table).
 - **Not checked:** the Pencil; Reduce Motion's fade; the title screen in dark;
-  the Home row, a folder tile, Show All and the toolbar's search and + by a
+  the Home row, a folder tile, Show All and the compact stack's toolbar search by a
   tap; ⇧⌘H; Home on an 11-inch iPad or in portrait; a thumbnail updating after
   an edit on screen; thumbnails of a note with ink on the iPad; the macOS
   Home (it builds).

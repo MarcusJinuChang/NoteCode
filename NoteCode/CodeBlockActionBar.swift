@@ -84,9 +84,8 @@ final class CodeBlockActionBar: UIView {
     ///   - showsRun: false for a block whose fence carries no language the app
     ///     knows, or one it can't run (SQL), since `CodeDestination` has
     ///     nowhere to send it.
-    ///   - isOutput: the block is a console, a dark panel in both
-    ///     appearances, so its copy button is a light grey and not
-    ///     `.secondaryLabel`, which would nearly vanish on it.
+    ///   - isOutput: the block is a console, which has its own
+    ///     copy-button colour (the same as a code block's).
     func configure(showsRun: Bool, isOutput: Bool = false) {
         runButton.isHidden = !showsRun
         let tint: UIColor = isOutput ? CodeOutputPanel.controlColor : .secondaryLabel

@@ -14,7 +14,8 @@ import SwiftData
 /// code block, with no ink, so a template is just Markdown and the parser
 /// that reads every note reads it. Bracketed words — `[Topic]`, `[Step]` —
 /// are placeholders to type over; they aren't a link (a link needs the
-/// parenthesis after it), so they show as typed.
+/// parenthesis after it), so they show as typed. None may be written as a
+/// link, even to an empty address: tapping one opened Safari's start page.
 ///
 /// What the reader gets is on the `InAndOut` board of the v3 canvas.
 nonisolated enum NoteTemplate: String, CaseIterable, Sendable, Identifiable {
@@ -76,7 +77,7 @@ nonisolated enum NoteTemplate: String, CaseIterable, Sendable, Identifiable {
             return """
             # [Problem]
 
-            [link](https://)
+            Link: [URL]
 
             Difficulty: [Easy]
 
@@ -160,11 +161,10 @@ extension Page {
         orientation: PageOrientation,
         in folder: Folder? = nil,
         now: Date = .now,
-        paper: PaperSetup = .preferred(),
         context: ModelContext
     ) -> Page {
         let language = NoteTemplates.commonLanguage(in: (folder?.livePages ?? []).map(\.content))
-        let page = create(orientation: orientation, in: folder, paper: paper, context: context)
+        let page = create(orientation: orientation, in: folder, context: context)
         page.title = template.title
         page.content = template.content(language: language, now: now)
         return page

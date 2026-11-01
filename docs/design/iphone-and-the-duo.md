@@ -34,6 +34,20 @@ are compact, and get this; an unfolded Duo is regular and gets the iPad's.
 - **The hotbar stays at the bottom, with no grip** (`Hotbar.isMovable`,
   `PageDetailView.dock`): a side would take a third of a phone's width. The
   stored edge is left alone and comes back with a regular width.
+- **The text options row waits for Format** (31 Oct, `Hotbar.showsTextRow`,
+  `NoteEditor.wantsTextRow`). With the keyboard up on an iPhone 17 the bar
+  and the row together took about 40% of what was left above it, and the
+  note showed through between them. On a phone the row is out only after
+  the B I U button beside the type/draw toggle asks for it (greyed in ink
+  mode, so the bar's length doesn't change); the keyboard clearance asks the
+  same function. An iPad is unchanged.
+- **A track's cut-off end fades** (`EdgeFade`, `HiddenEdges`): a bar or row
+  that scrolls fades 24pt at an end with controls past it, and not at an end
+  it rests against. Before, a phone's bar stopped mid-button ("f(x").
+- **Run is a ▷ button in the top bar** in a compact width, or a window under
+  Home's 700pt, not the Notes | Run switch, which has no room beside the
+  title and doesn't show in the overflow menu (the-note-page.md). An
+  upright unfolded Duo (669pt) cut the title to "Week 6 · Has…" with it.
 - **Home** has two-column grids, 16pt margins, no date, a Continue card with
   a small thumbnail and no Open pill, and its buttons stacked. Home is the one
   place width counts too: a regular Home under 700pt gets this layout

@@ -43,15 +43,6 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// Sheets in print layout, break lines in compressed. Behind the text.
     let decorations = PageDecorationView()
 
-    /// The paper the note is ruled with (`Page.paper`). Drawing only: it takes
-    /// no room, so setting it moves no line and no stroke.
-    var paper = PaperSetup.blank {
-        didSet {
-            guard paper != oldValue else { return }
-            decorations.paper = paper
-        }
-    }
-
     /// Over the ink, where seamless has no room — see `PageCoverView`.
     let covers = PageCoverView()
 
@@ -240,6 +231,10 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         isDirectionalLockEnabled = false
         alwaysBounceVertical = false
         showsVerticalScrollIndicator = false
+        // The text view is what scrolls, and its own indicator sits inside the
+        // page sheet. The note's indicator is `indicator` below, at the
+        // window's edge.
+        textView.showsVerticalScrollIndicator = false
         addSubview(pageEdge)
         addSubview(textView)
         adoptTextViewPan()
@@ -1622,26 +1617,6 @@ final class PageDecorationView: UIView {
     private var layout: PageLayout?
     private var pageCount = 0
 
-    /// The paper: a host layer kept above the sheets, with a shape layer to a
-    /// page body. A stroked vector path, not a tiled bitmap, so there is no
-    /// tile to round to whole pixels at some zoom and drift off the words it
-    /// sits under (docs/design/paper-styles.md). The layers share one path.
-    private let paperHost = CALayer()
-    private var paperLayers: [CAShapeLayer] = []
-
-    var paper = PaperSetup.blank {
-        didSet {
-            guard paper != oldValue else { return }
-            updatePaper()
-        }
-    }
-
-    /// The paper layers' frames in note coordinates, for tests.
-    var paperFrames: [CGRect] { paperLayers.map(\.frame) }
-
-    /// The paper layers, for tests.
-    var paperShapeLayers: [CAShapeLayer] { paperLayers }
-
     /// Sheet frames in note coordinates, for tests.
     var sheetFrames: [CGRect] { sheets.map(\.frame) }
 
@@ -1698,62 +1673,13 @@ final class PageDecorationView: UIView {
             Self.place(line, atY: layout.breakLineY(afterPage: index), width: frame.width)
         }
 
-        updatePaper()
         resolveColors()
-    }
-
-    // MARK: Paper
-
-    /// Brings the paper layers up to the layout, the page count and the
-    /// setup. Draws only: nothing here touches the text.
-    private func updatePaper() {
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        defer { CATransaction.commit() }
-
-        // Above the sheets, which a switch to print layout adds after this
-        // layer exists.
-        if paperHost.superlayer !== layer || layer.sublayers?.last !== paperHost {
-            layer.addSublayer(paperHost)
-        }
-        paperHost.frame = bounds
-
-        let regions = (paper.isBlank || layout == nil) ? [] : layout!.paperRegions(pageCount: pageCount)
-        while paperLayers.count < regions.count {
-            let shape = CAShapeLayer()
-            shape.fillColor = nil
-            paperHost.addSublayer(shape)
-            paperLayers.append(shape)
-        }
-        while paperLayers.count > regions.count {
-            paperLayers.removeLast().removeFromSuperlayer()
-        }
-        guard let size = regions.first?.size else { return }
-
-        let path = paper.strokePath(in: size)
-        let dash = paper.dash?.map { NSNumber(value: Double($0)) }
-        for (shape, region) in zip(paperLayers, regions) {
-            shape.frame = region
-            shape.path = path
-            shape.lineWidth = paper.strokeWidth
-            shape.lineDashPattern = dash
-            shape.lineCap = paper.style == .dots ? .round : .butt
-        }
-        applyPaperColor()
-    }
-
-    private func applyPaperColor() {
-        guard let tone = paper.tone(dark: traitCollection.userInterfaceStyle == .dark) else { return }
-        for shape in paperLayers {
-            shape.strokeColor = tone.cgColor
-        }
     }
 
     /// CALayer colours are plain CGColors and don't follow dark mode on their
     /// own, so they're re-resolved whenever the appearance changes.
     private func resolveColors() {
         Self.resolveColors(sheets: sheets, lines: breaks, for: traitCollection)
-        applyPaperColor()
     }
 
     // MARK: Pieces, shared with the covers

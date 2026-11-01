@@ -220,7 +220,7 @@ struct PageDetailView: View {
 #endif
             runLayout
         }
-        .navigationTitle($page.title)
+        .navigationTitle(Binding(get: { page.displayTitle }, set: { page.rename(to: $0) }))
 #if os(iOS)
         // A title in the bar's own line, not a large title above the page,
         // and on iPad leading, beside ☰, with the menu's chevron after it.
@@ -249,7 +249,6 @@ struct PageDetailView: View {
             editor: editor, isCompact: isCompact, showsRunIsPro: $showsRunIsPro,
             windowWidth: $windowWidth, transaction: { pro?.signedTransaction ?? "" }, pro: pro
         ))
-        .toolbar { runToggleItem }
 #endif
         .sheet(isPresented: $showsInfo) {
             NoteInfoView(page: page, pageCount: openPageCount)
@@ -327,7 +326,7 @@ struct PageDetailView: View {
         .openNote(OpenNote(
             editor: editor,
             viewMode: $viewMode,
-            printNote: { [editor, title = page.title] in
+            printNote: { [editor, title = page.displayTitle] in
                 Task { await editor.printNote(title: title) }
             },
             showOutline: { showsOutline = true }
@@ -357,24 +356,41 @@ struct PageDetailView: View {
     // MARK: Header
 
 #if canImport(UIKit)
-    /// The Notes | Run control, in the middle of the top bar.
+    /// The Notes | Run control, on the right with Share and •••. Not
+    /// `.principal`, which replaces the title: the note's name and its menu
+    /// went, leaving a bare chevron.
     @ToolbarContentBuilder
     private var runToggleItem: some ToolbarContent {
         if editor.run.isAvailable {
-            ToolbarItem(placement: .principal) {
-                NotesRunToggle(
-                    isRun: editor.run.isOpen,
-                    showsProMark: !(pro?.isPro ?? false)
-                ) { wantsRun in
-                    if !wantsRun {
-                        withAnimation(.snappy) { editor.run.isOpen = false }
-                    } else if pro?.isPro == true {
-                        withAnimation(.snappy) { editor.run.isOpen = true; editor.run.isCollapsed = false }
-                    } else {
-                        showsRunIsPro = true
+            ToolbarItem(placement: .primaryAction) {
+                if isCompact || (windowWidth > 0 && windowWidth < HomeLayout.regularMinimumWidth) {
+                    // A phone's bar has no room for the switch beside the
+                    // title, and the overflow menu it goes to drops a picker
+                    // (iPhone 17, 31 Oct): a button lands there as a row. A
+                    // narrow regular window too, where the switch cut the
+                    // title to "Week 6 · Has…" (an upright Duo, 669pt).
+                    Button(editor.run.isOpen ? "Back to Notes" : "Run", systemImage: editor.run.isOpen ? "doc.text" : "play") {
+                        showRun(!editor.run.isOpen)
                     }
+                } else {
+                    NotesRunToggle(
+                        isRun: editor.run.isOpen,
+                        showsProMark: !(pro?.isPro ?? false),
+                        onSelect: showRun
+                    )
                 }
             }
+            .sharedBackgroundVisibility(.hidden)
+        }
+    }
+
+    private func showRun(_ wantsRun: Bool) {
+        if !wantsRun {
+            withAnimation(.snappy) { editor.run.isOpen = false }
+        } else if pro?.isPro == true {
+            withAnimation(.snappy) { editor.run.isOpen = true; editor.run.isCollapsed = false }
+        } else {
+            showsRunIsPro = true
         }
     }
 
@@ -425,8 +441,10 @@ struct PageDetailView: View {
         }
 
 #if canImport(UIKit)
+        runToggleItem
+
         ToolbarItem(placement: .primaryAction) {
-            NoteShareButton(editor: editor, title: page.title, fallbackText: page.content)
+            NoteShareButton(editor: editor, title: page.displayTitle, fallbackText: page.content)
                 .tint(.primary)
         }
         .sharedBackgroundVisibility(.hidden)
@@ -489,8 +507,6 @@ struct PageDetailView: View {
             }
             .disabled(editor.mode != .text || page.isTextLocked)
 
-            NotePaperMenu(page: page)
-
             Button("Outline", systemImage: "list.bullet.indent") { showsOutline = true }
 
             Button("Find in Note", systemImage: "magnifyingglass") {
@@ -501,8 +517,8 @@ struct PageDetailView: View {
             .keyboardShortcut(.find)
 
             if editor.ai.offersFeatures {
-                Button(AIAction.summariseNote.title, systemImage: AIAction.summariseNote.systemImage) {
-                    editor.summariseNote(title: page.title)
+                Button(AIAction.summariseNote.menuTitle(marksPro: !editor.ai.isPro()), systemImage: AIAction.summariseNote.systemImage) {
+                    editor.summariseNote(title: page.displayTitle)
                 }
                 .disabled(editor.mode != .text)
             }
@@ -547,7 +563,6 @@ struct PageDetailView: View {
                 text: $page.content,
                 editor: editor,
                 pageLayout: PageLayout(orientation: page.orientation, mode: viewMode),
-                paper: page.paper,
                 keyboardClearance: keyboardClearance,
                 restingClearance: CanvasGeometry.restingClearance(dock: dock, footprint: Hotbar.footprint),
                 areaInsets: UIEdgeInsets(
@@ -675,12 +690,13 @@ struct PageDetailView: View {
     /// of both. Only for a bar docked at the bottom: at a side, nothing rides
     /// up over the page.
     private var keyboardClearance: CGFloat {
-        guard dock == .bottom else { return 0 }
-        var clearance = Hotbar.barFootprint
-        if editor.mode == .text, !page.isTextLocked, !sheetCoversPage {
-            clearance += Hotbar.optionsGap + OptionsRowStyle.thickness + OptionsRowStyle.reachAmount
-        }
-        return clearance
+        Hotbar.keyboardClearance(
+            dock: dock,
+            showsTextRow: Hotbar.showsTextRow(
+                isText: editor.mode == .text, isLocked: page.isTextLocked, isCovered: sheetCoversPage,
+                isCompact: isCompact, wanted: editor.wantsTextRow
+            )
+        )
     }
 
     /// The note scrolled: the badge shows the page, and goes a second after

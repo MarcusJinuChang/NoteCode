@@ -69,9 +69,11 @@ extension NoteSchemaV1 {
         /// when the note has ink.
         var textSize: Int?
 
-        /// The paper the note is ruled with (`PaperSetup.stored`), or `nil` for
-        /// blank. Drawing only: it takes no room, moves nothing and is not an
-        /// edit, so `modifiedAt` stays.
+        /// Unused since 31 Oct, when paper styles (dots, grid, lined) came out
+        /// of the 1.0 release: every note shows plain paper. It held a
+        /// `PaperSetup`'s stored string. Kept so version 1's hashes stay as
+        /// they are (docs/design/the-model.md); it can go before the release,
+        /// with the hashes updated.
         var paperStyle: String?
 
         /// The points each prose line is made taller than the font makes it,
@@ -245,11 +247,10 @@ extension Page {
     /// The original's modified date doesn't move.
     @discardableResult
     func duplicated(in context: ModelContext) -> Page {
-        let copy = Page(title: "\(title) copy", content: content, drawingData: drawingData)
+        let copy = Page(title: "\(displayTitle) copy", content: content, drawingData: drawingData)
         copy.pageOrientation = pageOrientation
         copy.textSize = textSize
         copy.lineSpacing = lineSpacing
-        copy.paperStyle = paperStyle
         copy.minimumPageCount = minimumPageCount
         context.insert(copy)
         // After the insert, like `Page.create`: relationships are set on a

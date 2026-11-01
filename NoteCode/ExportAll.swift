@@ -197,10 +197,10 @@ final class NoteExportJob {
         }
         let parents = sortedFolders.map { $0.parent.flatMap { folderIndex[$0.persistentModelID] } }
         let sortedPages = pages.sorted {
-            ($0.createdAt, $0.title) < ($1.createdAt, $1.title)
+            ($0.createdAt, $0.displayTitle) < ($1.createdAt, $1.displayTitle)
         }
         let items = sortedPages.map {
-            NoteExport.Item(folder: $0.folder.flatMap { folderIndex[$0.persistentModelID] }, title: $0.title)
+            NoteExport.Item(folder: $0.folder.flatMap { folderIndex[$0.persistentModelID] }, title: $0.displayTitle)
         }
         return Layout(
             pages: sortedPages,
@@ -232,8 +232,7 @@ extension NoteExportJob {
             minimumPages: page.minimumPageCount,
             rendersMarkdown: true,
             lineNumbers: numbered,
-            typography: page.typography,
-            paper: page.paper
+            typography: page.typography
         ))
         return data.isEmpty ? nil : data
     }

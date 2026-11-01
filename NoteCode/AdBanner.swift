@@ -14,8 +14,13 @@ import GoogleMobileAds
 /// A banner and "Remove ads" under it, or nothing: Pro, no consent yet, or
 /// (in tests) no ad stack. Placed only in Home and the list's foot, so no
 /// note, Settings, paywall or sheet has one.
+///
+/// - `opaque`: Home's strip. It has its own surface and a hairline above, so
+///   the ad and the link never sit on anything else (the list's slot is a
+///   row, which has a surface already).
 struct AdSlot: View {
     let placement: AdPlacement
+    var opaque = false
     /// Absent (previews, tests) reads as Pro: no ad stack without a status.
     @Environment(ProStatus.self) private var pro: ProStatus?
     @State private var consent = AdConsent.shared
@@ -23,13 +28,22 @@ struct AdSlot: View {
 
     var body: some View {
         if adBannerShows(isPro: pro?.isPro ?? true, canRequestAds: consent.canRequestAds) {
-            VStack(spacing: 4) {
+            VStack(spacing: 0) {
                 AdBanner(unitID: placement.unitID(), personalised: consent.personalised)
+                // Under the ad, in the slot's own strip, so it covers nothing.
                 Button("Remove ads") { showsPaywall = true }
                     .font(.footnote)
+                    .frame(minHeight: 28)
                     .accessibilityIdentifier("removeAdsButton")
             }
             .frame(maxWidth: .infinity)
+            .background {
+                if opaque {
+                    HomePalette.card
+                        .overlay(alignment: .top) { HomePalette.separator.frame(height: 0.5) }
+                        .ignoresSafeArea(edges: .bottom)
+                }
+            }
             .sheet(isPresented: $showsPaywall) {
                 PaywallView(reason: "Pro removes the ads.")
             }
@@ -38,6 +52,17 @@ struct AdSlot: View {
 }
 
 #if canImport(UIKit)
+/// The banner size, in one place. **The standard anchored adaptive banner**,
+/// not the large one (31 Oct): the large size is up to 150pt tall on an iPad,
+/// a seventh of an iPad mini's landscape screen on a page whose point is the
+/// notes, and Marcus found it too much. The standard one is 90pt at most
+/// (the 728 by 90 leaderboard shape iPads fill). docs/design/shipping.md › Ads.
+enum AdSizing {
+    static func size(forWidth width: CGFloat) -> AdSize {
+        currentOrientationAnchoredAdaptiveBanner(width: width)
+    }
+}
+
 /// `BannerView` at the adaptive anchored size for the width it is given.
 ///
 /// The width is measured on a placeholder that takes what its container
@@ -52,7 +77,7 @@ struct AdBanner: View {
     @State private var width: CGFloat = 0
 
     var body: some View {
-        let size = width > 0 ? largeAnchoredAdaptiveBanner(width: width) : nil
+        let size = width > 0 ? AdSizing.size(forWidth: width) : nil
         Color.clear
             .frame(maxWidth: .infinity)
             .frame(height: size?.size.height ?? 0)

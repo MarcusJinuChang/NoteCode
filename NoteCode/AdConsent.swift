@@ -36,6 +36,17 @@ protocol AdPlatform {
     func presentPrivacyOptions() async
 }
 
+/// When Home may start consent: after the launch has decided whether the
+/// title screen is raised, and while it is not. Home's first appearance comes
+/// before that decision and, on a first launch, under the screen; counting
+/// that as the first visit put Google's form, and its tracking explainer,
+/// over the title screen (docs/design/shipping.md › Ads).
+nonisolated enum ConsentGate {
+    static func isOpen(launchSettled: Bool, titleScreenUp: Bool) -> Bool {
+        launchSettled && !titleScreenUp
+    }
+}
+
 @Observable
 @MainActor
 final class AdConsent {

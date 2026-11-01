@@ -53,8 +53,6 @@ enum NotePDF {
         /// The note's own text size (`Page.textSize`): paper breaks its lines
         /// where the screen does, or ink would print off its words.
         var typography = NoteTypography.standard
-        /// The note's paper (`Page.paper`), printed behind the text and ink.
-        var paper = PaperSetup.blank
     }
 
     /// PDF points per page point. A page 816 wide prints 612 wide: US
@@ -70,7 +68,6 @@ enum NotePDF {
             lineNumbers: note.lineNumbers,
             typography: note.typography
         )
-        printed.paper = note.paper
         let ink = note.ink.flatMap { $0.subelements.isEmpty ? nil : $0 }
         let pageCount = printed.paginate(inkBottom: ink?.contentsRenderFrame.maxY, startingAt: note.pageCount, minimum: note.minimumPages)
         let layout = printed.layout
@@ -260,9 +257,6 @@ final class PrintedNote {
     let layout: PageLayout
     let textView: DocumentUITextView
 
-    /// The paper drawn on each sheet before its text (`Page.paper`).
-    var paper = PaperSetup.blank
-
     /// Styles the text and picks each paragraph's fragment, the way it does
     /// for the editor, so code blocks get their panels and colours.
     private let coordinator: DocumentTextView.Coordinator
@@ -421,10 +415,6 @@ final class PrintedNote {
     /// left, in page points.
     func draw(_ paragraphs: [Paragraph], onSheet sheet: CGRect, in context: CGContext) {
         let inset = textView.textContainerInset
-
-        // Behind everything: the sheet's body, as on screen (top and bottom
-        // margins stay plain).
-        paper.draw(in: context, body: CGRect(x: 0, y: PageLayout.margin, width: sheet.width, height: layout.bodyHeight))
 
         context.saveGState()
         context.clip(to: CGRect(origin: .zero, size: sheet.size))

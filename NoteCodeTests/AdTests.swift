@@ -80,6 +80,13 @@ struct AdTests {
         #expect(consent.canRequestAds)
     }
 
+    @Test("Consent waits for the launch to decide about the title screen, and for it to go")
+    func gate() {
+        #expect(!ConsentGate.isOpen(launchSettled: false, titleScreenUp: false), "Home's first appearance, before the screen is decided")
+        #expect(!ConsentGate.isOpen(launchSettled: true, titleScreenUp: true), "over the title screen")
+        #expect(ConsentGate.isOpen(launchSettled: true, titleScreenUp: false), "Home is in front")
+    }
+
     @Test("The tracking prompt waits for a later Home visit")
     func laterVisit() async {
         let platform = FakePlatform()
