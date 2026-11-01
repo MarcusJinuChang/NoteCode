@@ -90,7 +90,7 @@ struct HomeView: View {
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { AdSlot(placement: .home) }
-        .task { await AdConsent.shared.homeAppeared(isPro: pro?.isPro ?? true) }
+        .task { await AdConsent.shared.homeAppeared(pro: pro) }
         .coordinateSpace(.named("home"))
         .onGeometryChange(for: CGSize.self) { $0.size } action: { homeSize = $0 }
         .navigationTitle("Home")

@@ -26,13 +26,19 @@ struct ProStatusTests {
             var errorDescription: String? { "The store said no." }
         }
 
+        /// How long the store takes to say what it holds, as StoreKit does at launch.
+        var answerDelay: Duration = .zero
+
         init(held: ProEntitlement? = nil) { self.held = held }
 
         func product(id: String) async throws -> ProProduct? {
             if productThrows { throw Failed() }
             return productMissing ? nil : ProProduct(id: id, name: "NoteCode Pro", price: "$4.99")
         }
-        func currentEntitlement(for id: String) async -> ProEntitlement? { held }
+        func currentEntitlement(for id: String) async -> ProEntitlement? {
+            if answerDelay > .zero { try? await Task.sleep(for: answerDelay) }
+            return held
+        }
         func purchase(id: String) async throws -> ProPurchaseOutcome {
             if fails { throw Failed() }
             return outcome
