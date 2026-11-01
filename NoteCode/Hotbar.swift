@@ -138,6 +138,7 @@ struct Hotbar: View {
             HotbarTrack(axis: dock.isVertical ? .vertical : .horizontal) {
                 ScrollView(axis, showsIndicators: false) { tools }
                     .scrollBounceBehavior(.basedOnSize, axes: axis)
+                    .edgeFade(dock.isVertical ? .vertical : .horizontal)
             }
         }
         // One toolbar to VoiceOver, with the buttons inside it, and a frame
@@ -171,10 +172,19 @@ struct Hotbar: View {
         editor.mode == .ink && editor.inkTool.hasOptions
     }
 
-    /// Whether the text options row is out: in text mode, for a note whose
-    /// text can be changed, with nothing over the page.
     private var showsTextRow: Bool {
-        editor.mode == .text && !editor.isTextLocked && !textRowHidden
+        Self.showsTextRow(
+            isText: editor.mode == .text, isLocked: editor.isTextLocked, isCovered: textRowHidden,
+            isCompact: !isMovable, wanted: editor.wantsTextRow
+        )
+    }
+
+    /// Whether the text options row is out: in text mode, for a note whose
+    /// text can be changed, with nothing over the page. On a phone only when
+    /// asked for (the Format button): the two bars over the keyboard left
+    /// about half of what was above it to the note (iPhone 17, 31 Oct).
+    static func showsTextRow(isText: Bool, isLocked: Bool, isCovered: Bool, isCompact: Bool, wanted: Bool) -> Bool {
+        isText && !isLocked && !isCovered && (!isCompact || wanted)
     }
 
     /// The row beside the bar, 8pt from it on the page's side and centred
@@ -209,6 +219,15 @@ struct Hotbar: View {
                 .disabled(!editor.canRedo)
 
             modeToggle
+
+            // A phone's text options row waits to be asked for. In both
+            // modes, greyed in ink, so switching doesn't change the bar's length.
+            if !isMovable {
+                button("Format", "bold.italic.underline", isSelected: editor.wantsTextRow && editor.mode == .text) {
+                    editor.wantsTextRow.toggle()
+                }
+                .disabled(editor.mode != .text || editor.isTextLocked)
+            }
         }
     }
 
@@ -427,6 +446,61 @@ private struct HotbarTrack: Layout {
     }
 }
 
+/// Which ends of a scrolling track have controls scrolled out past them.
+struct HiddenEdges: Equatable {
+    var start = false
+    var end = false
+
+    /// A point's slack either way, so a track resting at an end shows no fade there.
+    static func of(offset: CGFloat, visible: CGFloat, length: CGFloat) -> HiddenEdges {
+        HiddenEdges(start: offset > 1, end: offset + visible < length - 1)
+    }
+}
+
+/// Fades a track's end where controls run on past it. Without it a phone's
+/// bar stopped mid-button at the screen's edge ("f(x"), which read as broken
+/// rather than as more to scroll to (iPhone 17, 31 Oct).
+private struct EdgeFade: ViewModifier {
+    var axis: Axis
+    @State private var hidden = HiddenEdges()
+
+    static let length: CGFloat = 24
+
+    func body(content: Content) -> some View {
+        let horizontal = axis == .horizontal
+        let stack = horizontal ? AnyLayout(HStackLayout(spacing: 0)) : AnyLayout(VStackLayout(spacing: 0))
+        let (from, to): (UnitPoint, UnitPoint) = horizontal ? (.leading, .trailing) : (.top, .bottom)
+        content
+            .onScrollGeometryChange(for: HiddenEdges.self) { geometry in
+                HiddenEdges.of(
+                    offset: horizontal
+                        ? geometry.contentOffset.x + geometry.contentInsets.leading
+                        : geometry.contentOffset.y + geometry.contentInsets.top,
+                    visible: horizontal ? geometry.containerSize.width : geometry.containerSize.height,
+                    length: horizontal ? geometry.contentSize.width : geometry.contentSize.height
+                )
+            } action: { _, edges in
+                hidden = edges
+            }
+            .mask {
+                stack {
+                    LinearGradient(colors: [hidden.start ? .clear : .black, .black], startPoint: from, endPoint: to)
+                        .frame(width: horizontal ? Self.length : nil, height: horizontal ? nil : Self.length)
+                    Rectangle()
+                    LinearGradient(colors: [.black, hidden.end ? .clear : .black], startPoint: from, endPoint: to)
+                        .frame(width: horizontal ? Self.length : nil, height: horizontal ? nil : Self.length)
+                }
+            }
+    }
+}
+
+extension View {
+    /// `EdgeFade`: a fade at whichever end of a scrolling track has more past it.
+    func edgeFade(_ axis: Axis) -> some View {
+        modifier(EdgeFade(axis: axis))
+    }
+}
+
 /// An options row's controls, hugged when they fit beside the bar and
 /// scrolled along it when they don't, as the bar's tools are. Inside the
 /// row's surface, so the capsule's ends stay put while the controls scroll.
@@ -439,6 +513,7 @@ struct OptionsRowTrack<Content: View>: View {
         HotbarTrack(axis: isVertical ? .vertical : .horizontal) {
             ScrollView(axes, showsIndicators: false) { content }
                 .scrollBounceBehavior(.basedOnSize, axes: axes)
+                .edgeFade(isVertical ? .vertical : .horizontal)
         }
     }
 }

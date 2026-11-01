@@ -45,6 +45,29 @@ struct TextBarLayoutTests {
         #expect(Hotbar.keyboardClearance(dock: .left, showsTextRow: true) == 0)
         #expect(Hotbar.keyboardClearance(dock: .right, showsTextRow: true) == 0)
     }
+
+    /// On an iPad the row is out whenever text can be formatted; on a phone
+    /// only once Format asks for it.
+    @Test func phoneTextRowWaitsToBeAskedFor() {
+        func shows(compact: Bool, wanted: Bool, text: Bool = true, locked: Bool = false, covered: Bool = false) -> Bool {
+            Hotbar.showsTextRow(isText: text, isLocked: locked, isCovered: covered, isCompact: compact, wanted: wanted)
+        }
+        #expect(shows(compact: false, wanted: false))
+        #expect(!shows(compact: true, wanted: false))
+        #expect(shows(compact: true, wanted: true))
+        #expect(!shows(compact: true, wanted: true, text: false))
+        #expect(!shows(compact: true, wanted: true, locked: true))
+        #expect(!shows(compact: false, wanted: true, covered: true))
+    }
+
+    /// A track fades only the ends that have controls past them.
+    @Test func edgesFadeOnlyWhereThereIsMore() {
+        #expect(HiddenEdges.of(offset: 0, visible: 300, length: 300) == HiddenEdges())
+        #expect(HiddenEdges.of(offset: 0, visible: 300, length: 391) == HiddenEdges(start: false, end: true))
+        #expect(HiddenEdges.of(offset: 40, visible: 300, length: 391) == HiddenEdges(start: true, end: true))
+        #expect(HiddenEdges.of(offset: 91, visible: 300, length: 391) == HiddenEdges(start: true, end: false))
+        #expect(HiddenEdges.of(offset: 0.5, visible: 300, length: 300.5) == HiddenEdges())
+    }
 }
 
 #endif

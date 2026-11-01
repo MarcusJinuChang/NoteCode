@@ -690,7 +690,10 @@ struct PageDetailView: View {
     private var keyboardClearance: CGFloat {
         Hotbar.keyboardClearance(
             dock: dock,
-            showsTextRow: editor.mode == .text && !page.isTextLocked && !sheetCoversPage
+            showsTextRow: Hotbar.showsTextRow(
+                isText: editor.mode == .text, isLocked: page.isTextLocked, isCovered: sheetCoversPage,
+                isCompact: isCompact, wanted: editor.wantsTextRow
+            )
         )
     }
 
