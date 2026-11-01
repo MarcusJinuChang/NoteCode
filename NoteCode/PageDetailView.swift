@@ -363,20 +363,32 @@ struct PageDetailView: View {
     private var runToggleItem: some ToolbarContent {
         if editor.run.isAvailable {
             ToolbarItem(placement: .primaryAction) {
-                NotesRunToggle(
-                    isRun: editor.run.isOpen,
-                    showsProMark: !(pro?.isPro ?? false)
-                ) { wantsRun in
-                    if !wantsRun {
-                        withAnimation(.snappy) { editor.run.isOpen = false }
-                    } else if pro?.isPro == true {
-                        withAnimation(.snappy) { editor.run.isOpen = true; editor.run.isCollapsed = false }
-                    } else {
-                        showsRunIsPro = true
+                if isCompact {
+                    // A phone's bar has no room for the switch beside the
+                    // title, and the overflow menu it goes to drops a picker
+                    // (iPhone 17, 31 Oct): a button lands there as a row.
+                    Button(editor.run.isOpen ? "Back to Notes" : "Run", systemImage: editor.run.isOpen ? "doc.text" : "play") {
+                        showRun(!editor.run.isOpen)
                     }
+                } else {
+                    NotesRunToggle(
+                        isRun: editor.run.isOpen,
+                        showsProMark: !(pro?.isPro ?? false),
+                        onSelect: showRun
+                    )
                 }
             }
             .sharedBackgroundVisibility(.hidden)
+        }
+    }
+
+    private func showRun(_ wantsRun: Bool) {
+        if !wantsRun {
+            withAnimation(.snappy) { editor.run.isOpen = false }
+        } else if pro?.isPro == true {
+            withAnimation(.snappy) { editor.run.isOpen = true; editor.run.isCollapsed = false }
+        } else {
+            showsRunIsPro = true
         }
     }
 
