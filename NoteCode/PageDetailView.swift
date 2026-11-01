@@ -363,10 +363,12 @@ struct PageDetailView: View {
     private var runToggleItem: some ToolbarContent {
         if editor.run.isAvailable {
             ToolbarItem(placement: .primaryAction) {
-                if isCompact {
+                if isCompact || (windowWidth > 0 && windowWidth < HomeLayout.regularMinimumWidth) {
                     // A phone's bar has no room for the switch beside the
                     // title, and the overflow menu it goes to drops a picker
-                    // (iPhone 17, 31 Oct): a button lands there as a row.
+                    // (iPhone 17, 31 Oct): a button lands there as a row. A
+                    // narrow regular window too, where the switch cut the
+                    // title to "Week 6 · Has…" (an upright Duo, 669pt).
                     Button(editor.run.isOpen ? "Back to Notes" : "Run", systemImage: editor.run.isOpen ? "doc.text" : "play") {
                         showRun(!editor.run.isOpen)
                     }

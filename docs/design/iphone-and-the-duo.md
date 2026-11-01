@@ -44,9 +44,10 @@ are compact, and get this; an unfolded Duo is regular and gets the iPad's.
 - **A track's cut-off end fades** (`EdgeFade`, `HiddenEdges`): a bar or row
   that scrolls fades 24pt at an end with controls past it, and not at an end
   it rests against. Before, a phone's bar stopped mid-button ("f(x").
-- **Run is a ▷ button in the top bar** in a compact width, not the Notes |
-  Run switch, which has no room beside the title and doesn't show in the
-  overflow menu (the-note-page.md).
+- **Run is a ▷ button in the top bar** in a compact width, or a window under
+  Home's 700pt, not the Notes | Run switch, which has no room beside the
+  title and doesn't show in the overflow menu (the-note-page.md). An
+  upright unfolded Duo (669pt) cut the title to "Week 6 · Has…" with it.
 - **Home** has two-column grids, 16pt margins, no date, a Continue card with
   a small thumbnail and no Open pill, and its buttons stacked. Home is the one
   place width counts too: a regular Home under 700pt gets this layout
