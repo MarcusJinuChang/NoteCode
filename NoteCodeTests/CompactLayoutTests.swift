@@ -125,9 +125,10 @@ struct NarrowOptionsRowTests {
             CATransaction.flush()
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
         } while Date() < end
-        // The bar's own tools are shorter than the pen's seven colours, Add
-        // Colour and three widths, about 391pt.
-        return scrollViews(in: host.view).first { $0.contentSize.width > 350 }
+        // The bar's own tools, about 352pt since Quote, Rule and the two
+        // formulas got slots (31 Oct), are shorter than the pen's seven
+        // colours, Add Colour and three widths, about 391pt.
+        return scrollViews(in: host.view).first { $0.contentSize.width > 370 }
     }
 
     @Test("Given less room than it needs, the pen's row is that long and scrolls")

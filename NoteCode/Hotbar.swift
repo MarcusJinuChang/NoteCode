@@ -242,6 +242,10 @@ struct Hotbar: View {
                 HotbarIcon(systemImage: "character.cursor.ibeam").opacity(isInk ? 0 : 1)
                 HotbarIcon(systemImage: "pencil.and.scribble").opacity(isInk ? 1 : 0)
             }
+            // A grey disc in both modes, the selection highlight's shape:
+            // the one control on the bar that looks like something to try,
+            // not a formatting button among the others.
+            .background { Circle().fill(Color(uiColor: .secondarySystemFill)).padding(4) }
             // A quick cross-fade between the two faces; none under Reduce Motion.
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: isInk)
         }

@@ -802,7 +802,7 @@ struct DocumentTextView: UIViewRepresentable {
             // The on-device assistant. Left out when it is switched off or
             // this iPad can never run it; otherwise the sheet says why not.
             if let editor, editor.ai.offersFeatures, !target.isOutput {
-                actions.append(UIAction(title: editor.pro?.isPro == true ? "Explain Block" : "Explain Block (Pro)", image: UIImage(systemName: AIAction.explainBlock.systemImage)) { [weak editor] _ in
+                actions.append(UIAction(title: editor.ai.isPro() ? "Explain Block" : "Explain Block (Pro)", image: UIImage(systemName: AIAction.explainBlock.systemImage)) { [weak editor] _ in
                     editor?.explain(target)
                 })
             }

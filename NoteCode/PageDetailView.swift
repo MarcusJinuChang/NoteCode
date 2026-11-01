@@ -503,7 +503,7 @@ struct PageDetailView: View {
             .keyboardShortcut(.find)
 
             if editor.ai.offersFeatures {
-                Button(AIAction.summariseNote.menuTitle(marksPro: !(pro?.isPro ?? false)), systemImage: AIAction.summariseNote.systemImage) {
+                Button(AIAction.summariseNote.menuTitle(marksPro: !editor.ai.isPro()), systemImage: AIAction.summariseNote.systemImage) {
                     editor.summariseNote(title: page.displayTitle)
                 }
                 .disabled(editor.mode != .text)
