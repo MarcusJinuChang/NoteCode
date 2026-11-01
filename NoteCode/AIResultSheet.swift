@@ -24,7 +24,7 @@ struct AIResultSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     content
-                    Label("Apple Intelligence · on this iPad", systemImage: "lock.shield")
+                    Label("Apple Intelligence · on this \(AppInfo.deviceName)", systemImage: "lock.shield")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .padding(.top, 4)

@@ -545,7 +545,7 @@ private struct WritingSettings: View {
     }
 
     private var assistantFooter: String {
-        let base = "Explain a code block and summarise a note with Apple Intelligence. It runs on this iPad: nothing is sent anywhere and nothing is kept."
+        let base = "Explain a code block and summarise a note with Apple Intelligence. It runs on this \(AppInfo.deviceName): nothing is sent anywhere and nothing is kept."
         if case .unavailable(let reason) = AIAssistant.systemClient.availability {
             return base + " " + reason.message
         }

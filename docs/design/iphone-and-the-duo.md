@@ -106,3 +106,9 @@ are compact, and get this; an unfolded Duo is regular and gets the iPad's.
   the stack, a search result row's tap, the Duo upright and half-folded, a
   physical Duo (none to hand: the simulator is all there is before it
   ships), the Pencil, `HotbarUITests` (XCUITest, not run).
+- **Turned on for 1.0.1** (31 Oct, Marcus). Strings that name the device
+  read `AppInfo.deviceName`, set at launch from the idiom, so a phone's
+  paywall, assistant, Settings and title screen say "this iPhone" (a Duo
+  is one); they said "this iPad" everywhere. Seen on an iPhone 18 Pro Max
+  (iOS 27.0) while making the store's 6.9-inch screenshots: a note, the
+  Run sheet, Home, dark, the paywall.

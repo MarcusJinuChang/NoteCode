@@ -143,7 +143,7 @@ nonisolated enum AIUnavailableReason: Equatable, Sendable {
         case .switchedOff:
             "The on-device assistant is switched off in Settings › Writing."
         case .deviceNotEligible:
-            "This iPad can't run Apple Intelligence, which the assistant uses."
+            "This \(AppInfo.deviceName) can't run Apple Intelligence, which the assistant uses."
         case .appleIntelligenceOff:
             "Turn on Apple Intelligence in the system's Settings to use the assistant."
         case .modelNotReady:

@@ -223,7 +223,7 @@ do the steps, pull `tmp/selectionprobe.log` with
 - [ ] Light and dark, and Increase Contrast, through Home, the list, a note, Settings and the hotbar. — ROADMAP, colour
 - [ ] Reduce Motion: the title screen fades, the side bar and floating bar don't slide. — home-the-title-screen, the-page-fills-the-window
 - [ ] Stage Manager and a narrow Split View: the layout holds (the page fits its column). — home-the-title-screen, iphone-and-the-duo
-- [ ] iPhone layouts (the app is iPad only for TestFlight 1; when it ships): landscape, the list's search, a folder tile, Delete's Undo in the stack, a search result's tap. — iphone-and-the-duo
+- [ ] iPhone layouts (in 1.0.1, on the TestFlight build on a phone): landscape, the list's search, a folder tile, Delete's Undo in the stack, a search result's tap. — iphone-and-the-duo
 - [ ] A physical Duo, after 23 Oct: unfolded flat, half-folded and upright; fold avoidance was simulator-only. — iphone-and-the-duo, ROADMAP
 - [ ] macOS (it builds): Home, the list (drops don't work there; menus do), Settings and ⌘, — home-the-title-screen, settings
 

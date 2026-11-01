@@ -111,6 +111,12 @@ nonisolated enum AppIconChoice: String, CaseIterable, Identifiable, Sendable {
 /// what build this is.
 nonisolated enum AppInfo {
 
+    /// What the reader holds, for "on this iPad" and the like: an iPad, or an
+    /// iPhone (the Duo is one). Set once at launch, before any of it shows
+    /// (`NoteCodeApp.init`), since `UIDevice` is the main actor's and the
+    /// strings are read from anywhere. Tests read the iPad's.
+    nonisolated(unsafe) static var deviceName = "iPad"
+
     /// Our run proxy (`server/run-proxy/`), which Run in the app talks to. With
     /// `nil` Run in the app doesn't exist: no In NoteCode choice, no Pro gate on
     /// the run button, no panel. Never a Judge0 address or key; the proxy owns those.
