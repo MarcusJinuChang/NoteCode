@@ -4,16 +4,17 @@ _Last updated: 10/31/26_
 
 NoteCode is a note-taking app for computer science coursework. It has no
 account and no analytics, and your notes are never uploaded. Three things do
-leave your iPad, each described below: running code in the app (NoteCode Pro),
-the ads shown to readers without Pro, and the sites you choose to open.
+leave your iPad or iPhone, each described below: running code in the app
+(NoteCode Pro), the ads shown to readers without Pro, and the sites you choose
+to open.
 
 ## What stays on your device
 
-Your notes, drawings, folders and settings are stored on your iPad and nowhere
-else. They are not uploaded to us or to anyone. NoteCode does not use iCloud
+Your notes, drawings, folders and settings are stored on your iPad or iPhone and
+nowhere else. They are not uploaded to us or to anyone. NoteCode does not use iCloud
 or any sync service.
 
-If you back up your iPad with iCloud or a computer, the system includes
+If you back up your device with iCloud or a computer, the system includes
 NoteCode's data in that backup, as it does for any app. That is Apple's
 service, under Apple's terms.
 
@@ -68,11 +69,11 @@ receive it. Google's own policy describes it
 
 - **Your choice.** Where the law requires it (the EEA and UK), a consent
   message from Google appears the first time ads would load, and lets you
-  accept or decline personalised ads. After that, iPadOS asks whether
+  accept or decline personalised ads. After that, the system asks whether
   NoteCode may track you across apps and websites. If you decline, you still
   see ads, but they are not personalised and the advertising identifier is not
-  used. You can change the tracking permission at any time in iPadOS Settings ›
-  Privacy & Security › Tracking, and your answer to Google's message in
+  used. You can change the tracking permission at any time in the system's
+  Settings › Privacy & Security › Tracking, and your answer to Google's message in
   NoteCode's Settings › Help and About › Ad Privacy Options (shown where the
   law requires it), or remove the ads by subscribing to Pro.
 - **No ads, no data.** NoteCode does not show ads, or start Google's SDK, for
