@@ -1,0 +1,3 @@
+# The tagline in the browser tab and search results. Without it GitHub uses
+# the repository's description, which says the app is iPad only.
+description: "A note-taking app for STEM classes on iPad and iPhone: Markdown notes, code blocks you can run, math and handwriting on the same page."
