@@ -45,13 +45,14 @@ What an upload checks before a person sees the app (4 Oct).
     unstaged, never commit or revert it, and don't mention it in summaries or
     PRs** (he knows). Stage files by name, never `git add -A` or `-a`. If a
     change needs `project.pbxproj` itself, stop and ask first.
-- **iPad only, build 2** (14 Oct, v3 phase 8). The NoteCode target (both
-  configurations) has `TARGETED_DEVICE_FAMILY = 2` and
-  `CURRENT_PROJECT_VERSION = 2`; the test targets are untouched. The iPhone
-  layout is designed, not built, so TestFlight 1 is iPad only; macOS is a
-  separate platform in `SUPPORTED_PLATFORMS` and still builds. Bump the build
-  number for every upload. The edit sits in Marcus's working tree beside his
-  signing change and is not committed (see above).
+- **iPad and iPhone** (31 Oct, for 1.0.1). TestFlight 1 was iPad only: the
+  NoteCode target had `TARGETED_DEVICE_FAMILY = 2` in Marcus's working tree
+  (14 Oct, v3 phase 8), while the iPhone layout was designed and not built.
+  It is built now (iphone-and-the-duo.md), so the target is `"1,2"`, as
+  committed, and the App Store listing needs iPhone 6.9-inch screenshots
+  beside the 13-inch iPad's. macOS is a separate platform in
+  `SUPPORTED_PLATFORMS` and still builds. Bump the build number for every
+  upload.
 - **Privacy and support pages** are drafted in `docs/site/privacy.md` and
   `support.md`; Marcus copies them to the `gh-pages` branch (`privacy.md` is
   the page at `AppInfo.privacyPolicy`, which is now always set, so the

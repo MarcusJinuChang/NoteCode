@@ -124,8 +124,8 @@ The support address (XS), ranked first here before, is set for 1.0.1.
 3. **Run for free students** is Pro only with no trial: a free student's Run
    opens the paywall, and only Copy gets a block to a compiler (S, policy
    call).
-4. **The macOS editor** is a plain `TextEditor`, and iPhone is built but not
-   turned on (L).
+4. **The macOS editor** is a plain `TextEditor` (L). iPhone and the Duo
+   ship in 1.0.1 (31 Oct).
 5. **An annual plan and a student price** (QC §3: ~$39.99 a year; a semester
    price or offer code). A product in App Store Connect and `ProStatus`.
 

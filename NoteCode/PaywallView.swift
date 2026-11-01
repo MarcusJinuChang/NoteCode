@@ -35,18 +35,18 @@ nonisolated enum PaywallContent {
     /// Under the list of what Pro adds, so it reads as what is left out.
     static let freeNote = "Everything else in NoteCode stays free."
 
-    static let features: [Feature] = [
+    static var features: [Feature] { [
         Feature(id: "ads", title: "No ads", detail: "The small ad at the foot of Home and the note list goes away.", systemImage: "rectangle.slash"),
         Feature(id: "run", title: "Run code in the app", detail: "Run a C++, C, Java, Python, JavaScript, Rust or Go block and see its output and give it input, beside the page.", systemImage: "play.fill"),
-        Feature(id: "ai", title: "Explain Code and Summarise Note", detail: "Apple Intelligence reads a block or a note on this iPad. Nothing is sent anywhere.", systemImage: "sparkles"),
-    ]
+        Feature(id: "ai", title: "Explain Code and Summarise Note", detail: "Apple Intelligence reads a block or a note on this \(AppInfo.deviceName). Nothing is sent anywhere.", systemImage: "sparkles"),
+    ] }
 
-    /// Whether this iPad can use the AI features, in a sentence, so nobody
+    /// Whether this device can use the AI features, in a sentence, so nobody
     /// buys what they can't run. Run and no ads work everywhere.
     static func aiAvailability(_ availability: AIAvailability) -> String {
         switch availability {
         case .available:
-            "Apple Intelligence is ready on this iPad."
+            "Apple Intelligence is ready on this \(AppInfo.deviceName)."
         case .unavailable(let reason):
             switch reason {
             case .switchedOff:

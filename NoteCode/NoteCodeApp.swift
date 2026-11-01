@@ -15,8 +15,11 @@ struct NoteCodeApp: App {
 
     init() {
 #if canImport(UIKit)
+        AppInfo.deviceName = UIDevice.current.userInterfaceIdiom == .phone ? "iPhone" : "iPad"
         // So the menu bar's bare-letter shortcuts know when a field is typing.
         TextInputActivity.shared.start()
+#else
+        AppInfo.deviceName = "Mac"
 #endif
         // Finishes tips that arrive outside a purchase, and asks the store
         // for the tips, so the list's foot knows whether to offer them.

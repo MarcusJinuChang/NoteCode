@@ -144,7 +144,7 @@ struct WelcomeScreen: View {
             .padding(.top, 48)
             .accessibilityIdentifier("getStartedButton")
 
-            Text("Your notes stay on this iPad.")
+            Text("Your notes stay on this \(AppInfo.deviceName).")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .padding(.top, 16)

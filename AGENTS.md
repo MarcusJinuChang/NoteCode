@@ -168,8 +168,9 @@ Details (privacy manifest, encryption, signing, icons, the build number):
   `PrivacyInfo.xcprivacy`, or the upload is rejected (`AppStoreReadinessTests`).
 - **The app icon is drawn by `scripts/make-icons.swift`**: edit the script,
   never the PNGs, and run `swift scripts/make-icons.swift`.
-- iPad only for now (`TARGETED_DEVICE_FAMILY = 2`); bump the build number for
-  every upload (Marcus, in `project.pbxproj`).
+- iPad and iPhone, the Duo included (`TARGETED_DEVICE_FAMILY = "1,2"`, since
+  31 Oct); bump the build number for every upload (Marcus, in
+  `project.pbxproj`).
 
 ## Build/test
 

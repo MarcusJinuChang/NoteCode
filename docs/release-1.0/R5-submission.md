@@ -30,8 +30,8 @@ as it should be) and `docs/site/support.md`.
 > standard EULA) and the Privacy Policy are linked on the paywall.
 >
 > Explain Code and Summarise Note run on the device and need Apple
-> Intelligence; on an iPad without it the paywall says so. Run and the
-> removal of ads work on every iPad.
+> Intelligence; on a device without it the paywall says so. Run and the
+> removal of ads work on every iPad and iPhone.
 
 ## App Privacy label (App Store Connect › App Privacy)
 

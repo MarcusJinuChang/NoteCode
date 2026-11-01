@@ -97,4 +97,16 @@ struct PaywallTests {
         #expect(ineligible.contains(AIUnavailableReason.deviceNotEligible.message))
         #expect(ineligible.contains("Run and no ads"))
     }
+
+    @Test("It names the device the reader holds: an iPhone or a Duo reads iPhone, not iPad")
+    func deviceName() {
+        let saved = AppInfo.deviceName
+        defer { AppInfo.deviceName = saved }
+        AppInfo.deviceName = "iPhone"
+        #expect(PaywallContent.aiAvailability(.available) == "Apple Intelligence is ready on this iPhone.")
+        #expect(PaywallContent.features.contains { $0.detail.contains("on this iPhone.") })
+        #expect(AIUnavailableReason.deviceNotEligible.message.hasPrefix("This iPhone can't"))
+        AppInfo.deviceName = "iPad"
+        #expect(PaywallContent.aiAvailability(.available) == "Apple Intelligence is ready on this iPad.")
+    }
 }
