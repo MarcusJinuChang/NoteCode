@@ -75,6 +75,20 @@ final class AdConsent {
     /// The number of times Home has appeared, across launches.
     var homeVisits: Int { defaults.integer(forKey: Self.visitsKey) }
 
+    /// Home appeared, once the store has said whether the reader has Pro.
+    /// Until then `isPro` reads false, and a subscriber opening the app on
+    /// Home got Google's consent form and the tracking prompt (31 Oct).
+    func homeAppeared(pro: ProStatus?) async {
+        await pro?.started()
+        await homeAppeared(isPro: pro?.isPro ?? true)
+    }
+
+    /// Help and About appeared, once the store has answered, as at Home.
+    func settingsAppeared(pro: ProStatus?) async {
+        await pro?.started()
+        await settingsAppeared(isPro: pro?.isPro ?? true)
+    }
+
     /// Home appeared. The first visit gathers consent and starts the SDK; the
     /// tracking prompt waits for a later one, so it is never the first thing
     /// the reader sees and never at launch. Free readers only: Pro never

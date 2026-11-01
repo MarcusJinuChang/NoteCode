@@ -642,7 +642,7 @@ private struct AboutSettings: View {
             }
         }
         .navigationTitle("Help and About")
-        .task { await consent.settingsAppeared(isPro: pro?.isPro ?? true) }
+        .task { await consent.settingsAppeared(pro: pro) }
     }
 }
 

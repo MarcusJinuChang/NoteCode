@@ -114,6 +114,28 @@ struct AdTests {
         #expect(platform.calls.isEmpty)
     }
 
+    @Test("A subscriber opening on Home: the store answers first, and the ad stack hears nothing")
+    func proBeforeTheStoreAnswers() async {
+        let platform = FakePlatform()
+        let consent = AdConsent(platform: platform, defaults: defaults())
+        let store = ProStatusTests.FakeStore(held: ProStatusTests.entitlement(expires: nil))
+        store.answerDelay = .milliseconds(200)
+        let pro = ProStatus(store: store)
+        // As at launch: Home's task runs right after `start`.
+        pro.start()
+        #expect(!pro.isPro, "the store hasn't answered yet")
+        await consent.homeAppeared(pro: pro)
+        await consent.settingsAppeared(pro: pro)
+        #expect(pro.isPro)
+        #expect(platform.calls.isEmpty)
+
+        // A free reader still gets the form, after the same wait.
+        let free = ProStatus(store: ProStatusTests.FakeStore())
+        free.start()
+        await consent.homeAppeared(pro: free)
+        #expect(platform.calls == ["consent", "start"])
+    }
+
     // QC A4: a way to change the consent answer (guideline 5.1.1(ii)).
 
     @Test("Where UMP requires it, Home's consent turns on Ad Privacy Options, and the row opens Google's form")

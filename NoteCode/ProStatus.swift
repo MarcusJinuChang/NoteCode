@@ -127,7 +127,8 @@ final class ProStatus {
         loadProduct()
     }
 
-    /// Waits for what `start` began. For tests.
+    /// Waits for what `start` began: the store's first answer. `isPro` reads
+    /// false until it is in, so the ad stack waits for this (`AdConsent`).
     func started() async {
         await loading?.value
     }

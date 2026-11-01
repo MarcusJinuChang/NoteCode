@@ -105,7 +105,7 @@ struct HomeView: View {
         }
         .task(id: consentMayStart) {
             guard consentMayStart else { return }
-            await AdConsent.shared.homeAppeared(isPro: pro?.isPro ?? true)
+            await AdConsent.shared.homeAppeared(pro: pro)
         }
         .coordinateSpace(.named("home"))
         .onGeometryChange(for: CGSize.self) { $0.size } action: { homeSize = $0 }
