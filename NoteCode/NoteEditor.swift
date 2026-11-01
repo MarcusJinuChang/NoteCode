@@ -139,6 +139,10 @@ final class NoteEditor {
         set { isPencilOnly = !newValue }
     }
 
+    /// Whether the text options row is out on a phone, where it waits to be
+    /// asked for (`Hotbar.showsTextRow`). Ignored in a regular width.
+    var wantsTextRow = false
+
     /// Where the device keeps `fingerDraws`, so it carries over from note to
     /// note and across launches (`InkToolPersistence`). Stored the way the
     /// button says it, so a device that has never set it reads `true`.
@@ -351,8 +355,7 @@ final class NoteEditor {
             minimumPages: page.minimumPageCount,
             rendersMarkdown: rendersMarkdown,
             lineNumbers: showsLineNumbers,
-            typography: typography,
-            paper: page.paper
+            typography: typography
         ))
     }
 

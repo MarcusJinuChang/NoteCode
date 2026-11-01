@@ -52,7 +52,10 @@ v3 phase 5 (13 Oct, `docs/archive/ui-design-v3-implementation.md`).
 - **Templates** (`NoteTemplates.swift`: `NoteTemplate` lecture, problem, lab;
   `Page.create(from:)`). Text only, like the Welcome note, the contents of the
   `InAndOut` board. Bracketed words are placeholders and not links (a link needs
-  its parenthesis; `[link](https://)` in Problem is the one real one). The
+  its parenthesis, and no template has one: Problem's was `[link](https://)`,
+  which opened Safari's start page, and is now `Link: [URL]`). A placeholder
+  is not selected on opening: the new note opens with its title being renamed,
+  and selecting text in the editor on open would take the caret from that. The
   note's title is the template's name and it opens ready to rename. The code
   block is tagged with the language most of the **open note's folder's live**
   notes' blocks are in (ties to the earlier language in the menus; Recently

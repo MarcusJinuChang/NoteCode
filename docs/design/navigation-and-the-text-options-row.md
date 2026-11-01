@@ -6,7 +6,9 @@ v3 phase 6 (14 Oct, `docs/archive/ui-design-v3-implementation.md`).
   `#hashtag` isn't), computed when the popover opens and never stored. Outline
   in the note's ••• menu (it was a header button until 16 Oct; the popover now
   hangs off the ••• button) and ⌃⌘O (View menu, through `OpenNote.showOutline`)
-  open it; rows are indented by level from the note's highest, the heading
+  open it; each row is `NoteOutlineView.rowHeight` and the popover is exactly
+  as tall as its rows (it had 24pt extra, which showed as an empty row at the
+  bottom); rows are indented by level from the note's highest, the heading
   the reader is under is ticked (the last at or above the line at the top),
   and an empty heading reads "Untitled". Offsets are UTF-16, accumulated in
   one pass as `DocumentStyler.layouts` does.
@@ -175,3 +177,42 @@ v3 phase 6 (14 Oct, `docs/archive/ui-design-v3-implementation.md`).
   indent, + Output and Explain. The row's face is an opaque `systemBackground`
   capsule with a hairline, no glass (the ink row's is W4's). Not checked on a
   device or at 11-inch portrait; the row scrolls along the bar if it is too long.
+
+- **Hotbar layout (31 Oct, review; `TextBarLayoutTests`).**
+  - **The row reads Size, Bold/Italic/Underline/Strikethrough, colour and
+    highlight, More** (`TextRowSection.prose`). Size is at the top or left,
+    where code blocks already had it.
+  - **The row is never longer than the bar** (`RowLimit`): `BesideBar` offers
+    the text row the smaller of the page's length and the bar's, and it scrolls
+    past that. It always scrolled (`OptionsRowTrack`, 17 Oct, for a 390pt
+    phone), but it was offered the page's whole length, so on an iPad it stood
+    out past both ends of the bar. The scroll view is the same one: the freeze
+    that `HotbarTrack` records came from a `ViewThatFits` swapping a plain
+    row for a scrolling one, and nothing here branches. The pen's row still
+    gets the page's length.
+  - **Aa is headings only** (Heading 1 to 6, Body). Bold and Italic left the
+    bar for the row (⌘B, ⌘I stay); Underline and Strikethrough left Aa for the
+    row (⌘U and the edit menu stay); Quote, Horizontal Rule, Inline Formula and
+    Display Formula are buttons on the bar, after Inline Code. In a code block
+    the row has no Bold to Strikethrough, as before; the edit menu still does
+    not offer them there either.
+  - **The bars keep three lines clear below the caret** when the keyboard is
+    up and the bar is at the bottom (`Hotbar.linesBelowCaret`, 66pt on top of
+    the bar and row): the clearance had stopped at the caret's own line, so
+    the lines under it sat behind the bars.
+  - **The bars dim behind Settings and Export All** (`coveredBySheet`,
+    `dimsWhenCovered`). Seen on the iPad Pro 13-inch simulator (iOS 27.0): the
+    page and the top bar went grey and the hotbar and both rows stayed at full
+    brightness. Cause not found (the hotbar is in the same hierarchy as the
+    page, so the system's dimming should reach it); the bars paint a black 0.2
+    over themselves, the page's measured dimming, while `ContentView` says a
+    sheet is up. The Info sheet and folder editor dim the main bar the same way
+    (`textRowHidden`). The code keys row is a keyboard accessory and is not
+    covered. Not checked in dark mode or on a device; if iOS dims them there,
+    this doubles it.
+  - **Not fixed: two format menus overlapping.** The only two "format" menus
+    are Aa on the bar and the text view's edit menu (Format ▸, in
+    `DocumentTextView.proseMenu`), and the edit menu is another change's.
+    Aa no longer repeats Underline, Strikethrough or the formulas as Format
+    does, so what they offer differs; where they sit on screen when both are
+    open was not reproduced.

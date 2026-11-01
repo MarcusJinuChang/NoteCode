@@ -83,8 +83,9 @@ struct NoteShareButton: View {
         isPreparing = true
         defer { isPreparing = false }
 
-        guard let data = await editor.pdf(title: title) else { return }
-        guard let url = try? NotePDF.write(data, title: title) else {
+        let name = SharePopover.documentTitle(title, text: markdown)
+        guard let data = await editor.pdf(title: name) else { return }
+        guard let url = try? NotePDF.write(data, title: name) else {
             failed = true
             return
         }
@@ -93,7 +94,7 @@ struct NoteShareButton: View {
 
     /// The text, exactly, as a `.md` file named for the note.
     private func shareMarkdown() {
-        guard let url = try? NoteMarkdown.write(markdown, title: title) else {
+        guard let url = try? NoteMarkdown.write(markdown, title: SharePopover.documentTitle(title, text: markdown)) else {
             failed = true
             return
         }
@@ -120,11 +121,44 @@ struct NoteShareButton: View {
         }
 
         let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-        if let popover = activity.popoverPresentationController {
-            popover.sourceView = anchor
-            popover.sourceRect = anchor.bounds
+        if let popover = activity.popoverPresentationController, let window = anchor.window {
+            // Pointed at in the window's coordinates, not the anchor's own:
+            // the anchor sits in the toolbar's hosting view, and in landscape
+            // its bounds put the popover in the window's top-left corner.
+            let rect = anchor.convert(anchor.bounds, to: window)
+            popover.sourceView = window
+            popover.sourceRect = SharePopover.sourceRect(button: rect, in: window.bounds)
         }
         presenter.present(activity, animated: true)
+    }
+}
+
+/// The share sheet's pure choices: where it points, and what the file is called.
+nonisolated enum SharePopover {
+
+    /// The rect the popover points at. The Share button's, in window
+    /// coordinates, or when that can't be trusted (no size, or outside the
+    /// window, as a button not yet laid out reports) a small rect at the
+    /// window's top right, where the button is, and never the top left.
+    static func sourceRect(button: CGRect, in window: CGRect) -> CGRect {
+        guard button.width > 1, button.height > 1, window.intersects(button) else {
+            return CGRect(x: window.maxX - 60, y: window.minY + 20, width: 44, height: 44)
+        }
+        return button
+    }
+
+    /// The note's title for the PDF's metadata and the file's name. A note
+    /// with no title is named for its first line, as a person would, and only
+    /// then "Untitled" (`NoteFileName`).
+    static func documentTitle(_ title: String, text: String) -> String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { return trimmed }
+        for line in text.split(whereSeparator: \.isNewline) {
+            let stripped = line.drop { $0 == "#" || $0 == " " || $0 == "\t" }
+                .trimmingCharacters(in: .whitespaces)
+            if !stripped.isEmpty && !stripped.hasPrefix("```") { return stripped }
+        }
+        return ""
     }
 }
 

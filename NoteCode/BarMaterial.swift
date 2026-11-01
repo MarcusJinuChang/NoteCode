@@ -25,4 +25,22 @@ extension View {
         background(BarMaterial.fill, in: shape)
             .overlay { shape.strokeBorder(BarMaterial.edge, lineWidth: 0.5) }
     }
+
+    /// Dims a bar the way a sheet dims the page beside it: black at 0.2, the
+    /// page's own dimming measured off a screenshot (white to 203). The bars
+    /// stayed bright behind Settings (31 Oct review; seen on the iPad Pro
+    /// 13-inch simulator, iOS 27.0), so they dim themselves.
+    func dimsWhenCovered<S: InsettableShape>(_ isCovered: Bool, in shape: S) -> some View {
+        overlay {
+            shape.fill(Color.black.opacity(isCovered ? 0.2 : 0))
+                .allowsHitTesting(false)
+                .animation(.easeOut(duration: 0.25), value: isCovered)
+        }
+    }
+}
+
+extension EnvironmentValues {
+    /// Whether a sheet the window presents (Settings, Export All) is over the
+    /// page (`dimsWhenCovered`).
+    @Entry var coveredBySheet = false
 }

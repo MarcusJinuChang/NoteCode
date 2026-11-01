@@ -22,9 +22,6 @@ struct DocumentTextView: UIViewRepresentable {
     /// The note's page orientation and the device's view mode.
     var pageLayout = PageLayout()
 
-    /// The paper the note is ruled with: drawing only, it takes no room.
-    var paper = PaperSetup.blank
-
     /// Room to leave above the keyboard for a hotbar riding up with it. See
     /// `PageView.keyboardClearance`.
     var keyboardClearance: CGFloat = 0
@@ -119,7 +116,6 @@ struct DocumentTextView: UIViewRepresentable {
         // canvas knob too, and the canvas is the page's.
         editor?.attach(textView, canvas: page.canvas, page: page)
         page.pageLayout = pageLayout
-        page.paper = paper
         page.minimumPageCount = minimumPageCount
         page.addsPagesWhileDrawing = addsPagesWhileDrawing
         page.onMinimumPageCountChanged = onMinimumPageCountChanged
@@ -148,7 +144,6 @@ struct DocumentTextView: UIViewRepresentable {
     func updateUIView(_ page: PageView, context: Context) {
         let textView = page.textView
         page.pageLayout = pageLayout
-        page.paper = paper
         page.minimumPageCount = max(minimumPageCount, page.minimumPageCount)
         page.addsPagesWhileDrawing = addsPagesWhileDrawing
         page.onMinimumPageCountChanged = onMinimumPageCountChanged
@@ -768,7 +763,9 @@ struct DocumentTextView: UIViewRepresentable {
                 guard !target.code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                     return UIMenu(children: suggestedActions)
                 }
-                return UIMenu(children: [codeBlockMenu(for: target, in: textView)] + suggestedActions)
+                return UIMenu(children: EditMenuOrder.order(
+                    ours: [codeBlockMenu(for: target, in: textView)], system: suggestedActions
+                ))
             }
 
             // Formatting changes the text, and ink mode and a locked note
@@ -776,7 +773,7 @@ struct DocumentTextView: UIViewRepresentable {
             guard let editor, editor.mode == .text, !editor.isTextLocked else {
                 return UIMenu(children: suggestedActions)
             }
-            return UIMenu(children: [proseMenu(editor)] + suggestedActions)
+            return UIMenu(children: EditMenuOrder.order(ours: [proseMenu(editor)], system: suggestedActions))
         }
 
         /// Run Block and Copy Block, then Share, which was here first.
@@ -805,7 +802,7 @@ struct DocumentTextView: UIViewRepresentable {
             // The on-device assistant. Left out when it is switched off or
             // this iPad can never run it; otherwise the sheet says why not.
             if let editor, editor.ai.offersFeatures, !target.isOutput {
-                actions.append(UIAction(title: "Explain Block", image: UIImage(systemName: AIAction.explainBlock.systemImage)) { [weak editor] _ in
+                actions.append(UIAction(title: editor.ai.isPro() ? "Explain Block" : "Explain Block (Pro)", image: UIImage(systemName: AIAction.explainBlock.systemImage)) { [weak editor] _ in
                     editor?.explain(target)
                 })
             }

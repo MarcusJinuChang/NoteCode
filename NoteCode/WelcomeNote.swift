@@ -19,11 +19,12 @@ nonisolated enum NewNotes {
     static let defaultsKey = "newNoteOrientation"
 
     /// Settings › Notes › Open Note After Creating: whether the list's "+"
-    /// (its tap, its menu and the folder menu) opens the note it makes. Off
-    /// until chosen, so adding several notes in a row leaves the reader where
-    /// they were; the note shows up in the list with a toast.
+    /// (its tap, its menu and the folder menu) opens the note it makes. On
+    /// until switched off (31 Oct): a "+" that made a note and showed nothing
+    /// read as broken. Off, adding several notes in a row leaves the reader
+    /// where they were, and the note shows up in the list with a toast.
     static let opensAfterCreatingKey = "openNoteAfterCreating"
-    static let opensAfterCreatingByDefault = false
+    static let opensAfterCreatingByDefault = true
 
     /// What the list selects once it has made `page`: the note itself if the
     /// reader wants it opened, else whatever was open.
@@ -61,12 +62,10 @@ extension Page {
     static func create(
         orientation: PageOrientation,
         in folder: Folder? = nil,
-        paper: PaperSetup = .preferred(),
         context: ModelContext
     ) -> Page {
         let page = Page()
         page.orientation = orientation
-        paper.apply(to: page)
         context.insert(page)
         page.folder = folder
         return page

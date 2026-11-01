@@ -146,7 +146,7 @@ struct RecentlyDeletedPage: View {
 
     private func row(_ page: Page) -> some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(page.title)
+            Text(page.displayTitle)
                 .font(.headline)
             Text(RecentlyDeletedCaption.caption(for: page))
                 .font(.caption)

@@ -21,6 +21,12 @@ nonisolated enum AIAction: String, Equatable, Sendable {
         }
     }
 
+    /// The name in a menu: a free reader's is marked Pro, as the Run
+    /// control's is, since choosing it opens the paywall.
+    func menuTitle(marksPro: Bool) -> String {
+        marksPro ? "\(title) (Pro)" : title
+    }
+
     var systemImage: String {
         switch self {
         case .explainBlock: "sparkles"

@@ -229,6 +229,41 @@ struct HomeSectionsTests {
         #expect(!HomeLayout.isCompact(compactSizeClass: false, width: 820), "a portrait 11-inch")
         #expect(!HomeLayout.isCompact(compactSizeClass: false, width: 0), "not measured yet: the size class decides")
     }
+
+    @Test("Folder tiles go across only as many as keep a name readable")
+    func folderColumns() {
+        // An iPad mini landscape beside the list: about 810 less 80 of margin.
+        // Four across was 170pt a tile and "Data Structures" lost its end.
+        #expect(HomeLayout.folderColumns(contentWidth: 730, isCompact: false) == 3)
+        #expect(HomeLayout.folderColumns(contentWidth: 1100, isCompact: false) == 4)
+        #expect(HomeLayout.folderColumns(contentWidth: 1152, isCompact: false) == 4, "capped at four")
+        #expect(HomeLayout.folderColumns(contentWidth: 620, isCompact: false) == 2)
+        #expect(HomeLayout.folderColumns(contentWidth: 300, isCompact: false) == 2, "never fewer than two")
+        #expect(HomeLayout.folderColumns(contentWidth: 700, isCompact: true) == 2, "a phone layout is two across")
+        #expect(HomeLayout.folderColumns(contentWidth: 0, isCompact: false) == 4, "not measured yet")
+        for width in stride(from: 300 as CGFloat, through: 1152, by: 4) {
+            let across = HomeLayout.folderColumns(contentWidth: width, isCompact: false)
+            let tile = (width - HomeLayout.folderTileSpacing * CGFloat(across - 1)) / CGFloat(across)
+            if across > 2 { #expect(tile >= HomeLayout.folderTileMinimumWidth, "\(width)pt across \(across)") }
+        }
+    }
+
+    @Test("\"Edited\" is worked out against the clock it is given, so it can be kept true")
+    func edited() {
+        let locale = Locale(identifier: "en_GB")
+        func edited(_ secondsAgo: TimeInterval) -> String {
+            HomeDate.edited(now.addingTimeInterval(-secondsAgo), now: now, locale: locale)
+        }
+        #expect(edited(5) == "Edited now")
+        #expect(edited(-30) == "Edited now", "a clock a little behind the note's")
+        #expect(edited(5 * 60) == "Edited 5 minutes ago")
+        // The same note a minute later reads differently: what the view's
+        // timeline relies on to move on while Home stays open.
+        let date = now.addingTimeInterval(-5 * 60)
+        #expect(HomeDate.edited(date, now: now.addingTimeInterval(60), locale: locale) == "Edited 6 minutes ago")
+        #expect(edited(3 * 3600) == "Edited 3 hours ago")
+        #expect(edited(86_400) == "Edited yesterday")
+    }
 }
 
 @Suite("Title screen")

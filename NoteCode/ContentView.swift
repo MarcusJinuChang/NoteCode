@@ -38,6 +38,9 @@ struct ContentView: View {
     /// Whether the title screen is over the window. Raised on a first launch
     /// and by Settings › Help and About › Welcome Screen.
     @State private var showsWelcomeScreen = false
+    /// Whether the launch has decided about the title screen, which it does
+    /// after the sidebar's launch delay. Consent waits for it (`ConsentGate`).
+    @State private var launchSettled = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -119,6 +122,7 @@ struct ContentView: View {
     var body: some View {
         navigation
         .environment(toasts)
+        .environment(\.coveredBySheet, showsSettings || showsExportAll)
         .overlay {
             if showsWelcomeScreen {
                 WelcomeScreen(onGetStarted: dismissWelcomeScreen)
@@ -169,6 +173,7 @@ struct ContentView: View {
             }
             syncOpenNoteClaim()
             claimWelcomeScreenOnFirstLaunch()
+            launchSettled = true
             makeWelcomeNoteOnFirstLaunch()
             purgeExpiredNotes()
             pruneNoteMemory()
@@ -180,8 +185,9 @@ struct ContentView: View {
                 NoteMemory().rememberOpened(selection)
                 withAnimation { columnVisibility = .detailOnly }
             } else {
-                // A note closed: Home, with the list beside it.
-                withAnimation { columnVisibility = .all }
+                // A note closed: Home, with the list beside it, on the curve
+                // the note shrinks on (`goHome`), not the default's.
+                withAnimation(Self.homeAnimation) { columnVisibility = .all }
             }
             if isCompact { syncCompactPath(toSelection: selection) }
         }
@@ -283,7 +289,7 @@ struct ContentView: View {
     @ViewBuilder
     private var noteDetail: some View {
         if let page = selection, isOpenElsewhere {
-            OpenElsewhereView(title: page.title, onGoHome: goHome)
+            OpenElsewhereView(title: page.displayTitle, onGoHome: goHome)
         } else if let page = selection {
             PageDetailView(
                 page: page,
@@ -318,7 +324,8 @@ struct ContentView: View {
             onShowFolder: { ask(.showFolder($0.persistentModelID)) },
             onSearch: { ask(.searchNotes) },
             onShowSettings: { showsSettings = true },
-            onOpenWelcomeNote: openWelcomeNote
+            onOpenWelcomeNote: openWelcomeNote,
+            consentMayStart: ConsentGate.isOpen(launchSettled: launchSettled, titleScreenUp: showsWelcomeScreen)
         )
     }
 
@@ -450,11 +457,23 @@ struct ContentView: View {
 
     /// Closes the open note and shows Home, with the list beside it: the
     /// house in a note's header, and ⇧⌘H.
+    ///
+    /// **One animation for all of it** (31 Oct). The note's shrinking, the
+    /// list coming in and the split view's change of style used to start on
+    /// three transactions, two of them on the default spring, and the list
+    /// popped in against a note still shrinking. Now the selection and the
+    /// column change in one transaction, and `onChange(of: selection)`
+    /// repeats the same column change on the same curve.
     private func goHome() {
-        withAnimation(.smooth(duration: 0.38)) { selection = nil }
-        withAnimation { columnVisibility = .all }
+        withAnimation(Self.homeAnimation) {
+            selection = nil
+            columnVisibility = .all
+        }
         compactPath = []
     }
+
+    /// The curve of the note shrinking to Home, and the list coming in with it.
+    static let homeAnimation: Animation = .smooth(duration: 0.38)
 
     /// Home's Show All: the list over Home.
     private func showList() {

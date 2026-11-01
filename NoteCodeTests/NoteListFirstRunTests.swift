@@ -84,11 +84,11 @@ struct NoteListFirstRunTests {
         #expect(next.orientation == .landscape)
     }
 
-    @Test("Open Note After Creating is off until chosen, and off leaves the open note open")
+    @Test("Open Note After Creating is on until switched off, and off leaves the open note open")
     func openAfterCreating() {
         let defaults = freshDefaults()
         #expect(defaults.object(forKey: NewNotes.opensAfterCreatingKey) == nil)
-        #expect(NewNotes.opensAfterCreatingByDefault == false)
+        #expect(NewNotes.opensAfterCreatingByDefault == true)
 
         let open = Page.create(orientation: .portrait, context: context)
         let made = Page.create(orientation: .portrait, context: context)

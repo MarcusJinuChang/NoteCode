@@ -20,7 +20,7 @@ of its folder. Both are in section 2 below only for what that test cannot see.
 
 - [ ] First launch (`-debug-first-launch`, or a fresh install): the title screen shows once, then the Welcome note is in the list. Never again after. — home-the-title-screen
 - [ ] Home on the iPad Pro 11-inch in landscape *and* portrait: Continue card, Recent, Folders, nothing cramped or cut off; the list's strip beside it. — home-the-title-screen (11-inch, portrait), the-page-fills-the-window
-- [ ] Home's Settings, Search and + buttons, a folder tile, Show All and ⇧⌘H each do what they say. — home-the-title-screen
+- [ ] Home's Settings button (and, in a compact width only, Search), a folder tile, Show All and ⇧⌘H each do what they say. — home-the-title-screen
 - [ ] The house button from a note goes to Home; reopening the app puts you where you were (note, page). — home-the-title-screen
 - [ ] The title screen in dark mode, and with Reduce Motion on (it fades, doesn't slide). — home-the-title-screen
 - [ ] A note's thumbnail updates after an edit; a note with ink has ink in its thumbnail. — home-the-title-screen
@@ -28,6 +28,8 @@ of its folder. Both are in section 2 below only for what that test cannot see.
 - [ ] Going Home from a note: the note shrinks into the card it was opened from (a note opened from the list shrinks toward the middle); with Reduce Motion on it cross-fades. The joined list/Home pill at the top left reads in light and dark, and the system's own sidebar button is gone. — **W3** #101
 - [ ] Home's excerpt for a note shows its text, not its Markdown (no `#`, `**`, `-`); a line like `#include` stays as typed. — **B1** #85
 - [ ] Home and the list's foot show a banner while you are free, with "Remove ads"; buying Pro removes them at once. First Home visit asks for consent (EEA/UK) and no ATT prompt at launch; the ATT prompt comes on a later Home visit. — **P3** #112
+- [ ] Home's ad strip is opaque and sits below the page: Home never scrolls under it, "Remove ads" sits in the strip under the banner covering nothing, and the banner is at most about 90pt tall (standard anchored adaptive; was 150pt). Same on the list's foot. — 31 Oct
+- [ ] Home in dark mode: thumbnails (Continue, Recent, list rows) are black-paper pictures with light text and a dark code panel, not white; light mode unchanged. "Edited 5 minutes ago" on the Continue card moves on within a minute or two while Home stays open. Folder names ("Data Structures") whole or on two lines on an iPad mini, landscape and portrait, beside the list. — 31 Oct
 - [ ] The banner stays inside Home's column in landscape and portrait (Home scrolls, nothing cut off at the sides). Beside the list on a portrait 11-inch, Home takes the phone layout: the Continue card's title whole, folder tiles named, the buttons stacked; as Pro (no banner) too. — #117
 - [ ] On the TestFlight build: the banners are the real units (no "Test Ad" label), or show no fill while the app isn't linked in AdMob. Add the iPad as an AdMob test device first: taps on your own live ads count as invalid traffic. — QC A-items
 - [ ] The page fills the window: header (Home, ☰, title; lock, Share, •••), floating bottom bar, the side-bar strip all look right, with Reduce Motion on too. — the-page-fills-the-window, ROADMAP
@@ -146,10 +148,7 @@ do the steps, pull `tmp/selectionprobe.log` with
 - [ ] Draw down past the page foot: a page is added (end point decides); Add Page from the menu; the buffer while drawing. — **FB 8**, pages
 - [ ] A stroke across a page break stays on the same words in seamless, compressed and print layouts; undo and redo take a stroke and its overflow together. — pages
 - [ ] Move between pages by scrolling fast and by the outline: ink isn't blank for a moment. Note how long. — **FB 27**, pages
-- [ ] Long note (20 pages with dots) scrolls at speed without hitching. — paper-styles, pages
-- [ ] ••• › Paper: pick each style, spacing and strength; the tick follows; Blank hides Spacing and Strength; the note's date and the list order don't change. — paper-styles
-- [ ] Settings › Notes › Paper, then "+": the new note has that paper, an old note doesn't change. — paper-styles
-- [ ] Pinch-zoom to 4x on grid and dots and draw along a rule with the Pencil: paper stays on the same words and ink as you zoom, and is sharp, no shimmer. — paper-styles, ROADMAP
+- [ ] Long note (20 pages) scrolls at speed without hitching. — paper-styles, pages
 - [ ] Switch seamless, compressed and print layout and rotate the iPad: paper stays with its page body. — paper-styles
 - [ ] Share ▸ PDF, open it in Files: paper is faint and vector (zoom in), margins plain; the PDF of a quote across a page break. — paper-styles, obsidian-s-other-marks
 - [ ] Duplicate a ruled note; Export All with a ruled note that has ink. — paper-styles

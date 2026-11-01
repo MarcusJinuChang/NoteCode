@@ -1,4 +1,16 @@
 # Paper styles
+
+**Removed on 31 Oct 2026, for the full release (Marcus: "Remove paper styles
+(dots, grid, etc.) for the full release; there should be a text alignment
+system but it can be implemented later").** Every note shows plain paper. The
+choice came out of ••• › Paper, Settings › Notes, templates and the
+Welcome note; `Paper.swift`, `PaperMenu.swift`, the shape layers in
+`PageDecorationView`, the PDF and thumbnail drawing, `-debug-paper` and their
+tests are deleted (the history has them). `Page.paperStyle` stays in the
+model, unused, so version 1's hashes hold (`ModelFreezeTests`); drop it with
+the next schema change. `NoteThumbnail.version` went to 9. Text alignment is
+on docs/ROADMAP.md › After 1.0. What follows is the design as it was, kept for
+whoever builds it back; the sections below describe code that is no longer there.
 Roadmap item "Paper styles" (24 Oct, branch `claude/clever-mccarthy-56daf5`).
 Dots, grid and lined paper behind a note's text and ink, per note, with a
 default for new notes. Everything decided here was decided without Marcus

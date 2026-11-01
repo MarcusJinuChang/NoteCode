@@ -28,12 +28,15 @@ v3 phase 4 (13 Oct, `docs/archive/ui-design-v3-implementation.md`).
   - Tags other than these are unknown, so a block tagged `ruby` still has no
     Run and keeps its tag as the language button's label.
 - **Output blocks** (```` ```output ````, `CodeBlockKind.output`,
-  `CodeBlock.isOutput`): a console. Dark panel in both appearances
-  (`CodeOutputPanel`: `#141416`/`#E5E5EA`/`#A1A1A6` light, `#2C2C2E`/`#F2F2F7`/
-  `#8E8E93` dark), the label "Output", Copy and no Run, no highlighting, no
-  auto-indent, no line numbers. Measured contrast: text 14.7:1 light, 12.5:1
-  dark; the design's label colour is 7.2:1 light and **4.3:1 dark**, under 4.5
-  for 13pt text, kept as the design has it and tested at 4:1.
+  `CodeBlock.isOutput`): a console on the code panel's own colours
+  (31 Oct; it was a near-black panel in both appearances, which sat as a black
+  hole on a white page). `CodeOutputPanel`: `#F2F2F7`/`#111113`/`#6C6C70`
+  light, `#1C1C1E`/`#F5F5F7`/`#98989D` dark (fill/text/label; the code panel's
+  `secondarySystemBackground`, `label` and `secondaryLabel` resolved, with the
+  text a hair off `.label` so the styler can tell it). The label "Output", Copy and no Run, no highlighting, no
+  auto-indent, no line numbers. Contrast, computed from the tokens:
+  text 16:1 light, 15:1 dark; label about 4.8:1 light and 6:1 dark. (Before
+  the change the dark label was 4.3:1 and tested at 4:1.)
   - **Three things the retag between a language and Output taught**, so they
     aren't found again. (1) Python and output are both six letters, so the
     styler's block signature didn't change and the text kept its old colour;
@@ -138,8 +141,8 @@ v3 phase 4 (13 Oct, `docs/archive/ui-design-v3-implementation.md`).
 - **Not checked:** the Pencil; a real hardware keyboard (⇥, ⇧⇥, the row
   disappearing); a floating keyboard; the row in a narrow Split View; VoiceOver
   on the keys; Return in the Korean layout the simulator started with was the
-  only keyboard used; the Output panel's selection highlight (orange at 30% on
-  a near-black panel) beyond looking at it; line numbers at 4+ digits on
+  only keyboard used; the Output panel's selection highlight (orange at 30%, chosen
+  for the old near-black panel; now on a light one, not looked at) beyond looking at it; line numbers at 4+ digits on
   screen (the area is tested for five); the macOS app running (it builds).
 
 ## The Run panel (R3, 28 Oct)

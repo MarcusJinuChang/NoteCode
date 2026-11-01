@@ -159,6 +159,9 @@ W1's candidate (a), as recommended, with its follow-ups:
 - **Indicator**: a 3pt capsule on `PageView` at its right edge
   (`PageView.indicatorFrame`, pure), full window height, ignoring the
   keyboard inset; it fades 0.8s after the offset last moved.
+  The text view's own indicator is off (`showsVerticalScrollIndicator`,
+  31 Oct): it was never turned off, so a second one showed inside the page
+  sheet beside this one.
 - **Sheet**: `PageEdgeView` (page colour, a hairline in `separator` and a
   soft shadow) sits behind the text view in seamless and compressed, hidden
   in print layout, whose sheets already carry the same border and shadow
