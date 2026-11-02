@@ -139,6 +139,9 @@ finished plans in `docs/archive/`. Still live for submission:
 `docs/release-1.0/R5-submission.md` (review notes, privacy label, by-hand steps).
 Everything still to see on a real iPad, in the order of a walk through the app:
 [docs/ipad-test-checklist.md](docs/ipad-test-checklist.md).
+How the app was built, phase by phase with PR numbers:
+[docs/timeline.md](docs/timeline.md). Before restructuring code (moving files,
+splitting the large ones), read [docs/refactoring.md](docs/refactoring.md).
 
 ## The model
 
