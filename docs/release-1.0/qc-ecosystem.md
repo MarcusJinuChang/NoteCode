@@ -4,13 +4,18 @@ Written 29 Oct 2026 against `release-1.0-integration` (11c8273). Focused
 research, not exhaustive: where a claim rests on a secondary source, or I
 could not verify it, the text says so. No app code was changed.
 
-**Where it stands (31 Oct).** Everything in "Fix before release" that is code
+**Submitted 1 Nov** as 1.1.0 (4), now in App Review; the pages are
+published and App Store Connect is filled in. Still open from below: Judge0's
+retention, the TestFlight sandbox pass (R2, not done before submitting) and
+`app-ads.txt`, all in `docs/ROADMAP.md` › "What is left".
+
+**Where it stood (31 Oct).** Everything in "Fix before release" that is code
 is built and on `main`: the privacy link always set and the policy rewritten
 (R5, #114), the manifest pinned to the label (`AppStoreReadinessTests`), the
 Info.plist ad and encryption keys, UMP before ATT and Ad Privacy Options (P3
 #112, #116), the first-Run notice (#116) and the paywall's cancel line and
 Try Again (#116). What is left is by hand and listed in `docs/ROADMAP.md` ›
-"By hand, to release": hosting the pages, the App Store Connect metadata,
+"By hand, to release" (now "In App Review"): hosting the pages, the App Store Connect metadata,
 Judge0's retention, a sandbox run on TestFlight (R2), screenshots and
 `app-ads.txt`. Two things below no longer hold. Since #118 (30 Oct) removed
 the choice of where code runs, R6's fallback is the Run panel's *Open on a

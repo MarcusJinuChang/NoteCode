@@ -32,8 +32,8 @@ Google Mobile Ads. The run proxy is TypeScript on Cloudflare Workers.
 
 ## Status
 
-1.0 is built and merged; App Store submission is planned for November 2026,
-after the by-hand release steps and a walk through the app on a real iPad.
+The first release (1.1.0, for iPad, iPhone and the Duo) was submitted on
+1 November 2026 and is in App Review; it releases automatically on approval.
 See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Docs

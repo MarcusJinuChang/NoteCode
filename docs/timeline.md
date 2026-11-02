@@ -23,7 +23,7 @@ in AGENTS.md) and the archived plans. Status and what is left are in
 | 24–25 Oct | Feedback streams | #81 |
 | 26–29 Oct | 1.0 plan: streams B, O, S, T, W, L, R, P in two waves | #82–#109 |
 | 29 Oct–1 Nov | QC passes, submission prep, release fixes and polish | #110–#123 |
-| 1 Nov | Submitted to App Review (iPad, iPhone, Duo) | — |
+| 1 Nov | 1.1.0 (4) submitted; in App Review (iPad, iPhone, Duo) | — |
 
 ## July–August: the editor
 
@@ -178,8 +178,10 @@ Wave 1 merged 28–29 Oct; wave 2 (#94–#108) through the integration branch
   support address (#120); paper styles removed; device family widened to
   iPhone and iPad.
 - **1 Nov.** Polish batch (#121); ads wait for the store before asking for
-  consent (#122); iPhone and the Duo named in 1.0.1 (#123). **Submitted to
-  App Review**, released automatically on approval.
+  consent (#122); iPhone and the Duo named in 1.0.1 (#123). **1.1.0 (4)
+  submitted to App Review**, with NoteCode Pro, its subscription and three
+  tips, to release automatically on approval. Version 1 of the model ships
+  with it.
 - **2 Nov.** Open: an App Store rating prompt after a note closes (#124).
 
 ## Pace
