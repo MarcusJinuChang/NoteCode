@@ -55,6 +55,10 @@ final class AdConsent {
     private(set) var canRequestAds = false
     /// Non-personalised unless the reader allowed tracking.
     var personalised: Bool { platform.trackingAllowed() == true }
+    /// Whether the reader has answered the tracking prompt, the last thing a
+    /// Home visit asks a free reader. Until then the next visit may show it,
+    /// so the rating prompt waits (`ReviewPrompt`).
+    var trackingAnswered: Bool { platform.trackingAllowed() != nil }
     /// Whether Help and About offers Ad Privacy Options: UMP says so where
     /// the law gives the reader a way to change their answer (App Review
     /// 5.1.1(ii)).

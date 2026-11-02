@@ -5,6 +5,7 @@
 
 import SwiftUI
 import SwiftData
+import StoreKit
 import UniformTypeIdentifiers
 
 struct ContentView: View {
@@ -95,6 +96,8 @@ struct ContentView: View {
 #endif
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.requestReview) private var requestReview
+    @Environment(ProStatus.self) private var pro: ProStatus?
 
     /// True when a debug launch argument opened a note, in a store of its own
     /// (or `-debug-keep-defaults` says the saved state is not this launch's).
@@ -178,16 +181,18 @@ struct ContentView: View {
             purgeExpiredNotes()
             pruneNoteMemory()
         }
-        .onChange(of: selection) {
+        .onChange(of: selection) { closed, _ in
             if selection != newPage { newPage = nil }
             syncOpenNoteClaim()
             if let selection {
                 NoteMemory().rememberOpened(selection)
+                ReviewPrompt().noteOpened()
                 withAnimation { columnVisibility = .detailOnly }
             } else {
                 // A note closed: Home, with the list beside it, on the curve
                 // the note shrinks on (`goHome`), not the default's.
                 withAnimation(Self.homeAnimation) { columnVisibility = .all }
+                askForReviewIfDue(closing: closed)
             }
             if isCompact { syncCompactPath(toSelection: selection) }
         }
@@ -538,6 +543,30 @@ struct ContentView: View {
               let ids = try? modelContext.fetchIdentifiers(FetchDescriptor<Page>())
         else { return }
         NoteMemory().prune(keeping: Set(ids))
+    }
+
+    /// A note closed back to Home: the one moment the app asks for a rating,
+    /// when `ReviewPrompt` says it's due. Not for a note just moved to Recently
+    /// Deleted, not in a debug launch (a UI test would meet the sheet), and not
+    /// while a free reader's tracking prompt is still to come, so the two
+    /// system prompts never land on the same Home visit.
+    private func askForReviewIfDue(closing note: Page?) {
+        guard let note, note.modelContext != nil, !note.isDeleted, note.isLive else { return }
+#if DEBUG && canImport(UIKit)
+        if DebugSession.shared.options.isActive { return }
+#endif
+        guard pro?.isPro == true || AdConsent.shared.trackingAnswered else { return }
+        let prompt = ReviewPrompt()
+        let version = ReviewPrompt.version()
+        guard prompt.isDue(version: version) else { return }
+        Task {
+            // Once the note has shrunk back into Home, and only if the reader
+            // is still there rather than in the next note.
+            try? await Task.sleep(for: .seconds(1))
+            guard selection == nil else { return }
+            prompt.markAsked(version: version)
+            requestReview()
+        }
     }
 
     /// Gives a first launch its tour. Left in the list rather than opened:
