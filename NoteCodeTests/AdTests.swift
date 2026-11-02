@@ -21,7 +21,9 @@ struct AdTests {
         var consentGranted = true
         func gatherConsent() async -> Bool { calls.append("consent"); return consentGranted }
         func startSDK() async { calls.append("start") }
-        func trackingAllowed() -> Bool? { nil }
+        /// The tracking prompt's answer, nil while not asked. A read, so not in `calls`.
+        var tracking: Bool?
+        func trackingAllowed() -> Bool? { tracking }
         func requestTracking() async { calls.append("tracking") }
         /// What UMP says about Privacy Options. A read, so not in `calls`.
         var optionsRequired = false
@@ -94,6 +96,17 @@ struct AdTests {
         await consent.homeAppeared(isPro: false)
         await consent.homeAppeared(isPro: false)
         #expect(platform.calls == ["consent", "start", "tracking"])
+    }
+
+    @Test("Tracking counts as answered once the reader said yes or no, not while unasked")
+    func trackingAnswered() {
+        let platform = FakePlatform()
+        let consent = AdConsent(platform: platform, defaults: defaults())
+        #expect(!consent.trackingAnswered)
+        platform.tracking = false
+        #expect(consent.trackingAnswered)
+        platform.tracking = true
+        #expect(consent.trackingAnswered)
     }
 
     @Test("A refused consent form starts nothing and shows no banner")
