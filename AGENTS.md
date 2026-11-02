@@ -134,11 +134,13 @@ something exists, and update its rows in the same PR that adds, changes or remov
 
 Planning docs: `docs/ROADMAP.md` (status, what is left, and the After 1.0 list);
 the 1.0 plan is finished and lives in `docs/archive/release-1.0/` with the other
-finished plans in `docs/archive/`. Still live for submission:
+finished plans in `docs/archive/`. Still live while 1.0 is in App Review:
 `docs/release-1.0/qc-ecosystem.md` (App Review and launch analysis) and
 `docs/release-1.0/R5-submission.md` (review notes, privacy label, by-hand steps).
 Everything still to see on a real iPad, in the order of a walk through the app:
 [docs/ipad-test-checklist.md](docs/ipad-test-checklist.md).
+How the app was built, phase by phase with PR numbers:
+[docs/timeline.md](docs/timeline.md).
 
 ## The model
 
@@ -147,9 +149,9 @@ Everything still to see on a real iPad, in the order of a walk through the app:
 `NoteMigrationPlan`. Read [docs/design/the-model.md](docs/design/the-model.md)
 before changing a stored attribute. The rules:
 
-- **Version 1 is frozen by its hashes** (`ModelFreezeTests`). Before the App
-  Store release a model change may edit version 1 in place and update the
-  pinned hashes; after it, a changed hash means a new schema version.
+- **Version 1 is frozen by its hashes** (`ModelFreezeTests`), and has
+  shipped: the build in App Review since 1 Nov carries it and releases on
+  approval, so a changed hash now means a new schema version.
 - **Shaped for CloudKit**: every relationship optional, every attribute
   optional or with a default, nothing `.unique`.
 - **A store that can't be opened looks like lost notes**: `Storage` falls

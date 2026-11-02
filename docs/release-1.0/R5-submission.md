@@ -1,5 +1,8 @@
 # R5: submission text for Run and ads
 
+**Used for the 1 Nov submission** (1.1.0 (4), in App Review). Keep it in
+step with App Store Connect if an answer to App Review changes anything.
+
 What goes into App Store Connect and onto `gh-pages`. The privacy page itself
 is `docs/site/privacy.md` (paste-ready: it is the `gh-pages` `privacy.md`
 as it should be) and `docs/site/support.md`.

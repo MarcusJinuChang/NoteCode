@@ -1,9 +1,11 @@
 # NoteCode roadmap
 
-Source of truth for status and what is left. Revised 31 October 2026, at 1.0.
-What the app contains, feature by feature, is `docs/features.md`. The 1.0 plan
-is finished and archived in `docs/archive/release-1.0/`; what is still live for
-submission is `docs/release-1.0/R5-submission.md` and `qc-ecosystem.md`.
+Source of truth for status and what is left. Revised 2 November 2026, with
+1.0 in App Review. What the app contains, feature by feature, is
+`docs/features.md`. The 1.0 plan is finished and archived in
+`docs/archive/release-1.0/`; what is still live during review is
+`docs/release-1.0/R5-submission.md` and `qc-ecosystem.md`. How the app got
+here, phase by phase: `docs/timeline.md`.
 Feature-by-feature design notes are in `docs/design/` (index in AGENTS.md);
 finished plans are in `docs/archive/`. The long per-branch history this file
 used to carry is in git (`git log -p docs/ROADMAP.md`).
@@ -11,8 +13,9 @@ used to carry is in git (`git log -p docs/ROADMAP.md`).
 | | |
 |---|---|
 | Drawing layer | Done 3 Oct |
-| 1.0 | Everything planned is built and merged to `main` (29 Oct, last change #118 on 31 Oct); waiting on the by-hand release steps below |
-| App Store submission | Nov 2026 |
+| 1.0 | Built and merged to `main` (29 Oct; polish and fixes to #123, 1 Nov) |
+| App Store submission | Submitted 1 Nov as 1.1.0 (4), iPad, iPhone and Duo; **in App Review**, automatic release on approval |
+| EU storefronts | Waiting on Apple to verify EU trader status |
 | Duo launch | 23 Oct 2026 (runs iOS 27.1) |
 | Second version | AI + feedback, Mar 2027 |
 
@@ -53,36 +56,37 @@ Import/Export, Settings and tip jar:
 
 ## What is left
 
-### By hand, to release (Marcus)
+### In App Review (Marcus)
 
-Done: the run proxy is deployed (28 Oct, `JUDGE0_KEY` set,
-`PRO_PRODUCT_IDS` and `ALLOWED_ENVIRONMENTS` in `wrangler.toml`), W-9 sent,
-AdMob set up, the subscription created in App Store Connect, the support
-address chosen (31 Oct: `notecodesupport@gmail.com`, also the EU trader
-contact, in `AppInfo.feedbackAddress` and both pages).
+Submitted 1 Nov as **1.1.0 (4)** with NoteCode Pro, its subscription and
+the three tips attached; automatic release on approval. Done before
+submitting: the run proxy deployed (28 Oct), W-9, AdMob, the pages on
+`gh-pages` (privacy and support, 31 Oct), the support address
+(`notecodesupport@gmail.com`), and App Store Connect (metadata, screenshots
+for iPad, iPhone and the Duo, privacy label, review notes, age rating 13+ to
+match AdMob's T ceiling). Not on Apple Silicon Macs or Vision Pro.
 
-1. **Version and build number.** The App Store Connect version and
-   `MARKETING_VERSION` must match; bump `CURRENT_PROJECT_VERSION` above the
-   last upload, in both configurations.
-2. **Publish the pages** from `main`: `docs/site/privacy.md` and `support.md`
-   to `gh-pages`, the support link in its `index.md` (steps in
-   `R5-submission.md`). `gh-pages` still has the 17 Oct page saying the app
-   collects nothing and has no ads, and the build links it.
+While it is in review:
+
+1. **Answer App Review** if it comes back; review notes and the label are in
+   `R5-submission.md`. A rejected build needs the build number bumped before
+   it is uploaded again.
+2. **EU trader status** is with Apple; the EU storefronts follow once it
+   clears.
 3. **Ask RapidAPI/Judge0 how long submissions are kept**; edit the policy's
    Judge0 sentence, and drop "Other User Content" only if they keep nothing.
-4. **App Store Connect:** Paid Applications Agreement Active; EU trader
-   status verified (or the EU out of Availability); Small Business Program;
-   the three tips and the subscription with real review screenshots, attached
-   to the version; privacy label and review notes from `R5-submission.md`;
-   description (Terms of Use link, no sync yet), name, subtitle, keywords,
-   13-inch screenshots; age rating (ads) and AdMob's content ceiling to match.
-5. **Upload and TestFlight**, signed in with a sandbox tester, and the iPad
-   added as an AdMob test device first. Walk `docs/ipad-test-checklist.md`
-   on that build: purchases, Run (the proxy needs a sandbox transaction; an
-   Xcode build gets 402) and real ad units can't be checked any other way.
-6. **After it's live:** link the app in AdMob; `app-ads.txt` needs a
-   developer-site root (a `MarcusJinuChang.github.io` user-site repo), which
-   the `/NoteCode/` project page can't serve.
+4. **The TestFlight sandbox pass** wasn't done before submitting. Walk
+   `docs/ipad-test-checklist.md` on build 4 signed in with a sandbox tester:
+   purchases, Run (an Xcode build gets 402 from the proxy) and real ad units
+   can't be checked any other way.
+
+After it's live:
+
+5. Link the app in AdMob; `app-ads.txt` needs a developer-site root (a
+   `MarcusJinuChang.github.io` user-site repo), which the `/NoteCode/`
+   project page can't serve.
+6. The model's version 1 is now shipped: any change to a stored attribute
+   is a new schema version (`docs/design/the-model.md`).
 
 Keep `Sandbox` in the proxy's `ALLOWED_ENVIRONMENTS` after release: App Review
 and TestFlight buy in the sandbox on the production build.

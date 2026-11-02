@@ -17,10 +17,12 @@ which holds version 1 and no stages (17 Oct, step 13 of docs/ROADMAP.md).
   test pins them (`NSManagedObjectModel.makeManagedObjectModel(for:)`,
   `entityVersionHashesByName`). Adding an attribute fails it, and so does
   opening stores without the plan (both mutation-checked, 17 Oct).
-  - **Before the App Store release** a model change may still edit version
-    1 in place and update the pinned hashes; TestFlight testers then
-    reinstall.
-  - **After it, a changed hash means a new version.** Copy the classes as
+  - **Before the App Store release** a model change could edit version 1
+    in place and update the pinned hashes; TestFlight testers then
+    reinstalled. That window closed on 1 Nov: 1.1.0 (4), in App Review,
+    carries version 1 and releases automatically on approval, so every
+    later build opens stores it made.
+  - **Now a changed hash means a new version.** Copy the classes as
     they were into `NoteSchemaV1` (frozen: same names, types, defaults,
     external storage and relationships), move the live ones to
     `extension NoteSchemaV2`, point the typealiases at it, add a stage, and
