@@ -83,8 +83,9 @@ While it is in review:
    it is uploaded again.
 2. **EU trader status** is with Apple; the EU storefronts follow once it
    clears.
-3. **Ask RapidAPI/Judge0 how long submissions are kept**; edit the policy's
-   Judge0 sentence, and drop "Other User Content" only if they keep nothing.
+3. **Judge0's retention** (settled 3 Nov): it keeps submissions and deletion
+   is off on the hosted service, so "Other User Content" stays on the label
+   and the policy's sentence says Judge0 keeps them (docs/design/shipping.md).
 4. **The TestFlight sandbox pass** wasn't done before submitting. Walk
    `docs/ipad-test-checklist.md` on build 4 signed in with a sandbox tester:
    purchases, Run (an Xcode build gets 402 from the proxy) and real ad units
@@ -120,6 +121,9 @@ hardware-keyboard chords, export and import in Files, a physical Duo.
   autocorrect off both work (features.md › Autocorrect).
 - Weight and italic are not drawn in syntax colours (`ColorRun` carries
   colour only).
+- The first-Run notice (`RunDisclosure.message`) says Judge0 keeps code
+  "for a while"; it keeps it, with no way to delete it. A fix for 1.1.1, in
+  the policy's words.
 - Pinned Compiler Explorer compiler ids are a maintenance item.
 - So are the Judge0 CE language ids in `server/run-proxy/languages.json`
   (read from ce.judge0.com on 26 Oct; the site has no "latest" alias).
