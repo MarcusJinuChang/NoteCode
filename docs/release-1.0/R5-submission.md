@@ -54,8 +54,8 @@ as it should be) and `docs/site/support.md`.
 The last seven match `PrivacyInfo.xcprivacy` exactly (`AppStoreReadinessTests`).
 Check Google's current AdMob list in "Google's Mobile Ads SDK data disclosure"
 before submitting; add whatever it adds to both the label and the manifest.
-Judge0's retention is unconfirmed, so "Other User Content" is declared on the
-safe side. Purchases/Usage: the subscription id never leaves Apple's system
+Judge0 keeps submissions and its hosted service can't delete them (checked
+3 Nov), so "Other User Content" stays declared. Purchases/Usage: the subscription id never leaves Apple's system
 except as the opaque signed transaction the proxy checks, and nothing is stored
 against it but a count, so no entry for it.
 
@@ -75,9 +75,9 @@ Tracking: yes (the app uses ATT).
 5. Subscription: attach the product to the version, add its review screenshot
    (the paywall).
 6. Age rating: answer the ads question.
-7. Ask RapidAPI/Judge0 how long hosted submissions are kept; then edit the
-   Judge0 sentence of the privacy page (and drop "Other User Content" only if
-   they keep nothing).
+7. Judge0's retention: settled 3 Nov. It keeps submissions and deletion is
+   off on the hosted service, so the privacy page says so and "Other User
+   Content" stays (docs/design/shipping.md).
 
 ## Marcus, on `gh-pages`
 

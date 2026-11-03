@@ -146,11 +146,14 @@ What the policy, the manifest and the App Store label have to agree on:
 | Device ID, advertising data, product interaction, coarse location, crash and performance data, other diagnostics | Google AdMob (free readers) | no | yes, only if ATT is allowed | each as in `PrivacyInfo.xcprivacy` |
 | Subscription id (opaque), IP | proxy, a day's/minute's count only | no | no | not collected (not stored beyond the counters; not linked to identity) |
 
-- **Judge0's retention is unverified.** Judge0 stores a submission to hand
-  back by token; the hosted service's retention period is not published
-  where we could find it. The policy says it "may keep submissions for a time
-  we do not control" and tells readers not to run secrets. Marcus should ask
-  RapidAPI/Judge0 and tighten or loosen the sentence.
+- **Judge0 keeps submissions** (checked 3 Nov). Judge0 stores a submission
+  to hand back by token and publishes no retention period, and its hosted
+  service has deletion switched off (`"enable_submission_delete": false` at
+  `ce.judge0.com/config_info`), so neither we nor a reader can remove one.
+  The policy says Judge0 keeps them and we can't delete them, and tells
+  readers not to run secrets; the label keeps **Other User Content**. The
+  first-Run notice (`RunDisclosure.message`) still says "for a while"
+  (ROADMAP › Known problems).
 - **The first-Run notice and Ad Privacy Options** (QC items 7 and 5, built
   30 Oct). The panel holds the first run in the app and says where the code
   goes before anything is sent (`RunDisclosure`, the policy's own words in

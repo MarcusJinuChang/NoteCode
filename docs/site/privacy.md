@@ -39,9 +39,9 @@ sending anything, and nothing is sent unless you choose Run.
   signed transaction the App Store gives the app). The service checks it with
   Apple's certificates and uses only its opaque subscription number to count
   runs. It is not linked to your name, email or Apple ID.
-- **Judge0** receives the code and input to run them. Judge0 may keep
-  submissions on its servers for a time we do not control, so do not put
-  passwords, keys or other secrets in a code block you run. Judge0's privacy
+- **Judge0** receives the code and input to run them. Judge0 keeps
+  submissions on its servers, and its service does not let us delete them,
+  so do not put passwords, keys or other secrets in a code block you run. Judge0's privacy
   policy applies to what it keeps.
 
 Readers without Pro have no Run: tapping it shows what NoteCode Pro includes,
