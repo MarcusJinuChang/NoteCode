@@ -1,0 +1,45 @@
+#!/bin/zsh
+# Shared by check.sh and perf.sh: the destination, the simulator lock and the
+# one xcodebuild invocation. Source it; it runs nothing.
+
+root=${0:A:h:h}
+sim=${NOTECODE_SIM:-iPad Pro 13-inch (M5)}
+packages=~/Library/Developer/NoteCode-SourcePackages
+tmp=${TMPDIR:-/tmp}/notecode-check
+mkdir -p "$tmp"
+
+# Two sessions must never share the simulator (AGENTS.md › Build/test: the
+# "Busy … failed preflight checks" failures). mkdir is atomic; the trap
+# removes the lock however the script ends. A lock left by a dead run is
+# taken over once its pid is gone.
+take_lock() {
+  local lock=$tmp/sim.lock
+  while ! mkdir "$lock" 2>/dev/null; do
+    local owner; owner=$(cat "$lock/pid" 2>/dev/null || true)
+    if [[ -n $owner ]] && ! kill -0 "$owner" 2>/dev/null; then
+      rm -rf "$lock"; continue
+    fi
+    print -u2 "waiting for the simulator (held by pid ${owner:-?})…"
+    sleep 5
+  done
+  print $$ > "$lock/pid"
+  trap 'rm -rf "'"$lock"'"' EXIT INT TERM
+}
+
+# xcode_test <log> <result bundle> <-only-testing:… …>
+xcode_test() {
+  local log=$1 bundle=$2; shift 2
+  rm -rf "$bundle"
+  xcodebuild test -project "$root/NoteCode.xcodeproj" -scheme NoteCode \
+    -destination "platform=iOS Simulator,name=$sim" \
+    "$@" -parallel-testing-enabled NO \
+    -clonedSourcePackagesDirPath "$packages" \
+    -resultBundlePath "$bundle" > "$log" 2>&1
+}
+
+# Suite names → -only-testing arguments. A bare name is a suite (or a
+# Suite/test); Swift Testing matches on the type name.
+only_args() {
+  if (( $# == 0 )); then print -- "-only-testing:NoteCodeTests"; return; fi
+  local s; for s in "$@"; do print -- "-only-testing:NoteCodeTests/$s"; done
+}

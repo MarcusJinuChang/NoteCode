@@ -58,6 +58,7 @@ struct StylingPerformanceTests {
         _ = DocumentStyler.applyStyling(to: textView, source: source, blocks: blocks, previousSignatures: [])
         let seconds = Date().timeIntervalSince(start)
 
+        reportPerf("StylingPerformanceTests/fullPassCost", seconds: seconds)
         #expect(seconds < 0.1, "full pass over \(blocks.count) blocks took \(seconds)s")
     }
 
@@ -90,6 +91,7 @@ struct StylingPerformanceTests {
         }
 
         let best = times.min() ?? 0
+        reportPerf("StylingPerformanceTests/keystrokeCost", seconds: best)
         #expect(best < 0.02, "keystroke restyle took \(best)s")
     }
 
@@ -101,6 +103,7 @@ struct StylingPerformanceTests {
         let blocks = DocumentParser.parse(source)
         let seconds = Date().timeIntervalSince(start)
 
+        reportPerf("StylingPerformanceTests/parseCost", seconds: seconds)
         #expect(blocks.count == 500)
         #expect(seconds < 0.05, "parsing \(source.count) characters took \(seconds)s")
     }

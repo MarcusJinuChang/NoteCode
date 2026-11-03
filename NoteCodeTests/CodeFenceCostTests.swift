@@ -86,6 +86,9 @@ struct CodeFenceCostTests {
         let typingMedian = Self.median(typing)
 
         print("FENCECOST caret into a block: \(Self.median(into) * 1000)ms, out: \(Self.median(out) * 1000)ms; a keystroke there: \(typingMedian * 1000)ms")
+        reportPerf("CodeFenceCostTests/caretMoveCost.into", seconds: Self.median(into))
+        reportPerf("CodeFenceCostTests/caretMoveCost.out", seconds: Self.median(out))
+        reportPerf("CodeFenceCostTests/caretMoveCost.keystroke", seconds: typingMedian)
         #expect(Self.median(into) < 0.1, "a caret move into a block took \(Self.median(into))s")
         #expect(Self.median(out) < 0.1, "a caret move out of a block took \(Self.median(out))s")
         #expect(editsByMoves == 0, "caret moves edited the text storage \(editsByMoves) times")

@@ -259,6 +259,7 @@ struct NotePDFTests {
         let pdf = try await Self.pdf("Handwritten", ink: ink)
         let took = Date().timeIntervalSince(start)
 
+        reportPerf("NotePDFTests/printingCost", seconds: took)
         // 930 strokes to a sheet, so the third has the last 140.
         try #require(pdf.pageCount == 3)
         let third = try #require(Bitmap(pdfPage: pdf.page(at: 2)))
