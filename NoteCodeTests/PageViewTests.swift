@@ -1818,6 +1818,8 @@ struct PageViewTests {
         harness.switchTo(PageLayout(mode: .print))
         let switched = Date().timeIntervalSince(switching)
 
+        reportPerf("PageViewTests/openingCost.open", seconds: opened)
+        reportPerf("PageViewTests/openingCost.switch", seconds: switched)
         #expect(harness.page.canvas.markup.subelements.strokes.count == 2000)
         #expect(opened < 0.6, "opening took \(opened)s")
         #expect(switched < 0.9, "switching to print layout took \(switched)s")

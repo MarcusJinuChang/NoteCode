@@ -62,6 +62,7 @@ struct TextSizeCostTests {
         // Measured 26 Oct on the simulator: 55 to 100ms, four fifths of it layout,
         // against the plan's 100ms. Loose, like `typingCost`: this catches a
         // restyle that lays the whole note out twice, not noise.
+        reportPerf("TextSizeCostTests/firstFrame", seconds: worst / 1000)
         #expect(worst < 200, "a size change took \(Int(worst))ms to its first frame")
         withExtendedLifetime(opened) {}
     }

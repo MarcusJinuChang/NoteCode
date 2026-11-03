@@ -178,6 +178,8 @@ struct LineNumbersTests {
         let off = try await median(numbers: false)
         let on = try await median(numbers: true)
         print("LINENUMBERCOST keystroke in a block, numbers off \(off * 1000)ms, on \(on * 1000)ms")
+        reportPerf("LineNumbersTests/keystrokeCost.off", seconds: off)
+        reportPerf("LineNumbersTests/keystrokeCost.on", seconds: on)
         #expect(on < off * 1.5 + 0.01, "numbers made a keystroke \(on / off) times as slow")
     }
 

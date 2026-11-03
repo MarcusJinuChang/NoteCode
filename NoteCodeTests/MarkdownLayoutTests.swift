@@ -659,6 +659,8 @@ struct MarkdownLayoutCostTests {
         let renderedMedian = rendered.sorted()[1]
         let legacyMedian = legacy.sorted()[1]
         print("MARKDOWNCOST keystroke rendered \(renderedMedian * 1000)ms, legacy \(legacyMedian * 1000)ms")
+        reportPerf("MarkdownLayoutCostTests/typingCost.rendered", seconds: renderedMedian)
+        reportPerf("MarkdownLayoutCostTests/typingCost.legacy", seconds: legacyMedian)
         #expect(renderedMedian < 0.1, "a keystroke took \(renderedMedian)s")
         #expect(renderedMedian < legacyMedian * 1.5 + 0.005, "rendered \(renderedMedian)s against legacy \(legacyMedian)s")
     }
