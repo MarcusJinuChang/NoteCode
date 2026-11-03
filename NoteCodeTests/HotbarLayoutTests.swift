@@ -39,42 +39,30 @@ struct HotbarLayoutTests {
         let container: ModelContainer
         let editor = NoteEditor()
         let window: UIWindow
-        private let savedDock: String?
-        private let savedMode: String?
+        /// The device's settings for this window. The page reads them through
+        /// `.defaultAppStorage`, so nothing here touches `UserDefaults.standard`.
+        private let device = TestDefaults("HotbarLayout")
 
         init(dock: HotbarDock, size: CGSize = HotbarLayoutTests.window, mode: PageViewMode? = nil) throws {
             window = HotbarLayoutTests.makeWindow(size: size)
             // The page reads its dock and view mode from the device's settings.
-            savedDock = UserDefaults.standard.string(forKey: HotbarDock.defaultsKey)
-            UserDefaults.standard.set(dock.rawValue, forKey: HotbarDock.defaultsKey)
-            savedMode = UserDefaults.standard.string(forKey: PageViewMode.defaultsKey)
-            if let mode { UserDefaults.standard.set(mode.rawValue, forKey: PageViewMode.defaultsKey) }
+            device.defaults.set(dock.rawValue, forKey: HotbarDock.defaultsKey)
+            if let mode { device.defaults.set(mode.rawValue, forKey: PageViewMode.defaultsKey) }
 
             container = try ModelContainer(
                 for: NoteSchema.current,
                 configurations: ModelConfiguration(isStoredInMemoryOnly: true)
             )
+            editor.defaults = device.defaults
             let page = Page(title: "Hash tables", content: "# Hash tables\n\nA hash table keeps each key in one bucket.\n")
             container.mainContext.insert(page)
 
             let root = NavigationStack { PageDetailView(page: page, editor: editor) }
                 .modelContainer(container)
+                .defaultAppStorage(device.defaults)
             window.rootViewController = UIHostingController(rootView: root)
             window.makeKeyAndVisible()
             settle()
-        }
-
-        deinit {
-            if let savedDock {
-                UserDefaults.standard.set(savedDock, forKey: HotbarDock.defaultsKey)
-            } else {
-                UserDefaults.standard.removeObject(forKey: HotbarDock.defaultsKey)
-            }
-            if let savedMode {
-                UserDefaults.standard.set(savedMode, forKey: PageViewMode.defaultsKey)
-            } else {
-                UserDefaults.standard.removeObject(forKey: PageViewMode.defaultsKey)
-            }
         }
 
         /// The lowest point of the navigation bar, in the window: the top of

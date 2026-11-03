@@ -18,6 +18,10 @@ import UIKit
 @MainActor
 struct AccentPaletteTests {
 
+    /// The device's settings for this test, for what is read through a store
+    /// of its own (`linkFollowsStore`).
+    private let store = TestDefaults("Accent")
+
     private func scratchDefaults() -> UserDefaults {
         let name = "AccentPaletteTests-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
@@ -101,24 +105,19 @@ struct AccentPaletteTests {
     @Test("The link colour is read from the stored accent as it is drawn")
     func linkFollowsStore() {
         let key = AccentPalette.defaultsKey
-        let saved = UserDefaults.standard.string(forKey: key)
-        defer {
-            if let saved { UserDefaults.standard.set(saved, forKey: key) }
-            else { UserDefaults.standard.removeObject(forKey: key) }
-        }
+        let link = DocumentStyler.makeLinkColor(reading: store.defaults)
 
         func resolved(_ style: UIUserInterfaceStyle) -> [Int] {
             let traits = UITraitCollection(userInterfaceStyle: style)
             var (r, g, b, a): (CGFloat, CGFloat, CGFloat, CGFloat) = (0, 0, 0, 0)
-            DocumentStyler.linkColor.resolvedColor(with: traits).getRed(&r, green: &g, blue: &b, alpha: &a)
+            link.resolvedColor(with: traits).getRed(&r, green: &g, blue: &b, alpha: &a)
             return [r, g, b].map { Int(($0 * 255).rounded()) }
         }
 
-        UserDefaults.standard.removeObject(forKey: key)
         #expect(resolved(.light) == [0xB8, 0x59, 0x00])
         #expect(resolved(.dark) == [0xFF, 0xAA, 0x33])
 
-        UserDefaults.standard.set("066EE5", forKey: key)
+        store.defaults.set("066EE5", forKey: key)
         let expected = AccentPalette.textHex(for: 0x066EE5, isDark: false)
         #expect(resolved(.light) == [(expected >> 16) & 0xFF, (expected >> 8) & 0xFF, expected & 0xFF])
     }

@@ -55,11 +55,10 @@ struct AppStoreReadinessTests {
         #expect(AppInfo.privacyPolicy.scheme == "https")
 
         // docs/site/privacy.md is the text published on gh-pages. Read it from
-        // the source tree; on a machine without the tree there is nothing to check.
-        let page = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("docs/site/privacy.md")
-        guard let text = try? String(contentsOf: page, encoding: .utf8) else { return }
+        // the source tree; a tree that can't be found, or a page that isn't
+        // there, fails the test rather than skipping the check.
+        let page = TestPaths.repoRoot.appendingPathComponent("docs/site/privacy.md")
+        let text = try String(contentsOf: page, encoding: .utf8)
         for phrase in ["Judge0", "Running code in the app", "Ads", "tracking", "Pro"] {
             #expect(text.contains(phrase), "privacy.md should mention \(phrase)")
         }
