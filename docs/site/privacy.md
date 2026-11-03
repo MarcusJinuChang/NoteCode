@@ -1,6 +1,6 @@
 # NoteCode Privacy Policy
 
-_Last updated: 10/31/26_
+_Last updated: 11/3/26_
 
 NoteCode is a note-taking app for computer science coursework. It has no
 account and no analytics, and your notes are never uploaded. Three things do
