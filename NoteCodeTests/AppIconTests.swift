@@ -51,9 +51,9 @@ struct AppIconTests {
         return catalog.appendingPathComponent("\(set).appiconset/\(set).png")
     }
 
-    private static let catalog = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent().deletingLastPathComponent()
-        .appendingPathComponent("NoteCode/Assets.xcassets")
+    private static var catalog: URL {
+        TestPaths.repoRoot.appendingPathComponent("NoteCode/Assets.xcassets")
+    }
 
     @Test("Each icon's art is full-bleed in the colours Settings draws it in")
     func scriptAndAppAgreeOnColours() throws {

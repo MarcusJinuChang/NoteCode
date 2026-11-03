@@ -20,6 +20,10 @@ import UIKit
 @MainActor
 struct FingerDrawsPersistenceTests {
 
+    /// The device's settings for this test. The page reads them through
+    /// `.defaultAppStorage`, so nothing here touches `UserDefaults.standard`.
+    private let device = TestDefaults("FingerDraws")
+
     /// One open note, with an editor of its own, as opening a note makes.
     @MainActor
     private final class OpenNote {
@@ -27,16 +31,18 @@ struct FingerDrawsPersistenceTests {
         let editor = NoteEditor()
         let window = HotbarLayoutTests.makeWindow()
 
-        init() throws {
+        init(defaults: UserDefaults) throws {
             container = try ModelContainer(
                 for: NoteSchema.current,
                 configurations: ModelConfiguration(isStoredInMemoryOnly: true)
             )
+            editor.defaults = defaults
             let page = Page(title: "Graphs", content: "# Graphs\n\nA tree is a graph with no cycles.\n")
             container.mainContext.insert(page)
 
             let root = NavigationStack { PageDetailView(page: page, editor: editor) }
                 .modelContainer(container)
+                .defaultAppStorage(defaults)
             window.rootViewController = UIHostingController(rootView: root)
             window.makeKeyAndVisible()
             settle()
@@ -69,111 +75,89 @@ struct FingerDrawsPersistenceTests {
         }
     }
 
-    /// Runs `body` with `value` stored as the device's Finger Draws (`nil`:
-    /// nothing stored), and puts back whatever the device had.
-    private func withStored(_ value: Bool?, _ body: () throws -> Void) rethrows {
-        let key = NoteEditor.fingerDrawsKey
-        let saved = UserDefaults.standard.object(forKey: key)
+    /// Stores `value` as the device's Finger Draws (`nil`: nothing stored).
+    private func store(_ value: Bool?) {
         if let value {
-            UserDefaults.standard.set(value, forKey: key)
+            device.defaults.set(value, forKey: NoteEditor.fingerDrawsKey)
         } else {
-            UserDefaults.standard.removeObject(forKey: key)
+            device.defaults.removeObject(forKey: NoteEditor.fingerDrawsKey)
         }
-        defer {
-            if let saved {
-                UserDefaults.standard.set(saved, forKey: key)
-            } else {
-                UserDefaults.standard.removeObject(forKey: key)
-            }
-        }
-        try body()
     }
 
     private var stored: Bool? {
-        UserDefaults.standard.object(forKey: NoteEditor.fingerDrawsKey) as? Bool
+        device.defaults.object(forKey: NoteEditor.fingerDrawsKey) as? Bool
     }
 
     @Test("With nothing stored, a finger draws")
     func onByDefault() throws {
-        try withStored(nil) {
-            let note = try OpenNote()
-            defer { note.close() }
+        store(nil)
+        let note = try OpenNote(defaults: device.defaults)
+        defer { note.close() }
 
-            #expect(note.editor.fingerDraws)
-            let canvas = try #require(note.canvas)
-            #expect(canvas.allowsFingerDrawing)
-        }
+        #expect(note.editor.fingerDraws)
+        let canvas = try #require(note.canvas)
+        #expect(canvas.allowsFingerDrawing)
     }
 
     @Test("A note opens with Finger Draws as the device has it", arguments: [false, true])
     func opensAsStored(fingerDraws: Bool) throws {
-        try withStored(fingerDraws) {
-            let note = try OpenNote()
-            defer { note.close() }
+        store(fingerDraws)
+        let note = try OpenNote(defaults: device.defaults)
+        defer { note.close() }
 
-            #expect(note.editor.fingerDraws == fingerDraws)
-            let canvas = try #require(note.canvas)
-            #expect(canvas.allowsFingerDrawing == fingerDraws)
-        }
+        #expect(note.editor.fingerDraws == fingerDraws)
+        let canvas = try #require(note.canvas)
+        #expect(canvas.allowsFingerDrawing == fingerDraws)
     }
 
     @Test("Changed in one note, it is what the next note opens with")
     func carriesToTheNextNote() throws {
-        try withStored(nil) {
-            let first = try OpenNote()
-            first.editor.setMode(.ink)
-            first.editor.fingerDraws = false
-            first.settle()
-            #expect(stored == false)
-            first.close()
+        store(nil)
+        let first = try OpenNote(defaults: device.defaults)
+        first.editor.setMode(.ink)
+        first.editor.fingerDraws = false
+        first.settle()
+        #expect(stored == false)
+        first.close()
 
-            let second = try OpenNote()
-            #expect(!second.editor.fingerDraws)
-            let canvas = try #require(second.canvas)
-            #expect(!canvas.allowsFingerDrawing)
+        let second = try OpenNote(defaults: device.defaults)
+        #expect(!second.editor.fingerDraws)
+        let canvas = try #require(second.canvas)
+        #expect(!canvas.allowsFingerDrawing)
 
-            second.editor.fingerDraws = true
-            second.settle()
-            #expect(stored == true)
-            second.close()
+        second.editor.fingerDraws = true
+        second.settle()
+        #expect(stored == true)
+        second.close()
 
-            let third = try OpenNote()
-            defer { third.close() }
-            #expect(third.editor.fingerDraws)
-        }
+        let third = try OpenNote(defaults: device.defaults)
+        defer { third.close() }
+        #expect(third.editor.fingerDraws)
     }
 
     @Test("Changed in Settings over the open note, it reaches that note")
     func settingsChangeReachesTheOpenNote() throws {
-        try withStored(true) {
-            let note = try OpenNote()
-            defer { note.close() }
-            #expect(note.editor.fingerDraws)
+        store(true)
+        let note = try OpenNote(defaults: device.defaults)
+        defer { note.close() }
+        #expect(note.editor.fingerDraws)
 
-            UserDefaults.standard.set(false, forKey: NoteEditor.fingerDrawsKey)
-            note.settle()
-            #expect(!note.editor.fingerDraws)
-            let canvas = try #require(note.canvas)
-            #expect(!canvas.allowsFingerDrawing)
-        }
+        store(false)
+        note.settle()
+        #expect(!note.editor.fingerDraws)
+        let canvas = try #require(note.canvas)
+        #expect(!canvas.allowsFingerDrawing)
     }
 
     @Test("The eraser set in Settings reaches the open note")
     func settingsEraserReachesTheOpenNote() throws {
-        let key = EraserSettings.defaultsKey
-        let saved = UserDefaults.standard.object(forKey: key)
-        defer {
-            if let saved { UserDefaults.standard.set(saved, forKey: key) } else { UserDefaults.standard.removeObject(forKey: key) }
-        }
-        UserDefaults.standard.removeObject(forKey: key)
-
-        let note = try OpenNote()
+        let note = try OpenNote(defaults: device.defaults)
         defer { note.close() }
 
         var eraser = EraserSettings()
         eraser.mode = .wholeStroke
         eraser.size = .large
-        UserDefaults.standard.set(eraser.rawValue, forKey: key)
+        device.defaults.set(eraser.rawValue, forKey: EraserSettings.defaultsKey)
         note.settle()
         #expect(note.editor.inkTool.eraser == eraser)
     }

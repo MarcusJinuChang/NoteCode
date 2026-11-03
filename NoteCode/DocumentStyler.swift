@@ -93,8 +93,14 @@ enum DocumentStyler {
     /// colour is resolved, so a new accent shows on the next redraw
     /// (`DocumentUITextView.tintColorDidChange`) with no restyle: the
     /// attribute is this one object either way.
-    static let linkColor = UIColor { traits in
-        AccentPalette.uiColor(AccentPalette.linkHex(isDark: traits.userInterfaceStyle == .dark))
+    static let linkColor = makeLinkColor(reading: .standard)
+
+    /// `linkColor` over any store of settings, so a test can give it an
+    /// accent of its own instead of writing the device's.
+    static func makeLinkColor(reading defaults: UserDefaults) -> UIColor {
+        UIColor { traits in
+            AccentPalette.uiColor(AccentPalette.linkHex(isDark: traits.userInterfaceStyle == .dark, in: defaults))
+        }
     }
 
     /// How far each nesting level indents, on top of the whitespace the user
