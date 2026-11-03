@@ -494,9 +494,9 @@ struct DocumentTextView: UIViewRepresentable {
                 self?.copy(target)
             }
 
-            overlay.onRun = { [weak textView] target in
+            overlay.onRun = { [weak textView, weak self] target in
                 guard let textView else { return }
-                self.run(target, from: textView)
+                self?.run(target, from: textView)
             }
 
             overlay.onChooseLanguage = { [weak textView, weak self] target, kind in
