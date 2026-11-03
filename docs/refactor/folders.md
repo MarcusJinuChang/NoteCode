@@ -30,11 +30,12 @@ differently. The rule used: a file goes where its main type's callers are.
 | `NoteMemory` | `Model` | Imports SwiftData; ten callers across the app. |
 | `FormulaValidity` | `Formula` | Imports SwiftMath, so not `Text/Core`, though `DocumentStyler` and `MarkdownLayout` call it. |
 | `TeXAliases` | `Text/Core` | Old table: `Formula/`. The brief puts it in Core; it imports only Foundation. |
-| `NoteTemplates` | `Library` | An extension on `Page`; callers are the list, home and the formula and text option rows. The templates are the "new note" menu. |
+| `NoteTemplates` | `Library` | An extension on `Page`; callers are `ContentView`, `HomeView` and `NoteList`. The templates are the "new note" menu. |
 | `CanvasGeometry` | `NotePage` | CoreGraphics only; callers are `Hotbar`, `PageDetailView`, `PageView`. |
 | `PencilResponse` | `NotePage` | SwiftUI; callers are `NoteEditor` and `PageDetailView`. |
 | `DrawingCodec`, `DrawingSaveScheduler` | `Ink` | Old table: `Model/`. The brief moves ink storage to `Ink/`. |
-| `ProSettings` | `Pro/Store` | Per the brief. Its only caller is `SettingsView`, so the public build needs a stand-in or a guard there; that is for the Pro split, not this map. |
+| `ProSettings` | `Pro/Store` | Per the brief. Its only caller is `SettingsView`; see Seams. |
+| `RunRouting` | `Pro/Run` | Per the brief, and kept whole: 1A only moves files, it never splits one. It declares `RunRoute`, `RunDisclosure` and `KeepInNote`, and two of those are needed outside `Pro/`; see Seams. |
 
 ## The map
 
@@ -64,3 +65,26 @@ differently. The rule used: a file goes where its main type's callers are.
 (the other `Text` files, `NoteTypography` and `CodeFenceDisplay` among them,
 import UIKit). `Pro/` is everything the public open-source build leaves
 out; `CodeDestination` and `CodeOutputPanel` stay in `Code/`.
+
+## Seams
+
+Files outside `Pro/` that name a Pro type today. Once `Pro/` is deleted for
+the public build, each is a build break unless a step in
+[update-2.md](update-2.md) removes the reference. 1A moves no code, so none of
+these is fixed here; the list is so the later steps don't rediscover it.
+
+| Pro type | Named by (outside `Pro/`) | Removed by |
+|---|---|---|
+| `RunRoute` | `DocumentTextView` | 2X5a (moves it to `Pro/Run`; it takes `isPro`) |
+| `KeepInNote` | `CodeFenceDisplay` | 2X5a (it takes a `RunResult`) |
+| `AppInfo.runService` | `AppSettings` | 2X5a |
+| `ProStatus` | `ContentView`, `HomeView`, `ListFoot`, `NoteCodeApp`, `NoteEditor`, `PageDetailView`, `SettingsView` | Partly 2X2 (`ProGate`) and 2X3; update-2.md has no step that lists every caller |
+| `PaywallView` | `NoteCodeApp`, `PageDetailView` | 2X2 |
+| `TipJar`, `TipJarView` | `NoteList`, `ListFoot`, `NoteCodeApp` | 2X3 |
+| `AdSlot`, `AdConsent`, `adBannerShows` | `HomeView`, `ListFoot`, `ContentView`, `SettingsView` | 2X3 |
+| `AIAction` | `DocumentTextView`, `PageDetailView` | 2X4a |
+| `ProSettings` | `SettingsView` | None named; 2X4b covers the assistant's section of `SettingsView`, not this |
+| `DebugRunStub`, `DebugTipStore` | `DebugLaunch` (`#if DEBUG`) | 2X6 |
+
+`RunRouting` stays whole in `Pro/Run`, with `KeepInNote` and `RunRoute` inside
+it, until 2X5a.
