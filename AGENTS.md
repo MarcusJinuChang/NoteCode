@@ -141,6 +141,9 @@ Everything still to see on a real iPad, in the order of a walk through the app:
 [docs/ipad-test-checklist.md](docs/ipad-test-checklist.md).
 How the app was built, phase by phase with PR numbers:
 [docs/timeline.md](docs/timeline.md).
+The refactor (planned 2 Nov: two updates, then a public and a private repo) is
+[docs/refactor/README.md](docs/refactor/README.md); its Rules bind every
+refactor PR, and `/refactor-wp` runs one step.
 
 ## The model
 

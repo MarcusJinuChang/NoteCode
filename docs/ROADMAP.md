@@ -56,6 +56,16 @@ Import/Export, Settings and tip jar:
 
 ## What is left
 
+### The refactor (planned 2 Nov)
+
+Two updates and then a split, run by Sonnet sessions with a reviewing
+session per PR: **1.1.1** (the safety net, feature folders, the cheap fixes
+and the bugs from the device pass) and **1.2.0** (the extension seam, types
+out of the large files, performance). After 1.2.0 ships, the repo splits
+into a public, open-source `NoteCode` (Apache-2.0, fresh history, no ads or
+Pro) and the private `NoteCode-AppStore`. Plan, decisions and order:
+[refactor/README.md](refactor/README.md).
+
 ### In App Review (Marcus)
 
 Submitted 1 Nov as **1.1.0 (4)** with NoteCode Pro, its subscription and
