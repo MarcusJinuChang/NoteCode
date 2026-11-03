@@ -1,6 +1,6 @@
 // Draws every NoteIcon, at the sizes the hotbar uses and larger, in both
 // appearances and three weights, to a PNG:
-//   swiftc NoteCode/NoteIconGeometry.swift scripts/icon-sheet/main.swift -o /tmp/icon-sheet
+//   swiftc NoteCode/Library/NoteIconGeometry.swift scripts/icon-sheet/main.swift -o /tmp/icon-sheet
 //   /tmp/icon-sheet out.png
 import CoreGraphics
 import Foundation
