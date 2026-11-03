@@ -13,7 +13,7 @@ with this file: `scripts/perf.sh --compare docs/refactor/baseline.md` reads the
 | Unit tests (`-only-testing:NoteCodeTests`, TipJarTests skipped) | **1,859 tests in 214 suites: 1,858 passed, 1 known issue (expected failure), 0 failed** |
 | Wall time | **495 s** for `xcodebuild` (warm build); 488 s from first to last test; the result bundle is written 18 s after the last test |
 | `TipJarTests` alone | 7 of 7 passed in 6 s (see Findings 1) |
-| UI tests (`NoteCodeUITests`, the first run ever) | 18 tests: 10 HotbarUITests (**5 failed**, see Findings 2), 2 ListDragUITests skipped, 2 NoteCodeUITests and 4 launch tests passed. 202 s |
+| UI tests (`NoteCodeUITests`, the first run ever) | 18 tests: 10 HotbarUITests (**6 failed**, see Findings 2), 2 ListDragUITests skipped, 2 NoteCodeUITests and 4 launch tests passed. 202 s |
 | Clean build of app + both test targets, with first launch | 89 s (22:15:07 to the first test at 22:16:36) |
 
 Commands:
@@ -158,7 +158,7 @@ Command: `grep -E "^/.*:[0-9]+:[0-9]+: warning: " build.log | sort -u`.
    with no timeout until Marcus stopped the run; the 1,826 tests before it had
    passed. Rerun alone with a 120 s allowance, all 7 passed in 6 s, so it
    is intermittent. Its own fix PR: a timeout in the test and a cause.
-2. **5 of 10 `HotbarUITests` fail, the first UI-test run ever.**
+2. **6 of 10 `HotbarUITests` fail, the first UI-test run ever.**
    `testAutocorrectOffKeepsThreeHyphens` (app not running),
    `testReachDockedLeft` and `testReachDockedRight` (no element with identifier
    "Red"), `testRowBesideBarDockedAtTheBottom`, `…Left` and `…Right` (gap 12.0,
