@@ -315,6 +315,60 @@ struct TextRewritingPolicyTests {
         #expect(coordinator.rewritingPolicy == .prose)
         #expect(textView.autocorrectionType == .yes)
     }
+
+    /// What Settings does to an open note: the same `DocumentTextView`, handed
+    /// a new `rewritesProse` by SwiftUI, which calls `updateUIView`.
+    @Observable
+    final class Setting {
+        var rewritesProse = true
+        var text = "Lecture notes about graphs"
+    }
+
+    struct Host: View {
+        let setting: Setting
+        var body: some View {
+            DocumentTextView(text: Binding(get: { setting.text }, set: { setting.text = $0 }),
+                             rewritesProse: setting.rewritesProse)
+        }
+    }
+
+    @Test("Turning Autocorrect off in Settings reaches a note that is already open")
+    func settingReachesOpenNote() throws {
+        let setting = Setting()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 820, height: 1180))
+        window.rootViewController = UIHostingController(rootView: Host(setting: setting))
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true; window.rootViewController = nil }
+
+        func settle() {
+            let end = Date(timeIntervalSinceNow: 0.3)
+            repeat {
+                window.layoutIfNeeded()
+                CATransaction.flush()
+                RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+            } while Date() < end
+        }
+        func findTextView(in view: UIView) -> UITextView? {
+            if let t = view as? UITextView { return t }
+            for sub in view.subviews { if let t = findTextView(in: sub) { return t } }
+            return nil
+        }
+
+        settle()
+        let textView = try #require(findTextView(in: window))
+        textView.selectedRange = NSRange(location: 5, length: 0)
+        (textView.delegate as? DocumentTextView.Coordinator)?.textViewDidChangeSelection(textView)
+        #expect(textView.autocorrectionType == .yes)
+
+        setting.rewritesProse = false
+        settle()
+        #expect(textView.autocorrectionType == .no)
+        #expect(textView.smartQuotesType == .no)
+
+        setting.rewritesProse = true
+        settle()
+        #expect(textView.autocorrectionType == .yes)
+    }
 }
 
 #endif

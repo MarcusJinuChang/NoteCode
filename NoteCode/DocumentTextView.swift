@@ -173,6 +173,7 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.showMarkdown = showMarkdown
         context.coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
         codeSettings.apply(to: context.coordinator, in: textView)
+        context.coordinator.setRewritesProse(rewritesProse, in: textView)
         markerDimming.apply(to: context.coordinator, in: textView)
 
         // Only push text down when it actually differs. Assigning `.text`
