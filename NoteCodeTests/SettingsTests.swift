@@ -41,6 +41,62 @@ struct SettingsTests {
         #expect(MarkerDimming.fencesKey == "markerDimming.fences")
     }
 
+    @Test("The keys keysAreStable does not cover keep their names too")
+    func moreKeysAreStable() {
+        #expect(AccentPalette.defaultsKey == "accentColor")
+        #expect(InkPalette.highlighterDefaultsKey == "highlighterPalette")
+        #expect(InkPalette.defaultsKey == "inkPalette")
+        #expect(InkingSettings.defaultsKey(for: .pen) == "penSettings")
+        #expect(InkingSettings.defaultsKey(for: .highlighter) == "highlighterSettings")
+        #expect(InkPaletteSet.defaultsKey == "inkPaletteSet")
+        #expect(InkPageGrowth.defaultsKey == "addPagesWhileDrawing")
+        #expect(LastCodeLanguage.defaultsKey == "lastCodeLanguage")
+        #expect(WelcomeNote.madeKey == "welcomeNoteMade")
+        #expect(WelcomeScreen.shownKey == "welcomeScreenShown")
+        #expect(NoteMemory.placesKey == "notePlaces")
+        #expect(NoteMemory.lastOpenedKey == "lastOpenedNote")
+        #expect(ReviewPrompt.daysKey == "reviewPromptDays")
+        #expect(ReviewPrompt.lastDayKey == "reviewPromptLastDay")
+        #expect(ReviewPrompt.askedVersionKey == "reviewPromptAskedVersion")
+        #expect(ReviewPrompt.askedAtKey == "reviewPromptAskedAt")
+    }
+
+    @Test("Each setting's default is what a fresh install shows")
+    func defaultsAreStable() {
+        #expect(AppAppearance.default.rawValue == "system")
+        #expect(SnapHaptic.isOnByDefault == true)
+        #expect(HotbarDock.default.rawValue == "bottom")
+        #expect(PageViewMode.default.rawValue == "seamless")
+        #expect(NoteSort.default.rawValue == "modified;descending")
+        #expect(ShowMarkdown.whileEditing.rawValue == "whileEditing")
+        #expect(NewNotes.opensAfterCreatingByDefault == true)
+        #expect(PageOrientation.default.rawValue == "portrait")
+        #expect(IconStyle().rawValue == "drawn.regular")
+        #expect(CodeKeys.enabledByDefault == true)
+        #expect(CodeIndent.defaultWidth == 4)
+        #expect(LineNumbers.enabledByDefault == false)
+        #expect(TextRewritingPolicy.proseEnabledByDefault == true)
+        #expect(InkPageGrowth.defaultEnabled == true)
+        #expect(EraserSettings().rawValue == "partial;small;40.0")
+        #expect(SelectionKind.lasso.rawValue == "lasso")
+        #expect(InkingSettings.standard(for: .pen).rawValue == "0.0,0.0,0.0,1.0;medium")
+        #expect(InkingSettings.standard(for: .highlighter).rawValue == "0.9882352941176471,0.8666666666666667,0.4745098039215686,1.0;medium")
+        #expect(MarkerLevel.dim.rawValue == "dim")
+    }
+
+    @Test("A key nothing has written reads as its default")
+    func unsetKeysReadAsDefaults() throws {
+        let suite = "SettingsTests.unset.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        #expect(LastCodeLanguage.read(from: defaults) == .cpp)
+        #expect(defaults.bool(forKey: WelcomeNote.madeKey) == false)
+        #expect(defaults.bool(forKey: WelcomeScreen.shownKey) == false)
+        #expect(defaults.object(forKey: NoteMemory.placesKey) == nil)
+        #expect(defaults.object(forKey: NoteMemory.lastOpenedKey) == nil)
+        #expect(ReviewPrompt(defaults: defaults).days == 0)
+    }
+
     @Test("Appearance round-trips through its stored text, and system is the default")
     func appearanceStorage() {
         for appearance in AppAppearance.allCases {
