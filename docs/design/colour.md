@@ -324,7 +324,7 @@ draws, light-page values only), a `FCDD79` stroke over four backdrops:
 
 ### Icons: built (24 Oct)
 
-`NoteCode/NoteIconGeometry.swift`: 32 icons as paths on a 24-unit grid (pure
+`NoteCode/Library/NoteIconGeometry.swift`: 32 icons as paths on a 24-unit grid (pure
 CoreGraphics; layers of stroke, solid and a 24% soft second tone;
 `IconWeight` light / regular / bold at 1.5 / 1.8 / 2.2). `NoteIcon.replacing(systemName:)`
 maps each SF symbol name the bar hands to `HotbarIcon` to its drawn icon, so
@@ -346,7 +346,7 @@ else moves with it. **Increase Contrast** draws one weight heavier
 (`IconStyle.increased`). System shows the SF Symbols as before, which is the
 way back.
 
-**Sheet**: `swiftc NoteCode/NoteIconGeometry.swift scripts/icon-sheet/main.swift -o /tmp/icon-sheet && /tmp/icon-sheet out.png`
+**Sheet**: `swiftc NoteCode/Library/NoteIconGeometry.swift scripts/icon-sheet/main.swift -o /tmp/icon-sheet && /tmp/icon-sheet out.png`
 draws every icon at 22pt in light and dark and at 44pt in three weights.
 
 **Still SF Symbols**: every `Label(…, systemImage:)` inside a menu (Style's,

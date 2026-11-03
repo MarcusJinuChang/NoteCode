@@ -5,6 +5,7 @@
 //  The menu under the open note's title.
 //
 
+import SwiftData
 import SwiftUI
 
 /// What the menu under the open note's title offers, and, since phase 8, what
@@ -62,7 +63,7 @@ struct NoteTitleMenu: View {
                 }
                 Divider()
             }
-            ForEach(NoteListSections(pages: [], folders: folders).allFolders) { folder in
+            ForEach(NoteListSections(pages: [], folders: folders).allFolders, id: \.persistentModelID) { folder in
                 Button(folder.path) {
                     withAnimation { page.folder = folder }
                 }
