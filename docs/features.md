@@ -36,7 +36,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Text lock | Read-only text, ink still works | built | `the-note-page.md` |
 | Get Info | Counts and dates | built | `NoteInfoView.swift` |
 | Thumbnails and reopening | Cards draw the note; a note reopens at its last page | built | `home-…md` |
-| Search | By title (a note's first line until it is renamed) and text; a result shows the line it matched as the page draws it (no `#`, `**`, backticks, a link's address; code as typed); Find in Note inside a note | built | `organising-notes.md` |
+| Search | By title (a note's first line until it is renamed) and text; a result shows the line it matched as the page draws it (no `#`, `**`, backticks, a link's address; code as typed); Find in Note inside a note; an empty search reads no note's text, so the list's cost doesn't grow with the notes (F4a) | built | `organising-notes.md` |
 | Note titles | A note is "Untitled" in storage until renamed; what shows (list, Home, search, top bar, PDF and file names, Duplicate) is its first non-empty line with the Markdown markers left out, cut to 60 characters, and "Untitled" only for an empty note. Renaming stores the name; clearing it goes back to the first line | built | `organising-notes.md` |
 | iCloud sync | Model is shaped for CloudKit; nothing syncs | planned (After 1.0) | ROADMAP |
 | Face ID locking, note combining | | idea | ROADMAP |

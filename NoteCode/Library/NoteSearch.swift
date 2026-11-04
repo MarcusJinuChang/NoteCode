@@ -189,9 +189,15 @@ extension NoteSearch {
     /// one row.
     ///
     /// Notes in Recently Deleted aren't found (`Page.isLive`).
-    func results(in pages: [Page], sort: NoteSort) -> [Result] {
-        pages.live
-            .compactMap { page in match(title: page.displayTitle, content: page.content).map { Result(page: page, match: $0) } }
+    ///
+    /// - Parameter content: how a note's text is read; a test passes its own
+    ///   to count the reads.
+    func results(in pages: [Page], sort: NoteSort, content: (Page) -> String = \.content) -> [Result] {
+        // The list asks on every render, and an empty search matches nothing:
+        // reading each note's text to find that out grows with the library.
+        guard !isEmpty else { return [] }
+        return pages.live
+            .compactMap { page in match(title: page.displayTitle, content: content(page)).map { Result(page: page, match: $0) } }
             .sorted { a, b in
                 if a.match.inTitle != b.match.inTitle { return a.match.inTitle }
                 return sort.areInIncreasingOrder(
