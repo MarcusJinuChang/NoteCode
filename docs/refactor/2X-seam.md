@@ -19,7 +19,19 @@ Nothing a reader sees changes in the App Store build.
 comments and string literals stripped), plus the editor's Pro members
 (`editor.ai`, `.run`, `.pro`, `explain`, `summariseNote`, `insertAnswer`,
 `runInApp`, `connectRun`, `onRunNeedsPro`, `explainBlockAtCaret`) and
-`AppInfo.runService`: **14 files**.
+`AppInfo.runService`: **14 files**. By type names alone it is 13, the
+number `folders.md` › Seams and `feature-audit.md` › A1 give; the
+fourteenth is TextOptionsRow, which reaches the assistant only through
+`editor.ai`.
+
+**What a name count can't see.** Pro behaviour reached through a closure
+or a general-looking member names nothing in `Pro/`:
+`explainBlockAtCaret` (TextOptionsRow.swift:356, set at
+CodeFenceDisplay.swift:95), `runBlockAtCaret` (NoteCommands.swift:247, set
+at CodeFenceDisplay.swift:72, leading to `RunRoute`), and
+`AppInfo.runService` (AppSettings.swift:123, declared in general code and
+read by Pro). The script counts these names too, and 2X4a and 2X5b remove
+or re-point each one; 2X7's acceptance checks every one by name.
 
 | File | Names | Removed by |
 |---|---|---|
@@ -69,7 +81,13 @@ change it takes):
 
 ## Order
 
-2X1 alone first. Then 2X2, 2X3 and 2X6 together (different files). 2X4a
+2X1 alone first. Then 2X2, 2X3 and A5 together (different files); 2X6
+after A5. A5 (`feature-audit.md` › A5) is a pure move with its own PR:
+DebugLaunch.swift becomes `DebugLaunchOptions.swift` (the options and
+`parse`, untouched), `DebugStateReport.swift`, `DebugSeed.swift` and
+`DebugSession.swift`, and DebugProbe.swift is renamed `DeviceProbe.swift`
+after the type it holds; all `#if DEBUG`, `verify-move.sh` clean. 2X6 then
+edits one file instead of a 728-line one. 2X4a
 after 2X2 (both edit PageDetailView's sheets). Then 2X4b and 2X5b together
 if the sessions keep to their files (2X4b: settings and the result sheet;
 2X5b: the Coordinator's run path); else one after the other. 2X5c after
@@ -141,7 +159,9 @@ App Store edition is a ten-line file in `Pro/`. The seam is counted.
    whose body is `NoteCodeScene(extensions: .appStore)`, and
    `extension AppExtensions { static let appStore }`.
    `OpenSource/OpenSourceEdition.swift`: the same with `.none`.
-4. `scripts/check-seam.sh` counts as "Where the code is today" says, prints
+4. `scripts/check-seam.sh` counts as "Where the code is today" says (type
+   names, the editor's Pro members, `runBlockAtCaret`,
+   `explainBlockAtCaret` and `runService`), prints
    `file: names` for each file and the count, and fails if the count is
    above the `SEAM` line in baseline.md. The count may only fall. Record
    today's count (14 if nothing else merged first; say if it differs, and
@@ -166,8 +186,23 @@ list foot, Settings › Pro shows the right status.
 ## 2X2. One way to show the paywall
 
 **Goal.** One `ProGate` in `Pro/Store/` says whether the reader has Pro and
-presents the paywall for a reason. The paywall sheets that stay in Pro go
-through it.
+presents the paywall for a reason. It is **the only "is Pro" check**, and
+the paywall sheets that stay in Pro go through it.
+
+**"Is Pro" is asked three ways today** (`feature-audit.md` › A1):
+- a copy on the editor: `editor.pro = pro` (RunPanel.swift:518), read by
+  DocumentTextView.swift:549 and NoteEditor.swift:230;
+- `ProStatus.shared.isPro` in a closure (SystemTextModelClient.swift:87,
+  the assistant's gate);
+- the environment's `ProStatus` in the view (PageDetailView.swift:378 and
+  :390, the Run control's PRO mark and `showRun`).
+
+All three read `ProGate.isPro` after this step; `NoteEditor.pro` goes
+(its two readers move to `ProGate`, and 2X5b moves them into `RunFeature`).
+While here: `showsRunIsPro` becomes `showsRunPaywall`, and its stale
+comment ("P2's paywall replaces this alert", PageDetailView.swift:65–67) says
+what it is; `RunPanelHost` takes the signed transaction once, not as both
+`transaction:` and `pro:` (PageDetailView.swift:250, RunPanel.swift:512–513).
 
 **Files.** Today's presenters (`grep -rn "PaywallView(" NoteCode`, 5):
 AdBanner.swift:48, ProSettings.swift:38, RunPanel.swift:539,
@@ -188,12 +223,18 @@ Leave PageDetailView.swift:263 (it leaves with the assistant in 2X4a, which
 uses the modifier from inside `Pro/`) and the debug paywall (2X6).
 
 **Must not.** Move any sheet to a different view; change a reason string;
-change ProSettings' "See NoteCode Pro" identifier (`seeProButton`).
+change ProSettings' "See NoteCode Pro" identifier (`seeProButton`); change
+when a renewal or refund lifts or brings back the gate (`PaywallTests`
+"Buying Pro lifts the gate without a relaunch").
 
 **Acceptance.** `PaywallTests`, `ProStatusTests`, `AdTests` and
-`RunWiringTests` pass; build passes; `grep -c "PaywallView(" NoteCode -r`
+`RunWiringTests` pass; build passes; `grep -rn "\.isPro\b" NoteCode` outside
+`Pro/Store/` reads only `ProGate.isPro` (and `AIAssistant.isPro`, the
+assistant's injected closure); `grep -c "PaywallView(" NoteCode -r`
 is 2 outside `Pro/Store` (PageDetailView, NoteCodeApp) and falls to 0 after
-2X4a and 2X6. Seam count unchanged (no general file changes).
+2X4a and 2X6. Seam count falls by 0 or 1 (PageDetailView still names `ProStatus` for
+`pro?.signedTransaction` until 2X5c, unless the transaction moves to
+`ProGate` too; say which).
 
 **Device line.** Free reader (sandbox, no Pro): Settings › Pro › See NoteCode
 Pro opens the paywall over Settings; Home's ad's "Remove ads" opens it; Run
@@ -231,7 +272,9 @@ nothing in `Pro/Ads` or `Pro/Store`.
   with its row.
 - `aboutRows` (Ad Privacy Options) and `settingsAppeared` (consent's
   `settingsAppeared`), in AboutSettings where they are now.
-- `mayAskForReview: @MainActor () -> Bool` (today's
+- **The rating prompt** (`feature-audit.md` › A1): it is general, and it
+  waits on Pro's ad consent, so without this hook the public build breaks
+  at ContentView.swift:563. `mayAskForReview: @MainActor () -> Bool` (today's
   `pro?.isPro == true || AdConsent.shared.trackingAnswered`; `.none` is
   `true`), read by ContentView.swift:563.
 - `ConsentGate` is a pure `launchSettled && !titleScreenUp`, and HomeView's
@@ -298,6 +341,10 @@ register; their first user is this step, so they land with it.
      action has one, and ⌘R stays general.
    - `EditorFeature: AnyObject`, made from the editor, with
      `actions(for target:)` and default no-op hooks.
+   - `explainBlockAtCaret` (NoteEditor.swift:254–256, set at
+     CodeFenceDisplay.swift:95–100) goes: the options row's chip performs
+     the registered `.codeBlockRow` action on the caret's block, so no
+     closure slot leads to the assistant.
    - `NoteEditor(features:)`, a list of factories `(NoteEditor) -> any EditorFeature`;
      `NoteEditor()` keeps meaning no features, so the 18 `NoteEditor()` calls
      in tests don't change.
@@ -309,6 +356,11 @@ register; their first user is this step, so they land with it.
    ContentView passes the extensions in at its one `PageDetailView(` site
    (ContentView.swift:304), since `@State` can't read the environment in
    `init`.
+
+5. `AIAssistant`'s `isPro` becomes required (AIAssistant.swift:92 defaults
+   it to `{ true }`, so a new caller is Pro unless it says otherwise). Three
+   test calls pass it today without it (AIEditorTests, AIFeaturesTests,
+   PaywallTests); they pass `{ true }` explicitly.
 
 **Must not.** Change the menu order or titles; change `along: 58`; start a
 model session for a free reader (`PaywallTests` covers it); make Explain
@@ -398,7 +450,10 @@ name nothing in `Pro/Run`.
    (`RunRoute.route`), `runInApp`, `connectRun`, Keep in Note and show-line.
    `AppInfo.runService` moves to `RunServiceFactory` (or a `RunService`
    enum) in `Pro/Run`.
-4. `scroll(toBlock:)` becomes a general `scroll(toLineAt:)` on NoteEditor, as
+4. `runBlockAtCaret` (⌘R) stays, and now leads only to general code:
+   `Coordinator.run` asks the features, then opens the site. Say so in the
+   PR; 2T6 replaces the closure slot itself with `TextCommandTarget`.
+5. `scroll(toBlock:)` becomes a general `scroll(toLineAt:)` on NoteEditor, as
    `scroll(toHeading:)` (NoteEditor.swift:1298–1300) already is; `RunBlock`
    stays in Pro.
 
@@ -566,7 +621,13 @@ the build needs it); leave the temporary worktree behind; run in the main
 working tree.
 
 **Acceptance.** `build-open-source.sh` passes; `check-seam.sh` prints 0 and
-the `SEAM` line is 0; `check.sh --full` passes. The PR gives the public
+the `SEAM` line is 0. The closures and members a name count can't see are
+checked by name, and the PR lists each with what it reaches now:
+`explainBlockAtCaret` is gone (2X4a); `runBlockAtCaret` reaches
+`Coordinator.run` and the site, with no feature registered in the public
+build; `AppInfo.runService` is gone from general code (2X5b);
+`NoteEditor.pro` is gone (2X2); `grep -rn "\.ai\b\|\.run\.\|onRunNeedsPro"`
+finds nothing outside `Pro/`; `check.sh --full` passes. The PR gives the public
 build's test count and how many tests `Pro/` took with it. A scratch edit
 that names `ProStatus` in a general file makes both scripts fail; put the
 output in the PR.

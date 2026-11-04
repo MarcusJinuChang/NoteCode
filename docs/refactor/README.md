@@ -166,8 +166,9 @@ stream files once written. A T5 characterisation test lands before the step
 whose code it pins, never in the same PR.
 
 - **Wave 5:** 2X1 alone. Alongside: T5's tests for areas 2X doesn't touch.
-- **Wave 6:** 2X2, 2X3 and 2X6 at once (different files), then 2X4a (after
-  2X2: PageDetailView's sheets).
+- **Wave 6:** 2X2, 2X3 and A5 at once (different files), then 2X6 (after
+  A5, the pure move that splits DebugLaunch.swift; 2X-seam.md › Order) and
+  2X4a (after 2X2: PageDetailView's sheets).
 - **Wave 7:** 2X4b and 2X5b, then 2X5c, then 2X7 alone. The seam count is
   0 when this wave ends; `check.sh --full` and `build-open-source.sh` on
   `main`.
@@ -181,10 +182,13 @@ whose code it pins, never in the same PR.
 
 Overlaps to watch: 2X4a, 2X4b, 2X5b and 2X5c all edit PageDetailView and
 NoteEditor, one at a time. 2X1 renames `NoteCodeApp.swift`, which 2X6 then
-edits.
+edits. A5 moves DebugLaunch.swift, so nothing else edits it while A5 is
+open.
 
 **Feature cleanups.** Behaviour changes the refactor found or a feature
-needs, audited separately in `feature-audit.md` (being written). Each
+needs, audited separately in `feature-audit.md`. Its A1 is folded into
+2X-seam.md, and A5 is placed in wave 6; the rest are placed when the
+audit merges. Each
 becomes a fix PR (stream F's rules: a failing test first, its `features.md`
 row) placed in wave 10, or earlier where it touches a file no wave-9 step
 does.
