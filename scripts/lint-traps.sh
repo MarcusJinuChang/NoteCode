@@ -14,7 +14,7 @@
 #    *markup* or *elements* (a MarkupOrderedSet; grep can't see types, so a
 #    set under another name, or a `markup` that is a plain array, is missed
 #    or flagged wrongly)
-#  4 import SwiftUI/UIKit in a file under any Core/ folder
+#  4 import SwiftUI/UIKit in a file under any NoteCode/**/Core/ folder (the tests may)
 #  5 #filePath near deletingLastPathComponent in tests (use TestPaths.repoRoot)
 #  6 two Swift files with one basename in one target's folder
 #  7 UserDefaults.standard in NoteCodeTests/, as a count that may only fall
@@ -53,7 +53,7 @@ for spec in \
 done
 
 # 4
-for f in $(find . -path ./.git -prune -o -path ./.claude -prune -o -path '*/Core/*' -name '*.swift' -print | sed 's|^\./||'); do
+for f in $(find . -path ./.git -prune -o -path ./.claude -prune -o -path './NoteCode/*/Core/*' -name '*.swift' -print | sed 's|^\./||'); do
   grep -nE '^[[:space:]]*import (SwiftUI|UIKit)\b' $f | while IFS=: read -r n _; do
     hit 4 $f:$n "Core/ stays free of SwiftUI and UIKit"
   done
