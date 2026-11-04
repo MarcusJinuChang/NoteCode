@@ -9,6 +9,9 @@ import Foundation
 import SwiftData
 import Testing
 import UniformTypeIdentifiers
+#if canImport(UIKit)
+import PDFKit
+#endif
 @testable import NoteCode
 
 // MARK: - File names
@@ -544,6 +547,22 @@ struct NoteExportJobTests {
         #expect(try names(in: root) == ["Plain.md", "Sketch.md", "Sketch.pdf"])
         let pdf = try Data(contentsOf: root.appending(path: "Sketch.pdf"))
         #expect(pdf.starts(with: Array("%PDF".utf8)))
+    }
+
+    @Test("A note never renamed has its shown title as its PDF's title, as its file name does")
+    func pdfTitleIsShownTitle() async throws {
+        // Stored title "Untitled"; the shown one comes from the first line.
+        let inked = note("Untitled", "# Heaps lecture\n\nsift down", age: 1)
+        inked.drawingData = try await DrawingCodec.encode(TestInk.markup(strokesAt: [300]))
+        #expect(inked.displayTitle == "Heaps lecture")
+
+        let job = NoteExportJob()
+        let root = try await run(job, pages: [inked], folders: [], pdfs: true)
+        defer { try? FileManager.default.removeItem(at: root); job.cleanUp() }
+
+        #expect(try names(in: root) == ["Heaps lecture.md", "Heaps lecture.pdf"])
+        let pdf = try #require(PDFDocument(url: root.appending(path: "Heaps lecture.pdf")))
+        #expect(pdf.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String == "Heaps lecture")
     }
 
     @Test("With PDFs off, a note with ink gets only its Markdown")
