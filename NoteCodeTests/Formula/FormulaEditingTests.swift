@@ -11,7 +11,7 @@ import Testing
 import Foundation
 @testable import NoteCode
 
-@Suite("Formula editing: rules")
+@Suite("Formula editing: rules", .tags(.pure))
 struct FormulaEditingRuleTests {
 
     static func spans(_ text: String) -> [FormulaEditing.Span] {
@@ -144,7 +144,7 @@ struct FormulaEditingRuleTests {
 
 import UIKit
 
-@Suite("Formula editing: in a text view")
+@Suite("Formula editing: in a text view", .tags(.pure))
 @MainActor
 struct FormulaEditingViewTests {
 

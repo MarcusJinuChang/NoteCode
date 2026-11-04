@@ -20,7 +20,7 @@ struct StubRunner: CodeRunning {
 }
 
 @MainActor
-@Suite struct RunSessionTests {
+@Suite(.tags(.pro)) struct RunSessionTests {
     private func target(_ ordinal: Int, _ code: String, at location: Int = 0) -> CodeBlockTarget {
         CodeBlockTarget(
             id: CodeBlockID(ordinal: ordinal, code: code),
@@ -185,7 +185,7 @@ actor GatedRunner: CodeRunning {
 }
 
 @MainActor
-@Suite struct RunSessionInFlightTests {
+@Suite(.tags(.pro)) struct RunSessionInFlightTests {
     private func target(_ ordinal: Int, _ code: String) -> CodeBlockTarget {
         CodeBlockTarget(
             id: CodeBlockID(ordinal: ordinal, code: code),
@@ -235,7 +235,7 @@ actor GatedRunner: CodeRunning {
 
 /// QC R3: the reader is told where code goes before the first run sends it.
 @MainActor
-@Suite("The first run's notice") struct RunDisclosureTests {
+@Suite("The first run's notice", .tags(.pro)) struct RunDisclosureTests {
     private func session(_ codes: [String], runner: any CodeRunning = StubRunner(), disclosed: Bool = true) -> RunSession {
         let s = RunSession()
         s.defaults = RunSessionTests.defaults(disclosed: disclosed)

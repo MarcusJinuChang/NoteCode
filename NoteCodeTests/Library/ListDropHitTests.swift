@@ -10,7 +10,7 @@ import CoreGraphics
 import Testing
 @testable import NoteCode
 
-@Suite("Where a drop lands in the list")
+@Suite("Where a drop lands in the list", .tags(.library))
 struct ListDropHitTests {
 
     /// Three rows 44 tall with 8 between them, in the window: 100-144,

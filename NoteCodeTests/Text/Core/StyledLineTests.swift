@@ -10,7 +10,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Formatting per character")
+@Suite("Formatting per character", .tags(.pure))
 struct StyledLineTests {
 
     typealias Style = StyledLine.Style
@@ -363,7 +363,7 @@ struct StyledLineTests {
 import UIKit
 
 @MainActor
-@Suite("Formatting per character in the editor")
+@Suite("Formatting per character in the editor", .tags(.pure))
 struct StyledLineEditorTests {
 
     typealias Harness = TextSizeEditorTests.Harness

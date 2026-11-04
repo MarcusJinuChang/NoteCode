@@ -26,7 +26,7 @@ private func colouredText(_ code: String, _ tag: String) async -> [String] {
     }
 }
 
-@Suite("Highlight alignment")
+@Suite("Highlight alignment", .tags(.editor))
 struct HighlightAlignmentTests {
 
     @Test("Keywords are coloured, as a control")

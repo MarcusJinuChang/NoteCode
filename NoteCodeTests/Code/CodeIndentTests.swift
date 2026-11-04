@@ -12,7 +12,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Indentation in code")
+@Suite("Indentation in code", .tags(.editor))
 struct CodeIndentTests {
 
     // MARK: Helpers

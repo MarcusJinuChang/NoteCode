@@ -10,7 +10,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Outline: the headings")
+@Suite("Outline: the headings", .tags(.layout))
 struct NoteOutlineEntriesTests {
 
     static let note = """
@@ -88,7 +88,7 @@ struct NoteOutlineEntriesTests {
 
 import UIKit
 
-@Suite("Outline: going to a heading", .serialized)
+@Suite("Outline: going to a heading", .serialized, .tags(.layout))
 @MainActor
 struct NoteOutlineScrollTests {
 
@@ -125,7 +125,7 @@ struct NoteOutlineScrollTests {
         withExtendedLifetime((window, coordinator)) {}
     }
 
-@Suite("Outline: formulas in headings")
+@Suite("Outline: formulas in headings", .tags(.layout))
 struct NoteOutlineMathTests {
 
     @Test("A heading's title is the formula's TeX without its dollars")

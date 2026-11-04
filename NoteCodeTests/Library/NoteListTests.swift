@@ -8,7 +8,7 @@ import SwiftData
 import Testing
 @testable import NoteCode
 
-@Suite("The note list's sections and order")
+@Suite("The note list's sections and order", .tags(.library))
 @MainActor
 struct NoteListTests {
 
@@ -235,7 +235,7 @@ struct NoteListTests {
     }
 }
 
-@Suite("Sorting notes")
+@Suite("Sorting notes", .tags(.library))
 struct NoteSortTests {
 
     private typealias Note = (title: String, modified: Date, created: Date)

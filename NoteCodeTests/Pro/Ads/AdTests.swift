@@ -11,7 +11,7 @@ import UIKit
 #endif
 @testable import NoteCode
 
-@Suite("Ads", .serialized)
+@Suite("Ads", .serialized, .tags(.pro))
 @MainActor
 struct AdTests {
 

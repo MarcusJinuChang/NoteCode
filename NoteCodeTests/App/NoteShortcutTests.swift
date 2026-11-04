@@ -9,7 +9,7 @@ import SwiftUI
 import Testing
 @testable import NoteCode
 
-@Suite("Keyboard shortcuts")
+@Suite("Keyboard shortcuts", .tags(.library))
 @MainActor
 struct NoteShortcutTests {
 

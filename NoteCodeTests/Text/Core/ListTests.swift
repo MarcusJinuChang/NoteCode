@@ -11,7 +11,7 @@ private func firstBlock(_ source: String) -> BlockNode {
     DocumentParser.parse(source)[0]
 }
 
-@Suite("List parsing")
+@Suite("List parsing", .tags(.pure))
 struct ListParsingTests {
 
     @Test("Every unordered marker starts a list item", arguments: ["-", "*", "+"])
@@ -71,7 +71,7 @@ struct ListParsingTests {
     }
 }
 
-@Suite("List nesting")
+@Suite("List nesting", .tags(.pure))
 struct ListNestingTests {
 
     @Test("Indentation sets depth, two columns per level", arguments: [
@@ -107,7 +107,7 @@ struct ListNestingTests {
 
 import UIKit
 
-@Suite("List styling")
+@Suite("List styling", .tags(.pure))
 @MainActor
 struct ListStylingTests {
 

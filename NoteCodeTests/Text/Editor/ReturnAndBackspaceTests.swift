@@ -15,7 +15,7 @@ import UIKit
 
 @testable import NoteCode
 
-@Suite("Return and Backspace through the coordinator")
+@Suite("Return and Backspace through the coordinator", .tags(.editor))
 @MainActor
 struct ReturnAndBackspaceTests {
 

@@ -13,7 +13,7 @@ import UIKit
 /// The room around and inside a code block (step 10): the panel reaching into
 /// the margins, the gaps above and below it and the header, all of them line
 /// height and none of them paragraph spacing.
-@Suite("Room around and inside a code block")
+@Suite("Room around and inside a code block", .tags(.editor))
 @MainActor
 struct CodeBlockRoomTests {
 

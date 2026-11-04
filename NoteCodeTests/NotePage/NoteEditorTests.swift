@@ -12,7 +12,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Note editor")
+@Suite("Note editor", .tags(.layout))
 @MainActor
 struct NoteEditorTests {
 

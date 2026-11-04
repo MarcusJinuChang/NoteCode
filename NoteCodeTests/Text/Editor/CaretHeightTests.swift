@@ -12,7 +12,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("The caret's height")
+@Suite("The caret's height", .tags(.editor))
 @MainActor
 struct CaretHeightTests {
 

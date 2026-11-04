@@ -14,7 +14,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Code editing fixes")
+@Suite("Code editing fixes", .tags(.editor))
 @MainActor
 struct CodeEditingFixesTests {
 

@@ -13,7 +13,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Markdown layout")
+@Suite("Markdown layout", .tags(.layout))
 @MainActor
 struct MarkdownLayoutTests {
 
@@ -341,7 +341,7 @@ struct MarkdownLayoutTests {
 
 // MARK: - The hooks, on a real text view
 
-@Suite("Hidden markers in the text view")
+@Suite("Hidden markers in the text view", .tags(.layout))
 @MainActor
 struct HiddenMarkerHookTests {
 
@@ -429,7 +429,7 @@ struct HiddenMarkerHookTests {
 
 // MARK: - Return, Tab, boxes, links and paper
 
-@Suite("Writing: lists, boxes and links on a real text view")
+@Suite("Writing: lists, boxes and links on a real text view", .tags(.layout))
 @MainActor
 struct WritingHookTests {
 
@@ -620,7 +620,7 @@ struct WritingHookTests {
 
 // MARK: - Cost
 
-@Suite("Markdown layout cost")
+@Suite("Markdown layout cost", .tags(.layout, .perf))
 @MainActor
 struct MarkdownLayoutCostTests {
 

@@ -12,7 +12,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Note page chrome")
+@Suite("Note page chrome", .tags(.layout))
 @MainActor
 struct NotePageChromeTests {
 

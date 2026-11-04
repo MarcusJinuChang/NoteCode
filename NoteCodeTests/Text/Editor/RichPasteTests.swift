@@ -10,7 +10,7 @@ import Testing
 import Foundation
 @testable import NoteCode
 
-@Suite("Rich paste: runs to Markdown")
+@Suite("Rich paste: runs to Markdown", .tags(.editor))
 struct RichPasteTests {
 
     static let red = 0xE5484D
@@ -269,7 +269,7 @@ struct RichPasteTests {
     }
 }
 
-@Suite("Rich paste: dollars that aren't formulas")
+@Suite("Rich paste: dollars that aren't formulas", .tags(.editor))
 struct RichPasteMathTests {
 
     static func bold(_ text: String) -> PastedRun {

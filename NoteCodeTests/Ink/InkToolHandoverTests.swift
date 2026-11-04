@@ -16,7 +16,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Ink tool handover")
+@Suite("Ink tool handover", .tags(.ink))
 @MainActor
 struct InkToolHandoverTests {
 

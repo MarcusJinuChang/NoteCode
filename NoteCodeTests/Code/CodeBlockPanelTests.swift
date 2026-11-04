@@ -10,7 +10,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Code block panel geometry")
+@Suite("Code block panel geometry", .tags(.editor))
 @MainActor
 struct CodeBlockPanelTests {
 

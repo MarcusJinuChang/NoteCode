@@ -14,7 +14,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Code fences, away and editing")
+@Suite("Code fences, away and editing", .tags(.editor))
 @MainActor
 struct CodeFenceDisplayTests {
 
@@ -586,7 +586,7 @@ struct CodeFenceDisplayTests {
 
 // MARK: - Paper
 
-@Suite("Code fences on paper")
+@Suite("Code fences on paper", .tags(.editor))
 @MainActor
 struct CodeFencePDFTests {
 

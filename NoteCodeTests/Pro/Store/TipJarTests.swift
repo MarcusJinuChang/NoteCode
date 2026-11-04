@@ -9,7 +9,7 @@ import StoreKitTest
 import Testing
 @testable import NoteCode
 
-@Suite("Tip jar", .serialized)
+@Suite("Tip jar", .serialized, .tags(.pro))
 @MainActor
 struct TipJarTests {
 

@@ -13,7 +13,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Insert into ink")
+@Suite("Insert into ink", .tags(.ink))
 @MainActor
 struct InkInsertTests {
 

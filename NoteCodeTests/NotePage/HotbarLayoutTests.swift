@@ -17,7 +17,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Hotbar layout", .serialized)
+@Suite("Hotbar layout", .serialized, .tags(.layout))
 @MainActor
 struct HotbarLayoutTests {
 

@@ -11,7 +11,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Drawing canvas")
+@Suite("Drawing canvas", .tags(.ink))
 @MainActor
 struct DrawingCanvasTests {
 

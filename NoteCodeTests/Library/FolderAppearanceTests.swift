@@ -14,7 +14,7 @@ import Testing
 import UIKit
 #endif
 
-@Suite("Folder appearance")
+@Suite("Folder appearance", .tags(.library))
 @MainActor
 struct FolderAppearanceTests {
 

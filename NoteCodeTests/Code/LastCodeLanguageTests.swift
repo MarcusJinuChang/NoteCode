@@ -7,7 +7,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("The last code language")
+@Suite("The last code language", .tags(.editor))
 struct LastCodeLanguageTests {
 
     private func freshDefaults() -> UserDefaults {

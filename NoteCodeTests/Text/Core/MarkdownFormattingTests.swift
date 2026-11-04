@@ -53,7 +53,7 @@ private func fenced(_ language: CodeLanguage?, _ marked: String) -> String {
     run(marked) { MarkdownFormatting.insertCodeBlock(language: language, in: $0, selection: $1) }
 }
 
-@Suite("Formatting: inline styles")
+@Suite("Formatting: inline styles", .tags(.pure))
 struct InlineFormattingTests {
 
     @Test("Each style wraps a selection and keeps the words selected", arguments: [
@@ -158,7 +158,7 @@ struct InlineFormattingTests {
     }
 }
 
-@Suite("Formatting: headings")
+@Suite("Formatting: headings", .tags(.pure))
 struct HeadingFormattingTests {
 
     @Test("A heading marker goes in front, and the caret keeps its place in the words")
@@ -225,7 +225,7 @@ struct HeadingFormattingTests {
     }
 }
 
-@Suite("Formatting: bullets")
+@Suite("Formatting: bullets", .tags(.pure))
 struct BulletFormattingTests {
 
     @Test("A bullet goes in front of a line")
@@ -266,7 +266,7 @@ struct BulletFormattingTests {
     }
 }
 
-@Suite("Formatting: code blocks")
+@Suite("Formatting: code blocks", .tags(.pure))
 struct CodeBlockFormattingTests {
 
     @Test("An empty block opens with the caret on its first line")

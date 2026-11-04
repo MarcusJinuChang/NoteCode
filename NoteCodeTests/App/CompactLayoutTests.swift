@@ -9,7 +9,7 @@ import Testing
 
 /// An iPhone and a folded Duo (roadmap step 11): the page fitted by its text
 /// column, and a stack of Home, the list and a note in place of the split view.
-@Suite("Compact width")
+@Suite("Compact width", .tags(.library))
 struct CompactLayoutTests {
 
     private let portrait = PageLayout(orientation: .portrait)
@@ -97,7 +97,7 @@ import SwiftUI
 import UIKit
 
 /// The options rows on a phone narrower than they are long.
-@Suite("Options rows on a narrow phone", .serialized)
+@Suite("Options rows on a narrow phone", .serialized, .tags(.library))
 @MainActor
 struct NarrowOptionsRowTests {
 
@@ -149,7 +149,7 @@ struct NarrowOptionsRowTests {
 #endif
 
 /// The hotbar and a Duo's fold.
-@Suite("The Duo's fold")
+@Suite("The Duo's fold", .tags(.library))
 struct FoldAvoidanceTests {
 
     /// The Duo unfolded and held sideways, as the 27.1 simulator reports it:

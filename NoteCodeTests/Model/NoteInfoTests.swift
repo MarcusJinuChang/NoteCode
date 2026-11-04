@@ -6,7 +6,7 @@
 import Testing
 @testable import NoteCode
 
-@Suite("Note info")
+@Suite("Note info", .tags(.library))
 struct NoteInfoTests {
 
     @Test("An empty note has no words and no code")

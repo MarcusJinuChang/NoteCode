@@ -9,7 +9,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Review prompt")
+@Suite("Review prompt", .tags(.library))
 struct ReviewPromptTests {
 
     /// A defaults of its own, so a test can't read what another wrote or the

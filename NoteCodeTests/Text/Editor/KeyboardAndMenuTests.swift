@@ -13,7 +13,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Shortcuts, the edit menu and Dynamic Type")
+@Suite("Shortcuts, the edit menu and Dynamic Type", .tags(.editor))
 @MainActor
 struct KeyboardAndMenuTests {
 

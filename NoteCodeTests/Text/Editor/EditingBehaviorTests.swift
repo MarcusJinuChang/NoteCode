@@ -14,7 +14,7 @@ import UIKit
 
 // MARK: - Re-parse cost
 
-@Suite("Re-parse cost")
+@Suite("Re-parse cost", .tags(.editor))
 struct DocumentCacheTests {
 
     @Test("Repeated reads of the same document parse once")
@@ -57,7 +57,7 @@ struct DocumentCacheTests {
 
 // MARK: - Paste
 
-@Suite("Paste normalization")
+@Suite("Paste normalization", .tags(.editor))
 @MainActor
 struct PasteTests {
 
@@ -95,7 +95,7 @@ struct PasteTests {
 
 // MARK: - Structural edits
 
-@Suite("Mid-fence edits")
+@Suite("Mid-fence edits", .tags(.editor))
 struct MidFenceEditTests {
 
     @Test("Deleting the closing fence reopens the block to end of document")
@@ -141,7 +141,7 @@ struct MidFenceEditTests {
 
 // MARK: - Caret boundaries
 
-@Suite("Caret boundaries")
+@Suite("Caret boundaries", .tags(.editor))
 @MainActor
 struct CaretBoundaryTests {
 
@@ -193,7 +193,7 @@ struct CaretBoundaryTests {
 
 // MARK: - Undo
 
-@Suite("Undo")
+@Suite("Undo", .tags(.editor))
 @MainActor
 struct UndoTests {
 

@@ -14,7 +14,7 @@ import Testing
 import UIKit
 #endif
 
-@Suite("Accent colour")
+@Suite("Accent colour", .tags(.library))
 @MainActor
 struct AccentPaletteTests {
 

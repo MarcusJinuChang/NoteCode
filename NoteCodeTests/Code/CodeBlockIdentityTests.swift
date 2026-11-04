@@ -11,7 +11,7 @@ private func codeIDs(_ source: String) -> [CodeBlockID] {
     DocumentParser.parse(source).compactMap(\.codeBlock?.id)
 }
 
-@Suite("Code block identity")
+@Suite("Code block identity", .tags(.editor))
 struct CodeBlockIdentityTests {
 
     private static let document = """
@@ -99,7 +99,7 @@ struct CodeBlockIdentityTests {
 
 // MARK: - Store
 
-@Suite("Block result store")
+@Suite("Block result store", .tags(.editor))
 struct BlockResultStoreTests {
 
     private static let document = "```cpp\nint x;\n```\ntext\n```py\nprint(1)\n```"

@@ -8,7 +8,7 @@ import SwiftData
 import Testing
 @testable import NoteCode
 
-@Suite("Folders")
+@Suite("Folders", .tags(.library))
 @MainActor
 struct FolderTests {
 

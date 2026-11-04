@@ -12,7 +12,7 @@ import SwiftUI
 import Testing
 @testable import NoteCode
 
-@Suite("Note thumbnails: what they are made from")
+@Suite("Note thumbnails: what they are made from", .tags(.library))
 @MainActor
 struct NoteThumbnailRulesTests {
 
@@ -129,7 +129,7 @@ struct NoteThumbnailRulesTests {
 import PaperKit
 import UIKit
 
-@Suite("Note thumbnails: pictures", .serialized)
+@Suite("Note thumbnails: pictures", .serialized, .tags(.library))
 @MainActor
 struct NoteThumbnailPictureTests {
 

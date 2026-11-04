@@ -7,7 +7,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Pro status", .serialized)
+@Suite("Pro status", .serialized, .tags(.pro))
 @MainActor
 struct ProStatusTests {
 

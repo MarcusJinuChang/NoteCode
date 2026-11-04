@@ -9,7 +9,7 @@ import Testing
 
 /// The keyboard covers the page without resizing it, so the text view insets
 /// itself by what's covered. This is the arithmetic.
-@Suite("Keyboard inset")
+@Suite("Keyboard inset", .tags(.layout))
 struct KeyboardInsetTests {
 
     private let screenWidth: CGFloat = 1032

@@ -10,7 +10,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Sized text")
+@Suite("Sized text", .tags(.pure))
 struct SpanSizeTests {
 
     static let red = TextColour.red.hex
@@ -277,7 +277,7 @@ import PencilKit
 import PaperKit
 import UIKit
 
-@Suite("Sized text, laid out")
+@Suite("Sized text, laid out", .tags(.pure))
 @MainActor
 struct SpanSizeLayoutTests {
 
@@ -375,7 +375,7 @@ struct SpanSizeLayoutTests {
     }
 }
 
-@Suite("Sized text: the size control", .serialized)
+@Suite("Sized text: the size control", .serialized, .tags(.pure))
 @MainActor
 struct SizeControlTests {
 

@@ -12,7 +12,7 @@ import UIKit
 #endif
 @testable import NoteCode
 
-@Suite("Note search")
+@Suite("Note search", .tags(.library))
 struct NoteSearchTests {
 
     // MARK: What matches
@@ -162,7 +162,7 @@ struct NoteSearchTests {
 
 // MARK: - Results
 
-@Suite("Note search results")
+@Suite("Note search results", .tags(.library))
 @MainActor
 struct NoteSearchResultsTests {
 
@@ -222,7 +222,7 @@ private extension ModelContext {
 
 #if canImport(UIKit)
 
-@Suite("Opening a search result")
+@Suite("Opening a search result", .tags(.library))
 @MainActor
 struct SearchRevealTests {
 

@@ -9,7 +9,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Editor text view")
+@Suite("Editor text view", .tags(.editor))
 @MainActor
 struct DocumentTextViewTests {
 

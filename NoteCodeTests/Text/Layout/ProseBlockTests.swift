@@ -9,7 +9,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Quotes and rules: reading")
+@Suite("Quotes and rules: reading", .tags(.layout))
 struct ProseBlockParsingTests {
 
     @Test("A quote line has as many levels as >s, its marker is the >s and the spaces after them, and its text follows",
@@ -106,7 +106,7 @@ private struct DocumentStylerSignature: Equatable {
     var detail: Int
 }
 
-@Suite("Quotes and rules: editing")
+@Suite("Quotes and rules: editing", .tags(.layout))
 struct ProseBlockEditingTests {
 
     private func returned(_ marked: String, rendered: Bool = true) -> String? {
@@ -235,7 +235,7 @@ struct ProseBlockEditingTests {
 
 import UIKit
 
-@Suite("Quotes and rules: on the page")
+@Suite("Quotes and rules: on the page", .tags(.layout))
 @MainActor
 struct ProseBlockLayoutTests {
 

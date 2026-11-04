@@ -7,7 +7,7 @@ import CoreGraphics
 import Testing
 @testable import NoteCode
 
-@Suite("Canvas geometry")
+@Suite("Canvas geometry", .tags(.layout))
 struct CanvasGeometryTests {
 
     private let reserve: CGFloat = 76

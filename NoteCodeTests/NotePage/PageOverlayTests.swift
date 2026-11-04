@@ -10,7 +10,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Action bars on the page")
+@Suite("Action bars on the page", .tags(.layout))
 @MainActor
 struct PageOverlayTests {
 

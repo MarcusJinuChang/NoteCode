@@ -11,7 +11,7 @@ import SwiftData
 import Testing
 @testable import NoteCode
 
-@Suite("Home")
+@Suite("Home", .tags(.library))
 @MainActor
 struct HomeSectionsTests {
 
@@ -266,7 +266,7 @@ struct HomeSectionsTests {
     }
 }
 
-@Suite("Title screen")
+@Suite("Title screen", .tags(.library))
 @MainActor
 struct WelcomeScreenTests {
 

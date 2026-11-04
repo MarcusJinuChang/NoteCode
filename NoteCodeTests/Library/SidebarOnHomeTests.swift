@@ -8,7 +8,7 @@ import Testing
 
 /// The list is always beside Home in a regular width (feedback #3); over a
 /// note it stays a slide-over, away until ☰.
-@Suite("Sidebar on Home")
+@Suite("Sidebar on Home", .tags(.library))
 struct SidebarOnHomeTests {
 
     @Test("Home shows the list; a note opened at launch doesn't, unless storage failed")

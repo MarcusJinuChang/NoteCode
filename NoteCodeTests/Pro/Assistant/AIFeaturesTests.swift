@@ -11,7 +11,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("AI entry points")
+@Suite("AI entry points", .tags(.pro))
 struct AIMenuTitleTests {
     @Test("A free reader's Explain and Summarise are marked Pro; Pro's are not")
     func marks() {
@@ -85,7 +85,7 @@ private func job(
     AIJob(action: action, title: "Week 3", languageName: "C++", chunks: chunks, wasTruncated: truncated, insertionOffset: 0, length: length)
 }
 
-@Suite("Assistant prompts and budget")
+@Suite("Assistant prompts and budget", .tags(.pro))
 struct AIPromptTests {
 
     @Test("An explain request names the language and carries the code in the prompt, not the instructions")
@@ -233,7 +233,7 @@ struct AIPromptTests {
     }
 }
 
-@Suite("Assistant state machine")
+@Suite("Assistant state machine", .tags(.pro))
 @MainActor
 struct AIAssistantTests {
 
@@ -398,7 +398,7 @@ struct AIAssistantTests {
     }
 }
 
-@Suite("Insert below")
+@Suite("Insert below", .tags(.pro))
 struct AIInsertionTests {
 
     private func ranges(_ text: String) -> [CodeRange] {
@@ -478,7 +478,7 @@ struct AIInsertionTests {
     }
 }
 
-@Suite("Assistant settings")
+@Suite("Assistant settings", .tags(.pro))
 struct AISettingsTests {
 
     @Test("Defaults: on, standard length, quotes")

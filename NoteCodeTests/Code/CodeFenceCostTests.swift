@@ -12,7 +12,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Code fence cost")
+@Suite("Code fence cost", .tags(.editor, .perf))
 @MainActor
 struct CodeFenceCostTests {
 

@@ -15,7 +15,7 @@ import UIKit
 @testable import NoteCode
 
 @MainActor
-@Suite("Hotbar icons are visible")
+@Suite("Hotbar icons are visible", .tags(.layout))
 struct HotbarIconPixelTests {
 
     /// What the bar material is over a page, per appearance.

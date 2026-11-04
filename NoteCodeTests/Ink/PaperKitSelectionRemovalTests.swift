@@ -15,7 +15,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("PaperKit's selection")
+@Suite("PaperKit's selection", .tags(.ink))
 @MainActor
 struct PaperKitSelectionRemovalTests {
 

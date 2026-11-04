@@ -7,7 +7,7 @@ import CoreGraphics
 import Testing
 @testable import NoteCode
 
-@Suite("Hotbar dock")
+@Suite("Hotbar dock", .tags(.layout))
 struct HotbarDockTests {
 
     /// An iPad Pro 13-inch page area in landscape, below the title.

@@ -13,7 +13,7 @@ import UniformTypeIdentifiers
 
 // MARK: - File names
 
-@Suite("Note file names")
+@Suite("Note file names", .tags(.library))
 struct NoteFileNameTests {
 
     @Test("Characters a file name can't hold become hyphens", arguments: [
@@ -50,7 +50,7 @@ struct NoteFileNameTests {
 
 // MARK: - Markdown out
 
-@Suite("Markdown export")
+@Suite("Markdown export", .tags(.library))
 struct NoteMarkdownTests {
 
     @Test("The file is the note's text, byte for byte", arguments: [
@@ -78,7 +78,7 @@ struct NoteMarkdownTests {
 
 // MARK: - Export All's layout
 
-@Suite("Export All layout")
+@Suite("Export All layout", .tags(.library))
 struct NoteExportPlanTests {
 
     private typealias Item = NoteExport.Item
@@ -196,7 +196,7 @@ struct NoteExportPlanTests {
 
 // MARK: - Import's tagging and titles
 
-@Suite("Import")
+@Suite("Import", .tags(.library))
 struct NoteImportTests {
 
     @Test("A source file is one block tagged from its extension", arguments: [
@@ -290,7 +290,7 @@ struct NoteImportTests {
 
 // MARK: - Import into the store
 
-@Suite("Import into notes")
+@Suite("Import into notes", .tags(.library))
 @MainActor
 struct ImportFilesTests {
 
@@ -386,7 +386,7 @@ struct ImportFilesTests {
 
 // MARK: - Export All's files
 
-@Suite("Export All folder")
+@Suite("Export All folder", .tags(.library))
 @MainActor
 struct NoteExportJobTests {
 
@@ -562,7 +562,7 @@ struct NoteExportJobTests {
 
 // MARK: - One editor per note
 
-@Suite("One editor per note")
+@Suite("One editor per note", .tags(.library))
 @MainActor
 struct OpenNoteRegistryTests {
 

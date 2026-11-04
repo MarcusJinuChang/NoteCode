@@ -8,7 +8,7 @@ import SwiftData
 import Testing
 @testable import NoteCode
 
-@Suite("Storage")
+@Suite("Storage", .tags(.library))
 @MainActor
 struct StorageTests {
 

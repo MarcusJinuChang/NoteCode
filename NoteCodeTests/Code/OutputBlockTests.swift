@@ -11,7 +11,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Output blocks")
+@Suite("Output blocks", .tags(.editor))
 @MainActor
 struct OutputBlockTests {
 

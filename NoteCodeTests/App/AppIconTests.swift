@@ -15,7 +15,7 @@ import ImageIO
 import Testing
 @testable import NoteCode
 
-@Suite("App icon")
+@Suite("App icon", .tags(.library))
 struct AppIconTests {
 
     @Test("A name the system reports maps back to its choice, and an unknown one to the Default")

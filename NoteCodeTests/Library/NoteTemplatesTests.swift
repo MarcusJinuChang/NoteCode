@@ -10,7 +10,7 @@ import SwiftData
 import Testing
 @testable import NoteCode
 
-@Suite("Note templates")
+@Suite("Note templates", .tags(.library))
 @MainActor
 struct NoteTemplatesTests {
 

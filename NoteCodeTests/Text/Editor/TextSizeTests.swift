@@ -18,7 +18,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Text size: the fonts")
+@Suite("Text size: the fonts", .tags(.editor))
 @MainActor
 struct TextSizeFontTests {
 
@@ -111,7 +111,7 @@ struct TextSizeFontTests {
     }
 }
 
-@Suite("Text size: the debug launch option")
+@Suite("Text size: the debug launch option", .tags(.editor))
 struct TextSizeDebugOptionTests {
 
     @Test("-debug-text-size takes a step, for a seeded note")
@@ -133,7 +133,7 @@ struct TextSizeDebugOptionTests {
     }
 }
 
-@Suite("Text size: styling a note in it")
+@Suite("Text size: styling a note in it", .tags(.editor))
 @MainActor
 struct TextSizeStylingTests {
 
@@ -234,7 +234,7 @@ struct TextSizeStylingTests {
     }
 }
 
-@Suite("Text size: re-flowing keeps the reader's place", .serialized)
+@Suite("Text size: re-flowing keeps the reader's place", .serialized, .tags(.editor))
 @MainActor
 struct TextSizeReflowTests {
 
@@ -321,7 +321,7 @@ struct TextSizeReflowTests {
     }
 }
 
-@Suite("Text size: ••• › Text Size, and the question on a note with ink", .serialized)
+@Suite("Text size: ••• › Text Size, and the question on a note with ink", .serialized, .tags(.editor))
 @MainActor
 struct TextSizeEditorTests {
 
@@ -466,7 +466,7 @@ struct TextSizeEditorTests {
     }
 }
 
-@Suite("Text size: paper and thumbnails")
+@Suite("Text size: paper and thumbnails", .tags(.editor))
 @MainActor
 struct TextSizePaperTests {
 

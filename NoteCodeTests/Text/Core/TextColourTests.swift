@@ -9,7 +9,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Coloured text")
+@Suite("Coloured text", .tags(.pure))
 struct TextColourTests {
 
     static let red = TextColour.red.hex
@@ -252,7 +252,7 @@ struct TextColourTests {
 
 import UIKit
 
-@Suite("Coloured text, laid out and drawn")
+@Suite("Coloured text, laid out and drawn", .tags(.pure))
 @MainActor
 struct TextColourLayoutTests {
 

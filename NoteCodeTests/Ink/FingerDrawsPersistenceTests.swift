@@ -16,7 +16,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Finger Draws carries over", .serialized)
+@Suite("Finger Draws carries over", .serialized, .tags(.ink))
 @MainActor
 struct FingerDrawsPersistenceTests {
 

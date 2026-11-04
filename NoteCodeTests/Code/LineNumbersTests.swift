@@ -12,7 +12,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Line numbers", .serialized)
+@Suite("Line numbers", .serialized, .tags(.editor))
 @MainActor
 struct LineNumbersTests {
 
@@ -159,7 +159,7 @@ struct LineNumbersTests {
 
     /// `CodeFenceCostTests`' method: a keystroke near the top of a 500-line
     /// note, timed through the layout it causes.
-    @Test("A keystroke with numbers on costs no more than with them off, on a 500-line note")
+    @Test("A keystroke with numbers on costs no more than with them off, on a 500-line note", .tags(.perf))
     func keystrokeCost() async throws {
         func median(numbers: Bool) async throws -> TimeInterval {
             let harness = Harness(StylingPerformanceTests.document(lines: 500))

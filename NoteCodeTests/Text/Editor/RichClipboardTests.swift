@@ -11,7 +11,7 @@ import UIKit
 import UniformTypeIdentifiers
 @testable import NoteCode
 
-@Suite("Rich copy and paste: in the editor", .serialized)
+@Suite("Rich copy and paste: in the editor", .serialized, .tags(.editor))
 @MainActor
 struct RichClipboardTests {
 

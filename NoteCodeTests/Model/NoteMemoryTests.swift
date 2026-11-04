@@ -10,7 +10,7 @@ import SwiftData
 import Testing
 @testable import NoteCode
 
-@Suite("Note memory")
+@Suite("Note memory", .tags(.library))
 @MainActor
 struct NoteMemoryTests {
 
