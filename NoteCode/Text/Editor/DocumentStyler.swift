@@ -2,7 +2,7 @@
 //  DocumentStyler.swift
 //  NoteCode
 //
-//  Turns FenceParser's regions into visible styling on the text view.
+//  Turns DocumentParser's blocks into visible styling on the text view.
 //
 
 #if canImport(UIKit)
@@ -22,9 +22,12 @@ enum DocumentStyler {
     static var proseFont: UIFont { NoteTypography.standard.prose }
     static var codeFont: UIFont { NoteTypography.standard.code }
 
+    #if DEBUG
+    /// For tests, which compare what was styled against it.
     static func headingFont(level: Int, typography: NoteTypography = .standard) -> UIFont {
         typography.heading(level: level)
     }
+    #endif
 
     static func proseAttributes(_ typography: NoteTypography = .standard) -> [NSAttributedString.Key: Any] {
         var attributes: [NSAttributedString.Key: Any] = [
@@ -162,16 +165,13 @@ enum DocumentStyler {
 
     // MARK: Applying
 
-    /// Re-styles the whole document from scratch.
+    #if DEBUG
+    /// Re-styles the whole document from scratch, for tests, which have no
+    /// cache of their own. Returns the blocks it parsed.
     ///
-    /// Deliberately not incremental. Fence detection is a single linear scan
-    /// and a page of class notes is a few thousand characters, so the simple
-    /// version is fast enough — and incremental re-styling is where this kind
-    /// of editor usually goes to die. Revisit only if Instruments says to.
-    ///
-    /// Returns the regions it used, so callers don't have to parse twice.
-    /// Convenience for callers without a cache of their own (tests, previews).
-    /// The editor goes through the `regions:` variant so it parses once per edit.
+    /// The editor goes through the `source:blocks:previousSignatures:`
+    /// variant, which parses once per edit and restyles only the blocks
+    /// that changed.
     @discardableResult
     static func applyStyling(
         to textView: UITextView,
@@ -187,6 +187,7 @@ enum DocumentStyler {
         )
         return blocks
     }
+    #endif
 
     /// - Parameter previousSignatures: what the document looked like last time
     ///   this ran. Only the blocks that differ get restyled; pass an empty array

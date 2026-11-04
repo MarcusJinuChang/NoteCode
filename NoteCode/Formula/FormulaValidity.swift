@@ -88,6 +88,8 @@ nonisolated enum FormulaValidity: Equatable, Sendable {
 
     private static let cache = Cache()
 
+    #if DEBUG
     /// For tests.
     static func clearCache() { cache.clear() }
+    #endif
 }

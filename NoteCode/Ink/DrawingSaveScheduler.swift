@@ -86,12 +86,6 @@ final class DrawingSaveScheduler {
         }
     }
 
-    /// Replaces the objects' table; saved with the ink's next write. For the
-    /// phases that put entries in it.
-    func setObjects(_ table: InkObjectTable) {
-        objects = table
-    }
-
     /// Takes the note's ink after the reader changed it, and saves it once
     /// drawing pauses.
     func inkDidChange(_ markup: PaperMarkup) {

@@ -112,10 +112,11 @@ hardware-keyboard chords, export and import in Files, a physical Duo.
 
 ### Known problems
 
-- The tests build with ~400 Swift 6 isolation warnings (`SyntaxTheme`
-  accessed from nonisolated autoclosures, `CaretTarget: Equatable`) and 94
-  `UIWindow(frame:)` deprecations. They become errors in Swift 6 mode.
-- `FileDocument` is deprecated in iOS 27 (`ExportFolderDocument`).
+- The build prints 12 warnings (docs/refactor/baseline.md › Warnings, the
+  `WARNINGS` line `scripts/check.sh` ratchets): five main-actor isolation
+  warnings that become errors in Swift 6 mode, and deprecations (two
+  `UIWindow(frame:)` left in tests, `traitCollectionDidChange`, the ad
+  banner's size). Update 2's 2W takes them to zero.
 - Typing three hyphens by hand in prose turns into "—-" while autocorrect is
   on (smart dashes), so it doesn't become a rule; Style ▾'s rule and
   autocorrect off both work (features.md › Autocorrect).
