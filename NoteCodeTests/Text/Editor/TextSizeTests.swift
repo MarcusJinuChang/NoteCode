@@ -325,117 +325,100 @@ struct TextSizeReflowTests {
 @MainActor
 struct TextSizeEditorTests {
 
-    @MainActor
-    final class Harness {
-        let editor = NoteEditor()
-        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 900, height: 700))
-        let page: PageView
-        let textView = DocumentTextView.makeConfiguredTextView()
-        var committed: [Int?] = []
-
-        init(withInk: Bool) {
-            page = PageView(textView: textView)
-            textView.text = "# Title\nsome words\n"
-            page.frame = window.bounds
-            window.addSubview(page)
-            window.makeKeyAndVisible()
-            page.layoutIfNeeded()
-            editor.attach(textView, canvas: page.canvas, page: page)
-            editor.settleDelay = .milliseconds(20)
-            editor.commitTextSize = { [unowned self] size in
-                committed.append(size)
+    /// The editor alone on a short note, with no Coordinator, and its pause
+    /// shortened to 20ms.
+    static func harness(withInk: Bool) -> EditorHarness {
+        let harness = EditorHarness("# Title\nsome words\n", wiring: .none, window: CGSize(width: 900, height: 700), area: nil)
+        harness.editor.settleDelay = .milliseconds(20)
+        if withInk {
+            let points = (0..<10).map { i in
+                PKStrokePoint(
+                    location: CGPoint(x: 100 + CGFloat(i) * 10, y: 200), timeOffset: Double(i) * 0.01,
+                    size: CGSize(width: 3, height: 3), opacity: 1, force: 1, azimuth: 0, altitude: .pi / 2
+                )
             }
-            if withInk {
-                let points = (0..<10).map { i in
-                    PKStrokePoint(
-                        location: CGPoint(x: 100 + CGFloat(i) * 10, y: 200), timeOffset: Double(i) * 0.01,
-                        size: CGSize(width: 3, height: 3), opacity: 1, force: 1, azimuth: 0, altitude: .pi / 2
-                    )
-                }
-                let stroke = PKStroke(ink: PKInk(.pen, color: .black), path: PKStrokePath(controlPoints: points, creationDate: Date()))
-                var markup = PaperMarkup(bounds: CGRect(x: 0, y: 0, width: page.pageLayout.pageSize.width, height: 4000))
-                markup.append(contentsOf: PKDrawing(strokes: [stroke]))
-                page.setInk(markup)
-            }
+            let stroke = PKStroke(ink: PKInk(.pen, color: .black), path: PKStrokePath(controlPoints: points, creationDate: Date()))
+            var markup = PaperMarkup(bounds: CGRect(x: 0, y: 0, width: harness.page.pageLayout.pageSize.width, height: 4000))
+            markup.append(contentsOf: PKDrawing(strokes: [stroke]))
+            harness.page.setInk(markup)
         }
-
-        func wait() async { try? await Task.sleep(for: .milliseconds(120)) }
+        return harness
     }
 
     @Test("A note without ink changes once the pause is over")
     func noInkChangesAtOnce() async {
-        let harness = Harness(withInk: false)
+        let harness = Self.harness(withInk: false)
         harness.editor.setTextSize(19)
         #expect(harness.editor.textSize == 19, "the menu shows the pick straight away")
-        #expect(harness.committed.isEmpty, "…and the note catches up after the pause")
+        #expect(harness.committedTextSizes.isEmpty, "…and the note catches up after the pause")
         await harness.wait()
-        #expect(harness.committed == [19])
+        #expect(harness.committedTextSizes == [19])
     }
 
     @Test("A run of picks lays the note out once, at the last size")
     func runOfTapsSettlesOnce() async {
-        let harness = Harness(withInk: false)
+        let harness = Self.harness(withInk: false)
         for size in [19, 21, 23, 21] { harness.editor.setTextSize(size) }
         await harness.wait()
-        #expect(harness.committed == [21], "17 → 19 → 21 → 23 → 21 is one change, to 21: \(harness.committed)")
+        #expect(harness.committedTextSizes == [21], "17 → 19 → 21 → 23 → 21 is one change, to 21: \(harness.committedTextSizes)")
         #expect(harness.editor.textSize == 21)
     }
 
     @Test("Picks that end where they began change nothing")
     func backToWhereItWas() async {
-        let harness = Harness(withInk: false)
+        let harness = Self.harness(withInk: false)
         harness.editor.setTextSize(19)
         harness.editor.setTextSize(17)
         await harness.wait()
-        #expect(harness.committed.isEmpty)
+        #expect(harness.committedTextSizes.isEmpty)
     }
 
     @Test("The default is stored as nothing")
     func defaultStoredAsNil() async {
-        let harness = Harness(withInk: false)
+        let harness = Self.harness(withInk: false)
         harness.editor.syncTextSize(to: 19)
         harness.editor.setTextSize(17)
         await harness.wait()
-        #expect(harness.committed.count == 1)
-        #expect(harness.committed.first == .some(nil), "17 is nil in the model: \(harness.committed)")
+        #expect(harness.committedTextSizes.count == 1)
+        #expect(harness.committedTextSizes.first == .some(nil), "17 is nil in the model: \(harness.committedTextSizes)")
     }
 
     @Test("A note with ink changes the same way, with no question")
     func inkChangesAtOnce() async {
-        let harness = Harness(withInk: true)
+        let harness = Self.harness(withInk: true)
         harness.editor.setTextSize(19)
         await harness.wait()
 
-        #expect(harness.committed == [19])
+        #expect(harness.committedTextSizes == [19])
         #expect(harness.editor.textSize == 19)
 
         harness.editor.syncTextSize(to: 19)
         harness.editor.setTextSize(21)
         await harness.wait()
-        #expect(harness.committed == [19, 21])
+        #expect(harness.committedTextSizes == [19, 21])
     }
 
     @Test("A size change is one undo step, and redo brings it back")
     func sizeUndoes() async {
-        let harness = Harness(withInk: true)
+        let harness = Self.harness(withInk: true)
         harness.window.makeKeyAndVisible()
         harness.textView.becomeFirstResponder()
         harness.editor.setTextSize(21)
         await harness.wait()
-        #expect(harness.committed == [21])
+        #expect(harness.committedTextSizes == [21])
 
         let undo = harness.textView.undoManager
         #expect(undo?.canUndo == true)
         undo?.undo()
-        #expect(harness.committed == [21, nil] as [Int?], "undo goes back to 17, stored as nothing: \(harness.committed)")
+        #expect(harness.committedTextSizes == [21, nil] as [Int?], "undo goes back to 17, stored as nothing: \(harness.committedTextSizes)")
         #expect(harness.editor.textSize == 17 && harness.editor.appliedTextSize == 17)
         undo?.redo()
-        #expect(harness.committed.last == 21 && harness.editor.appliedTextSize == 21)
+        #expect(harness.committedTextSizes.last == 21 && harness.editor.appliedTextSize == 21)
     }
 
     @Test("A line spacing change is one undo step")
     func spacingUndoes() {
-        let harness = Harness(withInk: false)
+        let harness = Self.harness(withInk: false)
         var committed: [Int?] = []
         harness.editor.commitLineSpacing = { committed.append($0) }
         harness.editor.setLineSpacing(6)
@@ -447,22 +430,22 @@ struct TextSizeEditorTests {
 
     @Test("A locked note's text size can't be changed")
     func lockedNote() async {
-        let harness = Harness(withInk: false)
+        let harness = Self.harness(withInk: false)
         harness.editor.setTextLocked(true)
         harness.editor.setTextSize(19)
         await harness.wait()
-        #expect(harness.committed.isEmpty)
+        #expect(harness.committedTextSizes.isEmpty)
         #expect(harness.editor.textSize == 17)
     }
 
     @Test("Following the note's stored size doesn't undo a pick still in flight")
     func syncWaitsForTheTap() async {
-        let harness = Harness(withInk: false)
+        let harness = Self.harness(withInk: false)
         harness.editor.setTextSize(19)
         harness.editor.syncTextSize(to: nil)
         #expect(harness.editor.textSize == 19)
         await harness.wait()
-        #expect(harness.committed == [19])
+        #expect(harness.committedTextSizes == [19])
     }
 }
 

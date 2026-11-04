@@ -91,6 +91,9 @@ struct GeneralSettings: View {
 /// own. iOS shows its own "You have changed the icon" alert on a change; it
 /// can't be turned off without private API.
 private struct AppIconSection: View {
+    /// Each icon's picture in the list, the height of a two-line row.
+    private static let iconSide: CGFloat = 44
+
     @State private var current = AppIconChoice(alternateIconName: UIApplication.shared.alternateIconName)
 
     var body: some View {
@@ -102,10 +105,10 @@ private struct AppIconSection: View {
                     } label: {
                         HStack(spacing: 14) {
                             NoteCodeMark(icon: choice)
-                                .frame(width: 44, height: 44)
-                                .clipShape(RoundedRectangle(cornerRadius: 44 * 0.2237, style: .continuous))
+                                .frame(width: Self.iconSide, height: Self.iconSide)
+                                .clipShape(RoundedRectangle(cornerRadius: NoteCodeMark.cornerRadius(side: Self.iconSide), style: .continuous))
                                 .overlay {
-                                    RoundedRectangle(cornerRadius: 44 * 0.2237, style: .continuous)
+                                    RoundedRectangle(cornerRadius: NoteCodeMark.cornerRadius(side: Self.iconSide), style: .continuous)
                                         .strokeBorder(.separator, lineWidth: 0.5)
                                 }
                                 .accessibilityHidden(true)

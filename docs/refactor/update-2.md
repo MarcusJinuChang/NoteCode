@@ -16,6 +16,9 @@ touches into their own files (`verify-move.sh`), then the change.
 
 ## 2X. The extension seam
 
+Briefs: [2X-seam.md](2X-seam.md) (4 Nov), which records where the code no
+longer fits this design: 2X5a folds into 2X5b, and 2X5d is already done.
+
 **Why.** Pro, ads, tips, Run in the app and the AI features are wired into
 general types:
 - `NoteEditor` stores the `RunSession`, `pro` and the assistant
@@ -103,10 +106,12 @@ After 2X, general code never names a type in `Pro/`, so the public build is
 | 2X5b | `RunFeature` hooks: the block bar's Run, ⌘R (NoteCommands.swift:247) and `CodeFenceDisplay`'s `run.*` wiring (:30–98) |
 | 2X5c | The Notes \| Run switch and its PRO mark, `RunDock` and `RunPanelHost` (PageDetailView.swift:248, 364–410) through the side-panel slot |
 | 2X5d | `RunWiringTests`, `RunSessionTests` and `CodeRunnerTests` move to `NoteCodeTests/Pro/`. `CodeDestinationTests` stays general |
-| 2X6 | DebugLaunch: `-debug-pro`, `-debug-paywall`, `-debug-run-stub` and `-debug-tip-jar` are registered from `Pro/Debug` and passed to `parse`. `DebugProStore`, `DebugRunStub` and `DebugTipStore` move out of ProStatus, RunSession and TipJar. The Pro lines in WelcomeNote.swift:93 and WelcomeScreen.swift:51 come from the edition, and the public build says the Run button opens a compiler site |
+| 2X6 | DebugLaunch: `-debug-pro`, `-debug-paywall`, `-debug-run-stub` and `-debug-tip-jar` are registered from `Pro/Debug` and passed to `parse`. `DebugProStore`, `DebugRunStub` and `DebugTipStore` move out of ProStatus, RunSession and TipJar. The Pro lines in WelcomeNote.swift:93 and WelcomeScreen.swift:51 come from the edition, and the public build says the Run button opens a compiler site. **Takes over 1B7** (1-structure.md): `parse` is one loop and one switch with a shared cursor and accumulator, so it splits by option group here, not as a pure move |
 | 2X7 | **`scripts/build-open-source.sh`** proves the public build compiles, with no project edit. It works in a temporary worktree: delete `NoteCode/Pro/` and `NoteCodeTests/Pro/`, then lay over `OpenSource/OpenSourceEdition.swift`, `OpenSource/Info.plist` and `OpenSource/PrivacyInfo.xcprivacy`, then build and run the unit tests. The public `Info.plist` drops `GADApplicationIdentifier`, `SKAdNetworkItems` and `NSUserTrackingUsageDescription`, and keeps `UTExportedTypeDeclarations`, `ITSAppUsesNonExemptEncryption` and the scene manifest. The public privacy manifest has no tracking and keeps the CA92.1 UserDefaults reason. `AppStoreReadinessTests` is split: the tracking and privacy-policy-page assertions go to `NoteCodeTests/Pro/`. The seam count is 0. `check.sh` runs both scripts |
 
 ## 2S2. Settings in one place (after 2X; four PRs)
+
+Briefs: [2S-settings.md](2S-settings.md) (4 Nov).
 
 The ~65 `@AppStorage` declarations repeat keys and defaults across 11
 files. PageDetailView (:72–144) and SettingsView (:278–569) both declare
@@ -124,6 +129,9 @@ the same 14. 2S1 pinned every key and default, so this can't rename one.
   as `TextRewritingPolicy` does.
 
 ## 2T. The text system (one step at a time)
+
+Briefs: [2T-text.md](2T-text.md) (4 Nov). 2T1 starts with 1B9, which
+Update 1 didn't do, and 2T3 takes feature-audit.md's A11.
 
 - **2T1. One `DocumentSnapshot` per edit (four PRs; perf at each).**
   - **Why.** Today a keystroke makes up to five whole-document copies
@@ -186,6 +194,9 @@ the same 14. 2S1 pinned every key and default, so this can't rename one.
 
 ## 2P. Page, ink and shell (alongside 2T)
 
+Briefs: [2P-page.md](2P-page.md) (4 Nov), with a 2P2b (feature-audit.md
+› A9) that brings `PageView` under 600 lines.
+
 - **2P1. `PageInkPipeline` out of `PageView` (three PRs; perf; Marcus
   checks with the Pencil after each).** This is the most trap-heavy work in
   the plan. AGENTS.md's ink lines all apply, and `openingCost` and
@@ -207,6 +218,9 @@ the same 14. 2S1 pinned every key and default, so this can't rename one.
   - One layout-class value replaces the four ways "compact" is worked out.
   - **Leave the split view's `.balanced`/`.prominentDetail` `if/else`
     (:215–226) exactly as it is.** It depends on view identity.
+  - **Takes over 1B6** (1-structure.md): NoteList's rows and menus become
+    types of their own, since a split as extensions needed about 24 members
+    loosened.
 - **2P5. One `InkToolStore`** replaces the five copies of pen, highlighter,
   eraser and finger settings:
   - `NoteEditor.inkTool`
@@ -224,6 +238,8 @@ the same 14. 2S1 pinned every key and default, so this can't rename one.
     don't change the hashes, and `ModelFreezeTests` proves it.
 
 ## 2C and 2W
+
+Briefs, and T5–T8's place in the waves: [2C-2W.md](2C-2W.md) (4 Nov).
 
 - **2C. The rest of the pure core** moves into `Text/Core`:
   - `MarkdownLayout`'s planning half (`Run`, `runs`, `displayRuns`,

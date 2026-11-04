@@ -42,7 +42,6 @@ struct LineSpacingTests {
         #expect(NoteTypography(lineSpacing: 0).storedLineSpacing == nil)
         #expect(NoteTypography(lineSpacing: 8).storedLineSpacing == 8)
         #expect(NoteTypography(lineSpacing: 2) != NoteTypography(), "a change of spacing is a change of typography")
-        #expect(NoteTypography().isStandard && !NoteTypography(lineSpacing: 2).isStandard)
         #expect(NoteTypography(bodySize: 19).storedSize == 19 && NoteTypography(lineSpacing: 4).storedSize == nil)
     }
 
@@ -63,7 +62,7 @@ struct LineSpacingTests {
 
     /// Every line's text and height at a spacing.
     static func heights(at spacing: Int) async throws -> [String: CGFloat] {
-        let harness = CodeFenceDisplayTests.Harness(note)
+        let harness = EditorHarness(note)
         harness.coordinator.setTypography(NoteTypography(lineSpacing: spacing), in: harness.textView)
         harness.layOut()
         try await harness.settle()
@@ -105,7 +104,7 @@ struct LineSpacingTests {
         for headings in [0, 3, 7, 10] {
             let near = Int((body - CGFloat(headings) * (26 + CGFloat(spacing))) / line)
             for prose in (near - 3)...(near + 1) {
-                let harness = CodeFenceDisplayTests.Harness(CodeBlockRoomTests.sweepNote(headings: headings, prose: prose))
+                let harness = EditorHarness(CodeBlockRoomTests.sweepNote(headings: headings, prose: prose))
                 harness.coordinator.setTypography(NoteTypography(lineSpacing: spacing), in: harness.textView)
                 var placements: [[String]] = []
                 for mode in PageViewMode.allCases {
@@ -128,7 +127,7 @@ struct LineSpacingTests {
 
     @Test("A restyle at a spacing is no edit, and a line made by Return is as tall as the lines around it")
     func restyleAndReturn() async throws {
-        let harness = CodeFenceDisplayTests.Harness("Intro\nPara one\nPara two\n")
+        let harness = EditorHarness("Intro\nPara one\nPara two\n")
         harness.coordinator.setTypography(NoteTypography(lineSpacing: 6), in: harness.textView)
         try await harness.settle()
         let before = harness.textView.textStorage.copy() as! NSAttributedString
@@ -147,11 +146,9 @@ struct LineSpacingTests {
 
     // MARK: The note
 
-    typealias Harness = TextSizeEditorTests.Harness
-
     @Test("A note without ink takes a spacing at once; none is nil in the model")
     func noInkAtOnce() {
-        let harness = Harness(withInk: false)
+        let harness = TextSizeEditorTests.harness(withInk: false)
         var committed: [Int?] = []
         harness.editor.commitLineSpacing = { committed.append($0) }
         harness.editor.setLineSpacing(6)
@@ -162,7 +159,7 @@ struct LineSpacingTests {
 
     @Test("A note with ink takes a spacing at once, and a locked note refuses")
     func inkTakesIt() {
-        let harness = Harness(withInk: true)
+        let harness = TextSizeEditorTests.harness(withInk: true)
         var committed: [Int?] = []
         harness.editor.commitLineSpacing = { committed.append($0) }
         harness.editor.setLineSpacing(6)

@@ -145,81 +145,39 @@ import UIKit
 @MainActor
 struct TextRowEditorTests {
 
-    @MainActor
-    final class Harness {
-        var stored: String
-        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 900, height: 700))
-        let textView = DocumentTextView.makeConfiguredTextView()
-        let editor = NoteEditor()
-        let page: PageView
-        var coordinator: DocumentTextView.Coordinator!
-
-        /// - Parameter marked: the note, with `|` where the caret is.
-        init(_ marked: String) {
-            let caret = (marked as NSString).range(of: "|")
-            stored = marked.replacingOccurrences(of: "|", with: "")
-            page = PageView(textView: textView)
-            coordinator = DocumentTextView.Coordinator(
-                text: Binding(get: { [unowned self] in stored }, set: { [unowned self] in stored = $0 })
-            )
-            coordinator.editor = editor
-            textView.delegate = coordinator
-            textView.textLayoutManager?.delegate = coordinator
-            coordinator.observeEdits(of: textView)
-            coordinator.attachOverlay(to: textView)
-            coordinator.setRendersMarkdown(true, in: textView)
-            textView.text = stored
-            coordinator.invalidateStyling()
-            coordinator.restyle(textView)
-            page.frame = window.bounds
-            window.addSubview(page)
-            window.makeKeyAndVisible()
-            page.layoutIfNeeded()
-            editor.attach(textView, canvas: page.canvas, page: page)
-            coordinator.connect(editor, to: textView)
-            textView.selectedRange = NSRange(location: caret.location, length: 0)
-            coordinator.refreshCaretFormatting(in: textView)
-        }
-
-        /// Each tap of a chip is its own turn of the run loop in the app, and
-        /// so its own undo step: UIKit closes an undo group at the end of the
-        /// turn. A test makes its edits back to back, in one turn, and a
-        /// single undo would take them all.
-        func nextTap() async {
-            try? await Task.sleep(for: .milliseconds(30))
-        }
-
-        var text: String { textView.text ?? "" }
-        var block: MarkdownFormatting.CaretFormatting.Block { editor.caretFormatting.block }
+    /// The editor wired as on the page, with Markdown rendered, on a note
+    /// with `|` where the caret is.
+    static func harness(_ marked: String) -> EditorHarness {
+        EditorHarness(marked, caretMarker: "|", rendersMarkdown: true, window: CGSize(width: 900, height: 700), area: nil)
     }
 
     // MARK: What the row shows
 
     @Test("The row follows the caret: paragraph, list item, then code with its language")
     func followsTheCaret() {
-        let harness = Harness("Prose| here\n- item\n```cpp\nint x;\n```\n```ruby\nx\n```\n")
-        #expect(harness.block == .paragraph)
+        let harness = Self.harness("Prose| here\n- item\n```cpp\nint x;\n```\n```ruby\nx\n```\n")
+        #expect(harness.caretBlock == .paragraph)
 
         harness.textView.selectedRange = NSRange(location: 14, length: 0)
         harness.coordinator.refreshCaretFormatting(in: harness.textView)
-        #expect(harness.block == .listItem)
+        #expect(harness.caretBlock == .listItem)
 
         let cpp = (harness.text as NSString).range(of: "int x").location
         harness.textView.selectedRange = NSRange(location: cpp, length: 0)
         harness.coordinator.refreshCaretFormatting(in: harness.textView)
-        #expect(harness.block == .code(label: "C++", kind: .language(.cpp), isClosed: true))
+        #expect(harness.caretBlock == .code(label: "C++", kind: .language(.cpp), isClosed: true))
 
         let ruby = (harness.text as NSString).range(of: "x\n```\n", options: .backwards).location
         harness.textView.selectedRange = NSRange(location: ruby, length: 0)
         harness.coordinator.refreshCaretFormatting(in: harness.textView)
-        #expect(harness.block == .code(label: "ruby", kind: nil, isClosed: true), "a tag the app doesn't know keeps its own name")
+        #expect(harness.caretBlock == .code(label: "ruby", kind: nil, isClosed: true), "a tag the app doesn't know keeps its own name")
     }
 
     // MARK: Paragraph and heading
 
     @Test("Body, H1, H2 and H3 are the Style menu's edits, and one undo takes a chip back")
     func headingChips() async {
-        let harness = Harness("Wo|rds here\n")
+        let harness = Self.harness("Wo|rds here\n")
         harness.editor.setHeading(level: 2)
         #expect(harness.text == "## Words here\n")
         #expect(harness.editor.caretFormatting.headingLevel == 2, "the chip lights for the heading it made")
@@ -238,7 +196,7 @@ struct TextRowEditorTests {
 
     @Test("Link asks for an address, wraps the word, and one undo takes it back")
     func linkFlow() {
-        let harness = Harness("see no|tes here\n")
+        let harness = Self.harness("see no|tes here\n")
         harness.editor.beginLink()
         #expect(harness.editor.linkTarget == NSRange(location: 4, length: 5))
 
@@ -254,7 +212,7 @@ struct TextRowEditorTests {
 
     @Test("Cancel, or an empty address, adds nothing")
     func linkCancelled() {
-        let harness = Harness("see no|tes here\n")
+        let harness = Self.harness("see no|tes here\n")
         harness.editor.beginLink()
         harness.editor.cancelLink()
         #expect(harness.editor.linkTarget == nil)
@@ -268,7 +226,7 @@ struct TextRowEditorTests {
 
     @Test("Link has nothing to do in code")
     func noLinkInCode() {
-        let harness = Harness("```cpp\nint |x;\n```\n")
+        let harness = Self.harness("```cpp\nint |x;\n```\n")
         harness.editor.beginLink()
         #expect(harness.editor.linkTarget == nil)
     }
@@ -277,7 +235,7 @@ struct TextRowEditorTests {
 
     @Test("In a list item the chips convert the list and nest it, and undo takes each back")
     func listChips() async {
-        let harness = Harness("- ite|m\n")
+        let harness = Self.harness("- ite|m\n")
         harness.editor.toggleList(.numbered)
         #expect(harness.text == "1. item\n")
         await harness.nextTap()
@@ -293,7 +251,7 @@ struct TextRowEditorTests {
 
     @Test("⇥ and ⇤ nest a list item two spaces, and take them back")
     func listIndent() async {
-        let harness = Harness("- one\n- tw|o\n")
+        let harness = Self.harness("- one\n- tw|o\n")
         harness.editor.indent(outdent: false)
         #expect(harness.text == "- one\n  - two\n")
         await harness.nextTap()
@@ -308,7 +266,7 @@ struct TextRowEditorTests {
 
     @Test("⇥ and ⇤ indent the code line by the indent width, and ⇤ takes it back")
     func codeIndent() {
-        let harness = Harness("```cpp\nint| x;\n```\n")
+        let harness = Self.harness("```cpp\nint| x;\n```\n")
         harness.editor.indent(outdent: false)
         #expect(harness.text == "```cpp\n    int x;\n```\n")
         harness.editor.indent(outdent: true)
@@ -317,7 +275,7 @@ struct TextRowEditorTests {
 
     @Test("The language menu points the block at another language, as the block's own button does")
     func codeLanguage() async {
-        let harness = Harness("```cpp\nint| x;\n```\n")
+        let harness = Self.harness("```cpp\nint| x;\n```\n")
         harness.editor.setCodeBlockKind(.language(.python))
         #expect(harness.text == "```python\nint x;\n```\n")
         await harness.nextTap()
@@ -333,13 +291,13 @@ struct TextRowEditorTests {
 
     @Test("+ Output adds an empty output block under the code block, with the caret in it")
     func addOutput() {
-        let harness = Harness("```cpp\nint| x;\n```\nAfter\n")
+        let harness = Self.harness("```cpp\nint| x;\n```\nAfter\n")
         harness.editor.addOutputBlock()
 
         #expect(harness.text == "```cpp\nint x;\n```\n```output\n\n```\nAfter\n")
         #expect(harness.stored == harness.text)
         #expect(harness.textView.selectedRange.location == ("```cpp\nint x;\n```\n```output\n" as NSString).length)
-        if case .code(_, let kind, _) = harness.block { #expect(kind == .output) } else { Issue.record("the caret should be in the output block") }
+        if case .code(_, let kind, _) = harness.caretBlock { #expect(kind == .output) } else { Issue.record("the caret should be in the output block") }
 
         harness.editor.undo()
         #expect(harness.text == "```cpp\nint x;\n```\nAfter\n")
@@ -349,7 +307,7 @@ struct TextRowEditorTests {
 
     @Test("A locked note's text isn't changed by any of them")
     func lockedNote() {
-        let harness = Harness("- ite|m\n")
+        let harness = Self.harness("- ite|m\n")
         harness.editor.setTextLocked(true)
         harness.editor.indent(outdent: false)
         harness.editor.toggleList(.numbered)
@@ -362,7 +320,7 @@ struct TextRowEditorTests {
 
     @Test("In ink mode they do nothing either")
     func inkMode() {
-        let harness = Harness("- ite|m\n")
+        let harness = Self.harness("- ite|m\n")
         harness.editor.setMode(.ink)
         harness.editor.indent(outdent: false)
         harness.editor.setCodeBlockKind(.plain)

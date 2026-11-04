@@ -250,7 +250,7 @@ struct NoteSearchResultsTests {
         #expect(reads == 0)
     }
 
-    @Test("The search call over 500 notes", .timeLimit(.minutes(1)))
+    @Test("The search call over 500 notes", .timeLimit(.minutes(1)), .tags(.perf))
     func cost() {
         for index in 0..<500 {
             _ = note("Note \(index)", String(repeating: "std::vector<int> v; // line \(index)\n", count: 200), modified: index)

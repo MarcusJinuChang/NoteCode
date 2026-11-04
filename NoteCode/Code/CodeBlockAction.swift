@@ -99,27 +99,10 @@ nonisolated struct CodeRange: Equatable, Sendable {
     }
 }
 
-/// Running code in-app is deliberately out of scope — see AGENTS.md. What a
-/// student actually needs is the block in the toolchain they already use, so
-/// the editor copies it out or hands it to an online compiler instead.
+/// Finding the code block a run or copy acts on. Run itself is Pro and goes
+/// to the run service, or to an online compiler when a run can't happen
+/// (AGENTS.md › Project overview).
 nonisolated enum CodeBlockAction {
-
-    /// The code a copy or share action should act on, given where the caret is.
-    ///
-    /// Returns `nil` when the caret isn't inside a fenced block, which is what
-    /// keeps the actions out of the edit menu in prose. The fence lines are
-    /// excluded — pasting ```` ```cpp ```` into a compiler helps nobody.
-    static func code(atCaret utf16Offset: Int, in source: String, blocks: [BlockNode]) -> String? {
-        guard let index = Range(NSRange(location: utf16Offset, length: 0), in: source)?.lowerBound else {
-            return nil
-        }
-
-        let block = blocks.first { $0.range.contains(index) }
-            ?? (index == source.endIndex ? blocks.last : nil)
-
-        guard let code = block?.codeBlock else { return nil }
-        return String(source[code.contentRange])
-    }
 
     /// The code block the caret is in, fence lines included, for run and copy
     /// from the keyboard and the edit menu.

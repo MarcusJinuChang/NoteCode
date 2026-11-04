@@ -479,7 +479,7 @@ struct NoteList: View {
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .rotationEffect(.degrees(isOpen ? 90 : 0))
-                    .frame(width: 28, height: 44)
+                    .frame(width: 28, height: TapTarget.minimum)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)

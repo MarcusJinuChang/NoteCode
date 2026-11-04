@@ -17,8 +17,6 @@ import UIKit
 @MainActor
 struct KeyboardAndMenuTests {
 
-    typealias Harness = CodeFenceDisplayTests.Harness
-
     private func isolatedDefaults() -> UserDefaults {
         let name = "KeyboardAndMenuTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
@@ -44,7 +42,7 @@ struct KeyboardAndMenuTests {
         }
     }
 
-    private func editMenu(_ harness: Harness, at offset: Int, selecting length: Int = 0) -> UIMenu {
+    private func editMenu(_ harness: EditorHarness, at offset: Int, selecting length: Int = 0) -> UIMenu {
         harness.textView.selectedRange = NSRange(location: offset, length: length)
         return harness.coordinator.textView(
             harness.textView,
@@ -113,7 +111,7 @@ struct KeyboardAndMenuTests {
 
     @Test("⇧⌘K starts a block in the last language picked, and a pick is remembered")
     func codeBlockKey() async throws {
-        let harness = Harness("Notes\n")
+        let harness = EditorHarness("Notes\n")
         harness.editor.defaults = isolatedDefaults()
         try await harness.caret(at: 6)
 
@@ -131,7 +129,7 @@ struct KeyboardAndMenuTests {
 
     @Test("A locked note starts no block and remembers nothing")
     func lockedCodeBlock() {
-        let harness = Harness("Notes\n")
+        let harness = EditorHarness("Notes\n")
         harness.editor.defaults = isolatedDefaults()
         harness.editor.setTextLocked(true)
 
@@ -143,7 +141,7 @@ struct KeyboardAndMenuTests {
 
     @Test("⇧⌘C copies the block the caret is in, with a tap, and does nothing in prose")
     func copyKey() async throws {
-        let harness = Harness()
+        let harness = EditorHarness()
         let taps = Taps()
         defer { taps.restore() }
 
@@ -161,7 +159,7 @@ struct KeyboardAndMenuTests {
 
     @Test("In ink mode, ⌘R and ⇧⌘C leave the pasteboard alone")
     func blockKeysNeedTextMode() async throws {
-        let harness = Harness()
+        let harness = EditorHarness()
         try await harness.caret(at: harness.offset(of: "int other"))
         harness.editor.setMode(.ink)
 
@@ -172,7 +170,7 @@ struct KeyboardAndMenuTests {
 
     @Test("Copying a block taps, from the button's path too")
     func copyTaps() {
-        let harness = Harness()
+        let harness = EditorHarness()
         let taps = Taps()
         defer { taps.restore() }
 
@@ -189,7 +187,7 @@ struct KeyboardAndMenuTests {
 
     @Test("Copying a block tells the page, from the button and from ⇧⌘C, and a failed copy doesn't")
     func copyToasts() async throws {
-        let harness = Harness()
+        let harness = EditorHarness()
         let taps = Taps()
         defer { taps.restore() }
         var told = 0
@@ -235,7 +233,7 @@ struct KeyboardAndMenuTests {
 
     @Test("On prose the edit menu has Bold, Italic, Underline, Code and a Format submenu")
     func proseMenu() {
-        let harness = Harness()
+        let harness = EditorHarness()
         let menu = editMenu(harness, at: 0, selecting: 5)
 
         let all = titles(of: menu)
@@ -248,7 +246,7 @@ struct KeyboardAndMenuTests {
 
     @Test("Underline in the edit menu does what the button does, undoably")
     func underlineMenuActs() throws {
-        let harness = Harness("a word b")
+        let harness = EditorHarness("a word b")
         let menu = editMenu(harness, at: 2, selecting: 4)
 
         let underline = try #require(allActions(in: menu).first { $0.title == "Underline" })
@@ -261,7 +259,7 @@ struct KeyboardAndMenuTests {
 
     @Test("Bold in the edit menu does what the button does, undoably")
     func proseMenuActs() throws {
-        let harness = Harness("a word b")
+        let harness = EditorHarness("a word b")
         let menu = editMenu(harness, at: 2, selecting: 4)
 
         let bold = try #require(allActions(in: menu).first { $0.title == "Bold" })
@@ -275,7 +273,7 @@ struct KeyboardAndMenuTests {
 
     @Test("In a code block the edit menu has Run Block and Copy Block, not the prose formatting")
     func codeMenu() {
-        let harness = Harness()
+        let harness = EditorHarness()
         let menu = editMenu(harness, at: harness.offset(of: "int other"))
 
         let all = titles(of: menu)
@@ -286,7 +284,7 @@ struct KeyboardAndMenuTests {
 
     @Test("A block with no language the app knows has no Run Block")
     func codeMenuWithoutLanguage() {
-        let harness = Harness("```\nplain text\n```\n")
+        let harness = EditorHarness("```\nplain text\n```\n")
         let menu = editMenu(harness, at: 5)
 
         let all = titles(of: menu)
@@ -296,7 +294,7 @@ struct KeyboardAndMenuTests {
 
     @Test("Copy Block in the edit menu copies the block and taps")
     func codeMenuCopies() throws {
-        let harness = Harness()
+        let harness = EditorHarness()
         let taps = Taps()
         defer { taps.restore() }
 
@@ -310,7 +308,7 @@ struct KeyboardAndMenuTests {
 
     @Test("A locked note, and ink mode, get no formatting in the edit menu")
     func menuStandsDown() {
-        let harness = Harness()
+        let harness = EditorHarness()
         harness.editor.setTextLocked(true)
         #expect(!titles(of: editMenu(harness, at: 0, selecting: 5)).contains("Bold"))
 
@@ -359,7 +357,7 @@ struct KeyboardAndMenuTests {
 
     @Test("⌘Z and ⇧⌘Z undo and redo the note's own edits when no other field is typing")
     func undoRouting() {
-        let harness = Harness("a word b")
+        let harness = EditorHarness("a word b")
         harness.textView.selectedRange = NSRange(location: 2, length: 4)
         harness.editor.toggle(.bold)
         #expect(harness.textView.text == "a **word** b")
@@ -374,7 +372,7 @@ struct KeyboardAndMenuTests {
 
     @Test("The note body doesn't follow Dynamic Type, so a larger system text size can't re-wrap it")
     func bodyIgnoresTextSize() {
-        let harness = Harness("A long enough line of prose to wrap at least once or twice when the page is narrow enough to need it.\n")
+        let harness = EditorHarness("A long enough line of prose to wrap at least once or twice when the page is narrow enough to need it.\n")
         let before = harness.textView.contentSize.height
         let beforeFont = harness.textView.font?.pointSize
 

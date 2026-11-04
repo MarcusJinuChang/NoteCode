@@ -21,7 +21,7 @@ struct ReturnAndBackspaceTests {
 
     /// One press as the keyboard makes it: `shouldChangeTextIn`, then UIKit's
     /// own insert or delete if the coordinator let it through.
-    static func press(_ harness: CodeFenceDisplayTests.Harness, backspace: Bool) {
+    static func press(_ harness: EditorHarness, backspace: Bool) {
         let textView = harness.textView
         let selection = textView.selectedRange
         if backspace {
@@ -35,7 +35,7 @@ struct ReturnAndBackspaceTests {
         }
     }
 
-    static func top(of text: String, in harness: CodeFenceDisplayTests.Harness) throws -> CGFloat {
+    static func top(of text: String, in harness: EditorHarness) throws -> CGFloat {
         let lines = CodeBlockRoomTests.lines(of: harness.textView)
         return try #require(lines.first { $0.text.hasPrefix(text) }).frame.minY
     }
@@ -55,7 +55,7 @@ struct ReturnAndBackspaceTests {
           ])
     func returnAddsOneLine(_ scenario: (String, String)) async throws {
         let note = "# Heading\nProse before\n```cpp\nint a = 1;\nint b = 2;\nint c = 3;\n```\nProse after\nmore\n"
-        let harness = CodeFenceDisplayTests.Harness(note)
+        let harness = EditorHarness(note)
         try await harness.settle()
         let lineHeight = NoteTypography.standard.codeLineHeight
 
@@ -76,7 +76,7 @@ struct ReturnAndBackspaceTests {
 
     @Test("A Return in an unclosed block adds one line and leaves the panel's end where a line puts it")
     func unclosedBlock() async throws {
-        let harness = CodeFenceDisplayTests.Harness("Intro\n```cpp\nint a = 1;")
+        let harness = EditorHarness("Intro\n```cpp\nint a = 1;")
         try await harness.settle()
         try await harness.caret(at: harness.source.length)
         let lines = CodeBlockRoomTests.lines(of: harness.textView)
@@ -112,7 +112,7 @@ struct ReturnAndBackspaceTests {
           ])
     func everyPressRegisters(_ scenario: (String, String, String, Bool)) async throws {
         let (label, note, anchor, backspace) = scenario
-        let harness = CodeFenceDisplayTests.Harness(note)
+        let harness = EditorHarness(note)
         try await harness.settle()
         try await harness.caret(at: harness.offset(of: anchor) + (anchor as NSString).length)
 

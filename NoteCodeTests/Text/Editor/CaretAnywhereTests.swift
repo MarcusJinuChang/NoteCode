@@ -30,7 +30,7 @@ struct CaretAnywhereTests {
     }
 
     /// The line the caret stands on, from the note's end.
-    static func caretLine(_ harness: CodeFenceDisplayTests.Harness) -> ClosedRange<CGFloat> {
+    static func caretLine(_ harness: EditorHarness) -> ClosedRange<CGFloat> {
         let rect = harness.textView.lineCaretRect(for: harness.textView.endOfDocument)
         return (rect.minY + CaretHeight.above)...(rect.maxY - CaretHeight.below)
     }
@@ -48,7 +48,7 @@ struct CaretAnywhereTests {
     @Test("A tap k lines below the end puts the caret on that line, at the end of the note",
           arguments: endings, [1.0, 2.5, 6.0])
     func reachesTheTap(_ ending: (String, String), lines: Double) async throws {
-        let harness = CodeFenceDisplayTests.Harness(ending.1)
+        let harness = EditorHarness(ending.1)
         try await harness.settle()
         let lineHeight = NoteTypography.standard.codeLineHeight
         let bottom = try #require(harness.textView.lastLineBottom(blankLineHeight: lineHeight))
@@ -66,7 +66,7 @@ struct CaretAnywhereTests {
 
     @Test("A tap on the text, or beside it, adds nothing")
     func textIsLeftAlone() async throws {
-        let harness = CodeFenceDisplayTests.Harness("Intro\nPara\n")
+        let harness = EditorHarness("Intro\nPara\n")
         try await harness.settle()
         let rect = harness.rect(of: "Para")
         for point in [CGPoint(x: rect.midX, y: rect.midY), CGPoint(x: 700, y: rect.midY), CGPoint(x: 5, y: 40)] {
@@ -80,10 +80,10 @@ struct CaretAnywhereTests {
     func notWhenNotEditing() async throws {
         let lineHeight = NoteTypography.standard.codeLineHeight
         for (label, setUp) in [
-            ("ink", { (h: CodeFenceDisplayTests.Harness) in h.editor.setMode(.ink) }),
-            ("locked", { (h: CodeFenceDisplayTests.Harness) in h.editor.setTextLocked(true) }),
+            ("ink", { (h: EditorHarness) in h.editor.setMode(.ink) }),
+            ("locked", { (h: EditorHarness) in h.editor.setTextLocked(true) }),
         ] {
-            let harness = CodeFenceDisplayTests.Harness("Intro\nPara")
+            let harness = EditorHarness("Intro\nPara")
             try await harness.settle()
             setUp(harness)
             let bottom = try #require(harness.textView.lastLineBottom(blankLineHeight: lineHeight))
@@ -96,7 +96,7 @@ struct CaretAnywhereTests {
 
     @Test("The lines are one undo step")
     func undoIsOneStep() async throws {
-        let harness = CodeFenceDisplayTests.Harness("Intro\nPara")
+        let harness = EditorHarness("Intro\nPara")
         try await harness.settle()
         let lineHeight = NoteTypography.standard.codeLineHeight
         let bottom = try #require(harness.textView.lastLineBottom(blankLineHeight: lineHeight))
@@ -110,7 +110,7 @@ struct CaretAnywhereTests {
 
     @Test("A tap on a code block's buttons is theirs, and the gesture asks the same question")
     func barsStayTheirs() async throws {
-        let harness = CodeFenceDisplayTests.Harness("Intro\n```cpp\nint a = 1;\n```")
+        let harness = EditorHarness("Intro\n```cpp\nint a = 1;\n```")
         try await harness.settle()
         let lineHeight = NoteTypography.standard.codeLineHeight
         let overlay = try #require(harness.textView.overlay)

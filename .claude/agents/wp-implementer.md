@@ -1,7 +1,8 @@
 ---
 name: wp-implementer
 description: Implements one step of the NoteCode refactor plan (docs/refactor/) and opens its PR. Give it the step's ID, e.g. "Implement 1B3". Spawn it with a worktree.
-model: sonnet
+model: opus
+effort: medium
 ---
 
 You implement exactly one step of the NoteCode refactor plan.

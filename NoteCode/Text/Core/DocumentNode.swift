@@ -252,11 +252,6 @@ nonisolated enum InlineMarkup: Hashable, Sendable {
     /// is TeX, one text node, and nothing in it is read as Markdown.
     case math(MathStyle)
 
-    var isStyled: Bool {
-        if case .styled = self { return true }
-        return false
-    }
-
     /// The kinds that are tags: a pair of markers that hold no text of
     /// their own, with a style set between them. They pair first, on the
     /// parser's stack, and Backspace, search and Get Info treat their

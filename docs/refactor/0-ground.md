@@ -149,6 +149,35 @@ reference every later PR compares with:
 **Done when.** `baseline.md` holds those four, each with the command that
 produced it and the `main` commit it was taken at.
 
+## 0C3. Check fixes from the baseline (PR 142)
+
+**Done (PR 142).** 0D's findings 3 and 4, the UI-run split from finding 2,
+and the simulator lock. Scripts and docs only.
+
+- **Per-test allowance.** Every `xcodebuild test` run gets
+  `-test-timeouts-enabled YES -maximum-test-execution-time-allowance 120`,
+  set in `lib-xcode.sh`, so `perf.sh` has it too.
+- **Warnings counted once per unique diagnostic:** unique
+  `file:line:col: warning:` lines, paths cut to the target folder, by
+  category. `baseline.md` holds the new count.
+- **`--coverage`** adds `-enableCodeCoverage YES` and a per-top-level-folder
+  table from `xccov`.
+- **UI tests in their own invocation.** `--full` runs `NoteCodeUITests` as a
+  second `xcodebuild` after the unit tests, reported separately.
+- **The simulator lock** is at a fixed shared path,
+  `${NOTECODE_LOCK_DIR:-$HOME/Library/Caches/NoteCode-check}/sim.lock`, the
+  same for every session and worktree. The `EXIT` trap had been set inside
+  `take_lock`, and zsh runs it when the function returns, so the lock never
+  held; the traps are now at the top level of `lib-xcode.sh`. A waiter
+  re-reads the pid before removing a stale lock.
+- **`verify-move.sh`** ignores comment-only lines and `import` lines
+  (`@testable` and `@preconcurrency` included), and still fails on a changed
+  code line.
+
+The PR shows two `check.sh --only SettingsTests` runs started 3s apart, the
+second waiting for the first, and a waiter taking the lock after the holder
+was killed.
+
 ## 0E. CI (optional)
 
 **Do.** `.github/workflows/check.yml` runs `scripts/check.sh` on pull

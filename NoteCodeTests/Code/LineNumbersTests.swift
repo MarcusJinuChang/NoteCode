@@ -16,8 +16,6 @@ import UIKit
 @MainActor
 struct LineNumbersTests {
 
-    private typealias Harness = CodeFenceDisplayTests.Harness
-
     private static let note = """
     Prose before the block
     ```cpp
@@ -38,7 +36,7 @@ struct LineNumbersTests {
 
     /// Every code fragment's number as it would be drawn: `nil` for a fence
     /// line, an output line or numbers off.
-    private func numbers(in harness: Harness) -> [Int?] {
+    private func numbers(in harness: EditorHarness) -> [Int?] {
         var result: [Int?] = []
         harness.textView.textLayoutManager?.enumerateTextLayoutFragments(
             from: harness.textView.textLayoutManager?.documentRange.location, options: [.ensuresLayout]
@@ -55,7 +53,7 @@ struct LineNumbersTests {
 
     @Test("Each block counts its own lines from 1, and a fence has none")
     func counting() async throws {
-        let harness = Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         harness.coordinator.setLineNumbers(true, in: harness.textView)
         try await harness.settle()
         // cpp: fence, 3 lines, fence. python: fence, 2, fence. output: not numbered.
@@ -64,7 +62,7 @@ struct LineNumbersTests {
 
     @Test("Off, nothing is numbered")
     func off() async throws {
-        let harness = Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         try await harness.settle()
         #expect(numbers(in: harness).allSatisfy { $0 == nil })
 
@@ -76,7 +74,7 @@ struct LineNumbersTests {
     @Test("A line that wraps is one line, numbered once; a blank line has a number")
     func wrapped() async throws {
         let long = String(repeating: "veryLongIdentifierForHorizontalClipping + ", count: 12)
-        let harness = Harness("```cpp\nint a;\nauto x = \(long);\n\nint b;\n```\n")
+        let harness = EditorHarness("```cpp\nint a;\nauto x = \(long);\n\nint b;\n```\n")
         harness.coordinator.setLineNumbers(true, in: harness.textView)
         try await harness.settle()
         #expect(numbers(in: harness) == [nil, 1, 2, 3, 4, nil])
@@ -93,7 +91,7 @@ struct LineNumbersTests {
 
     @Test("An unclosed block is numbered to its end")
     func unclosed() async throws {
-        let harness = Harness("```cpp\nint a;\nint b;")
+        let harness = EditorHarness("```cpp\nint a;\nint b;")
         harness.coordinator.setLineNumbers(true, in: harness.textView)
         try await harness.settle()
         #expect(numbers(in: harness) == [nil, 1, 2])
@@ -101,7 +99,7 @@ struct LineNumbersTests {
 
     @Test("An edit above a block renumbers nothing: the count is from the block's own start")
     func editAbove() async throws {
-        let harness = Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         harness.coordinator.setLineNumbers(true, in: harness.textView)
         try await harness.caret(at: 5)
         harness.textView.replace(harness.textView.textRange(from: harness.textView.position(from: harness.textView.beginningOfDocument, offset: 5)!, to: harness.textView.position(from: harness.textView.beginningOfDocument, offset: 5)!)!, withText: "\nmore\nlines\n")
@@ -118,7 +116,7 @@ struct LineNumbersTests {
         return "Intro\n```cpp\n" + lines.joined(separator: "\n") + "\n```\n" + extra
     }
 
-    private func edit(_ harness: Harness, at offset: Int, length: Int = 0, with text: String) async throws {
+    private func edit(_ harness: EditorHarness, at offset: Int, length: Int = 0, with text: String) async throws {
         let start = harness.textView.position(from: harness.textView.beginningOfDocument, offset: offset)!
         let end = harness.textView.position(from: start, offset: length)!
         harness.textView.replace(harness.textView.textRange(from: start, to: end)!, withText: text)
@@ -128,7 +126,7 @@ struct LineNumbersTests {
     @Test("On a long block with wrapped lines, each line keeps its number through edits, paste and undo")
     func longBlockNumbers() async throws {
         let count = 120
-        let harness = Harness(Self.longBlock(count, extra: "```python\nprint(1)\n```\n"))
+        let harness = EditorHarness(Self.longBlock(count, extra: "```python\nprint(1)\n```\n"))
         harness.coordinator.setLineNumbers(true, in: harness.textView)
         try await harness.settle()
         func expected(_ lines: Int) -> [Int?] { [nil] + Array(1...lines).map { Optional($0) } + [nil, nil, 1, nil] }
@@ -150,9 +148,9 @@ struct LineNumbersTests {
         #expect(undone == expected(count + 3) || undone == expected(count), "undo left numbers: \(undone.count) fragments")
     }
 
-    @Test("Numbering a 1,000-line block costs about its length, not its square")
+    @Test("Numbering a 1,000-line block costs about its length, not its square", .tags(.perf))
     func longBlockCost() async throws {
-        let harness = Harness(Self.longBlock(1000))
+        let harness = EditorHarness(Self.longBlock(1000))
         harness.coordinator.setLineNumbers(true, in: harness.textView)
         try await harness.settle()
         var times: [TimeInterval] = []
@@ -176,7 +174,7 @@ struct LineNumbersTests {
         PageLayout(orientation: .portrait, mode: .compressed),
     ])
     func linesDontMove(layout: PageLayout) async throws {
-        let harness = Harness(Self.note, layout: layout)
+        let harness = EditorHarness(Self.note, layout: layout)
         try await harness.settle()
         let off = CodeFenceDisplayTests.lineFrames(of: harness.textView)
         let height = harness.textView.contentSize.height
@@ -193,7 +191,7 @@ struct LineNumbersTests {
     @Test("Lines wrap the same with numbers on, so ink stays on its words")
     func wrapsTheSame() async throws {
         let long = String(repeating: "wordsThatMakeALineWrapAroundTheContainer ", count: 10)
-        let harness = Harness("```cpp\nint x = \(long);\n```\n")
+        let harness = EditorHarness("```cpp\nint x = \(long);\n```\n")
         try await harness.settle()
         let before = CodeFenceDisplayTests.lineFrames(of: harness.textView)
         harness.coordinator.setLineNumbers(true, in: harness.textView)
@@ -204,7 +202,7 @@ struct LineNumbersTests {
 
     @Test("Turning numbers on makes no fragment and edits no text")
     func costsNothing() async throws {
-        let harness = Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         try await harness.settle()
         var edits = 0
         let observer = NotificationCenter.default.addObserver(
@@ -222,7 +220,7 @@ struct LineNumbersTests {
     @Test("A keystroke with numbers on costs no more than with them off, on a 500-line note", .tags(.perf))
     func keystrokeCost() async throws {
         func median(numbers: Bool) async throws -> TimeInterval {
-            let harness = Harness(StylingPerformanceTests.document(lines: 500))
+            let harness = EditorHarness(StylingPerformanceTests.document(lines: 500))
             harness.coordinator.setLineNumbers(numbers, in: harness.textView)
             try await harness.settle()
             var times: [TimeInterval] = []
@@ -249,7 +247,7 @@ struct LineNumbersTests {
     /// the code panel, which reaches into the margin (`CodeBlockRoom`),
     /// beside one line: the digits are secondaryLabel on the page, and
     /// nothing else is out there.
-    private func marginInk(_ harness: Harness, besides text: String) -> Int {
+    private func marginInk(_ harness: EditorHarness, besides text: String) -> Int {
         let line = harness.rect(of: text)
         let panelLeft = PageLayout.margin + harness.textView.textContainer.lineFragmentPadding - CodeBlockRoom.outset
         let margin = CGRect(x: 4, y: line.minY, width: panelLeft - 8, height: line.height)
@@ -259,7 +257,7 @@ struct LineNumbersTests {
     @Test("Each code line has digits in the margin, in both appearances; nothing else does",
           arguments: [UIUserInterfaceStyle.light, .dark])
     func marginPixels(style: UIUserInterfaceStyle) async throws {
-        let harness = Harness(Self.note, style: style)
+        let harness = EditorHarness(Self.note, style: style)
         try await harness.settle()
         for text in ["int a = 1;", "int c = a + b;", "print(2)", "Prose before", "Prose between", "The end"] {
             #expect(marginInk(harness, besides: text) == 0, "ink beside \(text) before")
@@ -279,7 +277,7 @@ struct LineNumbersTests {
 
     @Test("A fence line has no number, away or being edited")
     func fenceLines() async throws {
-        let harness = Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         harness.coordinator.setLineNumbers(true, in: harness.textView)
         try await harness.caret(at: harness.offset(of: "int b"))
         // The editing block shows its fences; the number still isn't drawn.
@@ -290,7 +288,7 @@ struct LineNumbersTests {
     @Test("The digits are right-aligned against the panel, whatever their width")
     func rightAligned() async throws {
         let body = (1...12).map { "x\($0);" }.joined(separator: "\n")
-        let harness = Harness("```cpp\n\(body)\n```\n")
+        let harness = EditorHarness("```cpp\n\(body)\n```\n")
         harness.coordinator.setLineNumbers(true, in: harness.textView)
         try await harness.settle()
 
@@ -324,7 +322,7 @@ struct LineNumbersTests {
 
     @Test("The fragment's drawing area reaches the widest number it can have")
     func surfaceReach() async throws {
-        let harness = Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         try await harness.settle()
         var checked = 0
         harness.textView.textLayoutManager?.enumerateTextLayoutFragments(
@@ -371,7 +369,7 @@ struct LineNumbersTests {
 
     @Test("Settings › Code reaches the editor and the PDF's editor mirror")
     func settings() async throws {
-        let harness = Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         CodeEditorSettings(indentWidth: 2, codeKeys: false, lineNumbers: true).apply(to: harness.coordinator, in: harness.textView)
         #expect(harness.coordinator.showsLineNumbers)
         #expect(harness.editor.showsLineNumbers)

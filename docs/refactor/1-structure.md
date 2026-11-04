@@ -93,14 +93,23 @@ them now would be done twice.
 | 1B3 | `InkTool.swift` | One file per group of value types; the palette and `InkPaletteSet` (:549–) on their own |
 | 1B4 | `Hotbar.swift` | `HotbarMetrics` (the statics four other files use) and the options-row layout (`HotbarTrack`, `BesideBarLayout`, `EdgeFade`) |
 | 1B5 | `SettingsView.swift` | One file per section struct; `SettingsCommands`, `AppearanceModifier` and the logo marks on their own |
-| 1B6 | `NoteList.swift` | The rows and the menus (its MARK sections) |
-| 1B7 | `DebugLaunch.swift` | `parse` (:147, 122 lines) by option group. Keep `#if DEBUG` around every file |
+| 1B6 | `NoteList.swift` | The rows and the menus (its MARK sections). **Deferred to Update 2 (2P4)** |
+| 1B7 | `DebugLaunch.swift` | `parse` (:147, 122 lines) by option group. Keep `#if DEBUG` around every file. **Deferred to Update 2 (2X6)** |
 | 1B8 | `CodeBlockLayoutFragment.swift` | `DocumentCache` and `String.nativeUTF8` (:556–622), to `Text/Core/DocumentCache.swift` |
 | 1B9 | `DocumentStyler.swift` | The pure layout (`BlockLayout`, `InlineLayout`, `BlockSignature`, `layouts`, `changedIndices`, :441–585), to `Text/Core/DocumentLayout.swift`. **Perf** |
+
+**1B6 and 1B7 stopped, as the Rules require, and moved to Update 2.**
+- **1B6:** splitting NoteList needs about 24 members loosened, so its parts
+  are types, not extensions. 2P4 rewrites NoteList's actions and takes it
+  over.
+- **1B7:** `parse` is one loop and one switch sharing a cursor and an
+  accumulator, so it can't be split as a pure move. 2X6 takes it over.
 
 For 1B8 and 1B9, check that the moved code imports neither SwiftUI nor
 UIKit; `lint-traps.sh` rule 4 will check it from then on. If it needs one,
 it stays out of `Core/`: say so and put it in `Text/Editor`.
+
+**1B9 wasn't done in Update 1;** it is PR 0 of 2T1 (2T-text.md).
 
 **Done when.** `verify-move.sh` passes, apart from the access loosening
 listed in the PR. The build and the named suites pass, and the file is

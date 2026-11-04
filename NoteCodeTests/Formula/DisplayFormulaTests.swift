@@ -52,7 +52,7 @@ struct DisplayFormulaTests {
             let runs = MarkdownLayout.runs(for: DocumentParser.parse(source), in: source)
             #expect(runs.isEmpty, "\(source.debugDescription)")
         }
-        let harness = CodeFenceDisplayTests.Harness("$$\n\\frac{1}{\n$$\n")
+        let harness = EditorHarness("$$\n\\frac{1}{\n$$\n")
         harness.coordinator.setRendersMarkdown(true, in: harness.textView)
         let colour = harness.textView.textStorage.attribute(.foregroundColor, at: 4, effectiveRange: nil) as? UIColor
         #expect(colour == .secondaryLabel)
@@ -60,7 +60,7 @@ struct DisplayFormulaTests {
 
     @Test("The opening line takes the formula's height plus its gaps; source lines take one point")
     func lineHeights() throws {
-        let harness = CodeFenceDisplayTests.Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         harness.coordinator.setRendersMarkdown(true, in: harness.textView)
         harness.layOut()
         let lines = CodeBlockRoomTests.lines(of: harness.textView)
@@ -84,7 +84,7 @@ struct DisplayFormulaTests {
     /// the white space left above and below it inside its line.
     @Test("The ink sits between the line's top and bottom, with room on both sides", arguments: ["\\sum_{i=1}^{n} \\frac{i}{2}", "\\int_0^1 x\\,dx", "\\frac{a}{b}"])
     func inkInLine(tex: String) throws {
-        let harness = CodeFenceDisplayTests.Harness("Before\n$$\n\(tex)\n$$\nNext\n")
+        let harness = EditorHarness("Before\n$$\n\(tex)\n$$\nNext\n")
         harness.coordinator.setRendersMarkdown(true, in: harness.textView)
         harness.layOut()
         let line = CodeBlockRoomTests.lines(of: harness.textView)[1].frame
@@ -117,7 +117,7 @@ struct DisplayFormulaTests {
 
     @Test("A formula is centred in the column")
     func centred() throws {
-        let harness = CodeFenceDisplayTests.Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         harness.coordinator.setRendersMarkdown(true, in: harness.textView)
         harness.layOut()
         let line = try #require(CodeBlockRoomTests.lines(of: harness.textView).dropFirst().first)
@@ -152,7 +152,7 @@ struct DisplayFormulaTests {
         for prose in (near - 8)...(near + 1) {
             let text = (0..<prose).map { _ in "Line of prose" }.joined(separator: "\n")
                 + "\n$$\n\\frac{\\sum_{i} i}{\\sqrt{n}}\n$$\nTail line\nEnd\n"
-            let harness = CodeFenceDisplayTests.Harness(text)
+            let harness = EditorHarness(text)
             harness.coordinator.setRendersMarkdown(true, in: harness.textView)
             var placements: [[String]] = []
             for mode in PageViewMode.allCases {

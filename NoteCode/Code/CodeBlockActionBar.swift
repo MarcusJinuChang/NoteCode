@@ -21,6 +21,9 @@ final class CodeBlockActionBar: UIView {
     var onRun: (() -> Void)?
     var onCopy: (() -> Void)?
 
+    /// How long the copy button shows its checkmark before going back.
+    static let copiedShown: TimeInterval = 1.2
+
     /// Side of one square button.
     static let buttonSide: CGFloat = 32
 
@@ -115,7 +118,7 @@ final class CodeBlockActionBar: UIView {
             self?.copyButton.tintColor = self?.copyTint
         }
         resetCopyIcon = reset
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: reset)
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.copiedShown, execute: reset)
     }
 
     @objc private func runTapped() { onRun?() }

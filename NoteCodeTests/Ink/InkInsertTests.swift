@@ -106,26 +106,13 @@ struct InkInsertTests {
 
     // MARK: The canvas
 
-    @MainActor
-    private final class CanvasHarness {
-        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
-        let textView = DocumentTextView.makeConfiguredTextView()
-        let canvas = DrawingCanvas(pageSize: CGSize(width: 816, height: 4224))
-
-        init() {
-            textView.frame = window.bounds
-            window.addSubview(textView)
-            textView.addSubview(canvas)
-            window.makeKeyAndVisible()
-            canvas.noteSize = CGSize(width: 816, height: 4224)
-            canvas.cover(CGRect(x: 0, y: 1200, width: 816, height: 600))
-            window.layoutIfNeeded()
-        }
-    }
-
     @Test("PaperKit's insert, run around a point, lands there and is one undo, then the canvas is as it was")
     func steeredInsert() throws {
-        let harness = CanvasHarness()
+        let harness = InkHarness(
+            "",
+            pageSize: CGSize(width: 816, height: 4224),
+            covering: CGRect(x: 0, y: 1200, width: 816, height: 600)
+        )
         var told = 0
         harness.canvas.onMarkupChanged = { told += 1 }
         let edit = MarkupEditViewController(supportedFeatureSet: .latest)

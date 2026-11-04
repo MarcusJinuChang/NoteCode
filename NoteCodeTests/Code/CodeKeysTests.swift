@@ -100,8 +100,6 @@ struct CodeEditingInTheEditorTests {
 
     private static let note = "Some prose here\n```cpp\nint main() {\n    int x = 1;\n}\n```\nMore prose\n"
 
-    private typealias Harness = CodeFenceDisplayTests.Harness
-
     /// No keyboard attached, whatever is plugged into the Mac: the simulator
     /// inherits it, `GCKeyboard.coalesced` then answers non-nil, and the row
     /// (rightly) stays away, which failed every test here that expects it.
@@ -115,13 +113,13 @@ struct CodeEditingInTheEditorTests {
     /// coordinator made the edit itself, `true` that the text view goes on to
     /// insert it.
     @discardableResult
-    private func key(_ harness: Harness, _ text: String) -> Bool {
+    private func key(_ harness: EditorHarness, _ text: String) -> Bool {
         harness.coordinator.textView(
             harness.textView, shouldChangeTextIn: harness.textView.selectedRange, replacementText: text
         )
     }
 
-    private func row(of harness: Harness) -> CodeKeysRow? {
+    private func row(of harness: EditorHarness) -> CodeKeysRow? {
         harness.textView.inputAccessoryView as? CodeKeysRow
     }
 
@@ -129,7 +127,7 @@ struct CodeEditingInTheEditorTests {
 
     @Test("The row is on the keyboard in code and off it in prose")
     func crossing() async throws {
-        let harness = Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         try await harness.caret(at: 3)
         #expect(row(of: harness) == nil, "prose")
 
@@ -150,7 +148,7 @@ struct CodeEditingInTheEditorTests {
         // on the path where the policy is unchanged, puts it there. Taken off
         // by hand here so the test doesn't depend on where UIKit left the
         // caret as the harness was made.
-        let harness = Harness("```cpp\nint x = 1;\nint y = 2;\n```\nProse after\n")
+        let harness = EditorHarness("```cpp\nint x = 1;\nint y = 2;\n```\nProse after\n")
         try await harness.caret(at: harness.offset(of: "int x"))
         #expect(harness.coordinator.rewritingPolicy == .code)
         #expect(row(of: harness) != nil)
@@ -163,7 +161,7 @@ struct CodeEditingInTheEditorTests {
 
     @Test("Settings › Code › Code Keys turns it off, and on again")
     func setting() async throws {
-        let harness = Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         try await harness.caret(at: harness.offset(of: "int x"))
         #expect(row(of: harness) != nil)
 
@@ -181,7 +179,7 @@ struct CodeEditingInTheEditorTests {
         let original = HardwareKeyboard.isConnected
         defer { HardwareKeyboard.isConnected = original }
 
-        let harness = Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         try await harness.caret(at: harness.offset(of: "int x"))
         #expect(row(of: harness) != nil)
 
@@ -202,7 +200,7 @@ struct CodeEditingInTheEditorTests {
 
     @Test("A locked note has no keyboard, so no row")
     func locked() async throws {
-        let harness = Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         harness.editor.setTextLocked(true)
         try await harness.caret(at: harness.offset(of: "int x"))
         harness.coordinator.setCodeKeys(false, in: harness.textView)
@@ -214,7 +212,7 @@ struct CodeEditingInTheEditorTests {
 
     @Test("A symbol key types at the caret, as typing does: one undo takes it back")
     func symbol() async throws {
-        let harness = Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         try await harness.caret(at: harness.offset(of: "int x = 1;") + 10)
         let row = try #require(row(of: harness))
 
@@ -229,7 +227,7 @@ struct CodeEditingInTheEditorTests {
 
     @Test("A symbol key replaces the selection")
     func symbolOverSelection() async throws {
-        let harness = Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         try await harness.select(NSRange(location: harness.offset(of: "1;"), length: 1))
         row(of: harness)?.buttons.first { $0.accessibilityLabel == "Left parenthesis" }?.sendActions(for: .primaryActionTriggered)
         #expect(harness.textView.text.contains("int x = (;"))
@@ -237,7 +235,7 @@ struct CodeEditingInTheEditorTests {
 
     @Test("The arrows move the caret a character, and collapse a selection to its edge")
     func arrows() async throws {
-        let harness = Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         let start = harness.offset(of: "int x")
         try await harness.caret(at: start)
         let row = try #require(row(of: harness))
@@ -262,7 +260,7 @@ struct CodeEditingInTheEditorTests {
 
     @Test("⇥ and ⇤ indent and outdent the lines, through the same edit as Tab")
     func indentKeys() async throws {
-        let harness = Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         try await harness.caret(at: harness.offset(of: "int x = 1;") + 10)
         let row = try #require(row(of: harness))
 
@@ -279,7 +277,7 @@ struct CodeEditingInTheEditorTests {
 
     @Test("Return in code keeps the indent, and one undo takes the line back")
     func returnKeepsIndent() async throws {
-        let harness = Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         try await harness.caret(at: harness.offset(of: "int x = 1;") + 10)
         #expect(key(harness, "\n") == false)
         #expect(harness.textView.text.contains("    int x = 1;\n    \n}"))
@@ -292,12 +290,12 @@ struct CodeEditingInTheEditorTests {
 
     @Test("Return after a brace goes deeper, and between braces opens them")
     func returnAfterBrace() async throws {
-        let harness = Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         try await harness.caret(at: harness.offset(of: "int main() {") + 12)
         #expect(key(harness, "\n") == false)
         #expect(harness.textView.text.contains("int main() {\n    \n    int x = 1;"))
 
-        let split = Harness("```cpp\nfor (;;) {}\n```\n")
+        let split = EditorHarness("```cpp\nfor (;;) {}\n```\n")
         try await split.caret(at: split.offset(of: "{}") + 1)
         #expect(key(split, "\n") == false)
         #expect(split.textView.text == "```cpp\nfor (;;) {\n    \n}\n```\n")
@@ -306,7 +304,7 @@ struct CodeEditingInTheEditorTests {
 
     @Test("Return in prose is a plain newline")
     func returnInProse() async throws {
-        let harness = Harness("    indented prose\n```cpp\nx\n```\n")
+        let harness = EditorHarness("    indented prose\n```cpp\nx\n```\n")
         try await harness.caret(at: 18)
         #expect(key(harness, "\n") == true, "the keyboard's own newline")
         #expect(harness.textView.text == "    indented prose\n```cpp\nx\n```\n", "nothing was made for it")
@@ -314,12 +312,12 @@ struct CodeEditingInTheEditorTests {
 
     @Test("Return on a Python colon goes deeper, and elsewhere a colon does not")
     func returnPython() async throws {
-        let python = Harness("```python\ndef f(x):\n```\n")
+        let python = EditorHarness("```python\ndef f(x):\n```\n")
         try await python.caret(at: python.offset(of: "def f(x):") + 9)
         #expect(key(python, "\n") == false)
         #expect(python.textView.text == "```python\ndef f(x):\n    \n```\n")
 
-        let cpp = Harness("```cpp\ncase 1:\n```\n")
+        let cpp = EditorHarness("```cpp\ncase 1:\n```\n")
         try await cpp.caret(at: cpp.offset(of: "case 1:") + 7)
         #expect(key(cpp, "\n") == true, "a colon in C++ is a plain newline")
         #expect(cpp.textView.text == "```cpp\ncase 1:\n```\n")
@@ -327,7 +325,7 @@ struct CodeEditingInTheEditorTests {
 
     @Test("The indent width setting is used")
     func width() async throws {
-        let harness = Harness("```cpp\nif (x) {\n```\n")
+        let harness = EditorHarness("```cpp\nif (x) {\n```\n")
         harness.coordinator.indentWidth = 2
         try await harness.caret(at: harness.offset(of: "if (x) {") + 8)
         #expect(key(harness, "\n") == false)
@@ -336,25 +334,25 @@ struct CodeEditingInTheEditorTests {
 
     @Test("Tab in code indents the line, not the caret; in a list it nests; in prose it is a tab")
     func tab() async throws {
-        let code = Harness(Self.note)
+        let code = EditorHarness(Self.note)
         try await code.caret(at: code.offset(of: "int x = 1;") + 4)
         #expect(key(code, "\t") == false)
         #expect(code.textView.text.contains("\n        int x = 1;\n"))
         #expect(code.textView.selectedRange.location == code.offset(of: "int x = 1;") + 4)
 
-        let list = Harness("- one\n- two\n```cpp\nx\n```\n")
+        let list = EditorHarness("- one\n- two\n```cpp\nx\n```\n")
         try await list.caret(at: list.offset(of: "two") + 3)
         #expect(key(list, "\t") == false)
         #expect(list.textView.text.hasPrefix("- one\n  - two\n"))
 
-        let prose = Harness("plain prose\n```cpp\nx\n```\n")
+        let prose = EditorHarness("plain prose\n```cpp\nx\n```\n")
         try await prose.caret(at: 5)
         #expect(key(prose, "\t") == true, "in prose, Tab is the keyboard's own")
     }
 
     @Test("⇧Tab outdents code, and is given back when there is nothing to take off")
     func shiftTab() async throws {
-        let harness = Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         try await harness.caret(at: harness.offset(of: "int x = 1;") + 3)
         #expect(harness.textView.canPerformAction(#selector(DocumentUITextView.outdentListItem), withSender: nil))
         harness.textView.outdentListItem()
@@ -364,7 +362,7 @@ struct CodeEditingInTheEditorTests {
 
     @Test("Return and Tab do nothing special in an output block")
     func output() async throws {
-        let harness = Harness("```output\n    ok {\n```\n")
+        let harness = EditorHarness("```output\n    ok {\n```\n")
         try await harness.caret(at: harness.offset(of: "ok {") + 4)
         #expect(key(harness, "\n") == true, "a plain newline")
         try await harness.caret(at: harness.offset(of: "ok {"))

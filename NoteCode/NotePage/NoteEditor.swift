@@ -1149,15 +1149,6 @@ final class NoteEditor {
     /// asked for.
     private(set) var linkTarget: NSRange?
 
-    /// Whether Link has anything to wrap here: not in code, not across a
-    /// line, not inside a link that is already there.
-    var canLink: Bool {
-        guard mode == .text, !isTextLocked, let textView else { return false }
-        return MarkdownFormatting.linkTarget(
-            in: textView.textStorage.mutableString, selection: textView.selectedRange, codeRanges: codeRanges?() ?? []
-        ) != nil
-    }
-
     /// Link: asks for the address (`PageDetailView`'s alert), for the
     /// selection, or the word at the caret, or a placeholder.
     func beginLink() {

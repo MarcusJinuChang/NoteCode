@@ -314,19 +314,17 @@ import UIKit
 @MainActor
 struct TypingStyleEditorTests {
 
-    typealias Harness = TextRowEditorTests.Harness
-
     static let red = StyledLineTests.red
 
     /// The text with `|` at the caret.
-    static func shown(_ harness: Harness) -> String {
+    static func shown(_ harness: EditorHarness) -> String {
         let ns = harness.text as NSString
         return ns.replacingCharacters(in: NSRange(location: harness.textView.selectedRange.location, length: 0), with: "|")
     }
 
     /// What the keyboard does to type: `insertText` on the text view, in a turn
     /// of the run loop of its own, as a key is.
-    static func type(_ text: String, into harness: Harness) async {
+    static func type(_ text: String, into harness: EditorHarness) async {
         harness.textView.insertText(text)
         await harness.nextTap()
     }
@@ -335,7 +333,7 @@ struct TypingStyleEditorTests {
 
     @Test("Bold at the end of a line lights the bar and writes nothing")
     func setsWithoutWriting() {
-        let harness = Harness("hello |")
+        let harness = TextRowEditorTests.harness("hello |")
         #expect(!harness.editor.formattingShown.bold)
         harness.editor.toggle(.bold)
         #expect(harness.text == "hello ")
@@ -348,7 +346,7 @@ struct TypingStyleEditorTests {
 
     @Test("Bold pressed inside a word is the word's, and sets no typing style")
     func insideAWord() {
-        let harness = Harness("hel|lo there")
+        let harness = TextRowEditorTests.harness("hel|lo there")
         harness.editor.toggle(.bold)
         #expect(harness.text == "**hello** there")
         #expect(harness.editor.typingStyle.isEmpty)
@@ -356,7 +354,7 @@ struct TypingStyleEditorTests {
 
     @Test("Pressed at the end of a bold word, Bold turns bold off for the next text")
     func offAtTheEndOfBold() async {
-        let harness = Harness("**word|**")
+        let harness = TextRowEditorTests.harness("**word|**")
         #expect(harness.editor.formattingShown.bold)
         harness.editor.toggle(.bold)
         #expect(!harness.editor.formattingShown.bold)
@@ -367,17 +365,17 @@ struct TypingStyleEditorTests {
 
     @Test("Nothing is set in code, in a locked note or in ink mode")
     func nowhere() {
-        let code = Harness("```cpp\nint x|;\n```\n")
+        let code = TextRowEditorTests.harness("```cpp\nint x|;\n```\n")
         code.editor.toggle(.bold)
         #expect(code.editor.typingStyle.isEmpty)
         #expect(code.text == "```cpp\nint x;\n```\n")
 
-        let locked = Harness("hello |")
+        let locked = TextRowEditorTests.harness("hello |")
         locked.editor.setTextLocked(true)
         locked.editor.toggle(.bold)
         #expect(locked.editor.typingStyle.isEmpty)
 
-        let ink = Harness("hello |")
+        let ink = TextRowEditorTests.harness("hello |")
         ink.editor.setMode(.ink)
         ink.editor.toggle(.bold)
         #expect(ink.editor.typingStyle.isEmpty)
@@ -387,7 +385,7 @@ struct TypingStyleEditorTests {
 
     @Test("The next text typed is written in the style, and what follows carries on in it")
     func typesWithTheStyle() async {
-        let harness = Harness("hello |")
+        let harness = TextRowEditorTests.harness("hello |")
         harness.editor.toggle(.bold)
         await Self.type("w", into: harness)
         #expect(Self.shown(harness) == "hello **w|**")
@@ -403,7 +401,7 @@ struct TypingStyleEditorTests {
 
     @Test("A letter and the markers round it are one undo step")
     func oneUndoStep() async {
-        let harness = Harness("hello |")
+        let harness = TextRowEditorTests.harness("hello |")
         harness.editor.toggle(.bold)
         await Self.type("w", into: harness)
         #expect(harness.text == "hello **w**")
@@ -415,7 +413,7 @@ struct TypingStyleEditorTests {
 
     @Test("A space typed in bold goes outside it, and the next word is bold across it")
     func spacesAndWords() async {
-        let harness = Harness("hello |")
+        let harness = TextRowEditorTests.harness("hello |")
         harness.editor.toggle(.bold)
         for piece in ["h", "i", " ", "y", "o"] { await Self.type(piece, into: harness) }
         #expect(Self.shown(harness) == "hello **hi yo|**")
@@ -423,23 +421,23 @@ struct TypingStyleEditorTests {
 
     @Test("Italic, a colour, a size and Code are written the same way")
     func otherStyles() async {
-        let italic = Harness("a |")
+        let italic = TextRowEditorTests.harness("a |")
         italic.editor.toggle(.italic)
         await Self.type("b", into: italic)
         #expect(Self.shown(italic) == "a *b|*")
 
-        let code = Harness("a |")
+        let code = TextRowEditorTests.harness("a |")
         code.editor.toggle(.code)
         await Self.type("b", into: code)
         #expect(Self.shown(code) == "a `b|`")
 
-        let colour = Harness("a |")
+        let colour = TextRowEditorTests.harness("a |")
         colour.editor.setColour(Self.red)
         #expect(colour.editor.formattingShown.colour == Self.red, "the colour menu shows it")
         await Self.type("b", into: colour)
         #expect(Self.shown(colour) == "a \(SpanStyle(colour: Self.red).openTag)b|\(SpanStyle.close)")
 
-        let size = Harness("a |")
+        let size = TextRowEditorTests.harness("a |")
         size.editor.setSelectionSize(points: 24)
         #expect(size.editor.selectionTextSize.points == 24, "the size control shows it")
         await Self.type("b", into: size)
@@ -448,7 +446,7 @@ struct TypingStyleEditorTests {
 
     @Test("Bold and a colour together are one run's worth of markers")
     func combined() async {
-        let harness = Harness("a |")
+        let harness = TextRowEditorTests.harness("a |")
         harness.editor.toggle(.bold)
         harness.editor.setColour(Self.red)
         harness.editor.stepSelectionSize(by: 7)
@@ -459,7 +457,7 @@ struct TypingStyleEditorTests {
 
     @Test("The size control steps the typing size from the size the text has now")
     func stepsTheTypingSize() async {
-        let harness = Harness("# Title |")
+        let harness = TextRowEditorTests.harness("# Title |")
         #expect(harness.editor.selectionTextSize.points == 34)
         harness.editor.stepSelectionSize(by: 1)
         harness.editor.stepSelectionSize(by: 1)
@@ -475,7 +473,7 @@ struct TypingStyleEditorTests {
 
     @Test("A caret moved elsewhere clears it, typing's own caret moves do not")
     func caretMoveClears() async {
-        let harness = Harness("hello |")
+        let harness = TextRowEditorTests.harness("hello |")
         harness.editor.toggle(.bold)
         await Self.type("w", into: harness)
         #expect(!harness.editor.typingStyle.isEmpty, "typing moves the caret and keeps the style")
@@ -486,7 +484,7 @@ struct TypingStyleEditorTests {
 
     @Test("A caret moved before anything is typed clears it")
     func caretMoveClearsBeforeTyping() async {
-        let harness = Harness("hello |")
+        let harness = TextRowEditorTests.harness("hello |")
         harness.editor.toggle(.bold)
         harness.textView.selectedRange = NSRange(location: 3, length: 0)
         #expect(harness.editor.typingStyle.isEmpty)
@@ -496,7 +494,7 @@ struct TypingStyleEditorTests {
 
     @Test("A selection clears it")
     func selectionClears() {
-        let harness = Harness("hello |")
+        let harness = TextRowEditorTests.harness("hello |")
         harness.editor.toggle(.bold)
         harness.textView.selectedRange = NSRange(location: 0, length: 5)
         #expect(harness.editor.typingStyle.isEmpty)
@@ -507,18 +505,18 @@ struct TypingStyleEditorTests {
         // Ink mode and a lock both put the keyboard away, which clears it too
         // (`textViewDidEndEditing`); so the first and last are tried with the
         // text view's delegate away, where only the editor's own rule can.
-        let mode = Harness("hello |")
+        let mode = TextRowEditorTests.harness("hello |")
         mode.editor.toggle(.bold)
         mode.textView.delegate = nil
         mode.editor.setMode(.ink)
         #expect(mode.editor.typingStyle.isEmpty)
 
-        let keyboard = Harness("hello |")
+        let keyboard = TextRowEditorTests.harness("hello |")
         keyboard.editor.toggle(.bold)
         keyboard.coordinator.textViewDidEndEditing(keyboard.textView)
         #expect(keyboard.editor.typingStyle.isEmpty)
 
-        let lock = Harness("hello |")
+        let lock = TextRowEditorTests.harness("hello |")
         lock.editor.toggle(.bold)
         lock.textView.delegate = nil
         lock.editor.setTextLocked(true)
@@ -527,13 +525,13 @@ struct TypingStyleEditorTests {
 
     @Test("Return ends it, and so does a pasted line break")
     func returnClears() async {
-        let harness = Harness("hello |")
+        let harness = TextRowEditorTests.harness("hello |")
         harness.editor.toggle(.bold)
         await Self.type("\n", into: harness)
         #expect(harness.editor.typingStyle.isEmpty)
         #expect(harness.text == "hello \n")
 
-        let paste = Harness("hello |")
+        let paste = TextRowEditorTests.harness("hello |")
         paste.editor.toggle(.bold)
         await Self.type("a\nb", into: paste)
         #expect(paste.editor.typingStyle.isEmpty)
@@ -544,7 +542,7 @@ struct TypingStyleEditorTests {
 
     @Test("A list's Return, which the app makes, ends it as a typed one does")
     func listReturnClears() {
-        let harness = Harness("- item |")
+        let harness = TextRowEditorTests.harness("- item |")
         harness.editor.toggle(.bold)
         let selection = harness.textView.selectedRange
         let allowed = harness.coordinator.textView(harness.textView, shouldChangeTextIn: selection, replacementText: "\n")
@@ -555,7 +553,7 @@ struct TypingStyleEditorTests {
 
     @Test("An autocorrect of the word just typed keeps the style on")
     func autocorrect() async {
-        let harness = Harness("hello |")
+        let harness = TextRowEditorTests.harness("hello |")
         harness.editor.toggle(.bold)
         for letter in ["t", "e", "h"] { await Self.type(letter, into: harness) }
         #expect(Self.shown(harness) == "hello **teh|**")
@@ -573,7 +571,7 @@ struct TypingStyleEditorTests {
 
     @Test("An autocorrect of the word behind the caret is not taken for text typed")
     func autocorrectBehind() async {
-        let harness = Harness("teh|")
+        let harness = TextRowEditorTests.harness("teh|")
         harness.editor.toggle(.bold)
         #expect(harness.editor.typingStyle.bold == true, "a word's end is the typing style's")
         // The keyboard corrects the word on the space, and the word grows.
@@ -586,7 +584,7 @@ struct TypingStyleEditorTests {
 
     @Test("A composition that replaces the character before the caret, as Korean does, goes on inside the markers")
     func koreanComposition() async {
-        let harness = Harness("a |")
+        let harness = TextRowEditorTests.harness("a |")
         harness.editor.toggle(.bold)
         await Self.type("ㅎ", into: harness)
         #expect(Self.shown(harness) == "a **ㅎ|**")
@@ -604,7 +602,7 @@ struct TypingStyleEditorTests {
 
     @Test("Marked text is the keyboard's until it commits: the style goes on at the commit")
     func markedText() async {
-        let harness = Harness("a |")
+        let harness = TextRowEditorTests.harness("a |")
         harness.editor.toggle(.bold)
         harness.textView.setMarkedText("ひ", selectedRange: NSRange(location: 1, length: 0))
         harness.textView.setMarkedText("ひら", selectedRange: NSRange(location: 2, length: 0))
@@ -618,7 +616,7 @@ struct TypingStyleEditorTests {
 
     @Test("An edit of the app's own, a heading, moves the place and is not taken for typing")
     func headingIsNotTyping() async {
-        let harness = Harness("hello |")
+        let harness = TextRowEditorTests.harness("hello |")
         harness.editor.toggle(.bold)
         harness.editor.setHeading(level: 1)
         #expect(harness.text == "# hello ")
@@ -629,7 +627,7 @@ struct TypingStyleEditorTests {
 
     @Test("Undo takes the style's text back, and typing after it is plain")
     func undoThenType() async {
-        let harness = Harness("hello |")
+        let harness = TextRowEditorTests.harness("hello |")
         harness.editor.toggle(.bold)
         await Self.type("w", into: harness)
         harness.editor.undo()

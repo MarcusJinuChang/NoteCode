@@ -10,8 +10,12 @@ import SwiftData
 struct NoteCodeApp: App {
     private let storage: Storage
 
+#if DEBUG
     /// A note to open on launch. Only debug launch arguments set one.
     private let openedPage: Page?
+#else
+    private var openedPage: Page? { nil }
+#endif
 
     init() {
 #if canImport(UIKit)
@@ -43,7 +47,9 @@ struct NoteCodeApp: App {
         }
 #endif
         storage = Storage.open()
+#if DEBUG
         openedPage = nil
+#endif
     }
 
     var body: some Scene {

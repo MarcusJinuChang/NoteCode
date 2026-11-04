@@ -54,14 +54,14 @@ struct MarkerDimmingTests {
     // MARK: Styled
 
     /// The colour at the first character of `text`'s first occurrence.
-    private func colour(_ harness: CodeFenceDisplayTests.Harness, of text: String, backwards: Bool = false) -> UIColor? {
+    private func colour(_ harness: EditorHarness, of text: String, backwards: Bool = false) -> UIColor? {
         harness.textView.textStorage.attribute(
             .foregroundColor, at: harness.offset(of: text, backwards: backwards), effectiveRange: nil
         ) as? UIColor
     }
 
-    private func harness(_ dimming: MarkerDimming) -> CodeFenceDisplayTests.Harness {
-        let harness = CodeFenceDisplayTests.Harness(Self.note)
+    private func harness(_ dimming: MarkerDimming) -> EditorHarness {
+        let harness = EditorHarness(Self.note)
         harness.coordinator.setRendersMarkdown(true, in: harness.textView)
         harness.coordinator.setMarkerDimming(dimming, in: harness.textView)
         harness.layOut()
@@ -117,7 +117,7 @@ struct MarkerDimmingTests {
 
     // MARK: Drawn
 
-    private func margin(of harness: CodeFenceDisplayTests.Harness, line text: String) -> CGRect {
+    private func margin(of harness: EditorHarness, line text: String) -> CGRect {
         let rect = harness.rect(of: text)
         return CGRect(x: 8, y: rect.minY, width: rect.minX - 8 - 3, height: rect.height)
     }
@@ -127,7 +127,7 @@ struct MarkerDimmingTests {
         var darkness: [MarkerLevel: Double] = [:]
         var pixels: [MarkerLevel: Int] = [:]
         for level in MarkerLevel.allCases {
-            let h = CodeFenceDisplayTests.Harness(Self.note, showMarkdown: .always)
+            let h = EditorHarness(Self.note, showMarkdown: .always)
             h.coordinator.setRendersMarkdown(true, in: h.textView)
             h.coordinator.setMarkerDimming(MarkerDimming(headings: level), in: h.textView)
             h.layOut()
@@ -145,7 +145,7 @@ struct MarkerDimmingTests {
     @Test("A checkbox's outline: none when off, drawn when dim or full; a ticked box stays")
     func checkboxOutline() async throws {
         func box(_ level: MarkerLevel, note: String) async throws -> (pixels: Int, mean: Double) {
-            let h = CodeFenceDisplayTests.Harness(note)
+            let h = EditorHarness(note)
             h.coordinator.setRendersMarkdown(true, in: h.textView)
             h.coordinator.setMarkerDimming(MarkerDimming(checkboxes: level), in: h.textView)
             h.layOut()

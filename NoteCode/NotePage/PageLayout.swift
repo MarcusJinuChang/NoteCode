@@ -84,10 +84,16 @@ nonisolated struct PageLayout: Equatable, Sendable {
 
     // MARK: Between pages
 
-    /// Space between sheets in print layout.
+    /// Space between sheets in print layout. 24pt reads as surround between
+    /// two pieces of paper, not as a rule across one. It matches the border
+    /// beside the sheets (`CanvasGeometry.printGutter`) by choice, so the
+    /// surround is even, but nothing breaks if the two differ.
     static let printSheetGap: CGFloat = 24
 
     /// The strip a compressed page break occupies, dashed line in its middle.
+    /// 24pt is enough room above and below the line for it to read as a page
+    /// end rather than an underline. It is the same number as the print gap
+    /// by coincidence: the two modes never share a layout.
     static let compressedGap: CGFloat = 24
 
     /// A seamless page break. Not zero: a band with no height pushes no line,
