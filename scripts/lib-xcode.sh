@@ -17,9 +17,9 @@ mkdir -p "$tmp"
 take_lock() {
   local lockdir=${NOTECODE_LOCK_DIR:-$HOME/Library/Caches/NoteCode-check}
   mkdir -p "$lockdir"
-  local lock=$lockdir/sim.lock
+  local lock=$lockdir/sim.lock owner
   while ! mkdir "$lock" 2>/dev/null; do
-    local owner; owner=$(cat "$lock/pid" 2>/dev/null || true)
+    owner=$(cat "$lock/pid" 2>/dev/null || true)
     if [[ -n $owner ]] && ! kill -0 "$owner" 2>/dev/null; then
       # Re-read just before taking over, so a waiter that lost the race does
       # not remove the new holder's lock.
