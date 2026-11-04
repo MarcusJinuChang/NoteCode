@@ -379,21 +379,19 @@ struct SpanSizeLayoutTests {
 @MainActor
 struct SizeControlTests {
 
-    typealias Harness = TextSizeEditorTests.Harness
-
-    static func caret(in word: String, of harness: Harness) -> NSRange {
+    static func caret(in word: String, of harness: EditorHarness) -> NSRange {
         SpanSizeTests.caret(in: word, of: harness.textView.text)
     }
 
     /// What the coordinator would report on a caret move: the harness has
     /// none.
-    static func report(_ harness: Harness) {
+    static func report(_ harness: EditorHarness) {
         harness.editor.setCaretFormatting(MarkdownFormatting.formatting(
             at: harness.textView.selectedRange, in: harness.textView.textStorage.mutableString, codeRanges: []
         ))
     }
 
-    static func characterEdits(of harness: Harness, during body: () async -> Void) async -> Int {
+    static func characterEdits(of harness: EditorHarness, during body: () async -> Void) async -> Int {
         var edits = 0
         let observer = NotificationCenter.default.addObserver(
             forName: NSTextStorage.didProcessEditingNotification, object: harness.textView.textStorage, queue: nil
@@ -409,7 +407,7 @@ struct SizeControlTests {
 
     @Test("It reads the size at the caret in points, and a dash for several")
     func reads() {
-        let harness = Harness(withInk: false)
+        let harness = TextSizeEditorTests.harness(withInk: false)
         harness.textView.selectedRange = Self.caret(in: "Title", of: harness)
         Self.report(harness)
         #expect(harness.editor.selectionTextSize.points == 34)
@@ -429,7 +427,7 @@ struct SizeControlTests {
 
     @Test("Same em in a heading and a paragraph is two sizes")
     func sameEmTwoSizes() {
-        let harness = Harness(withInk: false)
+        let harness = TextSizeEditorTests.harness(withInk: false)
         harness.textView.selectedRange = NSRange(location: 0, length: (harness.textView.text as NSString).length - 1)
         Self.report(harness)
         #expect(harness.editor.selectionTextSize.points == nil, "a 34pt heading and 17pt text")
@@ -440,7 +438,7 @@ struct SizeControlTests {
 
     @Test("+ steps a point at a time, and five quick taps change the text once")
     func stepsSettleOnce() async {
-        let harness = Harness(withInk: false)
+        let harness = TextSizeEditorTests.harness(withInk: false)
         harness.textView.selectedRange = Self.caret(in: "words", of: harness)
         Self.report(harness)
         let edits = await Self.characterEdits(of: harness) {
@@ -456,7 +454,7 @@ struct SizeControlTests {
 
     @Test("Moving the caret during the pause puts the size on at once")
     func caretMoveFlushes() {
-        let harness = Harness(withInk: false)
+        let harness = TextSizeEditorTests.harness(withInk: false)
         harness.textView.selectedRange = Self.caret(in: "words", of: harness)
         Self.report(harness)
         harness.editor.stepSelectionSize(by: 1)
@@ -469,7 +467,7 @@ struct SizeControlTests {
 
     @Test("A caret moved past the sized text stays on its letter, after the tags")
     func caretMoveKeepsItsPlace() {
-        let harness = Harness(withInk: false)
+        let harness = TextSizeEditorTests.harness(withInk: false)
         harness.textView.text = "some words and more\n"
         harness.textView.selectedRange = Self.caret(in: "words", of: harness)
         Self.report(harness)
@@ -483,7 +481,7 @@ struct SizeControlTests {
 
     @Test("Text typed during the pause drops the tap")
     func typingDrops() async {
-        let harness = Harness(withInk: false)
+        let harness = TextSizeEditorTests.harness(withInk: false)
         harness.textView.selectedRange = Self.caret(in: "words", of: harness)
         Self.report(harness)
         harness.editor.stepSelectionSize(by: 1)
@@ -496,7 +494,7 @@ struct SizeControlTests {
 
     @Test("A selection in several sizes steps each, a point at a time, and the control keeps its dash")
     func mixedSteps() async {
-        let harness = Harness(withInk: false)
+        let harness = TextSizeEditorTests.harness(withInk: false)
         harness.textView.text = "some \(SpanSizeTests.tag(1.412))big</span> words\n"
         harness.textView.selectedRange = NSRange(location: 0, length: (harness.textView.text as NSString).length - 1)
         Self.report(harness)
@@ -521,7 +519,7 @@ struct SizeControlTests {
 
     @Test("A caret off a word steps the typing size, and changes no text")
     func typingSizeOnly() async {
-        let harness = Harness(withInk: false)
+        let harness = TextSizeEditorTests.harness(withInk: false)
         harness.textView.text = "words \n"
         harness.textView.selectedRange = NSRange(location: 6, length: 0)
         Self.report(harness)
@@ -535,7 +533,7 @@ struct SizeControlTests {
 
     @Test("A locked note's text isn't sized")
     func locked() async {
-        let harness = Harness(withInk: false)
+        let harness = TextSizeEditorTests.harness(withInk: false)
         harness.editor.setTextLocked(true)
         harness.textView.selectedRange = Self.caret(in: "words", of: harness)
         Self.report(harness)
@@ -550,7 +548,7 @@ struct SizeControlTests {
 
     @Test("A size from the list goes on at once; Default takes it off")
     func pickAndDefault() {
-        let harness = Harness(withInk: false)
+        let harness = TextSizeEditorTests.harness(withInk: false)
         harness.textView.selectedRange = Self.caret(in: "words", of: harness)
         harness.editor.setSelectionSize(points: 24)
         #expect(harness.textView.text.contains("\(SpanSizeTests.tag(1.412))words</span>"))
@@ -576,7 +574,7 @@ struct SizeControlTests {
 
     @Test("Without ink, a size goes on at once")
     func noInk() {
-        let harness = Harness(withInk: false)
+        let harness = TextSizeEditorTests.harness(withInk: false)
         harness.textView.selectedRange = Self.caret(in: "words", of: harness)
         harness.editor.setSelectionSize(points: 24)
 
@@ -585,7 +583,7 @@ struct SizeControlTests {
 
     @Test("With ink, a size goes on at once too")
     func inkNoQuestion() {
-        let harness = Harness(withInk: true)
+        let harness = TextSizeEditorTests.harness(withInk: true)
         harness.textView.selectedRange = Self.caret(in: "words", of: harness)
         harness.editor.setSelectionSize(points: 24)
         #expect(harness.textView.text.contains("\(SpanSizeTests.tag(1.412))words</span>"))
@@ -593,7 +591,7 @@ struct SizeControlTests {
 
     @Test("With ink, a run of taps sizes once, after they stop")
     func inkTapsSettleOnce() async {
-        let harness = Harness(withInk: true)
+        let harness = TextSizeEditorTests.harness(withInk: true)
         harness.textView.selectedRange = Self.caret(in: "words", of: harness)
         Self.report(harness)
         for _ in 0..<3 { harness.editor.stepSelectionSize(by: 1) }
@@ -605,7 +603,7 @@ struct SizeControlTests {
 
     @Test("Custom… sizes what it was asked for")
     func custom() {
-        let harness = Harness(withInk: true)
+        let harness = TextSizeEditorTests.harness(withInk: true)
         let caret = Self.caret(in: "words", of: harness)
         harness.textView.selectedRange = caret
         harness.editor.beginCustomSize()
@@ -619,7 +617,7 @@ struct SizeControlTests {
 
     @Test("Custom… with nothing typed, or cancelled, sets nothing")
     func customNothing() {
-        let harness = Harness(withInk: false)
+        let harness = TextSizeEditorTests.harness(withInk: false)
         harness.textView.selectedRange = Self.caret(in: "words", of: harness)
         harness.editor.beginCustomSize()
         harness.editor.finishCustomSize(typed: "big")

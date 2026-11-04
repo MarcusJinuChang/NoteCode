@@ -366,11 +366,9 @@ import UIKit
 @Suite("Formatting per character in the editor", .tags(.pure))
 struct StyledLineEditorTests {
 
-    typealias Harness = TextSizeEditorTests.Harness
-
     @Test("Two letters of a bold word sized, then one undo puts them back")
     func sizeAndUndo() async {
-        let harness = Harness(withInk: false)
+        let harness = TextSizeEditorTests.harness(withInk: false)
         harness.textView.text = "a **bold** b\n"
         harness.textView.selectedRange = (harness.textView.text as NSString).range(of: "ld")
         harness.editor.setSelectionSize(points: 24)

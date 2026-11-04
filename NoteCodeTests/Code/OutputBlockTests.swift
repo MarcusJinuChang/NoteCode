@@ -119,7 +119,7 @@ struct OutputBlockTests {
 
     @Test("An output block's panel is the console's, in both appearances", arguments: [UIUserInterfaceStyle.light, .dark])
     func panelPixels(style: UIUserInterfaceStyle) async throws {
-        let harness = CodeFenceDisplayTests.Harness(Self.note, style: style)
+        let harness = EditorHarness(Self.note, style: style)
         try await harness.caret(at: 0)
 
         let tokens = style == .dark ? CodeOutputPanel.dark : CodeOutputPanel.light
@@ -140,7 +140,7 @@ struct OutputBlockTests {
 
     @Test("A code block beside it keeps the ordinary panel")
     func codePanelUnchanged() async throws {
-        let harness = CodeFenceDisplayTests.Harness(Self.note, style: .light)
+        let harness = EditorHarness(Self.note, style: .light)
         try await harness.caret(at: 0)
         let mean = CodeFenceDisplayTests.meanColor(of: harness.textView, in: harness.interior(of: harness.rect(of: "int main() {}")))
         // secondarySystemBackground, F2F2F7, with some glyph pixels in it.
@@ -149,7 +149,7 @@ struct OutputBlockTests {
 
     @Test("Output text takes the console's colour, and highlighting leaves it alone")
     func textColour() async throws {
-        let harness = CodeFenceDisplayTests.Harness(Self.note, style: .light)
+        let harness = EditorHarness(Self.note, style: .light)
         try await harness.caret(at: 0)
         let offset = harness.offset(of: "before: 1")
         let colour = harness.textView.textStorage.attribute(.foregroundColor, at: offset, effectiveRange: nil) as? UIColor
@@ -166,7 +166,7 @@ struct OutputBlockTests {
     @Test("Retagging a block to Output turns every line of it into the console, and back")
     func retagTurnsEveryLine() async throws {
         let source = "```python\nprint(1)\nprint(2)\nprint(3)\n```\n"
-        let harness = CodeFenceDisplayTests.Harness(source, style: .light)
+        let harness = EditorHarness(source, style: .light)
         try await harness.caret(at: harness.source.length)
         try await harness.settle()
 
@@ -210,7 +210,7 @@ struct OutputBlockTests {
     @Test("A retag between languages colours the code as the new language: the block's id and code haven't changed")
     func retagRecolours() async throws {
         let source = "```python\ndef f(x): return x\n```\n"
-        let harness = CodeFenceDisplayTests.Harness(source, style: .light)
+        let harness = EditorHarness(source, style: .light)
         // The harness's first restyle runs before its window's appearance is
         // applied, and a change of appearance forgets what was highlighted:
         // restyle once more so the set is as it is in the app, kept.
@@ -249,7 +249,7 @@ struct OutputBlockTests {
 
     @Test("The action bar: Copy alone for Output and SQL, both for a language that runs")
     func bars() async throws {
-        let harness = CodeFenceDisplayTests.Harness(
+        let harness = EditorHarness(
             "```rust\nfn main() {}\n```\n```sql\nSELECT 1;\n```\n```output\nok\n```\n", style: .light
         )
         try await harness.caret(at: harness.source.length)

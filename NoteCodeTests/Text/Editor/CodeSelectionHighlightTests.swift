@@ -47,34 +47,7 @@ struct CodeSelectionHighlightTests {
 
     // MARK: What's drawn
 
-    private final class Box { var value = "" }
-
-    /// A laid-out text view with a block, in a window of the given appearance.
-    private func makeEditor(style: UIUserInterfaceStyle) -> (DocumentUITextView, DocumentTextView.Coordinator, UIWindow, PageView, Box) {
-        let box = Box()
-        let coordinator = DocumentTextView.Coordinator(text: Binding(get: { box.value }, set: { box.value = $0 }))
-        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 1100, height: 1400))
-        window.overrideUserInterfaceStyle = style
-        let textView = DocumentTextView.makeConfiguredTextView()
-        textView.delegate = coordinator
-        textView.textLayoutManager?.delegate = coordinator
-        textView.text = "Prose line\n```cpp\nint value = query(gap);\nint other = 2;\n```\nafter"
-        coordinator.restyle(textView)
-        let page = PageView(textView: textView)
-        page.frame = CGRect(x: 0, y: 0, width: 872, height: 1200)
-        window.addSubview(page)
-        window.makeKeyAndVisible()
-        page.layoutIfNeeded()
-        textView.layoutIfNeeded()
-        return (textView, coordinator, window, page, box)
-    }
-
-    /// Lets the run loop turn, so views invalidated for drawing redraw.
-    private func settle(_ textView: UITextView) async throws {
-        textView.layoutIfNeeded()
-        try await Task.sleep(for: .milliseconds(300))
-        textView.layoutIfNeeded()
-    }
+    private static let note = "Prose line\n```cpp\nint value = query(gap);\nint other = 2;\n```\nafter"
 
     /// The mean colour of the pixels in `rect`, in `textView`'s coordinates.
     private func meanColor(of textView: UITextView, in rect: CGRect) -> (r: Double, g: Double, b: Double) {
@@ -105,15 +78,15 @@ struct CodeSelectionHighlightTests {
 
     @Test("Selected text in a block tints the panel behind it", arguments: [UIUserInterfaceStyle.light, .dark])
     func panelShowsSelection(style: UIUserInterfaceStyle) async throws {
-        let (textView, coordinator, window, _, _) = makeEditor(style: style)
-        _ = window
+        let harness = EditorHarness(Self.note, style: style)
+        let textView = harness.textView, coordinator = harness.coordinator!
         let source = textView.text as NSString
         let selected = source.range(of: "value = query")
 
         // The same pixels with only a caret in the block: the baseline.
         textView.selectedRange = NSRange(location: selected.location, length: 0)
         coordinator.textViewDidChangeSelection(textView)
-        try await settle(textView)
+        try await harness.settle()
         let start = textView.position(from: textView.beginningOfDocument, offset: selected.location)!
         let end = textView.position(from: start, offset: selected.length)!
         let rect = textView.firstRect(for: textView.textRange(from: start, to: end)!)
@@ -121,7 +94,7 @@ struct CodeSelectionHighlightTests {
 
         textView.selectedRange = selected
         coordinator.textViewDidChangeSelection(textView)
-        try await settle(textView)
+        try await harness.settle()
         let after = meanColor(of: textView, in: rect)
 
         // The tint is orange: red up and blue down against a grey panel, by
@@ -132,8 +105,8 @@ struct CodeSelectionHighlightTests {
 
     @Test("Moving the caret out of a block takes the highlight off")
     func clearsWhenSelectionLeaves() {
-        let (textView, coordinator, window, _, _) = makeEditor(style: .light)
-        _ = window
+        let harness = EditorHarness(Self.note)
+        let textView = harness.textView, coordinator = harness.coordinator!
         let source = textView.text as NSString
 
         textView.selectedRange = source.range(of: "value")
@@ -147,8 +120,8 @@ struct CodeSelectionHighlightTests {
 
     @Test("Selecting prose paints nothing over a panel")
     func proseLeavesPanelsAlone() {
-        let (textView, coordinator, window, _, _) = makeEditor(style: .light)
-        _ = window
+        let harness = EditorHarness(Self.note)
+        let textView = harness.textView, coordinator = harness.coordinator!
         textView.selectedRange = NSRange(location: 0, length: 5)
         coordinator.textViewDidChangeSelection(textView)
         #expect(coordinator.paintedCodeSelection.isEmpty)

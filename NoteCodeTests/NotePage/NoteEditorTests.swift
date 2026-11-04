@@ -16,47 +16,15 @@ import UIKit
 @MainActor
 struct NoteEditorTests {
 
-    /// A text view wired the way `DocumentTextView` wires it, in its page,
-    /// with the page's stored text behind a binding the test can read.
-    @MainActor
-    private final class Harness {
-        var stored: String
-        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
-        let textView = DocumentTextView.makeConfiguredTextView()
-        let editor = NoteEditor()
-        let page: PageView
-        var canvas: DrawingCanvas { page.canvas }
-        var coordinator: DocumentTextView.Coordinator!
-
-        /// - Parameter lockedFirst: locks the text before the editor has a
-        ///   text view, the way a locked note's page opens.
-        init(_ text: String, lockedFirst: Bool = false) {
-            stored = text
-            page = PageView(textView: textView)
-            coordinator = DocumentTextView.Coordinator(
-                text: Binding(get: { [unowned self] in stored }, set: { [unowned self] in stored = $0 })
-            )
-            coordinator.editor = editor
-
-            textView.delegate = coordinator
-            textView.text = text
-            page.frame = window.bounds
-            window.addSubview(page)
-            window.makeKeyAndVisible()
-            page.layoutIfNeeded()
-
-            if lockedFirst {
-                editor.setTextLocked(true)
-            }
-            editor.attach(textView, canvas: canvas, page: page)
-        }
-
-        var pans: [UIPanGestureRecognizer] { [textView.panGestureRecognizer] }
+    /// The editor in its page, with a Coordinator that is only the text
+    /// view's delegate.
+    private static func harness(_ text: String, lockedFirst: Bool = false) -> EditorHarness {
+        EditorHarness(text, wiring: .delegate, window: CGSize(width: 800, height: 600), area: nil, lockedFirst: lockedFirst)
     }
 
     @Test("A formatting button edits the text view and the page both")
     func formattingReachesThePage() {
-        let harness = Harness("a word b")
+        let harness = Self.harness("a word b")
         harness.textView.selectedRange = NSRange(location: 2, length: 4)
 
         harness.editor.toggle(.bold)
@@ -70,7 +38,7 @@ struct NoteEditorTests {
 
     @Test("A formatting edit can be undone, and undoing reaches the page")
     func formattingUndoes() {
-        let harness = Harness("a word b")
+        let harness = Self.harness("a word b")
         harness.textView.selectedRange = NSRange(location: 2, length: 4)
 
         harness.editor.toggle(.bold)
@@ -85,7 +53,7 @@ struct NoteEditorTests {
 
     @Test("Formatting can take inline code's backticks away, though the keyboard can't")
     func formattingRemovesInlineCode() {
-        let harness = Harness("a `word` b")
+        let harness = Self.harness("a `word` b")
         harness.textView.selectedRange = NSRange(location: 3, length: 4)
 
         harness.editor.toggle(.code)
@@ -98,7 +66,7 @@ struct NoteEditorTests {
 
     @Test("Formatting does nothing in ink mode")
     func noFormattingInInk() {
-        let harness = Harness("a word b")
+        let harness = Self.harness("a word b")
         harness.textView.selectedRange = NSRange(location: 2, length: 4)
 
         harness.editor.setMode(.ink)
@@ -109,7 +77,7 @@ struct NoteEditorTests {
 
     @Test("Formatting does nothing while the text is locked")
     func noFormattingWhileLocked() {
-        let harness = Harness("a word b")
+        let harness = Self.harness("a word b")
         harness.textView.selectedRange = NSRange(location: 2, length: 4)
 
         harness.editor.setTextLocked(true)
@@ -122,7 +90,7 @@ struct NoteEditorTests {
 
     @Test("Locking puts the keyboard away, and unlocking doesn't bring it back")
     func lockingPutsTheKeyboardAway() {
-        let harness = Harness("a word b")
+        let harness = Self.harness("a word b")
         harness.textView.becomeFirstResponder()
 
         harness.editor.setTextLocked(true)
@@ -137,7 +105,7 @@ struct NoteEditorTests {
 
     @Test("A note locked before its page exists opens locked")
     func lockedBeforeAttach() {
-        let harness = Harness("a word b", lockedFirst: true)
+        let harness = Self.harness("a word b", lockedFirst: true)
 
         #expect(harness.editor.isTextLocked)
         #expect(!harness.textView.isEditable)
@@ -145,7 +113,7 @@ struct NoteEditorTests {
 
     @Test("Switching modes keeps the text locked")
     func lockSurvivesModeSwitch() {
-        let harness = Harness("a word b")
+        let harness = Self.harness("a word b")
         harness.editor.setTextLocked(true)
 
         harness.editor.setMode(.ink)
@@ -157,7 +125,7 @@ struct NoteEditorTests {
 
     @Test("Locked text has nothing to undo until it's unlocked, and ink keeps its undo")
     func undoWhileLocked() throws {
-        let harness = Harness("a word b")
+        let harness = Self.harness("a word b")
         harness.textView.selectedRange = NSRange(location: 2, length: 4)
         harness.editor.toggle(.bold)
 
@@ -186,7 +154,7 @@ struct NoteEditorTests {
 
     @Test("Switching to ink and back restores the caret")
     func modeRoundTripKeepsCaret() {
-        let harness = Harness("binary search invariant")
+        let harness = Self.harness("binary search invariant")
         harness.textView.selectedRange = NSRange(location: 7, length: 6)
 
         harness.editor.setMode(.ink)
@@ -198,7 +166,7 @@ struct NoteEditorTests {
 
     @Test("The arrows follow the mode's own undo stack")
     func undoFollowsTheMode() {
-        let harness = Harness("a word b")
+        let harness = Self.harness("a word b")
         harness.textView.selectedRange = NSRange(location: 2, length: 4)
         harness.editor.toggle(.bold)
         #expect(harness.editor.canUndo)
@@ -219,7 +187,7 @@ struct NoteEditorTests {
 
     @Test("Clearing ink undo stands the arrows down")
     func clearedInkUndoUpdatesTheArrows() {
-        let harness = Harness("a word b")
+        let harness = Self.harness("a word b")
         harness.editor.setMode(.ink)
         harness.canvas.undoManager?.registerUndo(withTarget: harness.canvas) { _ in }
         harness.editor.refreshUndoState()
@@ -232,7 +200,7 @@ struct NoteEditorTests {
 
     @Test("The Pencil-only lock reaches the canvas")
     func pencilLockReachesTheCanvas() {
-        let harness = Harness("a word b")
+        let harness = Self.harness("a word b")
         #expect(harness.canvas.allowsFingerDrawing)
 
         harness.editor.isPencilOnly = true
@@ -244,7 +212,7 @@ struct NoteEditorTests {
 
     @Test("The hotbar's Finger Draws is the Pencil-only lock the other way round")
     func fingerDrawsIsTheInverse() {
-        let harness = Harness("a word b")
+        let harness = Self.harness("a word b")
         #expect(harness.editor.fingerDraws)
 
         harness.editor.fingerDraws = false
@@ -258,7 +226,7 @@ struct NoteEditorTests {
 
     @Test("The page's pans follow the mode and the Pencil lock")
     func scrollingFollowsTheMode() {
-        let harness = Harness("a word b")
+        let harness = Self.harness("a word b")
         func pencilScrolls(_ pan: UIPanGestureRecognizer) -> Bool {
             pan.allowedTouchTypes.contains(NSNumber(value: UITouch.TouchType.pencil.rawValue))
         }
@@ -277,7 +245,7 @@ struct NoteEditorTests {
 
     @Test("A touch off the canvas scrolls with one finger while a finger draws")
     func oneFingerScrollsOffTheCanvas() {
-        let harness = Harness("a word b")
+        let harness = Self.harness("a word b")
         harness.editor.setMode(.ink)
 
         harness.page.touchWillLand(on: harness.textView)
@@ -294,7 +262,7 @@ struct NoteEditorTests {
 
     @Test("The eraser toggle goes to the eraser and back to the tool before it")
     func eraserToggle() {
-        let harness = Harness("a word b")
+        let harness = Self.harness("a word b")
         harness.editor.inkTool.kind = .highlighter
 
         harness.editor.toggleEraser()
@@ -305,7 +273,7 @@ struct NoteEditorTests {
         #expect(harness.editor.inkTool.kind == .highlighter)
 
         // Chosen from the bar, then toggled: back to the pen, not nowhere.
-        let fresh = Harness("a word b")
+        let fresh = Self.harness("a word b")
         fresh.editor.inkTool.kind = .eraser
         fresh.editor.inkTool.kind = .eraser
         fresh.editor.toggleEraser()
@@ -314,7 +282,7 @@ struct NoteEditorTests {
 
     @Test("Switching to the previous tool swaps between the last two")
     func previousTool() {
-        let harness = Harness("a word b")
+        let harness = Self.harness("a word b")
         harness.editor.inkTool.kind = .lasso
         harness.editor.inkTool.kind = .highlighter
 
@@ -342,7 +310,7 @@ struct NoteEditorTests {
 
     @Test("A Pencil gesture in text mode goes to ink first, unless it would do nothing")
     func pencilFromText() {
-        let harness = Harness("a word b")
+        let harness = Self.harness("a word b")
         #expect(harness.editor.mode == .text)
 
         #expect(harness.editor.enterInkForPencil(.nothing) == false)
@@ -358,7 +326,7 @@ struct NoteEditorTests {
 
     @Test("The hotbar's tool reaches the canvas")
     func toolReachesTheCanvas() {
-        let harness = Harness("a word b")
+        let harness = Self.harness("a word b")
 
         harness.editor.inkTool = InkToolState(kind: .highlighter, highlighter: InkingSettings(color: .red))
 
@@ -368,7 +336,7 @@ struct NoteEditorTests {
     // MARK: PaperKit's selection and the tool
 
     /// A canvas with one shape on it, selected in PaperKit.
-    private func selectAShape(in harness: Harness) throws {
+    private func selectAShape(in harness: EditorHarness) throws {
         var markup = harness.canvas.markup
         markup.insertNewShape(
             configuration: ShapeConfiguration(type: .rectangle),
@@ -384,7 +352,7 @@ struct NoteEditorTests {
 
     @Test("Leaving the lasso lets go of PaperKit's selection")
     func leavingTheLassoClearsTheSelection() throws {
-        let harness = Harness("a word b")
+        let harness = Self.harness("a word b")
         harness.editor.inkTool.kind = .lasso
         try selectAShape(in: harness)
 
@@ -395,7 +363,7 @@ struct NoteEditorTests {
 
     @Test("Switching to the lasso keeps a selection, as an insert needs")
     func enteringTheLassoKeepsTheSelection() throws {
-        let harness = Harness("a word b")
+        let harness = Self.harness("a word b")
         try selectAShape(in: harness)
 
         harness.editor.inkTool.kind = .lasso
@@ -405,7 +373,7 @@ struct NoteEditorTests {
 
     @Test("Changing the pen's colour, not the tool, leaves the selection alone")
     func settingsKeepTheSelection() throws {
-        let harness = Harness("a word b")
+        let harness = Self.harness("a word b")
         harness.editor.inkTool.kind = .lasso
         try selectAShape(in: harness)
 

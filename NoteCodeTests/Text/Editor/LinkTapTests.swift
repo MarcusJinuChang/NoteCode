@@ -29,7 +29,7 @@ struct LinkTapTests {
 
     /// The middle of `text` on the line that starts with `line`, in the note
     /// with its markers deleted.
-    static func middle(of text: String, onLineStarting line: String, in deleted: CodeFenceDisplayTests.Harness) throws -> CGPoint {
+    static func middle(of text: String, onLineStarting line: String, in deleted: EditorHarness) throws -> CGPoint {
         let textView = deleted.textView
         let storage = textView.textStorage.string as NSString
         let lineStart = storage.range(of: line).location

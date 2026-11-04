@@ -31,7 +31,7 @@ struct FormulaLayoutTests {
     ].joined(separator: "\n")
 
     /// The note with every drawn formula replaced by its attachment alone.
-    static func replacingFormulas(from harness: CodeFenceDisplayTests.Harness) -> NSAttributedString {
+    static func replacingFormulas(from harness: EditorHarness) -> NSAttributedString {
         let storage = harness.textView.textStorage
         let source = storage.string.nativeUTF8
         let runs = MarkdownLayout.runs(for: DocumentParser.parse(source), in: source)
@@ -67,11 +67,11 @@ struct FormulaLayoutTests {
         return text
     }
 
-    static func pair(_ text: String = note, layout: PageLayout = PageLayout()) -> (rendered: CodeFenceDisplayTests.Harness, truth: CodeFenceDisplayTests.Harness) {
-        let rendered = CodeFenceDisplayTests.Harness(text, layout: layout)
+    static func pair(_ text: String = note, layout: PageLayout = PageLayout()) -> (rendered: EditorHarness, truth: EditorHarness) {
+        let rendered = EditorHarness(text, layout: layout)
         rendered.coordinator.setRendersMarkdown(true, in: rendered.textView)
         rendered.layOut()
-        let truth = CodeFenceDisplayTests.Harness(text, layout: layout)
+        let truth = EditorHarness(text, layout: layout)
         truth.textView.textStorage.setAttributedString(replacingFormulas(from: rendered))
         truth.layOut()
         return (rendered, truth)
@@ -117,7 +117,7 @@ struct FormulaLayoutTests {
 
     @Test("The laid-out paragraph holds one attachment per formula, in the TeX's own colour and size")
     func attachment() throws {
-        let harness = CodeFenceDisplayTests.Harness("Red <span style=\"color:#FF0000\">$x$</span> end\n")
+        let harness = EditorHarness("Red <span style=\"color:#FF0000\">$x$</span> end\n")
         harness.coordinator.setRendersMarkdown(true, in: harness.textView)
         let storage = harness.textView.textStorage
         let source = storage.string.nativeUTF8
@@ -137,7 +137,7 @@ struct FormulaLayoutTests {
     @Test("An undrawable formula's source is painted secondaryLabel, dollars included")
     func dimmed() {
         let source = "Bad $\\frac{1}{$ and good $x$\n"
-        let harness = CodeFenceDisplayTests.Harness(source)
+        let harness = EditorHarness(source)
         harness.coordinator.setRendersMarkdown(true, in: harness.textView)
         let storage = harness.textView.textStorage
         let bad = (source as NSString).range(of: "$\\frac{1}{$")
@@ -156,14 +156,14 @@ struct FormulaLayoutTests {
         let fraction = FormulaAttachment.metrics(tex: "\\frac{a+b}{c}", pointSize: 17, display: false)
         let small = FormulaAttachment.metrics(tex: "x", pointSize: 17, display: false)
         #expect(fraction != nil && small != nil)
-        let plain = CodeFenceDisplayTests.Harness("Plain\n")
-        let withFraction = CodeFenceDisplayTests.Harness("A $\\frac{a+b}{c}$ b\n")
+        let plain = EditorHarness("Plain\n")
+        let withFraction = EditorHarness("A $\\frac{a+b}{c}$ b\n")
         withFraction.coordinator.setRendersMarkdown(true, in: withFraction.textView)
         withFraction.layOut()
-        let withSmall = CodeFenceDisplayTests.Harness("A $x$ b\n")
+        let withSmall = EditorHarness("A $x$ b\n")
         withSmall.coordinator.setRendersMarkdown(true, in: withSmall.textView)
         withSmall.layOut()
-        let h = { (harness: CodeFenceDisplayTests.Harness) in CodeBlockRoomTests.lines(of: harness.textView).first!.frame.height }
+        let h = { (harness: EditorHarness) in CodeBlockRoomTests.lines(of: harness.textView).first!.frame.height }
         // The line grows to the formula's own height (ascent + descent), and no further.
         let formulaHeight = (fraction?.ascent ?? 0) + (fraction?.descent ?? 0)
         #expect(h(withFraction) > h(plain))
@@ -197,7 +197,7 @@ struct FormulaLayoutTests {
         for prose in (near - 6)...(near + 1) {
             let text = (0..<prose).map { _ in "Line of prose" }.joined(separator: "\n")
                 + "\nTall $\\frac{\\sum_{i} i}{\\sqrt{n}}$ formula line\nTail $x$ line\nEnd\n"
-            let harness = CodeFenceDisplayTests.Harness(text)
+            let harness = EditorHarness(text)
             harness.coordinator.setRendersMarkdown(true, in: harness.textView)
             var placements: [[String]] = []
             for mode in PageViewMode.allCases {

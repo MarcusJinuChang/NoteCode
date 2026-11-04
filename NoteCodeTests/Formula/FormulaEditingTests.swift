@@ -151,8 +151,8 @@ struct FormulaEditingViewTests {
     static let note = "Intro $x^2$ outro\n\n$$\n\\sum_{i=1}^{n} i\n$$\n\nlast line\n"
 
     /// The rendered note, with the formulas swapped for attachments.
-    static func harness(_ text: String = note) -> CodeFenceDisplayTests.Harness {
-        let harness = CodeFenceDisplayTests.Harness(text)
+    static func harness(_ text: String = note) -> EditorHarness {
+        let harness = EditorHarness(text)
         harness.coordinator.setRendersMarkdown(true, in: harness.textView)
         harness.layOut()
         return harness

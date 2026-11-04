@@ -484,8 +484,6 @@ struct InlineMarkDrawingTests {
 @MainActor
 struct InlineMarkTypingTests {
 
-    typealias Harness = TextRowEditorTests.Harness
-
     @Test("Text typed under Underline or a highlight is written inside the marks, the caret in front of the closing one")
     func written() {
         #expect(TypingStyleRuleTests.typed("hello |", run: "w", TypingStyle(underline: true)) == "hello <u>w|</u>")
@@ -498,7 +496,7 @@ struct InlineMarkTypingTests {
 
     @Test("The bar shows what is set, and the next text typed carries it")
     func inTheEditor() async {
-        let underline = Harness("a |")
+        let underline = TextRowEditorTests.harness("a |")
         #expect(!underline.editor.formattingShown.underline)
         underline.editor.toggle(.underline)
         #expect(underline.editor.formattingShown.underline)
@@ -508,7 +506,7 @@ struct InlineMarkTypingTests {
         await TypingStyleEditorTests.type("c", into: underline)
         #expect(TypingStyleEditorTests.shown(underline) == "a <u>bc|</u>")
 
-        let highlight = Harness("a |")
+        let highlight = TextRowEditorTests.harness("a |")
         highlight.editor.setHighlight(.green)
         #expect(highlight.editor.formattingShown.highlight == .green, "the highlight menu shows it")
         await TypingStyleEditorTests.type("b", into: highlight)
@@ -519,7 +517,7 @@ struct InlineMarkTypingTests {
 
     @Test("A highlight on a selection, or a word, is written and undone in one step")
     func selection() {
-        let harness = Harness("a word b")
+        let harness = TextRowEditorTests.harness("a word b")
         harness.textView.selectedRange = NSRange(location: 2, length: 4)
         harness.coordinator.refreshCaretFormatting(in: harness.textView)
         harness.editor.setHighlight(.blue)
@@ -530,7 +528,7 @@ struct InlineMarkTypingTests {
 
     @Test("The bar lights Underline and the highlight at the caret, and the Style menu knows a quote")
     func lit() {
-        let harness = Harness("a <u>wo|rd</u> ==🔴x== > not\n> quoted")
+        let harness = TextRowEditorTests.harness("a <u>wo|rd</u> ==🔴x== > not\n> quoted")
         #expect(harness.editor.caretFormatting.underline)
         #expect(harness.editor.caretFormatting.highlight == nil)
         #expect(harness.editor.caretFormatting.quoteDepth == 0)
@@ -538,7 +536,7 @@ struct InlineMarkTypingTests {
 
     @Test("Nothing is set in a locked note")
     func locked() {
-        let harness = Harness("a |")
+        let harness = TextRowEditorTests.harness("a |")
         harness.editor.setTextLocked(true)
         harness.editor.toggle(.underline)
         harness.editor.setHighlight(.red)
