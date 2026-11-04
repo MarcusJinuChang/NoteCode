@@ -58,15 +58,15 @@ struct HeadingMarkerTests {
 
     // MARK: Drawn
 
-    private func harness(_ layout: PageLayout = PageLayout(), mode: ShowMarkdown = .whileEditing) -> CodeFenceDisplayTests.Harness {
-        let harness = CodeFenceDisplayTests.Harness(Self.note, layout: layout, showMarkdown: mode)
+    private func harness(_ layout: PageLayout = PageLayout(), mode: ShowMarkdown = .whileEditing) -> EditorHarness {
+        let harness = EditorHarness(Self.note, layout: layout, showMarkdown: mode)
         harness.coordinator.setRendersMarkdown(true, in: harness.textView)
         harness.layOut()
         return harness
     }
 
     /// The part of the heading's line left of its text, where the hashes go.
-    private func margin(of harness: CodeFenceDisplayTests.Harness, line text: String) -> CGRect {
+    private func margin(of harness: EditorHarness, line text: String) -> CGRect {
         let rect = harness.rect(of: text)
         return CGRect(x: 8, y: rect.minY, width: rect.minX - 8 - 3, height: rect.height)
     }
@@ -79,7 +79,7 @@ struct HeadingMarkerTests {
     @Test("A heading's drawing area reaches past its hashes, at every level")
     func surfaceReachesTheHashes() throws {
         let note = "# One\n## Two\n### Three\n#### Four\nbody"
-        let harness = CodeFenceDisplayTests.Harness(note)
+        let harness = EditorHarness(note)
         harness.coordinator.setRendersMarkdown(true, in: harness.textView)
         harness.layOut()
         let manager = try #require(harness.textView.textLayoutManager)
@@ -101,7 +101,7 @@ struct HeadingMarkerTests {
     @Test("The hashes show in the margin while the caret is on the heading, in seamless and on a print sheet, light and dark",
           arguments: [PageLayout(), PageLayout(mode: .print)], [UIUserInterfaceStyle.light, .dark])
     func drawnInTheMargin(layout: PageLayout, style: UIUserInterfaceStyle) async throws {
-        let harness = CodeFenceDisplayTests.Harness(Self.note, style: style, layout: layout)
+        let harness = EditorHarness(Self.note, style: style, layout: layout)
         harness.coordinator.setRendersMarkdown(true, in: harness.textView)
         harness.layOut()
         let margin = margin(of: harness, line: "Hash tables")
@@ -140,7 +140,7 @@ struct HeadingMarkerTests {
 
     @Test("A legacy note draws no hashes: they are in its text")
     func legacy() async throws {
-        let harness = CodeFenceDisplayTests.Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         harness.layOut()
         try await harness.caret(at: 4)
         #expect(harness.coordinator.headingVisibility == .hidden)

@@ -16,15 +16,13 @@ import Testing
 @MainActor
 struct AIEditorTests {
 
-    typealias Harness = CodeFenceDisplayTests.Harness
-
     private static let note = "Intro\n\n```cpp\nint add(int a, int b) { return a + b; }\n```\n\nAfter\n"
 
     private func harness(
         availability: AIAvailability = .available,
         enabled: Bool = true
-    ) -> (Harness, FakeTextModel) {
-        let harness = Harness(Self.note)
+    ) -> (EditorHarness, FakeTextModel) {
+        let harness = EditorHarness(Self.note)
         let model = FakeTextModel()
         model.availability = availability
         model.script = { _ in .hang([]) }
@@ -42,7 +40,7 @@ struct AIEditorTests {
         }
     }
 
-    private func menu(_ harness: Harness, at offset: Int) -> UIMenu {
+    private func menu(_ harness: EditorHarness, at offset: Int) -> UIMenu {
         harness.textView.selectedRange = NSRange(location: offset, length: 0)
         return harness.coordinator.textView(
             harness.textView,

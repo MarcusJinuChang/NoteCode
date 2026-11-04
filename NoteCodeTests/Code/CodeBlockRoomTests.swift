@@ -17,8 +17,6 @@ import UIKit
 @MainActor
 struct CodeBlockRoomTests {
 
-    typealias Harness = CodeFenceDisplayTests.Harness
-
     // MARK: Pure
 
     @Test("The header is the opening fence's line less the gap above it")
@@ -77,7 +75,7 @@ struct CodeBlockRoomTests {
     /// the gaps and the header would come out a few points off.
     @Test("The fences hold the gaps, the header and the footer; code lines are a prose line tall")
     func lineHeights() throws {
-        let harness = Harness()
+        let harness = EditorHarness()
         let lines = Self.lines(of: harness.textView)
         let typography = NoteTypography.standard
 
@@ -95,7 +93,7 @@ struct CodeBlockRoomTests {
 
     @Test("The panel reaches into the margins and the code keeps the prose column", arguments: [UIUserInterfaceStyle.light, .dark])
     func reachesIntoMargins(style: UIUserInterfaceStyle) throws {
-        let harness = Harness(style: style)
+        let harness = EditorHarness(style: style)
         let textView = harness.textView
         let code = harness.rect(of: "int value")
         let prose = harness.rect(of: "Prose before")
@@ -120,7 +118,7 @@ struct CodeBlockRoomTests {
 
     @Test("The language and the buttons are centred in the header, inside the panel")
     func headerHoldsTheControls() throws {
-        let harness = Harness()
+        let harness = EditorHarness()
         let opening = try #require(Self.lines(of: harness.textView).first { $0.text == "```cpp" })
         let header = CodeBlockRoom.header(ofFenceLine: opening.frame)
 
@@ -168,7 +166,7 @@ struct CodeBlockRoomTests {
 
     @Test("Shown while editing, the opening fence sits in the middle of the header and the closing one in the footer")
     func fenceGlyphsInPlace() async throws {
-        let harness = Harness()
+        let harness = EditorHarness()
         try await harness.caret(at: harness.offset(of: "int value"))
         let lines = Self.lines(of: harness.textView)
         let opening = try #require(lines.first { $0.text == "```cpp" })
@@ -219,7 +217,7 @@ struct CodeBlockRoomTests {
         + "int x;\n```\nAfter\n"
 
     /// The lines of the block's long line, after the first: its continuations.
-    static func continuations(in harness: Harness) throws -> [(text: String, frame: CGRect)] {
+    static func continuations(in harness: EditorHarness) throws -> [(text: String, frame: CGRect)] {
         let lines = Self.lines(of: harness.textView)
         let first = try #require(lines.firstIndex { $0.text.contains("public static") })
         let next = try #require(lines.firstIndex { $0.text == "int x;" })
@@ -228,7 +226,7 @@ struct CodeBlockRoomTests {
 
     @Test("A wrapped line of code continues past its own indentation")
     func hangingIndent() throws {
-        let harness = Harness(Self.wrapNote)
+        let harness = EditorHarness(Self.wrapNote)
         let continuations = try Self.continuations(in: harness)
         try #require(!continuations.isEmpty, "the long line should wrap")
 
@@ -248,7 +246,7 @@ struct CodeBlockRoomTests {
     @Test("A wrap mark is drawn in front of each continuation, and nowhere in the line's own indentation",
           arguments: [UIUserInterfaceStyle.light, .dark])
     func wrapMark(style: UIUserInterfaceStyle) throws {
-        let harness = Harness(Self.wrapNote, style: style)
+        let harness = EditorHarness(Self.wrapNote, style: style)
         let continuation = try #require(try Self.continuations(in: harness).first)
         let advance = CodeBlockRoom.advance(of: NoteTypography.standard.code)
         let lineStart = harness.rect(of: "public static").minX - 4 * advance
@@ -267,7 +265,7 @@ struct CodeBlockRoomTests {
     /// length but changes a line's indentation still restyles it.
     @Test("Changing a line's indentation without changing its length moves its continuations")
     func indentFollowsEdits() async throws {
-        let harness = Harness(Self.wrapNote)
+        let harness = EditorHarness(Self.wrapNote)
         let advance = CodeBlockRoom.advance(of: NoteTypography.standard.code)
         let lineStart = harness.rect(of: "public static").minX - 4 * advance
 
@@ -322,7 +320,7 @@ struct CodeBlockRoomTests {
             // page, whatever the headings took.
             let near = Int((body - CGFloat(headings) * 26) / line)
             for prose in (near - 3)...(near + 1) {
-                let harness = Harness(Self.sweepNote(headings: headings, prose: prose))
+                let harness = EditorHarness(Self.sweepNote(headings: headings, prose: prose))
                 var placements: [[String]] = []
                 for mode in PageViewMode.allCases {
                     let layout = PageLayout(mode: mode)

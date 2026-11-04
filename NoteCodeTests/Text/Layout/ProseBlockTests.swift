@@ -274,7 +274,7 @@ struct ProseBlockLayoutTests {
 
     @Test("Markers of every new mark and block are laid out at no width")
     func markersCollapse() {
-        let harness = CodeFenceDisplayTests.Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         let source = harness.textView.textStorage.string
         let runs = MarkdownLayout.runs(for: DocumentParser.parse(source), in: source)
         let collapsed = runs.map { (source as NSString).substring(with: $0.range) }
@@ -291,7 +291,7 @@ struct ProseBlockLayoutTests {
 
     @Test("A quote's text is indented past its bar, wrapped lines hang there, and a plain line is not")
     func indent() throws {
-        let harness = CodeFenceDisplayTests.Harness(Self.note)
+        let harness = EditorHarness(Self.note)
         harness.coordinator.setRendersMarkdown(true, in: harness.textView)
         harness.layOut()
         let plain = harness.rect(of: "A plain")
@@ -314,7 +314,7 @@ struct ProseBlockLayoutTests {
 
     @Test("The paragraph styles carry the indent: in the storage, and in what is typed next")
     func styles() throws {
-        let harness = CodeFenceDisplayTests.Harness("> quoted\n>> deeper\nplain\n")
+        let harness = EditorHarness("> quoted\n>> deeper\nplain\n")
         let storage = harness.textView.textStorage
         func indent(at offset: Int) -> CGFloat? {
             (storage.attribute(.paragraphStyle, at: offset, effectiveRange: nil) as? NSParagraphStyle)?.firstLineHeadIndent
@@ -352,7 +352,7 @@ struct ProseBlockLayoutTests {
 
     @Test("A quote has its bar beside it on the page, in the room the indent leaves; a plain line has none there")
     func barIsDrawn() throws {
-        let harness = CodeFenceDisplayTests.Harness("Plain line\n\n> A quoted line\n\nPlain again\n", style: .light)
+        let harness = EditorHarness("Plain line\n\n> A quoted line\n\nPlain again\n", style: .light)
         harness.coordinator.setRendersMarkdown(true, in: harness.textView)
         harness.layOut()
         let image = CodeFenceDisplayTests.render(harness.textView)
@@ -390,7 +390,7 @@ struct ProseBlockLayoutTests {
 
     @Test("A rule is drawn across the column, level with its line, in both appearances", arguments: [UIUserInterfaceStyle.light, .dark])
     func ruleIsDrawn(style: UIUserInterfaceStyle) throws {
-        let harness = CodeFenceDisplayTests.Harness("Above\n\n---\n\nBelow\n", style: style)
+        let harness = EditorHarness("Above\n\n---\n\nBelow\n", style: style)
         harness.coordinator.setRendersMarkdown(true, in: harness.textView)
         harness.layOut()
         let image = CodeFenceDisplayTests.render(harness.textView)

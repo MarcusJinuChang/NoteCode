@@ -18,8 +18,8 @@ struct CaretHeightTests {
 
     static let note = "Prose line here\n# Heading one\n```cpp\nint value = 1;\nint other = 2;\n```\nAfter <span style=\"font-size:1.5em\">big</span> text\n- item one\n"
 
-    static func harness() -> CodeFenceDisplayTests.Harness {
-        let harness = CodeFenceDisplayTests.Harness(note)
+    static func harness() -> EditorHarness {
+        let harness = EditorHarness(note)
         harness.coordinator.setRendersMarkdown(true, in: harness.textView)
         harness.coordinator.invalidateStyling()
         harness.coordinator.restyle(harness.textView)
@@ -33,7 +33,7 @@ struct CaretHeightTests {
         let font: UIFont
     }
 
-    static func carets(_ harness: CodeFenceDisplayTests.Harness, at needle: String, plus delta: Int) throws -> Carets {
+    static func carets(_ harness: EditorHarness, at needle: String, plus delta: Int) throws -> Carets {
         let textView = harness.textView
         let offset = harness.offset(of: needle) + delta
         let position = try #require(textView.position(from: textView.beginningOfDocument, offset: offset))

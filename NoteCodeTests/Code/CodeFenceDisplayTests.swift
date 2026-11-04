@@ -20,8 +20,6 @@ struct CodeFenceDisplayTests {
 
     nonisolated static let note = TestFixtures.codeFenceNote
 
-    typealias Harness = EditorHarness
-
     // MARK: Pixels
 
     static func render(_ view: UIView, scale: CGFloat = 2) -> CGImage {
@@ -98,7 +96,7 @@ struct CodeFenceDisplayTests {
     @Test("Every line sits where it did whether the block is being edited or away",
           arguments: [PageLayout(), PageLayout(mode: .print)])
     func linesDontMove(layout: PageLayout) async throws {
-        let harness = Harness(layout: layout)
+        let harness = EditorHarness(layout: layout)
 
         try await harness.caret(at: 2)
         #expect(harness.coordinator.fenceVisibility.editing.isEmpty)
@@ -120,8 +118,8 @@ struct CodeFenceDisplayTests {
 
     @Test("The measure sees a collapsed fence: without the fence lines the lines below move")
     func collapsingMoves() async throws {
-        let withFences = Harness()
-        let without = Harness(Self.note.replacingOccurrences(of: "```cpp\n", with: "").replacingOccurrences(of: "```\n", with: ""))
+        let withFences = EditorHarness()
+        let without = EditorHarness(Self.note.replacingOccurrences(of: "```cpp\n", with: "").replacingOccurrences(of: "```\n", with: ""))
         let a = Self.lineFrames(of: withFences.textView)
         let b = Self.lineFrames(of: without.textView)
         let after = withFences.rect(of: "Prose after").minY
@@ -135,7 +133,7 @@ struct CodeFenceDisplayTests {
     @Test("An away block draws no backticks on its closing fence; one being edited does",
           arguments: [UIUserInterfaceStyle.light, .dark])
     func closingFence(style: UIUserInterfaceStyle) async throws {
-        let harness = Harness(style: style)
+        let harness = EditorHarness(style: style)
         let fence = harness.footerInterior(of: harness.rect(of: "```", backwards: true))
 
         try await harness.caret(at: 2)
@@ -150,7 +148,7 @@ struct CodeFenceDisplayTests {
 
     @Test("The code itself is drawn the same, away or not")
     func codeStays() async throws {
-        let harness = Harness()
+        let harness = EditorHarness()
         // A line the caret isn't on, so its pixels are only the glyphs'.
         let code = harness.interior(of: harness.rect(of: "int value = query(gap);"))
         try await harness.caret(at: 2)
@@ -163,7 +161,7 @@ struct CodeFenceDisplayTests {
 
     @Test("Always keeps the fences drawn with the caret elsewhere")
     func always() async throws {
-        let harness = Harness(showMarkdown: .always)
+        let harness = EditorHarness(showMarkdown: .always)
         let fence = harness.footerInterior(of: harness.rect(of: "```", backwards: true))
         try await harness.caret(at: 2)
         #expect(Self.inkPixels(of: harness.textView, in: fence) > 20)
@@ -183,7 +181,7 @@ struct CodeFenceDisplayTests {
     /// and every panel pixel counted as ink.)
     @Test("A clear rendering attribute hides a fence without laying out, until an edit inside it")
     func renderingAttribute() async throws {
-        let harness = Harness()
+        let harness = EditorHarness()
         // Editing, so the fragment draws the fences itself and any change is
         // the attribute's.
         try await harness.caret(at: harness.offset(of: "int other") + 3)
@@ -273,7 +271,7 @@ struct CodeFenceDisplayTests {
     @Test("The block being edited has no ring: its edge is the panel's, edited or away",
           arguments: [UIUserInterfaceStyle.light, .dark])
     func noRing(style: UIUserInterfaceStyle) async throws {
-        let harness = Harness(style: style)
+        let harness = EditorHarness(style: style)
         let line = harness.rect(of: "int other = 2;")
         let columns: ClosedRange<CGFloat> = 60...(line.minX + 2)
 
@@ -285,7 +283,7 @@ struct CodeFenceDisplayTests {
 
     @Test("An away block has its language's name where the fence was, aligned with the code")
     func languageButton() async throws {
-        let harness = Harness()
+        let harness = EditorHarness()
         try await harness.caret(at: 2)
         let button = try #require(harness.languageButton)
         #expect(!button.isHidden)
@@ -303,7 +301,7 @@ struct CodeFenceDisplayTests {
 
     @Test("Editing the block takes the language name away and leaves run and copy")
     func languageButtonHidesWhileEditing() async throws {
-        let harness = Harness()
+        let harness = EditorHarness()
         try await harness.caret(at: harness.offset(of: "int other") + 3)
         #expect(harness.languageButton?.isHidden == true)
         let bar = try #require(harness.textView.subviews.compactMap { $0 as? CodeBlockActionBar }.first)
@@ -312,7 +310,7 @@ struct CodeFenceDisplayTests {
 
     @Test("A block's name is the tag as typed when the app doesn't know it, and Code when bare")
     func languageNames() async throws {
-        let harness = Harness("```ruby\nfn main() {}\n```\n```\nplain\n```\n")
+        let harness = EditorHarness("```ruby\nfn main() {}\n```\n```\nplain\n```\n")
         try await harness.caret(at: harness.source.length)
         let buttons = harness.textView.subviews.compactMap { $0 as? CodeBlockLanguageButton }
         #expect(buttons.map { $0.configuration?.title } == ["ruby", "Code"])
@@ -320,7 +318,7 @@ struct CodeFenceDisplayTests {
 
     @Test("A tap on the name is the button's, not the text view's")
     func tapGoesToTheButton() async throws {
-        let harness = Harness()
+        let harness = EditorHarness()
         try await harness.caret(at: 2)
         let button = try #require(harness.languageButton)
         let overlay = try #require(harness.textView.overlay)
@@ -332,7 +330,7 @@ struct CodeFenceDisplayTests {
 
     @Test("Under the ink canvas, in ink mode the canvas takes the touch")
     func belowTheCanvas() async throws {
-        let harness = Harness()
+        let harness = EditorHarness()
         let button = try #require(harness.languageButton)
         let canvas = harness.page.canvas
         #expect(button.superview === canvas.superview)
@@ -346,7 +344,7 @@ struct CodeFenceDisplayTests {
 
     @Test("The menu lists the languages, Output and plain text, ticking the block's")
     func menu() async throws {
-        let harness = Harness()
+        let harness = EditorHarness()
         try await harness.caret(at: 2)
         let button = try #require(harness.languageButton)
         let actions = button.choices()
@@ -356,7 +354,7 @@ struct CodeFenceDisplayTests {
 
     @Test("Choosing a language rewrites the fence's tag, is undoable, and Run follows")
     func choosing() async throws {
-        let harness = Harness()
+        let harness = EditorHarness()
         try await harness.caret(at: 2)
         let button = try #require(harness.languageButton)
         let python = try #require(button.choices().first { $0.title == "Python" })
@@ -377,7 +375,7 @@ struct CodeFenceDisplayTests {
 
     @Test("Code (no language) takes the tag off")
     func choosingPlain() async throws {
-        let harness = Harness()
+        let harness = EditorHarness()
         try await harness.caret(at: 2)
         let button = try #require(harness.languageButton)
         let plain = try #require(button.choices().first { $0.title == "Code" })
@@ -389,7 +387,7 @@ struct CodeFenceDisplayTests {
 
     @Test("A locked note shows the name and changes nothing")
     func locked() async throws {
-        let harness = Harness()
+        let harness = EditorHarness()
         harness.editor.setTextLocked(true)
         try await harness.caret(at: 2)
         let button = try #require(harness.languageButton)
@@ -402,7 +400,7 @@ struct CodeFenceDisplayTests {
 
     @Test("Ink mode puts the language name back; text mode takes it away again")
     func inkMode() async throws {
-        let harness = Harness()
+        let harness = EditorHarness()
         try await harness.caret(at: harness.offset(of: "int other") + 3)
         #expect(harness.languageButton?.isHidden == true)
 
@@ -422,7 +420,7 @@ struct CodeFenceDisplayTests {
 
     @Test("Typing a fence shows it, and the closing fence, until the caret leaves")
     func typingABlock() async throws {
-        let harness = Harness("Intro\n")
+        let harness = EditorHarness("Intro\n")
         let steps = ["```", "```c", "```cpp", "```cpp\n", "```cpp\nint x;", "```cpp\nint x;\n", "```cpp\nint x;\n```"]
         for step in steps {
             harness.textView.text = "Intro\n" + step
@@ -441,7 +439,7 @@ struct CodeFenceDisplayTests {
 
     @Test("A block pasted in whole, with the caret after it, is away")
     func pastedBlock() async throws {
-        let harness = Harness("Intro\n")
+        let harness = EditorHarness("Intro\n")
         harness.textView.selectedRange = NSRange(location: 6, length: 0)
         harness.textView.insertText("```python\nprint(1)\n```\nafter")
         harness.coordinator.textViewDidChange(harness.textView)
@@ -453,7 +451,7 @@ struct CodeFenceDisplayTests {
 
     @Test("A block added above moves the one the caret is in, and the editing state follows it")
     func blockAbove() async throws {
-        let harness = Harness("```java\na\n```\nmiddle\n```cpp\nb\n```\n")
+        let harness = EditorHarness("```java\na\n```\nmiddle\n```cpp\nb\n```\n")
         try await harness.caret(at: harness.offset(of: "b\n"))
         #expect(harness.coordinator.fenceVisibility.editing == [1])
 
@@ -467,7 +465,7 @@ struct CodeFenceDisplayTests {
 
     @Test("Moving the caret inside a block doesn't redraw it")
     func caretWithinABlock() async throws {
-        let harness = Harness()
+        let harness = EditorHarness()
         try await harness.caret(at: harness.offset(of: "int value") + 3)
         let state = harness.coordinator.fenceVisibility
         try await harness.caret(at: harness.offset(of: "int other") + 3)

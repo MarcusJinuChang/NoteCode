@@ -37,7 +37,7 @@ struct CodeFenceCostTests {
     @Test("A caret move into and out of a block costs no layout, on a 500-line note")
     func caretMoveCost() async throws {
         let text = StylingPerformanceTests.document(lines: 500)
-        let harness = CodeFenceDisplayTests.Harness(text)
+        let harness = EditorHarness(text)
         let textView = harness.textView
         // Let the syntax colouring pass finish: it edits the storage, once,
         // whatever the caret does.
@@ -98,7 +98,7 @@ struct CodeFenceCostTests {
 
     @Test("A caret move into a block lays nothing out and edits nothing: the same fragments, the same text storage")
     func caretMoveLaysNothingOut() async throws {
-        let harness = CodeFenceDisplayTests.Harness(StylingPerformanceTests.document(lines: 500))
+        let harness = EditorHarness(StylingPerformanceTests.document(lines: 500))
         let textView = harness.textView
         try await harness.settle()
         try await harness.caret(at: 120)
@@ -127,7 +127,7 @@ struct CodeFenceCostTests {
         let filler = (0..<34).map { "Prose line \($0) before the block." }.joined(separator: "\n")
         let code = (0..<12).map { "int value\($0) = \($0);" }.joined(separator: "\n")
         let text = filler + "\n```cpp\n" + code + "\n```\n" + (0..<10).map { "Prose after \($0)." }.joined(separator: "\n")
-        let harness = CodeFenceDisplayTests.Harness(text, layout: PageLayout(mode: .print))
+        let harness = EditorHarness(text, layout: PageLayout(mode: .print))
         harness.layOut()
 
         let open = (text as NSString).range(of: "```cpp").location

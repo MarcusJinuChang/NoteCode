@@ -100,7 +100,7 @@ struct CodeEditingFixesTests {
 
     @Test("In the editor, one Backspace removes a level and one undo puts it back")
     func inTheEditor() async throws {
-        let harness = CodeFenceDisplayTests.Harness("```cpp\nint main() {\n        x;\n}\n```\n")
+        let harness = EditorHarness("```cpp\nint main() {\n        x;\n}\n```\n")
         let start = harness.offset(of: "x;")
         try await harness.caret(at: start)
         let textView = harness.textView
@@ -123,7 +123,7 @@ struct CodeEditingFixesTests {
           arguments: [UIUserInterfaceStyle.light, .dark])
     func plainAfterTheTagGoes(style: UIUserInterfaceStyle) async throws {
         let source = "```python\ndef f(x): return x\n```\n"
-        let harness = CodeFenceDisplayTests.Harness(source, style: style)
+        let harness = EditorHarness(source, style: style)
         // As in `OutputBlockTests.retagRecolours`: the harness's window
         // applies its appearance after the first restyle.
         harness.coordinator.restyle(harness.textView)
@@ -145,7 +145,7 @@ struct CodeEditingFixesTests {
 
     @Test("Deleting the tag by hand does the same")
     func deletingTheTag() async throws {
-        let harness = CodeFenceDisplayTests.Harness("```python\ndef f(x): return x\n```\n", style: .light)
+        let harness = EditorHarness("```python\ndef f(x): return x\n```\n", style: .light)
         harness.coordinator.restyle(harness.textView)
         try await harness.caret(at: harness.source.length)
         try await harness.settle()
@@ -167,7 +167,7 @@ struct CodeEditingFixesTests {
 
     @Test("A tap in the empty space after a line that ends in bold puts the caret at the line's end, after its markers")
     func tapAfterBold() throws {
-        let harness = CodeFenceDisplayTests.Harness("A line ending in **bold**\nNext line\n")
+        let harness = EditorHarness("A line ending in **bold**\nNext line\n")
         harness.coordinator.setRendersMarkdown(true, in: harness.textView)
         harness.layOut()
         let textView = harness.textView
@@ -191,7 +191,7 @@ struct CodeEditingFixesTests {
 
     @Test("The same for a link at the end of a line")
     func tapAfterLink() throws {
-        let harness = CodeFenceDisplayTests.Harness("See [the notes](https://example.com)\nNext line\n")
+        let harness = EditorHarness("See [the notes](https://example.com)\nNext line\n")
         harness.coordinator.setRendersMarkdown(true, in: harness.textView)
         harness.layOut()
         let textView = harness.textView

@@ -33,7 +33,7 @@ struct MarkdownLayoutTests {
 
     /// The same note with every collapsed run deleted, keeping the styling the
     /// rendered note has: what TextKit would lay out if markers took no room.
-    static func deletingMarkers(from harness: CodeFenceDisplayTests.Harness) -> NSAttributedString {
+    static func deletingMarkers(from harness: EditorHarness) -> NSAttributedString {
         let storage = harness.textView.textStorage
         let source = storage.string.nativeUTF8
         let runs = MarkdownLayout.runs(for: DocumentParser.parse(source), in: source)
@@ -57,11 +57,11 @@ struct MarkdownLayoutTests {
 
     /// Two harnesses on one note: the real one, collapsed, and the same text
     /// with its markers deleted from the storage.
-    static func pair(_ text: String = note, layout: PageLayout = PageLayout()) -> (rendered: CodeFenceDisplayTests.Harness, deleted: CodeFenceDisplayTests.Harness) {
-        let rendered = CodeFenceDisplayTests.Harness(text, layout: layout)
+    static func pair(_ text: String = note, layout: PageLayout = PageLayout()) -> (rendered: EditorHarness, deleted: EditorHarness) {
+        let rendered = EditorHarness(text, layout: layout)
         rendered.coordinator.setRendersMarkdown(true, in: rendered.textView)
         rendered.layOut()
-        let deleted = CodeFenceDisplayTests.Harness(text, layout: layout)
+        let deleted = EditorHarness(text, layout: layout)
         deleted.textView.textStorage.setAttributedString(deletingMarkers(from: rendered))
         deleted.layOut()
         return (rendered, deleted)
@@ -193,7 +193,7 @@ struct MarkdownLayoutTests {
         let deletedLines = Self.lines(of: deleted.textView.textStorage.string as NSString)
         #expect(renderedLines.count == deletedLines.count)
 
-        func caretX(_ harness: CodeFenceDisplayTests.Harness, _ offset: Int) -> CGFloat {
+        func caretX(_ harness: EditorHarness, _ offset: Int) -> CGFloat {
             let textView = harness.textView
             return textView.caretRect(for: textView.position(from: textView.beginningOfDocument, offset: offset)!).minX
         }
@@ -249,7 +249,7 @@ struct MarkdownLayoutTests {
 
     /// Types `text` at `offset` the way the keyboard does: through the text
     /// view, then the delegate's change callback that restyles.
-    static func type(_ text: String, at offset: Int, in harness: CodeFenceDisplayTests.Harness) {
+    static func type(_ text: String, at offset: Int, in harness: EditorHarness) {
         let textView = harness.textView
         let position = textView.position(from: textView.beginningOfDocument, offset: offset)!
         textView.selectedRange = NSRange(location: offset, length: 0)
@@ -258,8 +258,8 @@ struct MarkdownLayoutTests {
         harness.layOut()
     }
 
-    static func fresh(_ text: String) -> CodeFenceDisplayTests.Harness {
-        let harness = CodeFenceDisplayTests.Harness(text)
+    static func fresh(_ text: String) -> EditorHarness {
+        let harness = EditorHarness(text)
         harness.coordinator.setRendersMarkdown(true, in: harness.textView)
         harness.layOut()
         return harness
@@ -347,7 +347,7 @@ struct HiddenMarkerHookTests {
 
     nonisolated static let bold = "Keep **load factor** low"
 
-    private func harness(_ text: String = bold) -> CodeFenceDisplayTests.Harness {
+    private func harness(_ text: String = bold) -> EditorHarness {
         MarkdownLayoutTests.fresh(text)
     }
 
@@ -389,7 +389,7 @@ struct HiddenMarkerHookTests {
         #expect(harness.textView.text == "**load**z x")
     }
 
-    private func backspace(_ harness: CodeFenceDisplayTests.Harness, at caret: Int) -> Bool {
+    private func backspace(_ harness: EditorHarness, at caret: Int) -> Bool {
         harness.textView.selectedRange = NSRange(location: caret, length: 0)
         let allowed = harness.coordinator.textView(
             harness.textView, shouldChangeTextIn: NSRange(location: caret - 1, length: 1), replacementText: ""
@@ -421,7 +421,7 @@ struct HiddenMarkerHookTests {
 
     @Test("Backspace is the ordinary one in a legacy note")
     func legacy() {
-        let legacy = CodeFenceDisplayTests.Harness("## Title")
+        let legacy = EditorHarness("## Title")
         legacy.textView.selectedRange = NSRange(location: 3, length: 0)
         #expect(legacy.coordinator.textView(legacy.textView, shouldChangeTextIn: NSRange(location: 2, length: 1), replacementText: ""))
     }
@@ -433,12 +433,12 @@ struct HiddenMarkerHookTests {
 @MainActor
 struct WritingHookTests {
 
-    private func harness(_ text: String, rendered: Bool = true) -> CodeFenceDisplayTests.Harness {
-        rendered ? MarkdownLayoutTests.fresh(text) : CodeFenceDisplayTests.Harness(text)
+    private func harness(_ text: String, rendered: Bool = true) -> EditorHarness {
+        rendered ? MarkdownLayoutTests.fresh(text) : EditorHarness(text)
     }
 
     /// A keystroke the way UIKit offers it to the delegate.
-    private func key(_ harness: CodeFenceDisplayTests.Harness, _ text: String, at caret: Int) -> Bool {
+    private func key(_ harness: EditorHarness, _ text: String, at caret: Int) -> Bool {
         harness.textView.selectedRange = NSRange(location: caret, length: 0)
         return harness.coordinator.textView(
             harness.textView, shouldChangeTextIn: NSRange(location: caret, length: 0), replacementText: text
@@ -489,7 +489,7 @@ struct WritingHookTests {
 
     // MARK: Boxes
 
-    private func point(ofBoxIn harness: CodeFenceDisplayTests.Harness, line: Int) throws -> CGPoint {
+    private func point(ofBoxIn harness: EditorHarness, line: Int) throws -> CGPoint {
         let manager = try #require(harness.textView.textLayoutManager)
         manager.ensureLayout(for: manager.documentRange)
         var found: CGPoint?
@@ -635,7 +635,7 @@ struct MarkdownLayoutCostTests {
         let text = StylingPerformanceTests.document(lines: 500)
 
         func keystrokes(rendered: Bool) -> TimeInterval {
-            let harness = rendered ? MarkdownLayoutTests.fresh(text) : CodeFenceDisplayTests.Harness(text)
+            let harness = rendered ? MarkdownLayoutTests.fresh(text) : EditorHarness(text)
             harness.layOut()
             let textView = harness.textView
             var times: [TimeInterval] = []

@@ -15,24 +15,9 @@ import UIKit
 @MainActor
 struct EditorModeTests {
 
-    /// A text view in a window, so it can take the keyboard the way it does on
-    /// the page. Off-window, first-responder changes don't happen at all.
-    @MainActor
-    private final class Harness {
-        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
-        let textView = DocumentTextView.makeConfiguredTextView()
-
-        init(_ text: String = "binary search invariant") {
-            textView.frame = window.bounds
-            textView.text = text
-            window.addSubview(textView)
-            window.makeKeyAndVisible()
-        }
-    }
-
     @Test("Ink mode turns off editing and selection, and puts the keyboard away")
     func inkStopsEditing() {
-        let harness = Harness()
+        let harness = InkHarness()
         harness.textView.becomeFirstResponder()
 
         EditorMode.ink.apply(to: harness.textView, saved: nil)
@@ -44,7 +29,7 @@ struct EditorModeTests {
 
     @Test("A round trip through ink, mid-edit, leaves everything where it started")
     func roundTrip() {
-        let harness = Harness()
+        let harness = InkHarness()
         harness.textView.becomeFirstResponder()
         harness.textView.selectedRange = NSRange(location: 7, length: 6)
 
@@ -61,7 +46,7 @@ struct EditorModeTests {
 
     @Test("Coming back from ink doesn't raise a keyboard that wasn't up")
     func readingStaysReading() {
-        let harness = Harness()
+        let harness = InkHarness()
 
         let saved = EditorMode.ink.apply(to: harness.textView, saved: nil)
         EditorMode.text.apply(to: harness.textView, saved: saved)
@@ -71,7 +56,7 @@ struct EditorModeTests {
 
     @Test("Applying ink twice keeps the first session, not the keyboard-down one")
     func inkTwiceKeepsFirstSession() {
-        let harness = Harness()
+        let harness = InkHarness()
         harness.textView.becomeFirstResponder()
 
         let first = EditorMode.ink.apply(to: harness.textView, saved: nil)
@@ -83,7 +68,7 @@ struct EditorModeTests {
 
     @Test("Returning to text spends the session")
     func textConsumesSession() {
-        let harness = Harness()
+        let harness = InkHarness()
         let saved = EditorMode.ink.apply(to: harness.textView, saved: nil)
 
         #expect(EditorMode.text.apply(to: harness.textView, saved: saved) == nil)
@@ -91,7 +76,7 @@ struct EditorModeTests {
 
     @Test("Locked text can be selected but not edited, and the keyboard goes away")
     func lockedTextReads() {
-        let harness = Harness()
+        let harness = InkHarness()
         harness.textView.becomeFirstResponder()
 
         EditorMode.text.apply(to: harness.textView, saved: nil, textLocked: true)
@@ -103,7 +88,7 @@ struct EditorModeTests {
 
     @Test("Coming back from ink to locked text doesn't raise the keyboard, even if it was up")
     func lockedTextAfterInk() {
-        let harness = Harness()
+        let harness = InkHarness()
         harness.textView.becomeFirstResponder()
 
         let saved = EditorMode.ink.apply(to: harness.textView, saved: nil, textLocked: true)
@@ -116,7 +101,7 @@ struct EditorModeTests {
 
     @Test("Ink mode is the same with the text locked", arguments: [false, true])
     func inkIgnoresTheLock(textLocked: Bool) {
-        let harness = Harness()
+        let harness = InkHarness()
         let canvas = DrawingCanvas(pageSize: CGSize(width: 816, height: 1056))
         harness.textView.addSubview(canvas)
 
@@ -129,7 +114,7 @@ struct EditorModeTests {
 
     @Test("Ink mode hands input to the canvas, and text mode takes it back")
     func canvasTakesInput() {
-        let harness = Harness()
+        let harness = InkHarness()
         let canvas = DrawingCanvas(pageSize: CGSize(width: 816, height: 1056))
         harness.textView.addSubview(canvas)
 
@@ -142,7 +127,7 @@ struct EditorModeTests {
 
     @Test("A round trip leaves the canvas's own settings alone")
     func canvasSettingsSurviveARoundTrip() {
-        let harness = Harness()
+        let harness = InkHarness()
         let canvas = DrawingCanvas(pageSize: CGSize(width: 816, height: 1056))
         harness.textView.addSubview(canvas)
 

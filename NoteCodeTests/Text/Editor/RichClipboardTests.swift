@@ -15,8 +15,6 @@ import UniformTypeIdentifiers
 @MainActor
 struct RichClipboardTests {
 
-    typealias Harness = TextRowEditorTests.Harness
-
     // Fonts every app has, so the RTF reads back with its weights.
     static let regular = UIFont(name: "Helvetica", size: 12)!
     static let bold = UIFont(name: "Helvetica-Bold", size: 12)!
@@ -119,7 +117,7 @@ struct RichClipboardTests {
     @Test("Styled text from another app is pasted as Markdown, in one undo step")
     func pastes() throws {
         try Self.putRTF([("a ", [.font: Self.regular]), ("bold", [.font: Self.bold]), (" word", [.font: Self.regular])])
-        let harness = Harness("hello |")
+        let harness = TextRowEditorTests.harness("hello |")
         harness.textView.paste(nil)
         #expect(harness.text == "hello a **bold** word")
         #expect(harness.stored == harness.text, "the page has it")
@@ -132,7 +130,7 @@ struct RichClipboardTests {
     @Test("A paste replaces the selection")
     func replacesSelection() throws {
         try Self.putRTF([("new", [.font: Self.bold])])
-        let harness = Harness("one old two|")
+        let harness = TextRowEditorTests.harness("one old two|")
         harness.textView.selectedRange = NSRange(location: 4, length: 3)
         harness.textView.paste(nil)
         #expect(harness.text == "one **new** two")
@@ -148,7 +146,7 @@ struct RichClipboardTests {
             (" and ", [.font: Self.regular]),
             ("site", [.font: Self.regular, .link: URL(string: "https://example.com")!]),
         ])
-        let harness = Harness("|")
+        let harness = TextRowEditorTests.harness("|")
         harness.textView.paste(nil)
         #expect(harness.text == "body <span style=\"color:#E6474D\">red</span> and <span style=\"font-size:2em\">big</span> and [site](https://example.com)")
     }
@@ -156,12 +154,12 @@ struct RichClipboardTests {
     @Test("A paste into a code block is the text view's own, plain")
     func codeStaysPlain() throws {
         try Self.putRTF([("bold", [.font: Self.bold])])
-        let harness = Harness("```cpp\nint x|;\n```\n")
+        let harness = TextRowEditorTests.harness("```cpp\nint x|;\n```\n")
         #expect(!harness.coordinator.richPaste(into: harness.textView))
-        let over = Harness("one\n```cpp\nint x;\n```\ntwo|")
+        let over = TextRowEditorTests.harness("one\n```cpp\nint x;\n```\ntwo|")
         over.textView.selectedRange = NSRange(location: 2, length: 10)
         #expect(!over.coordinator.richPaste(into: over.textView), "a selection reaching into code")
-        let after = Harness("```cpp\nint x;\n```\n|")
+        let after = TextRowEditorTests.harness("```cpp\nint x;\n```\n|")
         #expect(after.coordinator.richPaste(into: after.textView), "the line after a closed block is prose")
         #expect(after.text.hasSuffix("```\n**bold**"))
     }
@@ -169,34 +167,34 @@ struct RichClipboardTests {
     @Test("An unclosed block holds the caret to the end of the note")
     func unclosedBlock() throws {
         try Self.putRTF([("bold", [.font: Self.bold])])
-        let harness = Harness("```cpp\nint x;|")
+        let harness = TextRowEditorTests.harness("```cpp\nint x;|")
         #expect(!harness.coordinator.richPaste(into: harness.textView))
     }
 
     @Test("Text with nothing in it to keep is left to the text view")
     func nothingToKeep() throws {
         try Self.putRTF([("just words", [.font: Self.regular])])
-        let harness = Harness("hello |")
+        let harness = TextRowEditorTests.harness("hello |")
         #expect(!harness.coordinator.richPaste(into: harness.textView))
         #expect(harness.text == "hello ")
     }
 
     @Test("Text copied from a note is pasted as the Markdown it came as, not read back from RTF")
     func ownCopyIsLeftAlone() throws {
-        let source = Harness("|a **bold** word")
+        let source = TextRowEditorTests.harness("|a **bold** word")
         source.textView.selectedRange = NSRange(location: 0, length: source.text.utf16.count)
         source.textView.copy(nil)
         #expect(UIPasteboard.general.contains(pasteboardTypes: [RichPaste.ownType]))
         #expect(RichPaste.attributedString(from: .general) == nil)
 
-        let target = Harness("|")
+        let target = TextRowEditorTests.harness("|")
         #expect(!target.coordinator.richPaste(into: target.textView))
     }
 
     @Test("A locked note takes no paste")
     func locked() throws {
         try Self.putRTF([("bold", [.font: Self.bold])])
-        let harness = Harness("hello |")
+        let harness = TextRowEditorTests.harness("hello |")
         harness.editor.setTextLocked(true)
         #expect(!harness.coordinator.richPaste(into: harness.textView))
         #expect(harness.text == "hello ")
@@ -205,7 +203,7 @@ struct RichClipboardTests {
     @Test("Pasted text isn't typed: a typing style is cleared and doesn't write over it")
     func typingStyle() async throws {
         try Self.putRTF([("plain", [.font: Self.regular]), ("bold", [.font: Self.bold])])
-        let harness = Harness("hello |")
+        let harness = TextRowEditorTests.harness("hello |")
         harness.editor.toggle(.italic)
         #expect(harness.editor.typingStyle.italic == true)
         harness.textView.paste(nil)
@@ -217,11 +215,11 @@ struct RichClipboardTests {
     @Test("A list pasted at a line's start is a list, and mid-line it is only text")
     func lists() throws {
         try Self.putRTF([("\t•\tOne\n\t•\tTwo", [.font: Self.regular])])
-        let start = Harness("|")
+        let start = TextRowEditorTests.harness("|")
         start.textView.paste(nil)
         #expect(start.text == "- One\n- Two")
 
-        let middle = Harness("see |")
+        let middle = TextRowEditorTests.harness("see |")
         middle.textView.paste(nil)
         #expect(middle.text == "see One\n- Two")
     }
@@ -233,7 +231,7 @@ struct RichClipboardTests {
     @Test("A copy has the Markdown as its text and the page's text as RTF")
     func copiesBoth() throws {
         Self.clearPasteboard()
-        let harness = Harness("|" + Self.styled)
+        let harness = TextRowEditorTests.harness("|" + Self.styled)
         harness.textView.selectedRange = NSRange(location: 0, length: Self.styled.utf16.count)
         harness.textView.copy(nil)
 
@@ -271,7 +269,7 @@ struct RichClipboardTests {
     func copiesMarks() throws {
         Self.clearPasteboard()
         let source = "an <u>under</u> and ==🟡lit== word"
-        let harness = Harness("|" + source)
+        let harness = TextRowEditorTests.harness("|" + source)
         harness.textView.selectedRange = NSRange(location: 0, length: source.utf16.count)
         harness.textView.copy(nil)
 
@@ -291,7 +289,7 @@ struct RichClipboardTests {
     @Test("A selection that starts inside a span still has the span's style")
     func selectionInsideASpan() throws {
         Self.clearPasteboard()
-        let harness = Harness("a **bol|d** b")
+        let harness = TextRowEditorTests.harness("a **bol|d** b")
         let start = (harness.text as NSString).range(of: "ld").location
         harness.textView.selectedRange = NSRange(location: start, length: (harness.text as NSString).length - start)
         harness.textView.copy(nil)
@@ -306,7 +304,7 @@ struct RichClipboardTests {
     func code() throws {
         Self.clearPasteboard()
         let source = "before\n```cpp\nint x;\nreturn x;\n```\nafter"
-        let harness = Harness("|" + source)
+        let harness = TextRowEditorTests.harness("|" + source)
         harness.textView.selectedRange = NSRange(location: 0, length: source.utf16.count)
         harness.textView.copy(nil)
         let text = try #require(Self.copiedText())
@@ -319,7 +317,7 @@ struct RichClipboardTests {
     func listItems() throws {
         Self.clearPasteboard()
         let source = "- one\n- [x] **two**\n1. three\n"
-        let harness = Harness("|" + source)
+        let harness = TextRowEditorTests.harness("|" + source)
         harness.textView.selectedRange = NSRange(location: 0, length: source.utf16.count)
         harness.textView.copy(nil)
         #expect(try #require(Self.copiedText()).string == "•\tone\n☑\ttwo\n1.\tthree\n")
@@ -333,7 +331,7 @@ struct RichClipboardTests {
     @Test("A cut takes the text out and leaves the same two copies")
     func cut() throws {
         Self.clearPasteboard()
-        let harness = Harness("|a **bold** word")
+        let harness = TextRowEditorTests.harness("|a **bold** word")
         harness.textView.selectedRange = NSRange(location: 2, length: 8)
         // Smart delete would take one of the two spaces with the word, as it
         // does for a cut on screen; this test is about what is on the pasteboard.
@@ -349,7 +347,7 @@ struct RichClipboardTests {
     @Test("A copy of nothing adds no RTF")
     func nothingSelected() {
         Self.clearPasteboard()
-        let harness = Harness("a **bold** word|")
+        let harness = TextRowEditorTests.harness("a **bold** word|")
         harness.textView.copy(nil)
         #expect(Self.copiedText() == nil)
     }
@@ -357,7 +355,7 @@ struct RichClipboardTests {
     @Test("Markers alone are not visible: a selection of only a marker has no RTF")
     func onlyMarkers() {
         Self.clearPasteboard()
-        let harness = Harness("a **bold** word|")
+        let harness = TextRowEditorTests.harness("a **bold** word|")
         harness.textView.selectedRange = NSRange(location: 2, length: 2)
         harness.textView.copy(nil)
         #expect(Self.copiedText() == nil, "there is nothing to see in `**`")
@@ -367,7 +365,7 @@ struct RichClipboardTests {
     @Test("A copy carries a formula as its source in Menlo, dollars included")
     func copiesFormulaSource() throws {
         Self.clearPasteboard()
-        let harness = Harness("Euler: $e^{i\\pi}$ is -1|")
+        let harness = TextRowEditorTests.harness("Euler: $e^{i\\pi}$ is -1|")
         harness.textView.selectedRange = NSRange(location: 0, length: (harness.textView.text as NSString).length)
         harness.textView.copy(nil)
         let copied = try #require(Self.copiedText())
@@ -382,7 +380,7 @@ struct RichClipboardTests {
     @Test("A copy carries every line of a display formula in Menlo, the dollar lines too")
     func copiesDisplayFormula() throws {
         Self.clearPasteboard()
-        let harness = Harness("before\n$$\n\\frac{a}{b}\n$$\nafter|")
+        let harness = TextRowEditorTests.harness("before\n$$\n\\frac{a}{b}\n$$\nafter|")
         harness.textView.selectedRange = NSRange(location: 0, length: (harness.textView.text as NSString).length)
         harness.textView.copy(nil)
         let copied = try #require(Self.copiedText())
