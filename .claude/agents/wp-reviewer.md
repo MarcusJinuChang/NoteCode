@@ -1,7 +1,8 @@
 ---
 name: wp-reviewer
 description: Reviews one NoteCode refactor PR against its brief in docs/refactor/, read-only. Give it the PR number, e.g. "Review PR 131".
-model: sonnet
+model: opus
+effort: medium
 tools: Read, Grep, Glob, Bash
 ---
 

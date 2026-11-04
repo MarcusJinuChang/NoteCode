@@ -103,7 +103,7 @@ After 2X, general code never names a type in `Pro/`, so the public build is
 | 2X5b | `RunFeature` hooks: the block bar's Run, ⌘R (NoteCommands.swift:247) and `CodeFenceDisplay`'s `run.*` wiring (:30–98) |
 | 2X5c | The Notes \| Run switch and its PRO mark, `RunDock` and `RunPanelHost` (PageDetailView.swift:248, 364–410) through the side-panel slot |
 | 2X5d | `RunWiringTests`, `RunSessionTests` and `CodeRunnerTests` move to `NoteCodeTests/Pro/`. `CodeDestinationTests` stays general |
-| 2X6 | DebugLaunch: `-debug-pro`, `-debug-paywall`, `-debug-run-stub` and `-debug-tip-jar` are registered from `Pro/Debug` and passed to `parse`. `DebugProStore`, `DebugRunStub` and `DebugTipStore` move out of ProStatus, RunSession and TipJar. The Pro lines in WelcomeNote.swift:93 and WelcomeScreen.swift:51 come from the edition, and the public build says the Run button opens a compiler site |
+| 2X6 | DebugLaunch: `-debug-pro`, `-debug-paywall`, `-debug-run-stub` and `-debug-tip-jar` are registered from `Pro/Debug` and passed to `parse`. `DebugProStore`, `DebugRunStub` and `DebugTipStore` move out of ProStatus, RunSession and TipJar. The Pro lines in WelcomeNote.swift:93 and WelcomeScreen.swift:51 come from the edition, and the public build says the Run button opens a compiler site. **Takes over 1B7** (1-structure.md): `parse` is one loop and one switch with a shared cursor and accumulator, so it splits by option group here, not as a pure move |
 | 2X7 | **`scripts/build-open-source.sh`** proves the public build compiles, with no project edit. It works in a temporary worktree: delete `NoteCode/Pro/` and `NoteCodeTests/Pro/`, then lay over `OpenSource/OpenSourceEdition.swift`, `OpenSource/Info.plist` and `OpenSource/PrivacyInfo.xcprivacy`, then build and run the unit tests. The public `Info.plist` drops `GADApplicationIdentifier`, `SKAdNetworkItems` and `NSUserTrackingUsageDescription`, and keeps `UTExportedTypeDeclarations`, `ITSAppUsesNonExemptEncryption` and the scene manifest. The public privacy manifest has no tracking and keeps the CA92.1 UserDefaults reason. `AppStoreReadinessTests` is split: the tracking and privacy-policy-page assertions go to `NoteCodeTests/Pro/`. The seam count is 0. `check.sh` runs both scripts |
 
 ## 2S2. Settings in one place (after 2X; four PRs)
@@ -207,6 +207,9 @@ the same 14. 2S1 pinned every key and default, so this can't rename one.
   - One layout-class value replaces the four ways "compact" is worked out.
   - **Leave the split view's `.balanced`/`.prominentDetail` `if/else`
     (:215–226) exactly as it is.** It depends on view identity.
+  - **Takes over 1B6** (1-structure.md): NoteList's rows and menus become
+    types of their own, since a split as extensions needed about 24 members
+    loosened.
 - **2P5. One `InkToolStore`** replaces the five copies of pen, highlighter,
   eraser and finger settings:
   - `NoteEditor.inkTool`
