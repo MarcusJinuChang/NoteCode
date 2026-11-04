@@ -15,27 +15,9 @@ import UIKit
 @MainActor
 struct DrawingCanvasTests {
 
-    /// The canvas where the page puts it: inside a text view's content, in a
-    /// window, so the responder chain is the real one.
-    @MainActor
-    private final class Harness {
-        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
-        let textView = DocumentTextView.makeConfiguredTextView()
-        let canvas = DrawingCanvas(pageSize: CGSize(width: 816, height: 1056))
-
-        init() {
-            textView.frame = window.bounds
-            textView.text = "binary search invariant"
-            window.addSubview(textView)
-            textView.addSubview(canvas)
-            window.makeKeyAndVisible()
-            window.layoutIfNeeded()
-        }
-    }
-
     @Test("Ink undo is the canvas's own, not the text view's")
     func inkUndoIsSeparate() {
-        let harness = Harness()
+        let harness = InkHarness()
 
         // Left to UIKit these would be the same object: `undoManager` walks
         // the responder chain, and the canvas's runs through the text view.
@@ -45,7 +27,7 @@ struct DrawingCanvasTests {
 
     @Test("The canvas doesn't scroll or zoom itself")
     func noScrollingOfItsOwn() {
-        let harness = Harness()
+        let harness = InkHarness()
 
         #expect(!harness.canvas.controller.scrollConfiguration.isScrollEnabled)
         #expect(harness.canvas.controller.zoomRange == 1...1)
@@ -53,7 +35,7 @@ struct DrawingCanvasTests {
 
     @Test("PaperKit's own scroll view leaves two-finger drags to the text view")
     func noTwoFingerDragsOfItsOwn() throws {
-        let harness = Harness()
+        let harness = InkHarness()
         let pans = harness.canvas.paperKitPans
         try #require(!pans.isEmpty)
 
@@ -72,7 +54,7 @@ struct DrawingCanvasTests {
 
     @Test("The canvas is transparent")
     func transparent() {
-        let harness = Harness()
+        let harness = InkHarness()
 
         #expect(harness.canvas.backgroundColor == .clear)
         #expect(!harness.canvas.isOpaque)
@@ -82,7 +64,7 @@ struct DrawingCanvasTests {
 
     @Test("A finger draws too, until the canvas is locked to the Pencil")
     func fingerDrawing() {
-        let harness = Harness()
+        let harness = InkHarness()
 
         #expect(harness.canvas.allowsFingerDrawing)
         // PencilKit's policy is what decides. PaperKit's `directTouchMode`
@@ -100,7 +82,7 @@ struct DrawingCanvasTests {
 
     @Test("A change on the canvas reaches the page")
     func changesReachThePage() {
-        let harness = Harness()
+        let harness = InkHarness()
         var told = 0
         harness.canvas.onMarkupChanged = { told += 1 }
 
@@ -111,12 +93,12 @@ struct DrawingCanvasTests {
 
     @Test("Text owns input until the toggle hands it over")
     func inputStartsOff() {
-        #expect(!Harness().canvas.isUserInteractionEnabled)
+        #expect(!InkHarness().canvas.isUserInteractionEnabled)
     }
 
     @Test("The markup's bounds follow the note's, whatever the view covers")
     func markupBoundsFollowTheNote() {
-        let harness = Harness()
+        let harness = InkHarness()
         let note = CGSize(width: 816, height: 4224)
 
         harness.canvas.noteSize = note
@@ -131,7 +113,7 @@ struct DrawingCanvasTests {
 
     @Test("A change on the canvas tells the hotbar to look at undo again")
     func changeRefreshesUndo() {
-        let harness = Harness()
+        let harness = InkHarness()
         var told = 0
         harness.canvas.onUndoDidChange = { told += 1 }
 
@@ -144,7 +126,7 @@ struct DrawingCanvasTests {
 
     @Test("The tool the hotbar picks reaches the canvas")
     func toolReachesTheCanvas() {
-        let harness = Harness()
+        let harness = InkHarness()
 
         harness.canvas.tool = InkToolState(kind: .highlighter, highlighter: InkingSettings(color: .blue)).pencilKitTool
 
