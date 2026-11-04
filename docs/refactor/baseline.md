@@ -137,6 +137,7 @@ PERF CodeFenceCostTests/caretMoveCost.keystroke 0.0420
 PERF CodeFenceCostTests/caretMoveCost.out 0.0019
 PERF LineNumbersTests/keystrokeCost.off 0.0347
 PERF LineNumbersTests/keystrokeCost.on 0.0341
+PERF LineNumbersTests/longBlockCost 0.0049
 PERF MarkdownLayoutCostTests/typingCost.legacy 0.0394
 PERF MarkdownLayoutCostTests/typingCost.rendered 0.0394
 PERF NotePDFTests/printingCost 0.8737

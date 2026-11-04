@@ -109,6 +109,66 @@ struct LineNumbersTests {
         #expect(numbers(in: harness).compactMap { $0 } == [1, 2, 3, 1, 2])
     }
 
+    // MARK: A long block (F4b)
+
+    /// A block of `count` lines, every seventh one long enough to wrap.
+    private static func longBlock(_ count: Int, extra: String = "") -> String {
+        let wide = String(repeating: "veryLongIdentifierForHorizontalClipping + ", count: 12)
+        let lines = (1...count).map { $0 % 7 == 0 ? "auto w\($0) = \(wide);" : "int v\($0) = \($0);" }
+        return "Intro\n```cpp\n" + lines.joined(separator: "\n") + "\n```\n" + extra
+    }
+
+    private func edit(_ harness: Harness, at offset: Int, length: Int = 0, with text: String) async throws {
+        let start = harness.textView.position(from: harness.textView.beginningOfDocument, offset: offset)!
+        let end = harness.textView.position(from: start, offset: length)!
+        harness.textView.replace(harness.textView.textRange(from: start, to: end)!, withText: text)
+        try await harness.settle()
+    }
+
+    @Test("On a long block with wrapped lines, each line keeps its number through edits, paste and undo")
+    func longBlockNumbers() async throws {
+        let count = 120
+        let harness = Harness(Self.longBlock(count, extra: "```python\nprint(1)\n```\n"))
+        harness.coordinator.setLineNumbers(true, in: harness.textView)
+        try await harness.settle()
+        func expected(_ lines: Int) -> [Int?] { [nil] + Array(1...lines).map { Optional($0) } + [nil, nil, 1, nil] }
+        #expect(numbers(in: harness) == expected(count))
+
+        // A paste of three lines mid-block.
+        let middle = harness.offset(of: "int v60 =")
+        try await edit(harness, at: middle, with: "int p1;\nint p2;\nint p3;\n")
+        #expect(numbers(in: harness) == expected(count + 3))
+
+        // Deleting the pasted lines again.
+        try await edit(harness, at: middle, length: "int p1;\nint p2;\nint p3;\n".utf16.count, with: "")
+        #expect(numbers(in: harness) == expected(count))
+
+        // Undo of that delete brings the three lines back.
+        harness.textView.undoManager?.undo()
+        try await harness.settle()
+        let undone = numbers(in: harness)
+        #expect(undone == expected(count + 3) || undone == expected(count), "undo left numbers: \(undone.count) fragments")
+    }
+
+    @Test("Numbering a 1,000-line block costs about its length, not its square")
+    func longBlockCost() async throws {
+        let harness = Harness(Self.longBlock(1000))
+        harness.coordinator.setLineNumbers(true, in: harness.textView)
+        try await harness.settle()
+        var times: [TimeInterval] = []
+        for index in 0..<5 {
+            // An edit forgets what was worked out, so each pass starts cold.
+            try await edit(harness, at: 12 + index, with: "z")
+            let start = Date()
+            let all = numbers(in: harness)
+            times.append(Date().timeIntervalSince(start))
+            #expect(all.compactMap { $0 } == Array(1...1000))
+        }
+        let median = times.sorted()[2]
+        print("LINENUMBERCOST long block, every line numbered after an edit \(median * 1000)ms")
+        reportPerf("LineNumbersTests/longBlockCost", seconds: median)
+    }
+
     // MARK: Nothing moves
 
     @Test("Every line sits where it did with numbers on", arguments: [
