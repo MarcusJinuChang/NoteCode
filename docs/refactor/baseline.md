@@ -197,6 +197,22 @@ compiler's source-excerpt lines; `check.sh` now prints the count by category
 too. A run with `--only` compiles fewer files, so its count is lower; the
 ratchet only means something after a clean build.
 
+## 5. The seam
+
+Taken at `main` acdc5a0 (4 Nov 2026, 2X1). Counted by `scripts/check-seam.sh`:
+the files outside any `Pro/` folder whose code names a top-level type or
+function of `NoteCode/Pro/`, one of the editor's Pro members, or
+`runBlockAtCaret`, `explainBlockAtCaret` or `runService`
+(2X-seam.md › Where the code is today). The line below is what `check.sh`
+reads; the count may only fall, and 2X7 brings it to 0.
+
+SEAM 16
+
+It is 16, not the brief's 14: the brief's table predates counting
+`runBlockAtCaret` and `runService` by name, which adds `NoteCommands.swift`
+(⌘R's `editor?.runBlockAtCaret?()`) and `AppSettings.swift` (where
+`AppInfo.runService` is declared).
+
 ## Findings (recorded, not fixed)
 
 1. **A StoreKit test hung for 11.5 hours.** In the first unit run,

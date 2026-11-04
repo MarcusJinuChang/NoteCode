@@ -1,13 +1,16 @@
 //
-//  NoteCodeApp.swift
+//  NoteCodeScene.swift
 //  NoteCode
 //
 
 import SwiftUI
 import SwiftData
 
-@main
-struct NoteCodeApp: App {
+/// The app's one scene, with nothing sold in it. An edition's `@main`
+/// (Pro/AppStoreEdition.swift, OpenSource/OpenSourceEdition.swift) makes it
+/// once, with what that edition adds.
+struct NoteCodeScene: Scene {
+    private let extensions: AppExtensions
     private let storage: Storage
 
 #if DEBUG
@@ -17,7 +20,8 @@ struct NoteCodeApp: App {
     private var openedPage: Page? { nil }
 #endif
 
-    init() {
+    init(extensions: AppExtensions) {
+        self.extensions = extensions
 #if canImport(UIKit)
         AppInfo.deviceName = UIDevice.current.userInterfaceIdiom == .phone ? "iPhone" : "iPad"
         // So the menu bar's bare-letter shortcuts know when a field is typing.
@@ -25,11 +29,8 @@ struct NoteCodeApp: App {
 #else
         AppInfo.deviceName = "Mac"
 #endif
-        // Finishes tips that arrive outside a purchase, and asks the store
-        // for the tips, so the list's foot knows whether to offer them.
-        TipJar.shared.start()
-        // Reads whether the reader has Pro, and listens for renewals and refunds.
-        ProStatus.shared.start()
+        // The edition's own start: the App Store's starts the tip jar, then Pro.
+        extensions.start()
 #if DEBUG && canImport(UIKit)
         // See DebugLaunch.swift. A no-op unless a -debug- argument was passed.
         let session = DebugSession.shared
@@ -55,10 +56,10 @@ struct NoteCodeApp: App {
     var body: some Scene {
         WindowGroup {
             if let container = storage.container {
-                ContentView(storageIsEphemeral: storage.isEphemeral, openedPage: openedPage)
-                    .modelContainer(container)
-                    .environment(TipJar.shared)
-                    .environment(ProStatus.shared)
+                extensions.root(AnyView(
+                    ContentView(storageIsEphemeral: storage.isEphemeral, openedPage: openedPage)
+                        .modelContainer(container)))
+                    .environment(\.appExtensions, extensions)
                     .modifier(AppearanceModifier())
 #if DEBUG
                     .modifier(DebugPaywall())
