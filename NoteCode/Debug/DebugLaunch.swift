@@ -238,6 +238,10 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
                 }
             case "-debug-run-stub":
                 options.runStub = choice(value(for: flag), for: flag)
+            case "-debug-probe", "-debug-probe-snapshot", "-debug-probe-watch", "-debug-selection-probe":
+                // Read by DebugProbe and SelectionProbe themselves; known
+                // here only so the report doesn't call them unknown.
+                break
             default:
                 if flag.hasPrefix("-debug-") {
                     options.problems.append("unknown argument \(flag)")
