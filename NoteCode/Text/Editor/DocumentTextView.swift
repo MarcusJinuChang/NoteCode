@@ -233,6 +233,12 @@ struct DocumentTextView: UIViewRepresentable {
         /// block's range against a different copy of the string.
         private var layoutCodeRanges: [CodeRange]?
 
+        /// Where each code block's newlines are, by block, worked out the
+        /// first time a line number asks after an edit. Forgotten with
+        /// `layoutCodeRanges`: both go on every edit of the characters, which
+        /// covers typing, paste and undo.
+        private var layoutNewlines: [Int: [Int]] = [:]
+
         /// Settings › Writing › Show Markdown, as `DocumentTextView` last had it.
         var showMarkdown = ShowMarkdown.whileEditing
 
@@ -407,6 +413,7 @@ struct DocumentTextView: UIViewRepresentable {
                   storage.editedMask.contains(.editedCharacters)
             else { return }
             layoutCodeRanges = nil
+            layoutNewlines = [:]
             layoutMarkerRuns = nil
             editCount += 1
         }
@@ -1266,21 +1273,36 @@ struct DocumentTextView: UIViewRepresentable {
         /// moves a block without touching its fragments. A fence line gets a
         /// number here too, which the fragment declines to draw.
         func lineNumber(of fragment: NSTextLayoutFragment, in storage: NSTextStorage) -> Int? {
+            let ranges = codeRanges(in: storage)
             guard showsLineNumbers, let offset = offset(of: fragment),
-                  let block = codeRanges(in: storage).first(where: { NSLocationInRange(offset, $0.range) })
+                  let index = ranges.firstIndex(where: { NSLocationInRange(offset, $0.range) })
             else { return nil }
             // Each paragraph starts after a newline, so the newlines between
-            // the block's start and this paragraph are the paragraphs before it.
+            // the block's start and this paragraph are the paragraphs before
+            // it. The block's newlines are found once, then counted by search.
+            let newlines = newlines(ofBlock: index, range: ranges[index].range, in: storage)
+            var low = 0, high = newlines.count
+            while low < high {
+                let mid = (low + high) / 2
+                if newlines[mid] < offset { low = mid + 1 } else { high = mid }
+            }
+            return low
+        }
+
+        /// The UTF-16 offsets of the newlines in a block, in order.
+        private func newlines(ofBlock index: Int, range: NSRange, in storage: NSTextStorage) -> [Int] {
+            if let found = layoutNewlines[index] { return found }
             let text = storage.mutableString
-            var lines = 0
-            var cursor = block.range.location
-            while cursor < offset {
-                let found = text.range(of: "\n", range: NSRange(location: cursor, length: offset - cursor))
+            var result: [Int] = []
+            var cursor = range.location
+            while cursor < NSMaxRange(range) {
+                let found = text.range(of: "\n", range: NSRange(location: cursor, length: NSMaxRange(range) - cursor))
                 guard found.location != NSNotFound else { break }
-                lines += 1
+                result.append(found.location)
                 cursor = NSMaxRange(found)
             }
-            return lines
+            layoutNewlines[index] = result
+            return result
         }
     }
 
