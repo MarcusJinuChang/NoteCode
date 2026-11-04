@@ -140,6 +140,7 @@ PERF LineNumbersTests/keystrokeCost.on 0.0341
 PERF MarkdownLayoutCostTests/typingCost.legacy 0.0394
 PERF MarkdownLayoutCostTests/typingCost.rendered 0.0394
 PERF NotePDFTests/printingCost 0.8737
+PERF NoteSearchResultsTests/cost.empty 0.0000
 PERF PageViewTests/openingCost.open 0.1475
 PERF PageViewTests/openingCost.switch 0.3195
 PERF StylingPerformanceTests/fullPassCost 0.0062
@@ -153,6 +154,12 @@ NotePDFTests/printingCost (0.87 s) and PageViewTests/openingCost.switch
 the same two tests; both are at 2,000 strokes, so they are comparable:
 printing is faster since, opening a switch is unchanged. Those AGENTS.md
 figures predate the baseline and are not enforced; this table is.
+
+`NoteSearchResultsTests/cost.empty` (F4a, 3 Nov) is the note list's search call
+with an empty query over 500 notes of 200 lines. It was 0.6 ms (median of 3,
+back to back) because it read every note's text; now it reads none, under
+0.05 ms. Its budget is 5 ms (the test's bound); perf.sh does not judge numbers
+under 5 ms.
 
 ## 4. Warnings
 

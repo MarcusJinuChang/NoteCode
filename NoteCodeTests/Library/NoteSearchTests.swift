@@ -210,6 +210,63 @@ struct NoteSearchResultsTests {
 
         #expect(Set(results.map(\.page.title)) == ["Pointers", "Pinned"])
     }
+
+    /// Notes with a spread of titles and text, one in Recently Deleted.
+    private func library() -> [Page] {
+        _ = note("Heaps", "min-heap and max-heap", modified: 1)
+        _ = note("Lecture 3", "heaps and vectors", modified: 2)
+        _ = note("Vectors", "std::vector<int>", modified: 3)
+        _ = note("Graphs", "BFS and DFS", modified: 4)
+        let gone = note("Heaps deleted", "heaps", modified: 5)
+        gone.deletedAt = Date()
+        return context.allPages
+    }
+
+    @Test("The results are the same as before for an empty search and for real ones")
+    func resultsPinned() {
+        let pages = library()
+        func titles(_ query: String) -> [String] {
+            NoteSearch(query).results(in: pages, sort: .default).map(\.page.title)
+        }
+
+        #expect(titles("") == [])
+        #expect(titles("  ") == [])
+        #expect(titles("heaps") == ["Heaps", "Lecture 3"])
+        #expect(titles("vector") == ["Vectors", "Lecture 3"])
+        #expect(titles("bfs dfs") == ["Graphs"])
+        #expect(titles("zebra") == [])
+    }
+
+    @Test("An empty search reads no note's text")
+    func emptySearchReadsNothing() {
+        let pages = library()
+        var reads = 0
+        let results = NoteSearch("").results(in: pages, sort: .default) { page in
+            reads += 1
+            return page.content
+        }
+
+        #expect(results.isEmpty)
+        #expect(reads == 0)
+    }
+
+    @Test("The search call over 500 notes", .timeLimit(.minutes(1)))
+    func cost() {
+        for index in 0..<500 {
+            _ = note("Note \(index)", String(repeating: "std::vector<int> v; // line \(index)\n", count: 200), modified: index)
+        }
+        let pages = context.allPages
+        let search = NoteSearch("")
+
+        var samples: [TimeInterval] = []
+        for _ in 0..<5 {
+            let took = ContinuousClock().measure { _ = search.results(in: pages, sort: .default) }
+            samples.append(Double(took.components.seconds) + Double(took.components.attoseconds) / 1e18)
+        }
+        let median = samples.sorted()[samples.count / 2]
+        reportPerf("NoteSearchResultsTests/cost.empty", seconds: median)
+        #expect(median < 0.005)
+    }
 }
 
 private extension ModelContext {
