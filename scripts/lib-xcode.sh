@@ -11,9 +11,13 @@ mkdir -p "$tmp"
 # Two sessions must never share the simulator (AGENTS.md › Build/test: the
 # "Busy … failed preflight checks" failures). mkdir is atomic; the trap
 # removes the lock however the script ends. A lock left by a dead run is
-# taken over once its pid is gone.
+# taken over once its pid is gone. The lock is one fixed path for every
+# worktree and session (each session has its own TMPDIR, so a lock under $tmp
+# was never shared); NOTECODE_LOCK_DIR moves it. The logs stay under $tmp.
 take_lock() {
-  local lock=$tmp/sim.lock
+  local lockdir=${NOTECODE_LOCK_DIR:-$HOME/Library/Caches/NoteCode-check}
+  mkdir -p "$lockdir"
+  local lock=$lockdir/sim.lock
   while ! mkdir "$lock" 2>/dev/null; do
     local owner; owner=$(cat "$lock/pid" 2>/dev/null || true)
     if [[ -n $owner ]] && ! kill -0 "$owner" 2>/dev/null; then
