@@ -30,8 +30,8 @@ xcodebuild test -project NoteCode.xcodeproj -scheme NoteCode \
 # UI + clean build: -only-testing:NoteCodeTests -only-testing:NoteCodeUITests, empty <dd>
 ```
 
-`check.sh --full` as it stands does not give these numbers: it has no
-coverage flag and no time allowance (Findings 3).
+Since 0C3, `check.sh --full --coverage` runs these as two invocations (unit,
+then UI), each with the 120 s allowance, and prints coverage per folder.
 
 ### Coverage (`xcrun xccov view --report --json unit.xcresult`, unit tests only; `main` 8767927)
 
@@ -158,28 +158,36 @@ figures predate the baseline and are not enforced; this table is.
 
 Taken at `main` 8767927.
 
-Counted the way `scripts/check.sh` line 68 counts (`grep -E "warning:" | sed -E 's/^[[:space:]]+//' | sort -u`), on
-the clean build of the app, unit and UI targets: the line below is what the
-ratchet reads.
+Counted by `scripts/check.sh` (0C3): each unique `file:line:col: warning:`
+diagnostic once, with paths cut to start at the target folder so the same
+warning printed under two build paths counts once. The line below is what the
+ratchet reads. Taken at `main` a5ff416 (3 Nov 2026, after 1A2), on a
+clean build of the app, unit and UI targets:
 
-WARNINGS 61
+    xcodebuild clean -project NoteCode.xcodeproj -scheme NoteCode
+    xcodebuild build-for-testing -project NoteCode.xcodeproj -scheme NoteCode \
+      -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)' > build.log
+    grep -E "^/.*:[0-9]+:[0-9]+: warning: " build.log \
+      | sed -E 's#^.*/(NoteCode(Tests|UITests)?/)#\1#' | sort -u | wc -l
 
-That count includes compiler art lines (the `|` source excerpts under each
-warning). The warnings themselves are **13**, by category:
+WARNINGS 12
+
+By category:
 
 | Count | Warning |
 |---|---|
 | 5 | main actor-isolated static member referenced from a Sendable or nonisolated context (Swift 6 error): ProStatus.swift:250, ProStatusTests:64, PaywallTests:21 and :63, FormulaEditingTests:154 |
 | 3 | `[#DeprecatedDeclaration]`: `UIWindow(frame:)` in TestWindow.swift:36 and TextRewritingPolicyTests:338, `traitCollectionDidChange` in PageWindowChrome.swift:94 |
-| 1 | StoreKitTest's `SKTestTransaction.h:34` deprecated (`PurchaseResult` instead), reached from a test |
 | 1 | `[#DeprecatedDeclaration]` Google Mobile Ads banner size, AdBanner.swift:62 |
 | 1 | `[#UnnecessaryEffectMarker]` TipJarTests.swift:199 |
 | 1 | code after `throw` never executed, ListDragUITests.swift:27 |
 | 1 | "consider using asynchronous alternative function", AdConsent.swift:149 |
 
-The 13 come from a different command than the 61:
-`grep -E "^/.*:[0-9]+:[0-9]+: warning: " build.log | sort -u`. The 61 comes
-from `check.sh`'s own, so it is the one the ratchet will match.
+The 0D count was 13: it also had the StoreKitTest `SKTestTransaction.h:34`
+deprecation, which this build does not print. The old ratchet's 61 counted the
+compiler's source-excerpt lines; `check.sh` now prints the count by category
+too. A run with `--only` compiles fewer files, so its count is lower; the
+ratchet only means something after a clean build.
 
 ## Findings (recorded, not fixed)
 
@@ -201,10 +209,10 @@ from `check.sh`'s own, so it is the one the ratchet will match.
    identifiers, or the app dying at launch). The same run's unit bundle crashed
    ("Test crashed with signal kill before establishing connection") when
    both bundles ran in one invocation, so UI tests need their own run.
-3. **`check.sh` needs a per-test time allowance** (`-test-timeouts-enabled YES
+3. **(Fixed in 0C3.) `check.sh` needs a per-test time allowance** (`-test-timeouts-enabled YES
    -maximum-test-execution-time-allowance 120`), or one hung test stalls it
    and holds the simulator lock for as long. It also lacks a coverage option.
-4. **The `WARNINGS` ratchet counts art lines (61), not warnings (13).** A
+4. **(Fixed in 0C3.) The `WARNINGS` ratchet counts art lines (61), not warnings (13).** A
    warning gaining a longer source excerpt raises it. Count lines matching
    `^/.*:[0-9]+:[0-9]+: warning:` instead (this changes `check.sh` line 68),
    which moves the ratchet from 61 to 13.

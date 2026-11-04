@@ -27,12 +27,17 @@ take_lock() {
 }
 
 # xcode_test <log> <result bundle> <-only-testing:… …>
+# Every run gets a per-test time allowance, so a hung test fails after two
+# minutes instead of holding the simulator lock all night (0D finding 1).
+# NOTECODE_COVERAGE=1 adds -enableCodeCoverage YES (check.sh --coverage).
 xcode_test() {
   local log=$1 bundle=$2; shift 2
+  local extra=(-test-timeouts-enabled YES -maximum-test-execution-time-allowance 120)
+  [[ ${NOTECODE_COVERAGE:-0} == 1 ]] && extra+=(-enableCodeCoverage YES)
   rm -rf "$bundle"
   xcodebuild test -project "$root/NoteCode.xcodeproj" -scheme NoteCode \
     -destination "platform=iOS Simulator,name=$sim" \
-    "$@" -parallel-testing-enabled NO \
+    "$@" $extra -parallel-testing-enabled NO \
     -clonedSourcePackagesDirPath "$packages" \
     -resultBundlePath "$bundle" > "$log" 2>&1
 }
