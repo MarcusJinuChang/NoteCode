@@ -5,7 +5,8 @@
 #
 # Compares base with the working tree's HEAD (committed changes). Every
 # removed and every added line in *.swift is collected, skipping blank lines,
-# `}`, `import …`, `// MARK: …`, `extension … {` headers and #if/#else/#endif.
+# `}`, `import …` (with any `@testable`-style attribute), comment-only lines
+# (`//`, `/*`, `*`, which includes `// MARK:`), `extension … {` headers and #if/#else/#endif.
 # A leading private/fileprivate/internal is stripped from both sides, and a
 # line where that was the only difference is listed as "access loosened".
 # The two sides are sorted and compared as multisets: anything left over means
@@ -26,7 +27,7 @@ awk '
   /^[-+]/ {
     sign = substr($0, 1, 1); line = substr($0, 2)
     t = line; gsub(/^[ \t]+|[ \t]+$/, "", t)
-    if (t == "" || t == "}" || t ~ /^import / || t ~ /^\/\/ MARK:/ || t ~ /^(public |private |fileprivate |internal )?extension .*\{$/ || t ~ /^#(if|else|elseif|endif)/) next
+    if (t == "" || t == "}" || t ~ /^(@[A-Za-z]+ )*import / || t ~ /^\/\// || t ~ /^\/\*/ || t ~ /^\*/ || t ~ /^\/\/ MARK:/ || t ~ /^(public |private |fileprivate |internal )?extension .*\{$/ || t ~ /^#(if|else|elseif|endif)/) next
     print sign "\t" file "\t" t
   }' $tmp/diff > $tmp/lines
 
