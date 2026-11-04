@@ -109,6 +109,8 @@ For 1B8 and 1B9, check that the moved code imports neither SwiftUI nor
 UIKit; `lint-traps.sh` rule 4 will check it from then on. If it needs one,
 it stays out of `Core/`: say so and put it in `Text/Editor`.
 
+**1B9 wasn't done in Update 1;** it is PR 0 of 2T1 (2T-text.md).
+
 **Done when.** `verify-move.sh` passes, apart from the access loosening
 listed in the PR. The build and the named suites pass, and the file is
 shorter by what moved.

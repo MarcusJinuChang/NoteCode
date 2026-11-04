@@ -108,6 +108,8 @@ After 2X, general code never names a type in `Pro/`, so the public build is
 
 ## 2S2. Settings in one place (after 2X; four PRs)
 
+Briefs: [2S-settings.md](2S-settings.md) (4 Nov).
+
 The ~65 `@AppStorage` declarations repeat keys and defaults across 11
 files. PageDetailView (:72–144) and SettingsView (:278–569) both declare
 the same 14. 2S1 pinned every key and default, so this can't rename one.
@@ -124,6 +126,9 @@ the same 14. 2S1 pinned every key and default, so this can't rename one.
   as `TextRewritingPolicy` does.
 
 ## 2T. The text system (one step at a time)
+
+Briefs: [2T-text.md](2T-text.md) (4 Nov). 2T1 starts with 1B9, which
+Update 1 didn't do, and 2T3 takes feature-audit.md's A11.
 
 - **2T1. One `DocumentSnapshot` per edit (four PRs; perf at each).**
   - **Why.** Today a keystroke makes up to five whole-document copies
@@ -186,6 +191,9 @@ the same 14. 2S1 pinned every key and default, so this can't rename one.
 
 ## 2P. Page, ink and shell (alongside 2T)
 
+Briefs: [2P-page.md](2P-page.md) (4 Nov), with a 2P2b (feature-audit.md
+› A9) that brings `PageView` under 600 lines.
+
 - **2P1. `PageInkPipeline` out of `PageView` (three PRs; perf; Marcus
   checks with the Pencil after each).** This is the most trap-heavy work in
   the plan. AGENTS.md's ink lines all apply, and `openingCost` and
@@ -227,6 +235,8 @@ the same 14. 2S1 pinned every key and default, so this can't rename one.
     don't change the hashes, and `ModelFreezeTests` proves it.
 
 ## 2C and 2W
+
+Briefs, and T5–T8's place in the waves: [2C-2W.md](2C-2W.md) (4 Nov).
 
 - **2C. The rest of the pure core** moves into `Text/Core`:
   - `MarkdownLayout`'s planning half (`Run`, `runs`, `displayRuns`,

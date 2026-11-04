@@ -149,7 +149,11 @@ for Update 2.
 **Done when.** `check.sh --full` runs the UI tests green. The skips have
 their reasons. The PR gives the smoke test's time.
 
-## Update 2 (expanded into briefs when it starts)
+## Update 2
+
+Briefs: T5 in [2T-text.md](2T-text.md) and [2P-page.md](2P-page.md), each
+before the step it protects; T6 and T8, and where every T step sits in the
+waves, in [2C-2W.md](2C-2W.md).
 
 - **T5. Characterisation tests first.** Before each extraction in
   update-2.md, pin the area's behaviour today through the harness, starting
