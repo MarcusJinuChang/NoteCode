@@ -150,7 +150,7 @@ struct LineNumbersTests {
         #expect(undone == expected(count + 3) || undone == expected(count), "undo left numbers: \(undone.count) fragments")
     }
 
-    @Test("Numbering a 1,000-line block costs about its length, not its square")
+    @Test("Numbering a 1,000-line block costs about its length, not its square", .tags(.perf))
     func longBlockCost() async throws {
         let harness = Harness(Self.longBlock(1000))
         harness.coordinator.setLineNumbers(true, in: harness.textView)
