@@ -225,7 +225,7 @@ extension NoteExportJob {
         let numbered = UserDefaults.standard.object(forKey: LineNumbers.defaultsKey) as? Bool
             ?? LineNumbers.enabledByDefault
         let data = await NotePDF.render(NotePDF.Note(
-            title: page.title,
+            title: page.displayTitle,
             text: page.content,
             ink: markup,
             orientation: page.orientation,
