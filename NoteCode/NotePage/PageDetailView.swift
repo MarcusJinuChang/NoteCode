@@ -532,6 +532,7 @@ struct PageDetailView: View {
         } label: {
             Label("More", systemImage: "ellipsis")
         }
+        .accessibilityIdentifier("noteMenu")
 #if canImport(UIKit)
         // A popover off the ••• button, since one hung off a menu's items goes
         // when an item is chosen. ⌃⌘O raises the same binding.
