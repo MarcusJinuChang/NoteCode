@@ -12,7 +12,7 @@ import UIKit
 
 @testable import NoteCode
 
-@Suite("Caret anywhere: a tap below the text")
+@Suite("Caret anywhere: a tap below the text", .tags(.editor))
 @MainActor
 struct CaretAnywhereTests {
 

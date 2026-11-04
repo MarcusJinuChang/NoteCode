@@ -14,7 +14,7 @@ import FoundationModels
 import Testing
 @testable import NoteCode
 
-@Suite("System model client")
+@Suite("System model client", .tags(.pro))
 struct AISystemModelTests {
 
     @Test("Reading availability and the context size never traps, whatever state the machine is in")

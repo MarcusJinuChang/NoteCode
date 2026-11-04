@@ -10,7 +10,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Highlighter cost")
+@Suite("Highlighter cost", .tags(.editor))
 @MainActor
 struct HighlighterCostTests {
 
@@ -62,7 +62,7 @@ struct HighlighterCostTests {
     }
 }
 
-@Suite("Token edges")
+@Suite("Token edges", .tags(.editor))
 @MainActor
 struct TokenEdgeTests {
 

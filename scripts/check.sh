@@ -4,7 +4,8 @@
 #   scripts/check.sh [--full] [--coverage] [--only <Suite> …]
 #
 #   --only <Suite> …  Run just those suites (or Suite/test).
-#   --full            Also NoteCodeUITests, as their own xcodebuild run after
+#   (no flag)         The Fast test plan: every unit test but the .perf ones.
+#   --full            The Full plan (every unit test, .perf included), and also NoteCodeUITests, as their own xcodebuild run after
 #                     the unit tests (one invocation with both crashed the
 #                     unit bundle, baseline.md finding 2), and the run
 #                     proxy's `npm test` and `npx tsc --noEmit`.
@@ -36,6 +37,8 @@ while (( $# )); do
   shift
 done
 
+# --only names suites that may be .perf ones, so it runs inside Full.
+(( full || ${#suites} )) && export NOTECODE_PLAN=Full
 rc=0
 log=$tmp/check.log bundle=$tmp/check.xcresult
 

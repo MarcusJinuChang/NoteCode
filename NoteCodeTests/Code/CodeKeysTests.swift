@@ -14,7 +14,7 @@ import UIKit
 
 // MARK: - What the row holds, and where it shows
 
-@Suite("Code keys")
+@Suite("Code keys", .tags(.editor))
 struct CodeKeysTests {
 
     @Test("The row holds the design's keys, in the design's order")
@@ -94,7 +94,7 @@ struct CodeKeysTests {
 
 // MARK: - In a text view
 
-@Suite("Code keys and indentation in the editor", .serialized)
+@Suite("Code keys and indentation in the editor", .serialized, .tags(.editor))
 @MainActor
 struct CodeEditingInTheEditorTests {
 

@@ -13,7 +13,7 @@ import UIKit
 /// A note that is closed has to be freed. The Coordinator owns the code-block
 /// overlay and the overlay's hooks point back at the Coordinator, so one
 /// strong capture keeps every note ever opened alive (F3).
-@Suite("Editor leaks")
+@Suite("Editor leaks", .tags(.layout))
 @MainActor
 struct EditorLeakTests {
 

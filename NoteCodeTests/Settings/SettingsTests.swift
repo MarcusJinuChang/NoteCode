@@ -11,7 +11,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Settings")
+@Suite("Settings", .tags(.library))
 struct SettingsTests {
 
     @Test("Every stored key keeps the name devices have already saved under")
@@ -184,7 +184,7 @@ struct SettingsTests {
 import SwiftUI
 import UIKit
 
-@Suite("Appearance setting", .serialized)
+@Suite("Appearance setting", .serialized, .tags(.library))
 @MainActor
 struct AppearanceSettingTests {
 

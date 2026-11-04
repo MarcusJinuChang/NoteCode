@@ -11,7 +11,7 @@ import SwiftData
 import Testing
 @testable import NoteCode
 
-@Suite("Recently Deleted")
+@Suite("Recently Deleted", .tags(.library))
 @MainActor
 struct RecentlyDeletedTests {
 
@@ -470,7 +470,7 @@ struct RecentlyDeletedTests {
     }
 }
 
-@Suite("Toasts")
+@Suite("Toasts", .tags(.library))
 @MainActor
 struct ToastTests {
 

@@ -11,7 +11,7 @@ import SwiftData
 import Testing
 @testable import NoteCode
 
-@Suite("Nested folders")
+@Suite("Nested folders", .tags(.library))
 @MainActor
 struct NestedFolderTests {
 

@@ -10,7 +10,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Text rewriting policy")
+@Suite("Text rewriting policy", .tags(.editor))
 @MainActor
 struct TextRewritingPolicyTests {
 

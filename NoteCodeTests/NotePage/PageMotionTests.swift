@@ -13,7 +13,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("The page follows the hotbar")
+@Suite("The page follows the hotbar", .tags(.layout))
 @MainActor
 struct PageMotionTests {
 

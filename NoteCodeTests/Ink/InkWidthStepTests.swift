@@ -8,7 +8,7 @@
 import Testing
 @testable import NoteCode
 
-@Suite("Stepping an ink tool's width")
+@Suite("Stepping an ink tool's width", .tags(.ink))
 struct InkWidthStepTests {
 
     @Test("The pen steps through fine, medium and bold, and stops at the ends")

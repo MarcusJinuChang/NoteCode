@@ -16,7 +16,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Styling cost")
+@Suite("Styling cost", .tags(.editor, .perf))
 @MainActor
 struct StylingPerformanceTests {
 
@@ -111,7 +111,7 @@ struct StylingPerformanceTests {
 
 // MARK: - Change detection
 
-@Suite("Change detection")
+@Suite("Change detection", .tags(.editor))
 struct ChangedIndicesTests {
 
     private func signature(_ kind: Int, _ length: Int) -> DocumentStyler.BlockSignature {

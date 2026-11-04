@@ -24,7 +24,7 @@ private func markers(_ line: String) -> [String] {
     nodes(line).filter { $0.kind.isMarker }.map { String(line[$0.range]) }
 }
 
-@Suite("Inline marks: reading")
+@Suite("Inline marks: reading", .tags(.pure))
 struct InlineMarkReadingTests {
 
     @Test("<u> and </u> are markers, and the text between is underlined")
@@ -173,7 +173,7 @@ struct InlineMarkReadingTests {
     }
 }
 
-@Suite("Inline marks: writing")
+@Suite("Inline marks: writing", .tags(.pure))
 struct InlineMarkWritingTests {
 
     private func toggled(_ style: MarkdownFormatting.InlineStyle, _ marked: String) -> String? {
@@ -299,7 +299,7 @@ struct InlineMarkWritingTests {
     }
 }
 
-@Suite("Highlight colours")
+@Suite("Highlight colours", .tags(.pure))
 struct HighlightColourTests {
 
     @Test("Six colours, each its own emoji, number and name")
@@ -341,7 +341,7 @@ struct HighlightColourTests {
     }
 }
 
-@Suite("Inline marks: search and Get Info")
+@Suite("Inline marks: search and Get Info", .tags(.pure))
 struct InlineMarkSearchTests {
 
     @Test("Search masks the marks' markers and nothing else, unit for unit")
@@ -379,7 +379,7 @@ struct InlineMarkSearchTests {
 
 import UIKit
 
-@Suite("Inline marks: drawn")
+@Suite("Inline marks: drawn", .tags(.pure))
 @MainActor
 struct InlineMarkDrawingTests {
 
@@ -480,7 +480,7 @@ struct InlineMarkDrawingTests {
 
 #if canImport(UIKit)
 
-@Suite("Inline marks: typing style", .serialized)
+@Suite("Inline marks: typing style", .serialized, .tags(.pure))
 @MainActor
 struct InlineMarkTypingTests {
 

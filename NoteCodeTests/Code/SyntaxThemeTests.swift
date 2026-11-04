@@ -9,7 +9,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Syntax theme")
+@Suite("Syntax theme", .tags(.editor))
 struct SyntaxThemeTests {
 
     // MARK: Helpers

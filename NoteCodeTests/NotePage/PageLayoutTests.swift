@@ -7,7 +7,7 @@ import CoreGraphics
 import Testing
 @testable import NoteCode
 
-@Suite("Page layout")
+@Suite("Page layout", .tags(.layout))
 struct PageLayoutTests {
 
     private static let everyLayout: [PageLayout] = PageOrientation.allCases.flatMap { orientation in

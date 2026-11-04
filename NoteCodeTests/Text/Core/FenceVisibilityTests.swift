@@ -10,7 +10,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Fence visibility")
+@Suite("Fence visibility", .tags(.pure))
 struct FenceVisibilityTests {
 
     /// The note's code blocks, as the editor works them out.
@@ -178,7 +178,7 @@ struct FenceVisibilityTests {
     }
 }
 
-@Suite("Fence tags")
+@Suite("Fence tags", .tags(.pure))
 struct FenceTagTests {
 
     private func edit(_ line: String, as language: CodeLanguage?) -> String? {

@@ -14,7 +14,7 @@ import UIKit
 @testable import NoteCode
 
 @MainActor
-@Suite("Note window control")
+@Suite("Note window control", .tags(.library))
 struct NoteWindowControlTests {
 
     @Test("The sidebar and home icons draw pixels, light and dark", arguments: [NoteIcon.sidebar, .home], ColorScheme.allCases)

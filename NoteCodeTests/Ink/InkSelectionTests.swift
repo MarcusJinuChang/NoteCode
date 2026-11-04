@@ -15,7 +15,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Select tool")
+@Suite("Select tool", .tags(.ink))
 @MainActor
 struct InkSelectionTests {
 

@@ -10,7 +10,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Text row: link and output edits")
+@Suite("Text row: link and output edits", .tags(.pure))
 struct TextRowEditTests {
 
     private func target(_ marked: String, code: [CodeRange] = []) -> (text: String, range: NSRange?) {
@@ -141,7 +141,7 @@ struct TextRowEditTests {
 import SwiftUI
 import UIKit
 
-@Suite("Text row: the controls' edits", .serialized)
+@Suite("Text row: the controls' edits", .serialized, .tags(.pure))
 @MainActor
 struct TextRowEditorTests {
 

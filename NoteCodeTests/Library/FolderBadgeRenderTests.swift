@@ -14,7 +14,7 @@ import UIKit
 import Testing
 @testable import NoteCode
 
-@Suite("Folder badges draw their symbol")
+@Suite("Folder badges draw their symbol", .tags(.library))
 @MainActor
 struct FolderBadgeRenderTests {
 

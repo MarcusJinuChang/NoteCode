@@ -11,7 +11,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Editor mode")
+@Suite("Editor mode", .tags(.layout))
 @MainActor
 struct EditorModeTests {
 
@@ -157,7 +157,7 @@ struct EditorModeTests {
     }
 }
 
-@Suite("Page scrolling")
+@Suite("Page scrolling", .tags(.layout))
 @MainActor
 struct PageScrollingTests {
 
@@ -198,7 +198,7 @@ struct PageScrollingTests {
     }
 }
 
-@Suite("Ink tools")
+@Suite("Ink tools", .tags(.layout))
 @MainActor
 struct InkToolTests {
 

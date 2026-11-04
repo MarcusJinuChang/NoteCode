@@ -11,7 +11,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Test support")
+@Suite("Test support", .tags(.pure))
 struct TestSupportTests {
 
     @Test("The repo root is the directory holding the Xcode project")

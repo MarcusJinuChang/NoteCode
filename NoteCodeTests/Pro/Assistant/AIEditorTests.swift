@@ -12,7 +12,7 @@ import UIKit
 import Testing
 @testable import NoteCode
 
-@Suite("Assistant in the editor")
+@Suite("Assistant in the editor", .tags(.pro))
 @MainActor
 struct AIEditorTests {
 

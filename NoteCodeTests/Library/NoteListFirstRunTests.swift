@@ -12,7 +12,7 @@ import SwiftUI
 import Testing
 @testable import NoteCode
 
-@Suite("New notes and the Welcome note")
+@Suite("New notes and the Welcome note", .tags(.library))
 @MainActor
 struct NoteListFirstRunTests {
 

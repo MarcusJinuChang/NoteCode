@@ -16,7 +16,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Ink container")
+@Suite("Ink container", .tags(.ink))
 @MainActor
 struct InkContainerTests {
 

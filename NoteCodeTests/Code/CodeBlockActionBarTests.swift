@@ -9,7 +9,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Where the run and copy buttons sit")
+@Suite("Where the run and copy buttons sit", .tags(.editor))
 @MainActor
 struct CodeBlockActionBarTests {
 

@@ -44,7 +44,7 @@ final class StubProtocol: URLProtocol, @unchecked Sendable {
     override func stopLoading() {}
 }
 
-@Suite(.serialized)
+@Suite(.serialized, .tags(.pro))
 struct CodeRunnerTests {
     static let url = URL(string: "https://run.example.test")!
 

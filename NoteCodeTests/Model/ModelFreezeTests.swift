@@ -16,7 +16,7 @@ import Testing
 /// `Page` or `Folder` that would leave released stores unopenable fails here
 /// rather than on someone's iPad, where `Storage` would fall back to memory and
 /// the notes would look gone. See NoteSchema.swift for what to do instead.
-@Suite("Freezing the model")
+@Suite("Freezing the model", .tags(.library))
 @MainActor
 struct ModelFreezeTests {
 

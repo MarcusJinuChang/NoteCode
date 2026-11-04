@@ -11,7 +11,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Ink cut into pages")
+@Suite("Ink cut into pages", .tags(.ink))
 @MainActor
 struct InkPagesTests {
 

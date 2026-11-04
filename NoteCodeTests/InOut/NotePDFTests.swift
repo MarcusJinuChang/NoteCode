@@ -12,7 +12,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Note as a PDF")
+@Suite("Note as a PDF", .tags(.library))
 @MainActor
 struct NotePDFTests {
 
@@ -252,7 +252,7 @@ struct NotePDFTests {
     /// what the markup's `count` does: 7.2s for a note of 2,000 strokes,
     /// against 1.8s now, most of it PaperKit drawing (simulator, 10
     /// October). Loose on purpose: this catches the slow way coming back.
-    @Test("A note of 2,000 strokes prints within budget, every stroke on its page")
+    @Test("A note of 2,000 strokes prints within budget, every stroke on its page", .tags(.perf))
     func printingCost() async throws {
         let ink = PageViewTests.handwriting(2000)
         let start = Date()

@@ -11,7 +11,7 @@ private func code(at offset: Int, in source: String) -> String? {
     CodeBlockAction.code(atCaret: offset, in: source, blocks: DocumentParser.parse(source))
 }
 
-@Suite("Finding the code block an action applies to")
+@Suite("Finding the code block an action applies to", .tags(.editor))
 struct CodeBlockActionTests {
 
     private static let source = "notes\n```cpp\nint x = 0;\n```\nafter"

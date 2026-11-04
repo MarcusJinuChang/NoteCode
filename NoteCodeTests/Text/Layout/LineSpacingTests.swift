@@ -13,7 +13,7 @@ import UIKit
 
 @testable import NoteCode
 
-@Suite("Line spacing")
+@Suite("Line spacing", .tags(.layout))
 @MainActor
 struct LineSpacingTests {
 

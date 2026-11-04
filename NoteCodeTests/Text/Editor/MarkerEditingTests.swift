@@ -10,7 +10,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Editing hidden markers")
+@Suite("Editing hidden markers", .tags(.editor))
 struct MarkerEditingTests {
 
     private func stop(_ text: String, _ offset: Int, _ direction: Int = 0) -> Int {
@@ -169,7 +169,7 @@ struct MarkerEditingTests {
 
 // MARK: - Lists, boxes, links and the state at the caret
 
-@Suite("Lists, boxes and links")
+@Suite("Lists, boxes and links", .tags(.editor))
 struct ListEditingTests {
 
     private func codeRanges(_ text: String) -> [CodeRange] { DocumentCache().codeRanges(for: text) }

@@ -9,7 +9,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Code languages")
+@Suite("Code languages", .tags(.editor))
 struct CodeLanguagesTests {
 
     // MARK: Tags and names

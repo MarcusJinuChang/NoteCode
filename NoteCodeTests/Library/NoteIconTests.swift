@@ -11,7 +11,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Drawn icons")
+@Suite("Drawn icons", .tags(.library))
 struct NoteIconTests {
 
     /// Every symbol name the hotbar and its rows hand to `HotbarIcon`.

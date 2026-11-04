@@ -13,7 +13,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Taps on links")
+@Suite("Taps on links", .tags(.editor))
 @MainActor
 struct LinkTapTests {
 

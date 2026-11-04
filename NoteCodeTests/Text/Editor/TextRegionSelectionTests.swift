@@ -16,7 +16,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Select tool and text")
+@Suite("Select tool and text", .tags(.editor))
 @MainActor
 struct TextRegionSelectionTests {
 

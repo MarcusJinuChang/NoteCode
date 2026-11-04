@@ -12,7 +12,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Display formulas")
+@Suite("Display formulas", .tags(.pure))
 @MainActor
 struct DisplayFormulaTests {
 

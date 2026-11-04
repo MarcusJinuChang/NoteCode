@@ -11,7 +11,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Ready for the App Store")
+@Suite("Ready for the App Store", .tags(.library))
 struct AppStoreReadinessTests {
 
     @Test("The privacy manifest ships in the app and declares what the ad SDK tracks")

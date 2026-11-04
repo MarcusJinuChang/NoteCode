@@ -71,7 +71,7 @@ func inlineHTML(_ line: String) -> String {
     return html
 }
 
-@Suite("Inline parser: nesting")
+@Suite("Inline parser: nesting", .tags(.pure))
 struct NestingInlineTests {
 
     static let red = TextColour.red.hex
@@ -490,7 +490,7 @@ struct NestingInlineTests {
 
 import UIKit
 
-@Suite("Inline parser: nesting, styled")
+@Suite("Inline parser: nesting, styled", .tags(.pure))
 @MainActor
 struct NestingStylingTests {
 

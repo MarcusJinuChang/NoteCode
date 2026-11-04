@@ -22,7 +22,7 @@ private func kinds(_ source: String) -> [TopLevelSpan.Kind] {
     inlines(source).map(\.kind)
 }
 
-@Suite("Inline spans")
+@Suite("Inline spans", .tags(.pure))
 struct InlineParserTests {
 
     @Test("Plain text is a single span")
@@ -134,7 +134,7 @@ struct InlineParserTests {
 
 // MARK: - Headings
 
-@Suite("Headings")
+@Suite("Headings", .tags(.pure))
 struct HeadingTests {
 
     @Test("Levels one through six are recognized", arguments: 1...6)
@@ -183,7 +183,7 @@ struct HeadingTests {
 
 /// With markers hidden, a false span makes characters vanish from the page, so
 /// what looks like arithmetic, a pointer or an identifier has to stay text.
-@Suite("Inline parser: not markup")
+@Suite("Inline parser: not markup", .tags(.pure))
 struct InlineMarkupLookalikeTests {
 
     private func kinds(_ text: String) -> [TopLevelSpan.Kind] {

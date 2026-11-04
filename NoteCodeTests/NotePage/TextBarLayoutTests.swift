@@ -13,7 +13,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Text bar layout")
+@Suite("Text bar layout", .tags(.layout))
 struct TextBarLayoutTests {
 
     /// Size at the top or left, then the inline styles, then colour.

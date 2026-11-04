@@ -28,7 +28,7 @@ private func parse(_ source: String, expecting count: Int) throws -> [BlockNode]
 
 // MARK: - Shape
 
-@Suite("Fence parsing")
+@Suite("Fence parsing", .tags(.pure))
 struct DocumentParserTests {
 
     @Test("An empty document has no blocks")
@@ -108,7 +108,7 @@ struct DocumentParserTests {
 
 // MARK: - Unclosed fences
 
-@Suite("Unclosed fences")
+@Suite("Unclosed fences", .tags(.pure))
 struct UnclosedFenceTests {
 
     @Test("An unclosed fence runs to the end of the document")
@@ -144,7 +144,7 @@ struct UnclosedFenceTests {
 
 // MARK: - Language tags
 
-@Suite("Language tags")
+@Suite("Language tags", .tags(.pure))
 struct LanguageTagTests {
 
     @Test("Aliases normalize onto the three supported languages", arguments: [
@@ -191,7 +191,7 @@ struct LanguageTagTests {
 
 // MARK: - Things that must NOT be fences
 
-@Suite("Fence recognition edges")
+@Suite("Fence recognition edges", .tags(.pure))
 struct FenceRecognitionTests {
 
     @Test("Inline backticks are not fences", arguments: [
@@ -242,7 +242,7 @@ struct FenceRecognitionTests {
 
 // MARK: - Structural guarantees
 
-@Suite("Structural guarantees")
+@Suite("Structural guarantees", .tags(.pure))
 struct BlockInvariantTests {
 
     @Test("Blocks are contiguous and cover the whole document", arguments: [
@@ -282,7 +282,7 @@ struct BlockInvariantTests {
 
 // MARK: - Node shape
 
-@Suite("Node shape")
+@Suite("Node shape", .tags(.pure))
 struct NodeShapeTests {
 
     @Test("A paragraph's inline spans cover its whole range")

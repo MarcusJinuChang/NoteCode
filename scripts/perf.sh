@@ -14,15 +14,11 @@ cd "$root"
 compare=
 if [[ ${1:-} == --compare ]]; then compare=${2:?--compare needs a file}; [[ -f $compare ]] || { print -u2 "no $compare"; exit 2; }; fi
 
-tests=(
-  StylingPerformanceTests CodeFenceCostTests TextSizeCostTests MarkdownLayoutCostTests
-  "LineNumbersTests/keystrokeCost()" "PageViewTests/openingCost()" "NotePDFTests/printingCost()"
-)
-only=(); for t in $tests; do only+=("-only-testing:NoteCodeTests/$t"); done
+export NOTECODE_PLAN=Perf   # TestPlans/Perf.xctestplan: everything tagged .perf (NoteCodeTests/TestSupport/Tags.swift)
 
 take_lock
 log=$tmp/perf.log
-xcode_test $log $tmp/perf.xcresult $only
+xcode_test $log $tmp/perf.xcresult
 code=$?
 grep -E "^/.*: error: |^error: " $log | sort -u | head -10
 

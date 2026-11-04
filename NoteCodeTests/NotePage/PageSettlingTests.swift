@@ -16,7 +16,7 @@ import UIKit
 /// Waits with `Task.sleep`, never by running the run loop by hand. A test that
 /// spins the main run loop holds the main actor for as long as it spins, and
 /// other suites' main-actor tests that poll against a deadline time out.
-@Suite("Page settling", .serialized)
+@Suite("Page settling", .serialized, .tags(.layout))
 @MainActor
 struct PageSettlingTests {
 

@@ -15,7 +15,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Ink objects and commands")
+@Suite("Ink objects and commands", .tags(.ink))
 @MainActor
 struct InkObjectCommandTests {
 

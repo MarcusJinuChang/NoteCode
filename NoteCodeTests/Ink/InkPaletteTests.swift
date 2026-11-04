@@ -7,7 +7,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Ink palette")
+@Suite("Ink palette", .tags(.ink))
 struct InkPaletteTests {
 
     private let yellow = InkColor(red: 1, green: 0.8, blue: 0)
@@ -94,7 +94,7 @@ struct InkPaletteTests {
     }
 }
 
-@Suite("Eraser settings")
+@Suite("Eraser settings", .tags(.ink))
 struct EraserSettingsTests {
 
     @Test("Settings survive storage, and a bad value reads as none")
@@ -133,7 +133,7 @@ struct EraserSettingsTests {
 
 // MARK: - Two palettes
 
-@Suite("Pen and highlighter palettes")
+@Suite("Pen and highlighter palettes", .tags(.ink))
 struct InkPalettesTests {
 
     private func hexes(_ palette: InkPalette) -> [Int] {
@@ -209,7 +209,7 @@ struct InkPalettesTests {
     }
 }
 
-@Suite("Ink widths and tool settings")
+@Suite("Ink widths and tool settings", .tags(.ink))
 struct InkSettingsTests {
 
     @Test("Three widths each, as the design's multiples")
@@ -284,7 +284,7 @@ struct InkSettingsTests {
     }
 }
 
-@Suite("Colour sets")
+@Suite("Colour sets", .tags(.ink))
 struct InkPaletteSetTests {
 
     private func defaults(_ name: String) throws -> UserDefaults {
@@ -423,7 +423,7 @@ struct InkPaletteSetTests {
 import PencilKit
 import UIKit
 
-@Suite("Ink shades and widths in PencilKit")
+@Suite("Ink shades and widths in PencilKit", .tags(.ink))
 @MainActor
 struct InkShadeTests {
 
@@ -537,7 +537,7 @@ struct InkShadeTests {
     }
 }
 
-@Suite("The hotbar's swatch faces")
+@Suite("The hotbar's swatch faces", .tags(.ink))
 struct SwatchFaceTests {
 
     @Test("A dark bar shows a highlighter vividly and everything else as the page shows it")

@@ -4,7 +4,7 @@ import PencilKit
 import UIKit
 
 @MainActor
-@Suite("Highlighter blend (a recorded probe: it prints, it asserts nothing)")
+@Suite("Highlighter blend (a recorded probe: it prints, it asserts nothing)", .tags(.ink))
 struct ProbeBlendTests {
 
     static func stroke(type: PKInk.InkType, color: UIColor, width: CGFloat = 20) -> PKStroke {

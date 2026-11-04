@@ -16,7 +16,7 @@ import UIKit
 /// pushes the line down inside it, so anything positioned from the frame lands
 /// in the break. On the simulator that painted a code panel across the gap
 /// between two sheets.
-@Suite("Code blocks at page breaks")
+@Suite("Code blocks at page breaks", .tags(.editor))
 @MainActor
 struct CodeBlockPageBreakTests {
 

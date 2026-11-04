@@ -11,7 +11,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Page view")
+@Suite("Page view", .tags(.layout))
 @MainActor
 struct PageViewTests {
 
@@ -1804,7 +1804,7 @@ struct PageViewTests {
     /// at 2,000 strokes, 7s at 5,000, against 141ms now (simulator, 10
     /// October). Loose on purpose, like `typingCost`: this catches the slow
     /// way coming back, not noise.
-    @Test("Opening and switching a note of 2,000 strokes stays within budget")
+    @Test("Opening and switching a note of 2,000 strokes stays within budget", .tags(.perf))
     func openingCost() {
         let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
         let ink = Self.handwriting(2000)

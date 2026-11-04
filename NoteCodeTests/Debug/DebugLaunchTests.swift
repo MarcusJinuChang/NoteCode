@@ -9,7 +9,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Debug launch options")
+@Suite("Debug launch options", .tags(.library))
 struct DebugLaunchOptionsTests {
 
     private let app = "/path/to/NoteCode.app/NoteCode"
@@ -140,7 +140,7 @@ extension DebugLaunchOptionsTests {
 import SwiftData
 import UIKit
 
-@Suite("Debug first launch and Home stores")
+@Suite("Debug first launch and Home stores", .tags(.library))
 @MainActor
 struct DebugHomeStoreTests {
 
@@ -217,7 +217,7 @@ private extension ModelContext {
     func fetchedPages() -> [Page] { (try? fetch(FetchDescriptor<Page>())) ?? [] }
 }
 
-@Suite("Debug fixtures and report")
+@Suite("Debug fixtures and report", .tags(.library))
 @MainActor
 struct DebugReportTests {
 

@@ -11,7 +11,7 @@ import SwiftData
 import Testing
 @testable import NoteCode
 
-@Suite("Drawing save scheduler")
+@Suite("Drawing save scheduler", .tags(.ink))
 @MainActor
 struct DrawingSaveSchedulerTests {
 

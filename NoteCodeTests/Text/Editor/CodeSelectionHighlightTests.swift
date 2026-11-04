@@ -10,7 +10,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Selection inside code blocks")
+@Suite("Selection inside code blocks", .tags(.editor))
 @MainActor
 struct CodeSelectionHighlightTests {
 

@@ -13,7 +13,7 @@ import UIKit
 
 @testable import NoteCode
 
-@Suite("Marker dimming")
+@Suite("Marker dimming", .tags(.editor))
 @MainActor
 struct MarkerDimmingTests {
 

@@ -9,7 +9,7 @@ import Testing
 import Foundation
 @testable import NoteCode
 
-@Suite("Code block position")
+@Suite("Code block position", .tags(.editor))
 struct CodeBlockPositionTests {
 
     /// A block occupying UTF-16 offsets 10..<40.

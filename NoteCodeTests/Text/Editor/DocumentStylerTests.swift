@@ -9,7 +9,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Document styling")
+@Suite("Document styling", .tags(.editor))
 @MainActor
 struct DocumentStylerTests {
 

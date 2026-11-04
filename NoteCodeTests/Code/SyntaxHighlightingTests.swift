@@ -12,7 +12,7 @@ import UIKit
 
 // MARK: - Appearance
 
-@Suite("Highlight appearance")
+@Suite("Highlight appearance", .tags(.editor))
 @MainActor
 struct HighlightAppearanceTests {
 
@@ -26,7 +26,7 @@ struct HighlightAppearanceTests {
 
 // MARK: - The highlighter
 
-@Suite("HighlightSwift adapter")
+@Suite("HighlightSwift adapter", .tags(.editor))
 struct HighlightSwiftHighlighterTests {
 
     @Test("The runnable languages produce colours", arguments: [
@@ -107,7 +107,7 @@ struct HighlightSwiftHighlighterTests {
 
 // MARK: - Applying colours
 
-@Suite("Applying colours")
+@Suite("Applying colours", .tags(.editor))
 @MainActor
 struct ApplyColorsTests {
 
@@ -196,7 +196,7 @@ struct ApplyColorsTests {
 
 // MARK: - Switching appearance
 
-@Suite("Highlighting follows an appearance switch")
+@Suite("Highlighting follows an appearance switch", .tags(.editor))
 @MainActor
 struct AppearanceSwitchTests {
 

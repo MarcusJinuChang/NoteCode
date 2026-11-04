@@ -1,0 +1,31 @@
+{
+  "configurations" : [
+    {
+      "id" : "6A1F0C01-0000-4000-8000-000000000001",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true,
+    "maximumTestExecutionTimeAllowance" : 120
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "skippedTags" : {
+        "tags" : [
+          "perf"
+        ]
+      },
+      "target" : {
+        "containerPath" : "container:NoteCode.xcodeproj",
+        "identifier" : "2CED7DD830159629004AF5C1",
+        "name" : "NoteCodeTests"
+      }
+    }
+  ],
+  "version" : 1
+}

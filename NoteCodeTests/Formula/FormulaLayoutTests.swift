@@ -14,7 +14,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Formula layout")
+@Suite("Formula layout", .tags(.pure))
 @MainActor
 struct FormulaLayoutTests {
 

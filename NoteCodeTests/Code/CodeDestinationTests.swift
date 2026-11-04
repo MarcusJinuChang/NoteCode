@@ -7,7 +7,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Handing a code block to an online compiler")
+@Suite("Handing a code block to an online compiler", .tags(.editor))
 struct CodeDestinationTests {
 
     // MARK: Which site gets it

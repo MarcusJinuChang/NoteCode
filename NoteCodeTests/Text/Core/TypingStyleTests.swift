@@ -13,7 +13,7 @@ import Testing
 
 // MARK: - Where a press goes, and what typed text is written as
 
-@Suite("Typing style: where a press goes")
+@Suite("Typing style: where a press goes", .tags(.pure))
 struct TypingStyleRuleTests {
 
     static let red = StyledLineTests.red
@@ -310,7 +310,7 @@ import UIKit
 
 // MARK: - In the editor
 
-@Suite("Typing style: in the editor", .serialized)
+@Suite("Typing style: in the editor", .serialized, .tags(.pure))
 @MainActor
 struct TypingStyleEditorTests {
 

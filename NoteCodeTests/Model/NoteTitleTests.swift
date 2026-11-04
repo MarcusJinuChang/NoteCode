@@ -10,7 +10,7 @@ import SwiftData
 import Testing
 @testable import NoteCode
 
-@Suite("Note titles")
+@Suite("Note titles", .tags(.library))
 struct NoteTitleTests {
 
     @Test("A heading names the note, without its #")

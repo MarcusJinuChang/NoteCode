@@ -23,7 +23,7 @@ final class CountingRunner: CodeRunning, @unchecked Sendable {
     }
 }
 
-@Suite("Run wiring")
+@Suite("Run wiring", .tags(.pro))
 @MainActor
 struct RunWiringTests {
 

@@ -43,7 +43,7 @@ enum TestInk {
     }
 }
 
-@Suite("Drawing codec")
+@Suite("Drawing codec", .tags(.ink))
 @MainActor
 struct DrawingCodecTests {
 

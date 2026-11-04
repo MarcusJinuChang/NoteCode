@@ -12,7 +12,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Pro keys and ids")
+@Suite("Pro keys and ids", .tags(.pro))
 @MainActor
 struct ProKeysTests {
 
