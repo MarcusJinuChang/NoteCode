@@ -1,9 +1,9 @@
 # Plan: refactor, then split the repo
 
 Written 2 Nov 2026, with 1.1.0 (4) in App Review, from a read of the whole
-codebase, the docs and the last full test run (29 Oct). Run by **Sonnet 5.5
-(high) sessions, one per PR, each reviewed by a second Sonnet session**
-before Marcus merges. The groundwork it builds on is
+codebase, the docs and the last full test run (29 Oct). Run by **Opus 5.5
+(medium) sessions, one per PR, each reviewed by a second Opus session**
+before it merges (Sonnet 5.5 high until 3 Nov). The groundwork it builds on is
 `git show f552d11:docs/refactoring.md`.
 
 This file is the index: rules, decisions, Marcus's part, the order and how
@@ -43,19 +43,19 @@ file's Rules and its own brief, nothing else.
 
 ## Starting a session
 
-**Implement** (one fresh Sonnet 5.5 high session, new worktree off `main`):
+**Implement** (one fresh Opus 5.5 medium session, new worktree off `main`):
 
     Run /refactor-wp implement <ID>. The brief is in docs/refactor/<file> › <ID>.
 
-**Review** (another fresh Sonnet session, after the PR is open):
+**Review** (another fresh Opus 5.5 medium session, after the PR is open):
 
     Run /refactor-wp review <PR number> --post
 
 `--post` puts the verdict on the PR as one comment, where the implementing
 session (or Marcus) reads it; without it, the verdict stays in chat. The skill is `.claude/skills/refactor-wp/SKILL.md`. The same loop is also
 available as the subagents `wp-implementer` and `wp-reviewer`
-(`.claude/agents/`), for a session that hands steps out itself; spawn the
-implementer with a worktree.
+(`.claude/agents/`, both `model: opus`, `effort: medium`), for a session
+that hands steps out itself; spawn the implementer with a worktree.
 
 A bug from Marcus's list (F1) uses the same command with the bug's text in
 place of an id: `Run /refactor-wp fix "<what goes wrong, and where>"`.
@@ -103,23 +103,26 @@ Usage is limited and has to last both updates, so:
   (not in the repo).
 - **Stop and ask** when the acceptance criteria can't be met as written.
 - **Don't edit this README or another stream's file.** Where the build
-  differs from the brief, say so in the PR. Marcus updates the plan between
-  waves.
+  differs from the brief, say so in the PR. The plan is updated between
+  waves, in a PR of its own.
 - AGENTS.md's house rules: stage files by name, never `git add -A`; never
   touch `project.pbxproj` or `Info.plist` (stop and ask); the PR description
   is for anyone viewing the project.
 
 ## Marcus's part
 
-Now, alongside wave 1:
+Decided 3 Nov: **no device testing until the refactor is finished.** Claude
+starts the sessions, has each PR reviewed, merges the reviewed ones and
+keeps the to-do list: the device lines the sessions hand over, the bugs
+for F1 and what is left of each wave.
 
-- **The device pass (0A).** Walk `docs/ipad-test-checklist.md` on build 4
-  from TestFlight, signed in with a sandbox tester: purchase, Run and real ad
-  units can't be checked any other way (ROADMAP › In App Review, 4). Every
-  bug goes in one list; each becomes an F1 session.
-- **Hygiene (0B)** with a session's help: say yes to the worktree and branch
-  list it shows you, and turn on *Automatically delete head branches* in the
-  repo's settings.
+- **One device pass, on the release TestFlight build** (not build 4): walk
+  `docs/ipad-test-checklist.md` and the collected device lines, signed in
+  with a sandbox tester, since purchase, Run and real ad units can't be
+  checked any other way (ROADMAP › In App Review, 4). Every bug goes in one
+  list; each becomes an F1 session.
+- **Settings only he can change:** *Automatically delete head branches* in
+  the repo's settings, and anything in `project.pbxproj` or `Info.plist`.
 - **Optional:** run `/fewer-permission-prompts` once, so sessions don't stop
   on `xcodebuild` and `git` prompts.
 
@@ -130,24 +133,25 @@ Before the split (required), sooner is better:
   session's worktree builds version 1.0 (1). Commit them, or better, put
   them in an xcconfig, and tag `v1.1.0-4`.
 
-Each wave: merge the reviewed PRs, do the device lines the sessions gave
-you, run `scripts/check.sh --full` on `main` (or ask a session to).
+Each wave, Claude runs `scripts/check.sh --full` on `main` once its PRs
+have merged.
 
 ## Order
 
-Within a wave, steps on different files run at once; two sessions at a time
-is the comfortable most for the usage limit.
+Within a wave, steps on different files run at once: up to four or five
+sessions, whose test runs queue on the shared simulator lock (0C3).
 
 **Update 1 (1.1.1)**
 
-- **Wave 1:** 0B → 0C1 → 0C2, then 0D. Alongside: T1, F2.
+- **Wave 1:** 0B → 0C1 → 0C2, then 0D, then 0C3. Alongside: T1, F2.
 - **Wave 2:** 1A alone (nothing else open while files move). Needs T1 (the
   test paths) and 0D (a baseline taken before the move).
-- **Wave 3:** 1B1–1B9 two at a time; T3 → T4; F3 (after F2: same file);
+- **Wave 3:** 1B1–1B9 (1B6 and 1B7 deferred to Update 2); T3 → T4; F3 (after F2: same file);
   2S1 (after T1: same file).
 - **Wave 4:** 1C, 1D, F4, T9, and F1 as the device list arrives.
-- **Release:** `check.sh --full`, perf against the baseline, Marcus's device
-  lines, then build number, archive and submit.
+- **Release:** `check.sh --full`, perf against the baseline, Marcus's
+  device pass on the release TestFlight build, then build number, archive
+  and submit.
 
 Overlaps to watch: F2, F3 and F4's line numbers all touch
 `DocumentTextView.swift`, one at a time. T1 and 2S1 both edit

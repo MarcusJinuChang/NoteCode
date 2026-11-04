@@ -57,3 +57,14 @@ the codebase or its history shows, and what to do instead from now on.
 10. **Ratchet what you can count.** Warnings, file sizes and Pro references
     in general code: counts that may only fall stop the slow growth no
     single PR would notice.
+
+11. **Test a lock by running two at once.** The 0C1 simulator lock passed
+    review on single runs. Its `EXIT` trap fired as `take_lock` returned,
+    so it never held, and parallel sessions killed each other's test hosts
+    until 0C3. Anything meant to keep two runs apart is proven with two
+    runs.
+
+12. **Worktrees come from the local `main` ref.** A new session's worktree
+    branches from `main` on this machine, not `origin/main`. Keep it
+    fast-forwarded (`git fetch origin main:main`) after each merge, or new
+    sessions start stale.
