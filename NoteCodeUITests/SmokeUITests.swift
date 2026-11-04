@@ -2,8 +2,8 @@
 //  SmokeUITests.swift
 //  NoteCodeUITests
 //
-//  One pass through the note page as a reader takes it: type, find a code
-//  block's buttons, draw mode and back, the view menu, Settings. Over
+//  One pass through the note page as a reader takes it: draw mode and back,
+//  type, find a code block's buttons, the view menu, Settings. Over
 //  `-debug-note code`, in an in-memory store, so the simulator's notes are
 //  untouched. Under a minute; anything slower is a finding.
 //
@@ -23,9 +23,20 @@ final class SmokeUITests: XCTestCase {
         app.launchArguments = ["-debug-note", "code", "-debug-mode", "seamless"]
         app.launch()
 
-        // Type a line.
         let text = app.textViews.firstMatch
         XCTAssertTrue(text.waitForExistence(timeout: 10), "the note never opened")
+
+        // Draw mode and back, before typing: with the soft keyboard up, the
+        // bar rides on it, and a tap while the keyboard is still going down
+        // misses the moving toggle.
+        let toggle = app.buttons["modeToggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        toggle.tap()
+        wait(for: toggle, toSay: "Draw mode")
+        toggle.tap()
+        wait(for: toggle, toSay: "Text mode")
+
+        // Type a line.
         text.tap()
         text.typeText("smoke\n")
         XCTAssertTrue((text.value as? String)?.contains("smoke") == true, "the typed line isn't in the note")
@@ -33,14 +44,6 @@ final class SmokeUITests: XCTestCase {
         // The first block, C++, has both buttons.
         XCTAssertTrue(app.buttons["codeBlockRun"].firstMatch.waitForExistence(timeout: 5), "no Run button on a code block")
         XCTAssertTrue(app.buttons["codeBlockCopy"].firstMatch.exists, "no Copy button on a code block")
-
-        // Draw mode and back.
-        let toggle = app.buttons["modeToggle"]
-        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
-        toggle.tap()
-        XCTAssertEqual(toggle.value as? String, "Draw mode")
-        toggle.tap()
-        XCTAssertEqual(toggle.value as? String, "Text mode")
 
         // ••• › Print Layout, then back to Seamless.
         let menu = app.buttons["noteMenu"].firstMatch
@@ -66,5 +69,15 @@ final class SmokeUITests: XCTestCase {
         XCTAssertTrue(sheet.waitForNonExistence(timeout: 5), "the Settings sheet never closed")
         XCTAssertTrue(toggle.exists, "not back on the note")
         app.terminate()
+    }
+
+    /// Waits for `element`'s accessibility value to be `value`: a tap's
+    /// effect lands after the tap returns.
+    @MainActor
+    private func wait(for element: XCUIElement, toSay value: String, file: StaticString = #filePath, line: UInt = #line) {
+        let said = expectation(for: NSPredicate(format: "value == %@", value), evaluatedWith: element)
+        if XCTWaiter().wait(for: [said], timeout: 5) != .completed {
+            XCTFail("\(element) says \(element.value ?? "nothing"), not \(value)", file: file, line: line)
+        }
     }
 }
