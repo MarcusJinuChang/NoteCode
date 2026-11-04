@@ -15,31 +15,14 @@ import UIKit
 @MainActor
 struct PageViewTests {
 
-    /// Lines that wrap on a portrait page and fit on a landscape one.
-    private nonisolated static let longProse = (0..<40)
-        .map { "Line \($0): an invariant holds before and after every iteration of the loop, which is what the proof rests on." }
-        .joined(separator: "\n")
-
-    /// Several pages of prose, wrapped paragraphs, headings and code, with
-    /// descenders — so page breaks land mid-paragraph as well as between lines.
-    private static let severalPages = (0..<220)
-        .map { index -> String in
-            switch index % 30 {
-            case 0:  return "## Section \(index) gjpqy"
-            case 11: return "```cpp\nint query(gap g) { return g.jump(); }\n```"
-            default:
-                return index % 3 == 0
-                    ? "Line \(index): " + String(repeating: "the loop invariant holds before and after every iteration, ", count: 3)
-                    : "Line \(index): the loop invariant holds before and after every iteration."
-            }
-        }
-        .joined(separator: "\n")
+    private nonisolated static let longProse = TestFixtures.longProse
+    private static let severalPages = TestFixtures.severalPages
 
     // MARK: Keyboard
 
     @Test("The keyboard insets the text view and leaves the page where it was")
     func keyboardInsetsWithoutResizing() throws {
-        let harness = Harness()
+        let harness = PageHarness()
         let page = harness.page
         // A real window fills its screen; the harness's is larger, and frames
         // don't round-trip between a window and a smaller screen.
@@ -79,7 +62,7 @@ struct PageViewTests {
 
     @Test("A hotbar docked at the bottom adds its height to what the text keeps clear")
     func keyboardClearanceFollowsTheHotbar() throws {
-        let harness = Harness()
+        let harness = PageHarness()
         let page = harness.page
         harness.window.frame = harness.window.screen.bounds
         page.windowFrameForScreenFrame = { frame, _ in frame }
@@ -105,7 +88,7 @@ struct PageViewTests {
 
     @Test("The text view clears the code-keys row too: it is part of the keyboard's frame")
     func keyboardInsetIncludesTheCodeKeysRow() throws {
-        let harness = Harness()
+        let harness = PageHarness()
         let page = harness.page
         harness.window.frame = harness.window.screen.bounds
         page.windowFrameForScreenFrame = { frame, _ in frame }
@@ -137,107 +120,6 @@ struct PageViewTests {
         #expect(abs(page.textView.contentInset.bottom - withoutRow) < 0.5)
     }
 
-    @MainActor
-    private final class Harness {
-        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 1400, height: 1400))
-        let page: PageView
-
-        init(text: String = PageViewTests.longProse, area: CGSize = CGSize(width: 880, height: 1100), layout: PageLayout = PageLayout()) {
-            let textView = DocumentTextView.makeConfiguredTextView()
-            textView.text = text
-            page = PageView(textView: textView)
-            page.pageLayout = layout
-            page.frame = CGRect(origin: .zero, size: area)
-            window.addSubview(page)
-            window.makeKeyAndVisible()
-            layOut()
-        }
-
-        /// Enough passes for a page count change to settle: the pass that finds
-        /// a new page adds its band, and the next lays text out against it.
-        func layOut() {
-            for _ in 0..<3 {
-                page.setNeedsLayout()
-                page.layoutIfNeeded()
-                page.textView.setNeedsLayout()
-                page.textView.layoutIfNeeded()
-            }
-        }
-
-        func resize(to area: CGSize) {
-            page.frame = CGRect(origin: .zero, size: area)
-            layOut()
-        }
-
-        func switchTo(_ layout: PageLayout) {
-            page.pageLayout = layout
-            layOut()
-        }
-
-        /// Ink is a `PaperMarkup`, but strokes are easier to write as a
-        /// `PKDrawing`, and PaperKit takes one wholesale.
-        func setInk(_ drawing: PKDrawing) {
-            var markup = PaperMarkup(bounds: CGRect(origin: .zero, size: CGSize(
-                width: page.pageLayout.pageSize.width,
-                height: 100_000
-            )))
-            markup.append(contentsOf: drawing)
-            page.setInk(markup)
-            layOut()
-        }
-
-        /// Every line, in note coordinates, laid out to the end.
-        var lines: [(range: NSRange, frame: CGRect)] {
-            let textView = page.textView
-            guard let manager = textView.textLayoutManager,
-                  let content = manager.textContentManager
-            else { return [] }
-
-            let top = textView.textContainerInset.top
-            var lines: [(NSRange, CGRect)] = []
-            manager.enumerateTextLayoutFragments(from: content.documentRange.location, options: [.ensuresLayout]) { fragment in
-                let start = content.offset(from: content.documentRange.location, to: fragment.rangeInElement.location)
-                let origin = fragment.layoutFragmentFrame.origin
-                for line in fragment.textLineFragments {
-                    let range = NSRange(location: start + line.characterRange.location, length: line.characterRange.length)
-                    lines.append((range, line.typographicBounds.offsetBy(dx: origin.x, dy: origin.y + top)))
-                }
-                return true
-            }
-            return lines
-        }
-
-        /// The character that starts the first line reaching below the top of
-        /// the view, found the way a reader would: the first line whose bottom
-        /// is past the edge. Looking up whatever sits at the edge instead is
-        /// ambiguous when the edge is in a margin or a page break.
-        var lineAtTop: Int? {
-            let textView = page.textView
-            guard let manager = textView.textLayoutManager,
-                  let content = manager.textContentManager
-            else { return nil }
-
-            let edge = textView.contentOffset.y - textView.textContainerInset.top
-            let documentStart = content.documentRange.location
-            let from = manager.textViewportLayoutController.viewportRange?.location ?? documentStart
-
-            var found: Int?
-            manager.enumerateTextLayoutFragments(from: from, options: [.ensuresLayout]) { fragment in
-                let frame = fragment.layoutFragmentFrame
-                guard let line = fragment.textLineFragments.first(where: { frame.minY + $0.typographicBounds.maxY > edge }) else {
-                    return true
-                }
-                found = content.offset(from: documentStart, to: fragment.rangeInElement.location) + line.characterRange.location
-                return false
-            }
-            return found
-        }
-
-        /// Where the first stroke is shown, by its middle.
-        var shownInkY: CGFloat? {
-            page.canvas.markup.subelements.strokes.first?.renderBounds.midY
-        }
-    }
 
     /// A short horizontal stroke centred on `y`.
     private static func stroke(at y: CGFloat) -> PKStroke {
@@ -273,8 +155,8 @@ struct PageViewTests {
     @Test("The text lays out at its pages' width, whatever the area", arguments: PageOrientation.allCases)
     func fixedLayoutWidth(orientation: PageOrientation) {
         let layout = PageLayout(orientation: orientation)
-        let narrow = Harness(area: CGSize(width: 682, height: 900), layout: layout)
-        let wide = Harness(area: CGSize(width: 1224, height: 700), layout: layout)
+        let narrow = PageHarness(area: CGSize(width: 682, height: 900), layout: layout)
+        let wide = PageHarness(area: CGSize(width: 1224, height: 700), layout: layout)
 
         for harness in [narrow, wide] {
             #expect(harness.page.textView.bounds.width == layout.pageSize.width)
@@ -284,7 +166,7 @@ struct PageViewTests {
 
     @Test("Portrait and landscape iPads give identical line breaks")
     func identicalLineBreaks() {
-        let harness = Harness(area: CGSize(width: 682, height: 1000))
+        let harness = PageHarness(area: CGSize(width: 682, height: 1000))
         let portrait = harness.lines.map(\.range)
 
         harness.resize(to: CGSize(width: 1224, height: 800))
@@ -297,7 +179,7 @@ struct PageViewTests {
 
     @Test("The page is drawn at its fitted scale, centred in its area")
     func drawnAtScale() {
-        let harness = Harness(area: CGSize(width: 1224, height: 800))
+        let harness = PageHarness(area: CGSize(width: 1224, height: 800))
         let frame = harness.page.textView.frame
 
         #expect(harness.page.displayScale == CanvasGeometry.maximumFitScale)
@@ -308,7 +190,7 @@ struct PageViewTests {
 
     @Test("A scale change keeps the scroll position, so the top line stays on top")
     func scrollSurvivesScale() {
-        let harness = Harness(text: Self.severalPages, area: CGSize(width: 682, height: 900))
+        let harness = PageHarness(text: Self.severalPages, area: CGSize(width: 682, height: 900))
         harness.page.textView.contentOffset = CGPoint(x: 0, y: 640)
 
         harness.resize(to: CGSize(width: 1224, height: 700))
@@ -318,7 +200,7 @@ struct PageViewTests {
 
     @Test("Text is rendered at the density it is shown at")
     func renderingScale() {
-        let harness = Harness(area: CGSize(width: 1224, height: 800))
+        let harness = PageHarness(area: CGSize(width: 1224, height: 800))
         let expected = CanvasGeometry.maximumFitScale * harness.page.traitCollection.displayScale
 
         #expect(harness.page.textView.contentScaleFactor == expected)
@@ -330,7 +212,7 @@ struct PageViewTests {
     /// 25 September). A layout pass of the window is what the next frame gets.
     @Test("A line being typed is drawn at the page's density by the next frame")
     func typedLineRenderingScale() {
-        let harness = Harness(area: CGSize(width: 1224, height: 800))
+        let harness = PageHarness(area: CGSize(width: 1224, height: 800))
         let textView = harness.page.textView
         let expected = CanvasGeometry.maximumFitScale * harness.page.traitCollection.displayScale
 
@@ -353,7 +235,7 @@ struct PageViewTests {
         arguments: [(CGFloat(1224), CGFloat(1)), (1224, 4), (682, 1), (880, 2)]
     )
     func inkRenderScale(width: CGFloat, zoom: CGFloat) {
-        let harness = Harness(text: Self.severalPages, area: CGSize(width: width, height: 800))
+        let harness = PageHarness(text: Self.severalPages, area: CGSize(width: width, height: 800))
         harness.page.setZoom(zoom, about: CGPoint(x: width / 2, y: 400))
         harness.layOut()
         let page = harness.page
@@ -382,7 +264,7 @@ struct PageViewTests {
         arguments: [(CGFloat(1224), CGFloat(1)), (1224, 2.5), (682, 1)]
     )
     func inkLinesUpWithText(width: CGFloat, zoom: CGFloat) throws {
-        let harness = Harness(text: Self.severalPages, area: CGSize(width: width, height: 800))
+        let harness = PageHarness(text: Self.severalPages, area: CGSize(width: width, height: 800))
         harness.page.setZoom(zoom, about: CGPoint(x: width / 2, y: 400))
         harness.page.textView.contentOffset.y = 1500
         harness.layOut()
@@ -410,7 +292,7 @@ struct PageViewTests {
 
     @Test("Zooming keeps the page point between the fingers under them")
     func zoomKeepsFocus() {
-        let harness = Harness(text: Self.severalPages)
+        let harness = PageHarness(text: Self.severalPages)
         let page = harness.page
         page.textView.contentOffset.y = 2000
         let focus = CGPoint(x: 300, y: 550)
@@ -437,7 +319,7 @@ struct PageViewTests {
 
     @Test("Zoom stops at the ends of its range")
     func zoomClamps() {
-        let harness = Harness()
+        let harness = PageHarness()
         harness.page.setZoom(100, about: .zero)
         #expect(harness.page.zoom == CanvasGeometry.maximumZoom)
 
@@ -447,7 +329,7 @@ struct PageViewTests {
 
     @Test("Zoomed far in, text is rendered no denser than the cap")
     func renderingScaleCapped() {
-        let harness = Harness()
+        let harness = PageHarness()
         harness.page.setZoom(4, about: CGPoint(x: 440, y: 550))
         harness.layOut()
 
@@ -459,7 +341,7 @@ struct PageViewTests {
 
     @Test("An empty note is exactly one page tall")
     func emptyNoteIsOnePage() {
-        let harness = Harness(text: "")
+        let harness = PageHarness(text: "")
         let layout = harness.page.pageLayout
 
         #expect(harness.page.pageCount == 1)
@@ -469,7 +351,7 @@ struct PageViewTests {
     @Test("Text flows across pages without a line ever sitting in a page break", arguments: PageViewMode.allCases)
     func linesAvoidBreaks(mode: PageViewMode) {
         let layout = PageLayout(mode: mode)
-        let harness = Harness(text: Self.severalPages, layout: layout)
+        let harness = PageHarness(text: Self.severalPages, layout: layout)
         let page = harness.page
 
         #expect(page.pageCount > 2)
@@ -492,7 +374,7 @@ struct PageViewTests {
     @Test("Blank lines never sit in a page break", arguments: PageViewMode.allCases)
     func blankLinesAvoidBreaks(mode: PageViewMode) {
         let layout = PageLayout(mode: mode)
-        let harness = Harness(text: Self.blankRun, layout: layout)
+        let harness = PageHarness(text: Self.blankRun, layout: layout)
         let page = harness.page
 
         let breaks = layout.exclusionBands(pageCount: page.pageCount, containerTop: layout.firstBodyTop)
@@ -508,7 +390,7 @@ struct PageViewTests {
 
     @Test("Blank lines paginate the same in every mode")
     func blankLinesPaginateAlike() {
-        let harness = Harness(text: Self.blankRun)
+        let harness = PageHarness(text: Self.blankRun)
 
         var placements: [[String]] = []
         for mode in PageViewMode.allCases {
@@ -526,7 +408,7 @@ struct PageViewTests {
 
     @Test("A tap on a blank line puts the caret on it, not on the line below")
     func tapOnBlankLine() throws {
-        let harness = Harness(text: Self.blankRun, layout: PageLayout(mode: .print))
+        let harness = PageHarness(text: Self.blankRun, layout: PageLayout(mode: .print))
         let textView = harness.page.textView
         let text = textView.textStorage.string as NSString
         // The first blank line: the newline after one.
@@ -541,7 +423,7 @@ struct PageViewTests {
 
     @Test("A blank line keeps the note's text a newline")
     func blankLineTextUnchanged() {
-        let harness = Harness(text: Self.blankRun)
+        let harness = PageHarness(text: Self.blankRun)
 
         #expect(harness.page.textView.text == Self.blankRun)
         #expect(!harness.page.textView.text.contains(BlankLineLayout.stand))
@@ -549,7 +431,7 @@ struct PageViewTests {
 
     @Test("Every mode puts every line on the same page, at the same place on it")
     func paginationIdenticalAcrossModes() {
-        let harness = Harness(text: Self.severalPages)
+        let harness = PageHarness(text: Self.severalPages)
 
         var placements: [[String]] = []
         for mode in PageViewMode.allCases {
@@ -568,7 +450,7 @@ struct PageViewTests {
 
     @Test("Switching modes keeps the reader at the same place on the same page")
     func modeSwitchKeepsPlace() {
-        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
+        let harness = PageHarness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
         harness.page.textView.contentOffset.y = PageLayout(mode: .seamless).bodyTop(ofPage: 2) + 300
         harness.layOut()
 
@@ -585,7 +467,7 @@ struct PageViewTests {
     @Test("At the very top of a note, switching modes stays at the very top", arguments: PageViewMode.allCases)
     func noteTopStaysAtTop(target: PageViewMode) {
         let start: PageViewMode = target == .print ? .seamless : .print
-        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: start))
+        let harness = PageHarness(text: Self.severalPages, layout: PageLayout(mode: start))
 
         harness.switchTo(PageLayout(mode: target))
 
@@ -594,7 +476,7 @@ struct PageViewTests {
 
     @Test("Changing orientation re-wraps the note and keeps the same text at the top")
     func orientationKeepsTopText() throws {
-        let harness = Harness(text: Self.severalPages)
+        let harness = PageHarness(text: Self.severalPages)
         harness.page.textView.contentOffset.y = 2500
         harness.layOut()
         let before = try #require(harness.lineAtTop)
@@ -612,7 +494,7 @@ struct PageViewTests {
     func sheetTopOpensPageStart() {
         let print = PageLayout(mode: .print)
         let seamless = PageLayout(mode: .seamless)
-        let harness = Harness(text: Self.severalPages, layout: print)
+        let harness = PageHarness(text: Self.severalPages, layout: print)
         harness.page.textView.contentOffset.y = print.sheet(ofPage: 2).minY
         harness.layOut()
 
@@ -630,7 +512,7 @@ struct PageViewTests {
         // on opening, which counts as an orientation change. That path kept
         // the top line at the top of the view: 36pt down in seamless, past the
         // note's top margin.
-        let harness = Harness(text: Self.severalPages, layout: PageLayout(orientation: .landscape, mode: mode))
+        let harness = PageHarness(text: Self.severalPages, layout: PageLayout(orientation: .landscape, mode: mode))
 
         #expect(harness.page.textView.contentOffset.y == 0)
     }
@@ -638,7 +520,7 @@ struct PageViewTests {
     @Test("At a note's very top, switching orientation stays at the very top", arguments: PageOrientation.allCases)
     func orientationSwitchAtTopStaysAtTop(target: PageOrientation) {
         let start: PageOrientation = target == .portrait ? .landscape : .portrait
-        let harness = Harness(text: Self.severalPages, layout: PageLayout(orientation: start))
+        let harness = PageHarness(text: Self.severalPages, layout: PageLayout(orientation: start))
         harness.page.textView.contentOffset.y = 0
         harness.layOut()
 
@@ -649,7 +531,7 @@ struct PageViewTests {
 
     @Test("Landscape pages wrap wider")
     func landscapeRewraps() {
-        let harness = Harness(text: Self.longProse)
+        let harness = PageHarness(text: Self.longProse)
         let portraitLines = harness.lines.count
 
         harness.switchTo(PageLayout(orientation: .landscape))
@@ -663,7 +545,7 @@ struct PageViewTests {
 
     @Test("Ink is shown on the same place on its page in every mode", arguments: PageViewMode.allCases)
     func inkShownOnItsPage(mode: PageViewMode) {
-        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: mode))
+        let harness = PageHarness(text: Self.severalPages, layout: PageLayout(mode: mode))
         let printedAt = Self.printPortrait.bodyTop(ofPage: 2) + 50
 
         harness.setInk(PKDrawing(strokes: [Self.stroke(at: printedAt)]))
@@ -673,7 +555,7 @@ struct PageViewTests {
 
     @Test("Ink follows its page as the mode changes")
     func inkFollowsModeChanges() {
-        let harness = Harness(text: Self.severalPages)
+        let harness = PageHarness(text: Self.severalPages)
         harness.setInk(PKDrawing(strokes: [Self.stroke(at: Self.printPortrait.bodyTop(ofPage: 2) + 50)]))
 
         for mode in [PageViewMode.print, .compressed, .seamless, .print] {
@@ -685,7 +567,7 @@ struct PageViewTests {
     @Test("Ink in a sheet's margin is back in the margin after a trip through seamless")
     func marginInkSurvivesRoundTrip() {
         let print = Self.printPortrait
-        let harness = Harness(text: Self.severalPages, layout: print)
+        let harness = PageHarness(text: Self.severalPages, layout: print)
         let inMargin = print.bodyTop(ofPage: 2) + print.bodyHeight + 30
         harness.setInk(PKDrawing(strokes: [Self.stroke(at: inMargin)]))
 
@@ -699,7 +581,7 @@ struct PageViewTests {
 
     @Test("Ink keeps its printed position when the orientation changes")
     func inkKeptOnOrientationChange() {
-        let harness = Harness(text: Self.severalPages)
+        let harness = PageHarness(text: Self.severalPages)
         harness.setInk(PKDrawing(strokes: [Self.stroke(at: 1500)]))
         let before = harness.page.ink.subelements.strokes.first?.renderBounds
 
@@ -712,7 +594,7 @@ struct PageViewTests {
 
     /// Drawing, from the page's side: a stroke lands on the canvas and
     /// PaperKit says the markup changed.
-    private static func draw(_ strokes: [PKStroke], on harness: Harness) {
+    private static func draw(_ strokes: [PKStroke], on harness: PageHarness) {
         var markup = harness.page.canvas.markup
         markup.append(contentsOf: PKDrawing(strokes: strokes))
         harness.page.canvas.markup = markup
@@ -722,7 +604,7 @@ struct PageViewTests {
 
     @Test("A stroke drawn in any mode is stored where it prints", arguments: PageViewMode.allCases)
     func drawnStrokeIsStoredInPrintCoordinates(mode: PageViewMode) {
-        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: mode))
+        let harness = PageHarness(text: Self.severalPages, layout: PageLayout(mode: mode))
         let drawnAt = PageLayout(mode: mode).bodyTop(ofPage: 2) + 50
 
         Self.draw([Self.stroke(at: drawnAt)], on: harness)
@@ -733,7 +615,7 @@ struct PageViewTests {
 
     @Test("A stroke drawn in seamless is on the same words in every other mode")
     func drawnStrokeFollowsTheModes() {
-        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
+        let harness = PageHarness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
         let drawnAt = PageLayout(mode: .seamless).bodyTop(ofPage: 2) + 50
 
         Self.draw([Self.stroke(at: drawnAt)], on: harness)
@@ -767,7 +649,7 @@ struct PageViewTests {
     }
 
     /// The canvas's strokes, top to bottom.
-    private static func shownStrokes(_ harness: Harness) -> [PKStroke] {
+    private static func shownStrokes(_ harness: PageHarness) -> [PKStroke] {
         harness.page.canvas.markup.subelements.strokes.sorted { area(of: $0).minY < area(of: $1).minY }
     }
 
@@ -777,7 +659,7 @@ struct PageViewTests {
     )
     func strokeAcrossABreakStaysOnItsWords(drawnIn mode: PageViewMode) throws {
         let drawn = PageLayout(mode: mode)
-        let harness = Harness(text: Self.severalPages, layout: drawn)
+        let harness = PageHarness(text: Self.severalPages, layout: drawn)
         try #require(harness.page.pageCount > 3)
 
         // From 60 points above page 2's last line to 60 below page 3's first.
@@ -817,7 +699,7 @@ struct PageViewTests {
     @Test("A stroke reaching three pages is stored as three pieces, each inside its sheet")
     func strokeOverThreePages() throws {
         let seamless = PageLayout(mode: .seamless)
-        let harness = Harness(text: Self.severalPages, layout: seamless)
+        let harness = PageHarness(text: Self.severalPages, layout: seamless)
         try #require(harness.page.pageCount > 3)
 
         let from = seamless.bodyTop(ofPage: 0) + seamless.bodyHeight - 50
@@ -836,7 +718,7 @@ struct PageViewTests {
     @Test("A stroke drawn across compressed's strip leaves the strip out")
     func compressedStripLeftOut() throws {
         let compressed = PageLayout(mode: .compressed)
-        let harness = Harness(text: Self.severalPages, layout: compressed)
+        let harness = PageHarness(text: Self.severalPages, layout: compressed)
         let bottom = compressed.bodyTop(ofPage: 1) + compressed.bodyHeight
         Self.draw([Self.verticalStroke(from: bottom - 40, to: compressed.bodyTop(ofPage: 2) + 40)], on: harness)
 
@@ -849,7 +731,7 @@ struct PageViewTests {
 
     /// Erases what the canvas shows of `element` and tells the page, as
     /// PaperKit's eraser would.
-    private static func erase(_ id: MarkupOrderedSet.ElementID, on harness: Harness) {
+    private static func erase(_ id: MarkupOrderedSet.ElementID, on harness: PageHarness) {
         var markup = harness.page.canvas.markup
         markup.subelements.removeElement(for: id)
         harness.page.canvas.markup = markup
@@ -867,17 +749,17 @@ struct PageViewTests {
 
     @Test("A pixel erase is taken in and saved")
     func pixelEraseIsSaved() async {
-        let harness = Harness(text: Self.severalPages)
+        let harness = PageHarness(text: Self.severalPages)
         var reported = 0
         harness.page.onInkChanged = { _ in reported += 1 }
         let drawn = Self.stroke(at: 300)
 
         Self.draw([drawn], on: harness)
-        #expect(await Self.waitFor { reported == 1 })
+        #expect(await waitFor { reported == 1 })
         // Taken in off the main thread, where reading the eraser's
         // `inkType` trapped.
         Self.draw([Self.eraserStroke(over: drawn)], on: harness)
-        #expect(await Self.waitFor { reported == 2 })
+        #expect(await waitFor { reported == 2 })
 
         let inks = harness.page.ink.subelements.strokes.map { ($0.ink as PKInkReference).inkType.rawValue }
         #expect(inks == [PKInk.InkType.pen.rawValue, "com.apple.ink.eraser"])
@@ -900,7 +782,7 @@ struct PageViewTests {
     )
     func strokeStopsAtTheBorder(in mode: PageViewMode, downward: Bool) async throws {
         let layout = PageLayout(mode: mode)
-        let harness = Harness(text: Self.severalPages, layout: layout)
+        let harness = PageHarness(text: Self.severalPages, layout: layout)
         var reported = 0
         harness.page.onInkChanged = { _ in reported += 1 }
         let bottom = layout.bodyTop(ofPage: 1) + layout.bodyHeight
@@ -911,7 +793,7 @@ struct PageViewTests {
         Self.draw([stroke], on: harness)
         let drawn = try #require(harness.page.canvas.markup.subelements.ids.first)
 
-        #expect(await Self.waitFor { reported == 1 })
+        #expect(await waitFor { reported == 1 })
 
         // One stroke still, the one PaperKit's undo knows, showing only on
         // the page the pen went down on.
@@ -941,7 +823,7 @@ struct PageViewTests {
     @Test("A stroke drawn across a break in seamless shows only on the page it was started on elsewhere")
     func seamlessStrokeElsewhere() throws {
         let seamless = PageLayout(mode: .seamless)
-        let harness = Harness(text: Self.severalPages, layout: seamless)
+        let harness = PageHarness(text: Self.severalPages, layout: seamless)
         let bottom = seamless.bodyTop(ofPage: 1) + seamless.bodyHeight
         Self.draw([Self.verticalStroke(from: bottom - 60, to: bottom + 60)], on: harness)
 
@@ -960,7 +842,7 @@ struct PageViewTests {
     @Test("Erasing what shows of a stroke takes the part that doesn't, and undoing the erase brings it back")
     func erasingTakesHiddenOverflow() throws {
         let seamless = PageLayout(mode: .seamless)
-        let harness = Harness(text: Self.severalPages, layout: seamless)
+        let harness = PageHarness(text: Self.severalPages, layout: seamless)
         let bottom = seamless.bodyTop(ofPage: 1) + seamless.bodyHeight
         Self.draw([Self.verticalStroke(from: bottom - 60, to: bottom + 60)], on: harness)
         harness.switchTo(PageLayout(mode: .compressed))
@@ -983,7 +865,7 @@ struct PageViewTests {
     @Test("Moving what shows of a stroke carries the part that doesn't")
     func movingCarriesHiddenOverflow() throws {
         let seamless = PageLayout(mode: .seamless)
-        let harness = Harness(text: Self.severalPages, layout: seamless)
+        let harness = PageHarness(text: Self.severalPages, layout: seamless)
         let bottom = seamless.bodyTop(ofPage: 1) + seamless.bodyHeight
         Self.draw([Self.verticalStroke(from: bottom - 60, to: bottom + 60)], on: harness)
         harness.switchTo(PageLayout(mode: .compressed))
@@ -1004,7 +886,7 @@ struct PageViewTests {
     @Test("Erasing or undoing a stroke cut into pieces takes every piece")
     func erasingTakesEveryPiece() throws {
         let seamless = PageLayout(mode: .seamless)
-        let harness = Harness(text: Self.severalPages, layout: seamless)
+        let harness = PageHarness(text: Self.severalPages, layout: seamless)
         let bottom = seamless.bodyTop(ofPage: 1) + seamless.bodyHeight
         Self.draw([Self.verticalStroke(from: bottom - 60, to: bottom + 60)], on: harness)
         try #require(harness.page.ink.subelements.count == 2)
@@ -1023,7 +905,7 @@ struct PageViewTests {
     @Test("Once seamless shows the pieces, erasing one leaves the other")
     func erasingOnePiece() throws {
         let seamless = PageLayout(mode: .seamless)
-        let harness = Harness(text: Self.severalPages, layout: seamless)
+        let harness = PageHarness(text: Self.severalPages, layout: seamless)
         let bottom = seamless.bodyTop(ofPage: 1) + seamless.bodyHeight
         Self.draw([Self.verticalStroke(from: bottom - 60, to: bottom + 60)], on: harness)
         harness.switchTo(PageLayout(mode: .compressed))
@@ -1042,7 +924,7 @@ struct PageViewTests {
     @Test("Moving a stroke cut into pieces cuts it again where it lands")
     func movingRecuts() throws {
         let seamless = PageLayout(mode: .seamless)
-        let harness = Harness(text: Self.severalPages, layout: seamless)
+        let harness = PageHarness(text: Self.severalPages, layout: seamless)
         let bottom = seamless.bodyTop(ofPage: 1) + seamless.bodyHeight
         Self.draw([Self.verticalStroke(from: bottom - 60, to: bottom + 60)], on: harness)
         try #require(harness.page.ink.subelements.count == 2)
@@ -1063,7 +945,7 @@ struct PageViewTests {
     @Test("Cutting a stroke keeps the order strokes are drawn in")
     func cuttingKeepsOrder() throws {
         let seamless = PageLayout(mode: .seamless)
-        let harness = Harness(text: Self.severalPages, layout: seamless)
+        let harness = PageHarness(text: Self.severalPages, layout: seamless)
         let bottom = seamless.bodyTop(ofPage: 1) + seamless.bodyHeight
         Self.draw([Self.verticalStroke(from: bottom - 60, to: bottom + 60)], on: harness)
         Self.draw([Self.stroke(at: bottom - 30)], on: harness)
@@ -1081,7 +963,7 @@ struct PageViewTests {
         #expect(harness.page.ink.subelements.ids.last == later)
 
         // Reopened, the canvas draws them in the stored order.
-        let reopened = Harness(text: Self.severalPages, layout: seamless)
+        let reopened = PageHarness(text: Self.severalPages, layout: seamless)
         reopened.page.setInk(harness.page.ink)
         #expect(Array(reopened.page.canvas.markup.subelements.ids) == Array(harness.page.ink.subelements.ids))
     }
@@ -1089,7 +971,7 @@ struct PageViewTests {
     @Test("Ink saved before strokes were cut is left whole")
     func savedInkLeftWhole() {
         let print = Self.printPortrait
-        let harness = Harness(text: Self.severalPages)
+        let harness = PageHarness(text: Self.severalPages)
         let crossing = Self.verticalStroke(from: print.bodyTop(ofPage: 2) - 120, to: print.bodyTop(ofPage: 2) + 60)
         harness.setInk(PKDrawing(strokes: [crossing]))
         var reports = 0
@@ -1107,7 +989,7 @@ struct PageViewTests {
 
     @Test("Erasing on the canvas takes the stroke out of the stored ink")
     func erasedStrokeLeavesTheInk() {
-        let harness = Harness(text: Self.severalPages)
+        let harness = PageHarness(text: Self.severalPages)
         Self.draw([Self.stroke(at: 400), Self.stroke(at: 1500)], on: harness)
         #expect(harness.page.ink.subelements.count == 2)
 
@@ -1124,7 +1006,7 @@ struct PageViewTests {
     @Test("Drawing leaves untouched ink exactly where it was stored")
     func drawingDoesNotDisturbStoredInk() {
         let print = Self.printPortrait
-        let harness = Harness(text: Self.severalPages, layout: print)
+        let harness = PageHarness(text: Self.severalPages, layout: print)
         let inMargin = print.bodyTop(ofPage: 2) + print.bodyHeight + 30
         harness.setInk(PKDrawing(strokes: [Self.stroke(at: inMargin)]))
         harness.switchTo(PageLayout(mode: .seamless))
@@ -1142,7 +1024,7 @@ struct PageViewTests {
 
     @Test("Showing ink again clears what ink undo was holding")
     func modeSwitchForgetsInkUndo() {
-        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
+        let harness = PageHarness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
         Self.draw([Self.stroke(at: 1500)], on: harness)
         let canvas = harness.page.canvas
         canvas.undoManager?.registerUndo(withTarget: canvas) { _ in }
@@ -1156,28 +1038,15 @@ struct PageViewTests {
 
     // MARK: Saving ink
 
-    /// Waits until `condition` holds, for work the page finishes off the
-    /// main thread. False if it never did.
-    ///
-    /// By suspending, not by turning the run loop: the work comes back to
-    /// the main actor, and a test turning the run loop is still holding it.
-    private static func waitFor(_ condition: () -> Bool, seconds: TimeInterval = 3) async -> Bool {
-        let end = Date(timeIntervalSinceNow: seconds)
-        while !condition() && Date() < end {
-            try? await Task.sleep(for: .milliseconds(10))
-        }
-        return condition()
-    }
-
     @Test("Drawing hands the ink over to be saved, in print coordinates")
     func drawingReportsInk() async {
-        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
+        let harness = PageHarness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
         var reported: [PaperMarkup] = []
         harness.page.onInkChanged = { reported.append($0) }
 
         Self.draw([Self.stroke(at: PageLayout(mode: .seamless).bodyTop(ofPage: 2) + 50)], on: harness)
 
-        #expect(await Self.waitFor { !reported.isEmpty })
+        #expect(await waitFor { !reported.isEmpty })
         #expect(reported.count == 1)
         let saved = reported.last?.subelements.strokes.first?.renderBounds.midY
         #expect(abs((saved ?? 0) - (Self.printPortrait.bodyTop(ofPage: 2) + 50)) < 0.5)
@@ -1188,7 +1057,7 @@ struct PageViewTests {
     /// writing in a long note stutter.
     @Test("A stroke is taken into the ink off the main thread")
     func captureIsOffTheMainThread() async {
-        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
+        let harness = PageHarness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
         var reported = 0
         harness.page.onInkChanged = { _ in reported += 1 }
 
@@ -1196,13 +1065,13 @@ struct PageViewTests {
         // Nothing has turned the run loop since the stroke landed.
         #expect(reported == 0)
 
-        #expect(await Self.waitFor { reported == 1 })
+        #expect(await waitFor { reported == 1 })
     }
 
     @Test("A mode switch takes in strokes still on their way, where they were drawn", arguments: [PageViewMode.print, .compressed])
     func switchTakesInPendingStrokes(to mode: PageViewMode) async {
         let seamless = PageLayout(mode: .seamless)
-        let harness = Harness(text: Self.severalPages, layout: seamless)
+        let harness = PageHarness(text: Self.severalPages, layout: seamless)
         let drawnAt = seamless.bodyTop(ofPage: 2) + 50
         var reported = 0
         harness.page.onInkChanged = { _ in reported += 1 }
@@ -1210,7 +1079,7 @@ struct PageViewTests {
         Self.draw([Self.stroke(at: drawnAt)], on: harness)
         harness.switchTo(PageLayout(mode: mode))
         // Let the capture that was running finish; its result is stale.
-        _ = await Self.waitFor({ false }, seconds: 0.5)
+        _ = await waitFor({ false }, seconds: 0.5)
 
         let stored = harness.page.ink.subelements.strokes
         #expect(stored.count == 1)
@@ -1221,7 +1090,7 @@ struct PageViewTests {
 
     @Test("Leaving a note takes in strokes still on their way, for the save")
     func commitTakesInPendingStrokes() {
-        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
+        let harness = PageHarness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
         var reported: [PaperMarkup] = []
         harness.page.onInkChanged = { reported.append($0) }
 
@@ -1236,7 +1105,7 @@ struct PageViewTests {
     /// looked at ink would reorder the list for opening a note.
     @Test("Showing ink, on opening or for a mode switch, hands nothing over")
     func showingInkReportsNothing() {
-        let harness = Harness(text: Self.severalPages)
+        let harness = PageHarness(text: Self.severalPages)
         var reports = 0
         harness.page.onInkChanged = { _ in reports += 1 }
 
@@ -1260,7 +1129,7 @@ struct PageViewTests {
     )
     func savedInkReopensOnItsWords(orientation: PageOrientation, mode: PageViewMode) async throws {
         let drawnIn = PageLayout(orientation: orientation, mode: .seamless)
-        let drawn = Harness(text: Self.severalPages, layout: drawnIn)
+        let drawn = PageHarness(text: Self.severalPages, layout: drawnIn)
         let drawnAt = drawnIn.bodyTop(ofPage: 2) + 40
         let words = try #require(drawn.lines.first { $0.frame.minY <= drawnAt && drawnAt < $0.frame.maxY }?.range)
         Self.draw([Self.stroke(at: drawnAt)], on: drawn)
@@ -1271,7 +1140,7 @@ struct PageViewTests {
             return
         }
 
-        let reopened = Harness(text: Self.severalPages, layout: PageLayout(orientation: orientation, mode: mode))
+        let reopened = PageHarness(text: Self.severalPages, layout: PageLayout(orientation: orientation, mode: mode))
         reopened.page.setInk(stored)
         reopened.layOut()
 
@@ -1285,7 +1154,7 @@ struct PageViewTests {
     @Test("Print layout draws a sheet per page, exactly where each prints")
     func printSheets() {
         let layout = PageLayout(mode: .print)
-        let harness = Harness(text: Self.severalPages, layout: layout)
+        let harness = PageHarness(text: Self.severalPages, layout: layout)
         let page = harness.page
 
         #expect(page.decorations.sheetFrames == (0..<page.pageCount).map { layout.sheet(ofPage: $0) })
@@ -1294,7 +1163,7 @@ struct PageViewTests {
 
     @Test("Print layout leaves the surround showing either side of its sheets")
     func printSheetsInset() {
-        let harness = Harness(text: Self.severalPages, area: CGSize(width: 872, height: 1100), layout: PageLayout(mode: .print))
+        let harness = PageHarness(text: Self.severalPages, area: CGSize(width: 872, height: 1100), layout: PageLayout(mode: .print))
         let frame = harness.page.textView.frame
 
         #expect(abs(frame.minX - CanvasGeometry.printGutter) < 0.5)
@@ -1307,7 +1176,7 @@ struct PageViewTests {
     @Test("A touch beside the page goes to the text view, which scrolls the note", arguments: PageViewMode.allCases)
     func besideThePageScrolls(mode: PageViewMode) throws {
         // Wider than a page fits at 1.25x, so there's room either side.
-        let harness = Harness(text: Self.severalPages, area: CGSize(width: 1300, height: 900), layout: PageLayout(mode: mode))
+        let harness = PageHarness(text: Self.severalPages, area: CGSize(width: 1300, height: 900), layout: PageLayout(mode: mode))
         let page = harness.page
         let frame = page.textView.frame
         try #require(frame.minX > 20)
@@ -1319,7 +1188,7 @@ struct PageViewTests {
     @Test("In ink mode, print layout's surround between sheets is the text view's, and the sheets are the canvas's")
     func surroundBetweenSheets() throws {
         let layout = PageLayout(mode: .print)
-        let harness = Harness(text: Self.severalPages, layout: layout)
+        let harness = PageHarness(text: Self.severalPages, layout: layout)
         let page = harness.page
         try #require(page.pageCount > 1)
         page.canvas.isUserInteractionEnabled = true
@@ -1341,7 +1210,7 @@ struct PageViewTests {
 
     @Test("The page has square corners and no border in every mode: it fills its window")
     func pageIsSquare() {
-        let harness = Harness(text: Self.severalPages, area: CGSize(width: 1300, height: 900), layout: PageLayout(mode: .seamless))
+        let harness = PageHarness(text: Self.severalPages, area: CGSize(width: 1300, height: 900), layout: PageLayout(mode: .seamless))
         let page = harness.page
 
         #expect(page.textView.layer.cornerRadius == 0)
@@ -1358,7 +1227,7 @@ struct PageViewTests {
 
     @Test("A resting clearance lets the end of the note scroll clear of a bar floating over the page, and is given back")
     func restingClearanceInsetsTheText() throws {
-        let harness = Harness()
+        let harness = PageHarness()
         let page = harness.page
         harness.window.frame = harness.window.screen.bounds
         page.layoutIfNeeded()
@@ -1374,7 +1243,7 @@ struct PageViewTests {
     @Test("Compressed layout draws a line at each break, and seamless draws nothing")
     func breakLines() {
         let compressed = PageLayout(mode: .compressed)
-        let harness = Harness(text: Self.severalPages, layout: compressed)
+        let harness = PageHarness(text: Self.severalPages, layout: compressed)
         let count = harness.page.pageCount
 
         #expect(harness.page.decorations.breakLineYs == (0..<(count - 1)).map { compressed.breakLineY(afterPage: $0) })
@@ -1432,7 +1301,7 @@ struct PageViewTests {
     )
     func pageAgainstSurround(mode: PageViewMode, style: UIUserInterfaceStyle) throws {
         // Wider than a page fits at 1.25x, so there is surround either side.
-        let harness = Harness(text: Self.severalPages, area: CGSize(width: 1300, height: 900), layout: PageLayout(mode: mode))
+        let harness = PageHarness(text: Self.severalPages, area: CGSize(width: 1300, height: 900), layout: PageLayout(mode: mode))
         harness.page.overrideUserInterfaceStyle = style
         harness.layOut()
         let page = harness.page
@@ -1455,7 +1324,7 @@ struct PageViewTests {
     @Test("Print layout keeps the surround between its sheets and the page colour on them", arguments: [UIUserInterfaceStyle.light, .dark])
     func printAgainstSurround(style: UIUserInterfaceStyle) throws {
         let layout = PageLayout(mode: .print)
-        let harness = Harness(text: Self.severalPages, area: CGSize(width: 1300, height: 900), layout: layout)
+        let harness = PageHarness(text: Self.severalPages, area: CGSize(width: 1300, height: 900), layout: layout)
         harness.page.overrideUserInterfaceStyle = style
         let page = harness.page
         try #require(page.pageCount > 1)
@@ -1475,7 +1344,7 @@ struct PageViewTests {
     @Test("Compressed layout marks a page end with a dashed line and nothing else", arguments: [UIUserInterfaceStyle.light, .dark])
     func compressedBreakIsOnlyALine(style: UIUserInterfaceStyle) throws {
         let layout = PageLayout(mode: .compressed)
-        let harness = Harness(text: Self.severalPages, area: CGSize(width: 1300, height: 900), layout: layout)
+        let harness = PageHarness(text: Self.severalPages, area: CGSize(width: 1300, height: 900), layout: layout)
         harness.page.overrideUserInterfaceStyle = style
         let page = harness.page
         try #require(page.pageCount > 1)
@@ -1501,7 +1370,7 @@ struct PageViewTests {
 
     @Test("Covers lie over the ink, on exactly the bands no page's ink shows in", arguments: PageViewMode.allCases)
     func coversOverTheInk(mode: PageViewMode) throws {
-        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
+        let harness = PageHarness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
         harness.switchTo(PageLayout(mode: mode))
         let page = harness.page
 
@@ -1515,7 +1384,7 @@ struct PageViewTests {
 
     @Test("No line of text is ever under a cover", arguments: PageViewMode.allCases)
     func coversMissTheText(mode: PageViewMode) {
-        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: mode))
+        let harness = PageHarness(text: Self.severalPages, layout: PageLayout(mode: mode))
         let bands = harness.page.covers.bandFrames
 
         for line in harness.lines {
@@ -1529,7 +1398,7 @@ struct PageViewTests {
     )
     func coversMatchThePage(mode: PageViewMode, style: UIUserInterfaceStyle) throws {
         let layout = PageLayout(mode: mode)
-        let harness = Harness(text: Self.severalPages, area: CGSize(width: 1300, height: 900), layout: layout)
+        let harness = PageHarness(text: Self.severalPages, area: CGSize(width: 1300, height: 900), layout: layout)
         harness.page.overrideUserInterfaceStyle = style
         let page = harness.page
         try #require(page.pageCount > 1)
@@ -1555,7 +1424,7 @@ struct PageViewTests {
 
     @Test("Switching modes repaints the page column and the surround each time")
     func switchingKeepsPaintInStep() {
-        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .print))
+        let harness = PageHarness(text: Self.severalPages, layout: PageLayout(mode: .print))
         let page = harness.page
         #expect(page.textView.backgroundColor == .clear)
         #expect(page.backgroundColor == PageView.surroundColor)
@@ -1572,7 +1441,7 @@ struct PageViewTests {
 
     @Test("The canvas covers what's on screen, and its ink spans every page")
     func canvasCoversScreen() {
-        let harness = Harness(text: Self.severalPages)
+        let harness = PageHarness(text: Self.severalPages)
         let page = harness.page
         let width = page.pageLayout.pageSize.width
         let noteHeight = page.pageLayout.noteHeight(pageCount: page.pageCount)
@@ -1595,7 +1464,7 @@ struct PageViewTests {
     @Test("However long the note, the canvas is no taller than the screen")
     func canvasStaysScreenSized() {
         let long = (0..<60).map { _ in Self.severalPages }.joined(separator: "\n")
-        let harness = Harness(text: long)
+        let harness = PageHarness(text: long)
         let page = harness.page
 
         // PencilKit draws a stroke into a buffer its canvas's size, and Metal
@@ -1622,7 +1491,7 @@ struct PageViewTests {
 
     @Test("Ink below the last line adds the pages needed to reach it")
     func inkBelowTextAddsPages() {
-        let harness = Harness(text: "A short note.")
+        let harness = PageHarness(text: "A short note.")
         let layout = harness.page.pageLayout
 
         harness.setInk(PKDrawing(strokes: [Self.stroke(at: 3000)]))
@@ -1638,7 +1507,7 @@ struct PageViewTests {
 
     @Test("Deleting text never clips ink")
     func deletingTextKeepsInk() {
-        let harness = Harness(text: Self.severalPages, area: CGSize(width: 682, height: 900))
+        let harness = PageHarness(text: Self.severalPages, area: CGSize(width: 682, height: 900))
         harness.setInk(PKDrawing(strokes: [Self.stroke(at: 3000)]))
         let inkBottom = harness.page.canvas.markup.contentsRenderFrame.maxY
 
@@ -1653,7 +1522,7 @@ struct PageViewTests {
 
     @Test("Laying out again doesn't grow the note again")
     func layoutIsIdempotent() {
-        let harness = Harness(text: Self.severalPages)
+        let harness = PageHarness(text: Self.severalPages)
         harness.setInk(PKDrawing(strokes: [Self.stroke(at: 9000)]))
         let height = harness.page.textView.contentSize.height
         let pages = harness.page.pageCount
@@ -1674,7 +1543,7 @@ struct PageViewTests {
     /// here to catch the cost doubling, not to police noise.
     @Test("Typing near the top of a paged note stays within budget")
     func typingCost() {
-        let harness = Harness(text: StylingPerformanceTests.document(lines: 250))
+        let harness = PageHarness(text: StylingPerformanceTests.document(lines: 250))
         let textView = harness.page.textView
 
         var times: [TimeInterval] = []
@@ -1694,7 +1563,7 @@ struct PageViewTests {
 
     @Test("The note never scrolls above its top, whatever sets the offset")
     func topClamp() {
-        let harness = Harness(text: Self.severalPages)
+        let harness = PageHarness(text: Self.severalPages)
         let textView = harness.page.textView
         textView.contentOffset.y = 400
         textView.contentOffset.y = -80
@@ -1705,7 +1574,7 @@ struct PageViewTests {
 
     @Test("The text view's pan is on the page, which has none of its own")
     func panOwner() {
-        let harness = Harness(text: Self.severalPages)
+        let harness = PageHarness(text: Self.severalPages)
         let page = harness.page
         let pan = page.textView.panGestureRecognizer
         #expect(pan.view === page)
@@ -1717,7 +1586,7 @@ struct PageViewTests {
 
     @Test("A touch beside the page goes to the text view, so its pan scrolls the note")
     func panStartedBesidePage() {
-        let harness = Harness(text: Self.severalPages, area: CGSize(width: 1400, height: 1100))
+        let harness = PageHarness(text: Self.severalPages, area: CGSize(width: 1400, height: 1100))
         let page = harness.page
         let beside = CGPoint(x: 2, y: 300)
         #expect(page.textView.frame.minX > beside.x)
@@ -1744,7 +1613,7 @@ struct PageViewTests {
 
     @Test("The text view's own indicator is off, so only the one at the window's edge shows")
     func noIndicatorInsideThePage() {
-        let page = Harness(text: Self.severalPages).page
+        let page = PageHarness(text: Self.severalPages).page
         #expect(page.showsVerticalScrollIndicator == false)
         #expect(page.textView.showsVerticalScrollIndicator == false)
     }
@@ -1762,7 +1631,7 @@ struct PageViewTests {
 
     @Test("The page's edge follows the text view and goes in print layout")
     func pageEdge() {
-        let harness = Harness(text: Self.severalPages)
+        let harness = PageHarness(text: Self.severalPages)
         let page = harness.page
         func edge() -> UIView? { page.subviews.first { $0 is PageEdgeView } }
         let view = edge()
@@ -1806,7 +1675,7 @@ struct PageViewTests {
     /// way coming back, not noise.
     @Test("Opening and switching a note of 2,000 strokes stays within budget", .tags(.perf))
     func openingCost() {
-        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
+        let harness = PageHarness(text: Self.severalPages, layout: PageLayout(mode: .seamless))
         let ink = Self.handwriting(2000)
 
         let opening = Date()
@@ -1829,7 +1698,7 @@ struct PageViewTests {
 
     @Test("A note given more pages than its text needs has them", arguments: PageViewMode.allCases)
     func minimumPagesAreKept(mode: PageViewMode) {
-        let harness = Harness(text: "One line.", layout: PageLayout(mode: mode))
+        let harness = PageHarness(text: "One line.", layout: PageLayout(mode: mode))
         #expect(harness.page.pageCount == 1)
 
         harness.page.minimumPageCount = 4
@@ -1842,7 +1711,7 @@ struct PageViewTests {
 
     @Test("Add Page adds one at the end and tells the note", arguments: PageViewMode.allCases)
     func addPageAddsOne(mode: PageViewMode) {
-        let harness = Harness(text: "One line.", layout: PageLayout(mode: mode))
+        let harness = PageHarness(text: "One line.", layout: PageLayout(mode: mode))
         var told: [Int] = []
         harness.page.onMinimumPageCountChanged = { told.append($0) }
 
@@ -1858,7 +1727,7 @@ struct PageViewTests {
 
     @Test("A page added to a note longer than its minimum is one more than it has now")
     func addPageCountsPagesTheTextMade() {
-        let harness = Harness(text: Self.severalPages, layout: PageLayout(mode: .print))
+        let harness = PageHarness(text: Self.severalPages, layout: PageLayout(mode: .print))
         let before = harness.page.pageCount
         #expect(before > 2)
 
@@ -1870,7 +1739,7 @@ struct PageViewTests {
 
     @Test("Setting the minimum from the note doesn't tell the note again")
     func followingTheNoteIsSilent() {
-        let harness = Harness(text: "One line.", layout: PageLayout(mode: .print))
+        let harness = PageHarness(text: "One line.", layout: PageLayout(mode: .print))
         var told = 0
         harness.page.onMinimumPageCountChanged = { _ in told += 1 }
 
@@ -1883,32 +1752,32 @@ struct PageViewTests {
     @Test("Seamless keeps a blank page below ink that reaches the last page")
     func seamlessBufferFollowsInk() async {
         let seamless = PageLayout(mode: .seamless)
-        let harness = Harness(text: "One line.", layout: seamless)
+        let harness = PageHarness(text: "One line.", layout: seamless)
         var told: [Int] = []
         harness.page.onMinimumPageCountChanged = { told.append($0) }
         #expect(harness.page.pageCount == 1)
 
         Self.draw([Self.stroke(at: seamless.bodyTop(ofPage: 0) + 200)], on: harness)
-        #expect(await Self.waitFor { told == [2] })
+        #expect(await waitFor { told == [2] })
         harness.layOut()
         #expect(harness.page.pageCount == 2)
 
         // Ink on the new last page makes another, so there is always one below.
         Self.draw([Self.stroke(at: seamless.bodyTop(ofPage: 1) + 200)], on: harness)
-        #expect(await Self.waitFor { told == [2, 3] })
+        #expect(await waitFor { told == [2, 3] })
     }
 
     @Test("Ink above the last page adds nothing in seamless")
     func seamlessBufferWaitsForTheLastPage() async {
         let seamless = PageLayout(mode: .seamless)
-        let harness = Harness(text: "One line.", layout: seamless)
+        let harness = PageHarness(text: "One line.", layout: seamless)
         harness.page.minimumPageCount = 3
         harness.layOut()
         var told = 0
         harness.page.onMinimumPageCountChanged = { _ in told += 1 }
 
         Self.draw([Self.stroke(at: seamless.bodyTop(ofPage: 0) + 200)], on: harness)
-        _ = await Self.waitFor({ false }, seconds: 0.5)
+        _ = await waitFor({ false }, seconds: 0.5)
 
         #expect(told == 0)
         #expect(harness.page.pageCount == 3)
@@ -1917,12 +1786,12 @@ struct PageViewTests {
     @Test("Compressed and print layout add no page of their own for ink", arguments: [PageViewMode.compressed, .print])
     func otherModesHaveNoBuffer(mode: PageViewMode) async {
         let layout = PageLayout(mode: mode)
-        let harness = Harness(text: "One line.", layout: layout)
+        let harness = PageHarness(text: "One line.", layout: layout)
         var told = 0
         harness.page.onMinimumPageCountChanged = { _ in told += 1 }
 
         Self.draw([Self.stroke(at: layout.bodyTop(ofPage: 0) + 200)], on: harness)
-        _ = await Self.waitFor({ false }, seconds: 0.5)
+        _ = await waitFor({ false }, seconds: 0.5)
 
         #expect(told == 0)
         #expect(harness.page.pageCount == 1)
@@ -1938,7 +1807,7 @@ struct PageViewTests {
     @Test("A stroke that ends in the last page's foot adds a page, and saves ink once", arguments: [PageViewMode.compressed, .print])
     func strokeInTheFootAddsAPage(mode: PageViewMode) async {
         let layout = PageLayout(mode: mode)
-        let harness = Harness(text: "One line.", layout: layout)
+        let harness = PageHarness(text: "One line.", layout: layout)
         var told: [Int] = []
         var saved = 0
         harness.page.onMinimumPageCountChanged = { told.append($0) }
@@ -1946,37 +1815,37 @@ struct PageViewTests {
 
         Self.draw([Self.stroke(at: Self.foot(of: layout))], on: harness)
 
-        #expect(await Self.waitFor { told == [2] })
+        #expect(await waitFor { told == [2] })
         harness.layOut()
         #expect(harness.page.pageCount == 2)
         // The page it added is the note's minimum, not ink: laying the note
         // out again for it saved nothing more.
-        _ = await Self.waitFor({ false }, seconds: 0.5)
+        _ = await waitFor({ false }, seconds: 0.5)
         #expect(saved == 1)
     }
 
     @Test("It is where the stroke ends that counts, not where it began", arguments: [PageViewMode.compressed, .print])
     func strokeEndsInTheFoot(mode: PageViewMode) async {
         let layout = PageLayout(mode: mode)
-        let harness = Harness(text: "One line.", layout: layout)
+        let harness = PageHarness(text: "One line.", layout: layout)
         var told: [Int] = []
         harness.page.onMinimumPageCountChanged = { told.append($0) }
 
         Self.draw([Self.verticalStroke(from: layout.bodyTop(ofPage: 0) + 100, to: Self.foot(of: layout))], on: harness)
 
-        #expect(await Self.waitFor { told == [2] })
+        #expect(await waitFor { told == [2] })
     }
 
     @Test("A stroke above the foot, or on a page that isn't the last, adds nothing", arguments: [PageViewMode.compressed, .print])
     func strokeAboveTheFoot(mode: PageViewMode) async {
         let layout = PageLayout(mode: mode)
-        let harness = Harness(text: "One line.", layout: layout)
+        let harness = PageHarness(text: "One line.", layout: layout)
         var told = 0
         harness.page.onMinimumPageCountChanged = { _ in told += 1 }
 
         let top = layout.growthBandTop(ofPage: 0)
         Self.draw([Self.stroke(at: top - 10)], on: harness)
-        _ = await Self.waitFor({ false }, seconds: 0.5)
+        _ = await waitFor({ false }, seconds: 0.5)
         #expect(told == 0)
         #expect(harness.page.pageCount == 1)
 
@@ -1984,7 +1853,7 @@ struct PageViewTests {
         harness.page.minimumPageCount = 3
         harness.layOut()
         Self.draw([Self.stroke(at: Self.foot(of: layout))], on: harness)
-        _ = await Self.waitFor({ false }, seconds: 0.5)
+        _ = await waitFor({ false }, seconds: 0.5)
         #expect(told == 0)
         #expect(harness.page.pageCount == 3)
     }
@@ -1992,13 +1861,13 @@ struct PageViewTests {
     @Test("Turned off, a stroke in the foot adds nothing", arguments: [PageViewMode.compressed, .print])
     func settingOff(mode: PageViewMode) async {
         let layout = PageLayout(mode: mode)
-        let harness = Harness(text: "One line.", layout: layout)
+        let harness = PageHarness(text: "One line.", layout: layout)
         harness.page.addsPagesWhileDrawing = false
         var told = 0
         harness.page.onMinimumPageCountChanged = { _ in told += 1 }
 
         Self.draw([Self.stroke(at: Self.foot(of: layout))], on: harness)
-        _ = await Self.waitFor({ false }, seconds: 0.5)
+        _ = await waitFor({ false }, seconds: 0.5)
 
         #expect(told == 0)
         #expect(harness.page.pageCount == 1)
@@ -2010,19 +1879,19 @@ struct PageViewTests {
         var told = 0
 
         // Loaded into the foot.
-        let loaded = Harness(text: "One line.", layout: layout)
+        let loaded = PageHarness(text: "One line.", layout: layout)
         loaded.page.onMinimumPageCountChanged = { _ in told += 1 }
         loaded.setInk(PKDrawing(strokes: [Self.stroke(at: Self.foot(of: layout))]))
-        _ = await Self.waitFor({ false }, seconds: 0.5)
+        _ = await waitFor({ false }, seconds: 0.5)
         #expect(told == 0)
 
         // Drawn above the foot, then moved into it by the lasso.
-        let moved = Harness(text: "One line.", layout: layout)
+        let moved = PageHarness(text: "One line.", layout: layout)
         moved.page.onMinimumPageCountChanged = { _ in told += 1 }
         var saved = 0
         moved.page.onInkChanged = { _ in saved += 1 }
         Self.draw([Self.stroke(at: layout.bodyTop(ofPage: 0) + 200)], on: moved)
-        #expect(await Self.waitFor { saved == 1 })
+        #expect(await waitFor { saved == 1 })
 
         var markup = moved.page.canvas.markup
         var stroke = try #require(markup.subelements.strokes.first)
@@ -2030,7 +1899,7 @@ struct PageViewTests {
         markup.subelements.updateOrAppend(stroke)
         moved.page.canvas.markup = markup
         moved.page.canvas.onMarkupChanged?()
-        #expect(await Self.waitFor { saved == 2 })
+        #expect(await waitFor { saved == 2 })
         moved.layOut()
 
         #expect(told == 0)
@@ -2041,7 +1910,7 @@ struct PageViewTests {
     func growthSettingKey() {
         #expect(InkPageGrowth.defaultsKey == "addPagesWhileDrawing")
         #expect(InkPageGrowth.defaultEnabled)
-        #expect(Harness(text: "x").page.addsPagesWhileDrawing)
+        #expect(PageHarness(text: "x").page.addsPagesWhileDrawing)
     }
 }
 

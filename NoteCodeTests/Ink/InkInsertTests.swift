@@ -211,68 +211,16 @@ struct InkInsertTests {
 
     private static let text = (0..<140).map { "Line \($0): the loop invariant holds." }.joined(separator: "\n")
 
-    @MainActor
-    private final class Harness {
-        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 1400, height: 1400))
-        let page: PageView
-
-        init(layout: PageLayout) {
-            let textView = DocumentTextView.makeConfiguredTextView()
-            textView.text = InkInsertTests.text
-            page = PageView(textView: textView)
-            page.pageLayout = layout
-            page.frame = CGRect(x: 0, y: 0, width: 880, height: 1100)
-            window.addSubview(page)
-            window.makeKeyAndVisible()
-            layOut()
-        }
-
-        func layOut() {
-            for _ in 0..<3 {
-                page.setNeedsLayout()
-                page.layoutIfNeeded()
-                page.textView.setNeedsLayout()
-                page.textView.layoutIfNeeded()
-            }
-        }
-
-        func switchTo(_ layout: PageLayout) {
-            page.pageLayout = layout
-            layOut()
-        }
-
-        /// The elements on the canvas.
-        var shown: [any Markup] {
-            Array(page.canvas.markup.subelements)
-        }
-
-        func insertShape(_ type: ShapeConfiguration.Shape = .rectangle) {
-            let edit = MarkupEditViewController(supportedFeatureSet: .latest)
-            page.insertIntoInk(extent: InkInsertion.shapeExtent) {
-                page.canvas.controller.markupEditViewController(edit, insertNewShape: type)
-            }
-            layOut()
-        }
-    }
-
-    private static func waitFor(_ condition: () -> Bool, seconds: TimeInterval = 3) async -> Bool {
-        let end = Date(timeIntervalSinceNow: seconds)
-        while !condition() && Date() < end {
-            try? await Task.sleep(for: .milliseconds(10))
-        }
-        return condition()
-    }
-
     @Test("A shape inserted in seamless is saved where it prints, and is on the same words in every mode")
     func shapeFollowsTheModes() async throws {
         let seamless = PageLayout(orientation: .portrait, mode: .seamless)
-        let harness = Harness(layout: seamless)
+        let harness = PageHarness(text: Self.text, layout: seamless)
         var reported: [PaperMarkup] = []
         harness.page.onInkChanged = { reported.append($0) }
 
         harness.insertShape()
 
-        #expect(await Self.waitFor { !reported.isEmpty })
+        #expect(await waitFor { !reported.isEmpty })
         let shownAt = try #require(harness.shown.first).renderFrame.midY
         let stored = try #require(reported.last?.subelements.first(where: { $0 is ShapeMarkup }))
         let expected = seamless.convert(y: shownAt, to: Self.print)
@@ -289,7 +237,7 @@ struct InkInsertTests {
 
     @Test("Inserting in print layout with a break in the middle of the screen puts the element on a page")
     func insertAvoidsTheBreak() async throws {
-        let harness = Harness(layout: Self.print)
+        let harness = PageHarness(text: Self.text, layout: Self.print)
         let regions = Self.print.inkRegions(pageCount: harness.page.pageCount)
         try #require(regions.count > 1)
         let gap = (regions[0].maxY + regions[1].minY) / 2
@@ -310,7 +258,7 @@ struct InkInsertTests {
     @Test("A shape, a text box and a photo survive saving, reopening and the PDF")
     func survivesSavingAndPrinting() async throws {
         let seamless = PageLayout(orientation: .portrait, mode: .seamless)
-        let harness = Harness(layout: seamless)
+        let harness = PageHarness(text: Self.text, layout: seamless)
         var reported = 0
         harness.page.onInkChanged = { _ in reported += 1 }
         let edit = MarkupEditViewController(supportedFeatureSet: .latest)
@@ -338,7 +286,7 @@ struct InkInsertTests {
 
         let before = harness.shown
         try #require(before.count == 4, "\(before.map { type(of: $0) })")
-        #expect(await Self.waitFor { reported > 0 })
+        #expect(await waitFor { reported > 0 })
         harness.page.commitInk()
 
         // Saved and read back, as a note is.
@@ -351,7 +299,7 @@ struct InkInsertTests {
         #expect(kinds == ["ImageMarkup", "ShapeMarkup", "ShapeMarkup", "ShapeMarkup"], "\(kinds)")
 
         // Reopened on a page, in another mode, the image is where it was.
-        let again = Harness(layout: Self.print)
+        let again = PageHarness(text: Self.text, layout: Self.print)
         again.page.setInk(reopened)
         again.layOut()
         let image = try #require(again.shown.first { $0 is ImageMarkup })
@@ -382,19 +330,19 @@ struct InkInsertTests {
 
     @Test("Undo takes an inserted element off the page")
     func insertIsUndoable() async throws {
-        let harness = Harness(layout: PageLayout(orientation: .portrait, mode: .seamless))
+        let harness = PageHarness(text: Self.text, layout: PageLayout(orientation: .portrait, mode: .seamless))
         var reported = 0
         harness.page.onInkChanged = { _ in reported += 1 }
 
         harness.insertShape()
-        #expect(await Self.waitFor { reported == 1 })
+        #expect(await waitFor { reported == 1 })
         try #require(harness.page.canvas.undoManager?.canUndo == true)
 
         harness.page.canvas.undoManager?.undo()
         harness.layOut()
 
         #expect(harness.shown.isEmpty)
-        #expect(await Self.waitFor { reported == 2 })
+        #expect(await waitFor { reported == 2 })
         #expect(Array(harness.page.ink.subelements).isEmpty)
     }
 
@@ -416,16 +364,16 @@ struct InkInsertTests {
 
         inserter.present(for: editor)
         #expect(inserter.isPresented)
-        #expect(await Self.waitFor { host.presentedViewController is MarkupEditViewController })
+        #expect(await waitFor { host.presentedViewController is MarkupEditViewController })
 
         // PaperKit's nested pickers can take the popover away without a
         // callback to the delegates; dismissing it directly is that.
         host.dismiss(animated: false)
-        #expect(await Self.waitFor { !inserter.isPresented })
+        #expect(await waitFor { !inserter.isPresented })
 
         inserter.present(for: editor)
         #expect(inserter.isPresented)
-        #expect(await Self.waitFor { host.presentedViewController is MarkupEditViewController })
+        #expect(await waitFor { host.presentedViewController is MarkupEditViewController })
         host.dismiss(animated: false)
     }
 }
