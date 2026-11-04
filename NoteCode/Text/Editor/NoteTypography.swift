@@ -58,9 +58,6 @@ nonisolated struct NoteTypography: Equatable, Sendable {
 
     static let standard = NoteTypography()
 
-    /// The default size and spacing: a note nobody has changed.
-    var isStandard: Bool { bodySize == Self.defaultSize && lineSpacing == 0 }
-
     /// What to store in `Page.textSize`: `nil` for the default, so a note
     /// nobody has resized stays exactly as it was.
     var storedSize: Int? { bodySize == Self.defaultSize ? nil : bodySize }

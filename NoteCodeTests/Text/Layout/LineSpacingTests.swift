@@ -42,7 +42,6 @@ struct LineSpacingTests {
         #expect(NoteTypography(lineSpacing: 0).storedLineSpacing == nil)
         #expect(NoteTypography(lineSpacing: 8).storedLineSpacing == 8)
         #expect(NoteTypography(lineSpacing: 2) != NoteTypography(), "a change of spacing is a change of typography")
-        #expect(NoteTypography().isStandard && !NoteTypography(lineSpacing: 2).isStandard)
         #expect(NoteTypography(bodySize: 19).storedSize == 19 && NoteTypography(lineSpacing: 4).storedSize == nil)
     }
 

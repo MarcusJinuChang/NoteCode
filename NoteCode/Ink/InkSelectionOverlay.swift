@@ -179,12 +179,14 @@ final class InkSelectionOverlay: UIView {
 
     private var hadSelection = false
 
+    #if DEBUG
     /// For tests, which can't make a touch: as if one had landed on empty
     /// space with a selection up.
     func beginsDrawingForTest() {
         hadSelection = !selection.isEmpty
         selection.clear()
     }
+    #endif
 
     /// A drawn shape is done: select what it covers. Where something was
     /// selected and the shape covers nothing, the selection has ended by the

@@ -99,9 +99,14 @@ struct ContentView: View {
     @Environment(\.requestReview) private var requestReview
     @Environment(ProStatus.self) private var pro: ProStatus?
 
+#if DEBUG
     /// True when a debug launch argument opened a note, in a store of its own
     /// (or `-debug-keep-defaults` says the saved state is not this launch's).
     private let opensDebugNote: Bool
+#else
+    /// Only debug launch arguments open a note of their own.
+    private var opensDebugNote: Bool { false }
+#endif
 
     /// - Parameter openedPage: a note to open straight away, with the list
     ///   hidden. Only debug launch arguments pass one.
@@ -111,7 +116,7 @@ struct ContentView: View {
         // `-debug-keep-defaults` is a run over a device's own notes: nothing
         // here may prune, claim or make what belongs to the real store.
         opensDebugNote = openedPage != nil || DebugSession.shared.options.keepsDefaults
-#else
+#elseif DEBUG
         opensDebugNote = openedPage != nil
 #endif
         _selection = State(initialValue: openedPage)

@@ -186,9 +186,8 @@ struct DocumentTextView: UIViewRepresentable {
         // one.
         if !(textView.textStorage.string as NSString).isEqual(to: text) {
             // Assigning `.text` resets the storage to plain attributes, so the
-            // styling has to be reapplied every time text arrives from outside.
-            // Assigning `.text` resets the storage to plain attributes, so
-            // nothing on screen can be reused.
+            // styling has to be reapplied every time text arrives from outside,
+            // and nothing on screen can be reused.
             textView.text = text
             context.coordinator.invalidateStyling()
             context.coordinator.restyle(textView)

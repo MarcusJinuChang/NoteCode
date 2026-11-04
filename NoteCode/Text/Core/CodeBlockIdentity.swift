@@ -46,36 +46,3 @@ nonisolated struct CodeBlockID: Hashable, Sendable {
         return hash
     }
 }
-
-/// Holds a value per code block — a run result, an error, an in-flight flag —
-/// and drops it when the block it belongs to changes or goes away.
-///
-/// Nothing keeps run output now — the code runs on someone else's site, and
-/// the result never comes back. Anything per-block and transient belongs here
-/// rather than in the model: the spec defines a page as text plus drawing
-/// strokes, "not a list of discrete blocks", so state like that has no home in
-/// what gets persisted and shouldn't invent one.
-nonisolated struct BlockResultStore<Value> {
-    private var values: [CodeBlockID: Value] = [:]
-
-    var count: Int { values.count }
-
-    subscript(id: CodeBlockID) -> Value? {
-        get { values[id] }
-        set { values[id] = newValue }
-    }
-
-    /// Discards everything that doesn't correspond to a code block in `blocks`.
-    ///
-    /// Call after each re-parse. An edited block has a new `contentHash` and a
-    /// moved one has a new `ordinal`, so either way its old entry no longer
-    /// matches and is removed.
-    mutating func prune(keeping blocks: [BlockNode]) {
-        let live = Set(blocks.compactMap(\.codeBlock?.id))
-        values = values.filter { live.contains($0.key) }
-    }
-
-    mutating func removeAll() {
-        values.removeAll()
-    }
-}
