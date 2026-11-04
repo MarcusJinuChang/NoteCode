@@ -50,7 +50,7 @@ struct ListFoot: View {
             VStack(spacing: 6) {
                 NoteCodeMark()
                     .frame(width: 28, height: 28)
-                    .clipShape(RoundedRectangle(cornerRadius: 28 * 0.2237, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: NoteCodeMark.cornerRadius(side: 28), style: .continuous))
                     .accessibilityHidden(true)
                 Text("NoteCode \(AppInfo.versionString())")
                     .font(.footnote)

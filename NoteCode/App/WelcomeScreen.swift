@@ -89,7 +89,7 @@ struct WelcomeScreen: View {
         return VStack(spacing: 0) {
             NoteCodeMark()
                 .frame(width: 104, height: 104)
-                .clipShape(RoundedRectangle(cornerRadius: 104 * 0.2237, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: NoteCodeMark.cornerRadius(side: 104), style: .continuous))
                 .accessibilityHidden(true)
 
             Text("NoteCode")

@@ -183,7 +183,7 @@ struct FolderEditor: View {
                         Circle().strokeBorder(Color(hex: color.base), lineWidth: 2)
                     }
                 }
-                .frame(minWidth: 44, minHeight: 44)
+                .frame(minWidth: TapTarget.minimum, minHeight: TapTarget.minimum)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)

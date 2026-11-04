@@ -13,7 +13,7 @@ struct EmptyStateMark: View {
     var body: some View {
         NoteCodeMark()
             .frame(width: 64, height: 64)
-            .clipShape(RoundedRectangle(cornerRadius: 64 * 0.2237, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: NoteCodeMark.cornerRadius(side: 64), style: .continuous))
             .accessibilityHidden(true)
     }
 }
@@ -26,6 +26,13 @@ struct EmptyStateMark: View {
 /// image by name.
 struct NoteCodeMark: View {
     var icon: AppIconChoice = .standard
+
+    /// The corner of Apple's app icon mask, as a share of the icon's side, so
+    /// a mark shown at any size is clipped the way the Home Screen clips it.
+    static let cornerRatio: CGFloat = 0.2237
+
+    /// The corner radius that clips a mark `side` points across.
+    static func cornerRadius(side: CGFloat) -> CGFloat { side * cornerRatio }
 
     var body: some View {
         Canvas { context, size in

@@ -699,18 +699,25 @@ struct PageDetailView: View {
         )
     }
 
+    /// The page badge comes in quickly, so it answers the scroll that showed it.
+    private static let badgeFadeIn: TimeInterval = 0.15
+    /// How long the badge stays after the last movement.
+    private static let badgeHold: Duration = .seconds(1)
+    /// It goes more slowly than it came.
+    private static let badgeFadeOut: TimeInterval = 0.3
+
     /// The note scrolled: the badge shows the page, and goes a second after
     /// the last movement.
     private func noteScrolled(to place: NoteMemory.Place) {
         if badge != place { badge = place }
         if !badgeVisible {
-            withAnimation(.easeOut(duration: 0.15)) { badgeVisible = true }
+            withAnimation(.easeOut(duration: Self.badgeFadeIn)) { badgeVisible = true }
         }
         badgeTimer?.cancel()
         badgeTimer = Task {
-            try? await Task.sleep(for: .seconds(1))
+            try? await Task.sleep(for: Self.badgeHold)
             guard !Task.isCancelled else { return }
-            withAnimation(.easeOut(duration: 0.3)) { badgeVisible = false }
+            withAnimation(.easeOut(duration: Self.badgeFadeOut)) { badgeVisible = false }
         }
     }
 
