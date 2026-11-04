@@ -16,7 +16,8 @@ file's Rules and its own brief, nothing else.
 | 1. Structure: folders, pure moves, dead code | [1-structure.md](1-structure.md) | 1.1.1 |
 | T. Tests | [T-tests.md](T-tests.md) | T1–T4 and T9 in 1.1.1, the rest in 1.2.0 |
 | F. Fixes | [F-fixes.md](F-fixes.md) | F1–F4 in 1.1.1, F5 on in 1.2.0 |
-| Update 2: seams and types | [update-2.md](update-2.md) | 1.2.0, briefs expanded when it starts |
+| Update 2: seams and types, the design | [update-2.md](update-2.md) | 1.2.0 |
+| 2X. The extension seam | [2X-seam.md](2X-seam.md) | 1.2.0 |
 | The split | [split.md](split.md) | after 1.2.0 ships |
 | What to do differently | [lessons.md](lessons.md) | — |
 
@@ -158,6 +159,38 @@ Overlaps to watch: F2, F3 and F4's line numbers all touch
 `SettingsTests.swift`. T3 touches every test file's `@Suite` line, so it
 runs alone among test-heavy steps, after 1A has moved the tests.
 
-**Update 2 (1.2.0)** and **the split**: see their files. Update 2's briefs
-are expanded from update-2.md when it starts, against the code as 1.1.1
-left it.
+**Update 2 (1.2.0)**
+
+Briefs: 2X in [2X-seam.md](2X-seam.md); 2S2, 2T, 2P, 2C and 2W in their
+stream files once written. A T5 characterisation test lands before the step
+whose code it pins, never in the same PR.
+
+- **Wave 5:** 2X1 alone. Alongside: T5's tests for areas 2X doesn't touch.
+- **Wave 6:** 2X2, 2X3 and A5 at once (different files), then 2X6 (after
+  A5, the pure move that splits DebugLaunch.swift; 2X-seam.md › Order) and
+  2X4a (after 2X2: PageDetailView's sheets).
+- **Wave 7:** 2X4b and 2X5b, then 2X5c, then 2X7 alone. The seam count is
+  0 when this wave ends; `check.sh --full` and `build-open-source.sh` on
+  `main`.
+- **Wave 8:** 2S2a, then 2S2b–2S2d (2S2b after 2X4b has taken the AI keys
+  out of PageDetailView). T6 alongside.
+- **Wave 9:** 2T and 2P alongside each other, one step at a time per track,
+  each after its T5 tests. T8 alongside.
+- **Wave 10:** 2C, then 2W; the feature cleanups; F5–F8 as Marcus picks
+  them.
+- **Release:** update-2.md › Release QA for 1.2.0.
+
+Overlaps to watch: 2X4a, 2X4b, 2X5b and 2X5c all edit PageDetailView and
+NoteEditor, one at a time. 2X1 renames `NoteCodeApp.swift`, which 2X6 then
+edits. A5 moves DebugLaunch.swift, so nothing else edits it while A5 is
+open.
+
+**Feature cleanups.** Behaviour changes the refactor found or a feature
+needs, audited separately in `feature-audit.md`. Its A1 is folded into
+2X-seam.md, and A5 is placed in wave 6; the rest are placed when the
+audit merges. Each
+becomes a fix PR (stream F's rules: a failing test first, its `features.md`
+row) placed in wave 10, or earlier where it touches a file no wave-9 step
+does.
+
+**The split**: see [split.md](split.md), after 1.2.0 ships.

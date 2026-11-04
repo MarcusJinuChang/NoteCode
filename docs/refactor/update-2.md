@@ -16,6 +16,9 @@ touches into their own files (`verify-move.sh`), then the change.
 
 ## 2X. The extension seam
 
+Briefs: [2X-seam.md](2X-seam.md) (4 Nov), which records where the code no
+longer fits this design: 2X5a folds into 2X5b, and 2X5d is already done.
+
 **Why.** Pro, ads, tips, Run in the app and the AI features are wired into
 general types:
 - `NoteEditor` stores the `RunSession`, `pro` and the assistant

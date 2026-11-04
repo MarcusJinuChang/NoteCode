@@ -68,23 +68,27 @@ out; `CodeDestination` and `CodeOutputPanel` stay in `Code/`.
 
 ## Seams
 
-Files outside `Pro/` that name a Pro type today. Once `Pro/` is deleted for
-the public build, each is a build break unless a step in
-[update-2.md](update-2.md) removes the reference. 1A moves no code, so none of
-these is fixed here; the list is so the later steps don't rediscover it.
+Files outside `Pro/` that name a Pro type, recounted on 4 Nov at `07a5c34`
+after 1B5 split SettingsView: **13 files**. Once `Pro/` is deleted for the
+public build, each is a build break unless a 2X step removes the reference.
+The briefs, and a fourteenth file that reaches Pro only through a member
+(TextOptionsRow, `editor.ai`), are in [2X-seam.md](2X-seam.md).
 
-| Pro type | Named by (outside `Pro/`) | Removed by |
+| File | Pro names | Removed by |
 |---|---|---|
-| `RunRoute` | `DocumentTextView` | 2X5a (moves it to `Pro/Run`; it takes `isPro`) |
-| `KeepInNote` | `CodeFenceDisplay` | 2X5a (it takes a `RunResult`) |
-| `AppInfo.runService` | `AppSettings` | 2X5a |
-| `ProStatus` | `ContentView`, `HomeView`, `ListFoot`, `NoteCodeApp`, `NoteEditor`, `PageDetailView`, `SettingsView` | Partly 2X2 (`ProGate`) and 2X3; update-2.md has no step that lists every caller |
-| `PaywallView` | `NoteCodeApp`, `PageDetailView` | 2X2 |
-| `TipJar`, `TipJarView` | `NoteList`, `ListFoot`, `NoteCodeApp` | 2X3 |
-| `AdSlot`, `AdConsent`, `adBannerShows` | `HomeView`, `ListFoot`, `ContentView`, `SettingsView` | 2X3 |
-| `AIAction` | `DocumentTextView`, `PageDetailView` | 2X4a |
-| `ProSettings` | `SettingsView` | None named; 2X4b covers the assistant's section of `SettingsView`, not this |
-| `DebugRunStub`, `DebugTipStore` | `DebugLaunch` (`#if DEBUG`) | 2X6 |
+| `App/NoteCodeApp.swift` | `ProStatus`, `TipJar`, `PaywallView` | 2X1, 2X6 |
+| `App/ContentView.swift` | `ProStatus`, `AdConsent`, `ConsentGate` | 2X3 |
+| `Library/HomeView.swift` | `ProStatus`, `AdConsent`, `AdSlot` | 2X3 |
+| `Library/ListFoot.swift` | `ProStatus`, `AdConsent`, `AdSlot`, `adBannerShows`, `TipJar` | 2X3 |
+| `Library/NoteList.swift` | `TipJar`, `TipJarView` | 2X3 |
+| `Settings/AboutSettings.swift` | `ProStatus`, `AdConsent` | 2X3 |
+| `Settings/SettingsView.swift` | `ProSettings` | 2X4b |
+| `Settings/WritingSettings.swift` | `AIFeatureSettings`, `AIAnswerLength`, `AIInsertStyle`, `AIAssistant` | 2X4b |
+| `NotePage/NoteEditor.swift` | `AIAssistant`, `AIPrompts`, `AIInsertion`, `AIInsertStyle`, `ProStatus`, `RunSession`, `RunBlock` | 2X2, 2X4a, 2X5b |
+| `NotePage/PageDetailView.swift` | `AIFeatureSettings`, `AIAction`, `AIAnswerLength`, `AIInsertStyle`, `AIResultSheet`, `PaywallView`, `ProStatus`, `NotesRunToggle`, `RunDock`, `RunPanelHost` | 2X4a, 2X4b, 2X5c |
+| `Text/Editor/DocumentTextView.swift` | `RunRoute`, `AIAction` | 2X4a, 2X5b |
+| `Code/CodeFenceDisplay.swift` | `KeepInNote` | 2X5b |
+| `Debug/DebugLaunch.swift` | `DebugRunStubKind`, `RunDisclosure` | 2X6 |
 
-`RunRouting` stays whole in `Pro/Run`, with `KeepInNote` and `RunRoute` inside
-it, until 2X5a.
+`RunRoute`, `KeepInNote` and `RunDisclosure` are already in `Pro/Run/RunRouting.swift`,
+so update-2.md's 2X5a has only `AppInfo.runService` left to move (folded into 2X5b).
