@@ -18,6 +18,9 @@
 #  5 #filePath near deletingLastPathComponent in tests (use TestPaths.repoRoot)
 #  6 two Swift files with one basename in one target's folder
 #  7 UserDefaults.standard in NoteCodeTests/, as a count that may only fall
+#  8 reportPerf in a test without .perf on itself or its suite (perf.sh runs
+#    only the Perf plan, so its PERF line would never be read). The test is
+#    the last @Test above the call, and the suite the last @Suite
 
 set -uo pipefail
 cd ${0:A:h:h}
@@ -81,6 +84,19 @@ count=$(code_lines NoteCodeTests | grep -c 'UserDefaults\.standard')
 limit=$(awk '$1 == "limit" && $2 == 7 { print $3 }' $allow 2>/dev/null)
 if [[ -z $limit ]]; then limit=0; fi
 (( count > limit )) && hits+=("NoteCodeTests rule 7: UserDefaults.standard $count times, limit $limit (the count may only fall)")
+
+# 8
+for f in $(grep -rl 'reportPerf(' NoteCodeTests --include='*.swift' | grep -v '/TestSupport/Perf\.swift$' | sort); do
+  awk '
+    /^[[:space:]]*\/\// { next }
+    /@Suite/ { suite = ""; insuite = 1 }
+    insuite { suite = suite $0; if ($0 ~ /(struct|class|enum|extension)[[:space:]]/) insuite = 0 }
+    /@Test/ { test = ""; intest = 1 }
+    intest { test = test $0; if ($0 ~ /func[[:space:]]/) intest = 0 }
+    /reportPerf\(/ && suite !~ /\.perf[^A-Za-z0-9_]/ && test !~ /\.perf[^A-Za-z0-9_]/ { print NR }' $f | while read -r n; do
+    hit 8 $f:$n "reportPerf in a test with no .perf tag on it or its suite; perf.sh never runs it"
+  done
+done
 
 if (( ${#hits} )); then
   print -l -- $hits
