@@ -217,10 +217,14 @@ final class DocumentUITextView: UITextView {
     /// `nil` for a legacy note. Optional, like `layoutObservers`.
     var caretStopResolver: ((Int) -> Int)?
 
+    /// How long after a finger lifts a caret move still counts as the tap's,
+    /// rather than an arrow key's.
+    static let touchRecency: CFTimeInterval = 0.5
+
     /// Whether a finger touched this view a moment ago, which tells a tap
     /// that lands the caret from an arrow key that walks it.
     var wasTouchedRecently: Bool {
-        CACurrentMediaTime() - lastPressTime < 0.5
+        CACurrentMediaTime() - lastPressTime < Self.touchRecency
     }
 
     /// Whether a touch at `point` is out beyond the end of the line whose end
@@ -275,7 +279,7 @@ final class DocumentUITextView: UITextView {
     /// where a tap began a moment ago, goes back up to the blank line under the
     /// finger.
     func placeCaretOnTappedBlankLine() {
-        guard CACurrentMediaTime() - lastPressTime < 0.5, selectedRange.length == 0 else { return }
+        guard CACurrentMediaTime() - lastPressTime < Self.touchRecency, selectedRange.length == 0 else { return }
         lastPressTime = 0
 
         let text = textStorage.string as NSString

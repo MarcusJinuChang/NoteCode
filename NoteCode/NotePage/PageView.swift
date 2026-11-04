@@ -1544,6 +1544,11 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         bringSubviewToFront(indicator)
     }
 
+    /// How long the indicator stays after it last moved, then how long it
+    /// takes to fade.
+    private static let indicatorHold: Duration = .seconds(0.8)
+    private static let indicatorFadeOut: TimeInterval = 0.3
+
     private func indicatorMoved() {
         updateIndicator()
         guard !indicator.isHidden else { return }
@@ -1551,9 +1556,9 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         indicator.layer.removeAllAnimations()
         indicator.alpha = 1
         fadeTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(0.8))
+            try? await Task.sleep(for: Self.indicatorHold)
             guard !Task.isCancelled, let self else { return }
-            UIView.animate(withDuration: 0.3) { self.indicator.alpha = 0 }
+            UIView.animate(withDuration: Self.indicatorFadeOut) { self.indicator.alpha = 0 }
         }
     }
 

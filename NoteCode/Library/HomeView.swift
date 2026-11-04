@@ -207,11 +207,17 @@ struct HomeView: View {
         .background(HomePalette.background.ignoresSafeArea())
     }
 
+    /// The app's mark beside the title, about the height of the large title.
+    private static let markSide: CGFloat = 44
+
+    /// A folder tile's badge, beside its name and count.
+    private static let folderBadgeDiameter: CGFloat = 44
+
     private var header: some View {
         HStack(spacing: 14) {
             NoteCodeMark()
-                .frame(width: 44, height: 44)
-                .clipShape(RoundedRectangle(cornerRadius: 44 * 0.2237, style: .continuous))
+                .frame(width: Self.markSide, height: Self.markSide)
+                .clipShape(RoundedRectangle(cornerRadius: NoteCodeMark.cornerRadius(side: Self.markSide), style: .continuous))
                 .accessibilityHidden(true)
             Text("NoteCode")
                 .font(.largeTitle.bold())
@@ -315,7 +321,7 @@ struct HomeView: View {
                     Text("Open")
                         .font(.headline)
                         .padding(.horizontal, 22)
-                        .frame(minHeight: 44)
+                        .frame(minHeight: TapTarget.minimum)
                         .accentFill(in: Capsule())
                 }
             }
@@ -405,7 +411,7 @@ struct HomeView: View {
             onShowFolder(tile.folder)
         } label: {
             HStack(spacing: 14) {
-                FolderBadge(folder: tile.folder, diameter: 44)
+                FolderBadge(folder: tile.folder, diameter: Self.folderBadgeDiameter)
                 VStack(alignment: .leading, spacing: 2) {
                     // Two lines before it is cut: "Data Structures" in a quarter
                     // of an iPad mini's Home lost its end.
@@ -501,7 +507,7 @@ struct HomeView: View {
             VStack(spacing: 0) {
                 NoteCodeMark()
                     .frame(width: 72, height: 72)
-                    .clipShape(RoundedRectangle(cornerRadius: 72 * 0.2237, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: NoteCodeMark.cornerRadius(side: 72), style: .continuous))
                     .accessibilityHidden(true)
                 Text("Start your first note")
                     .font(.system(size: 28, weight: .bold))

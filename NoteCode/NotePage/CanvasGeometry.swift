@@ -91,6 +91,8 @@ nonisolated enum CanvasGeometry {
     /// Fitted edge to edge, sheets touch the sides of the area and read as one
     /// long slab with grey bars across it rather than as paper. The continuous
     /// modes fit edge to edge: there's no sheet edge for a border to show.
+    /// 24pt matches the gap between sheets (`PageLayout.printSheetGap`), so the
+    /// surround is as wide beside a sheet as between two; a look, not a rule.
     static let printGutter: CGFloat = 24
 
     /// How wide the text column is for fitting: the text and the room code

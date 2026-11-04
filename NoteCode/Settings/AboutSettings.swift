@@ -19,7 +19,7 @@ struct AboutSettings: View {
                 VStack(spacing: 10) {
                     NoteCodeMark()
                         .frame(width: 84, height: 84)
-                        .clipShape(RoundedRectangle(cornerRadius: 84 * 0.2237, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: NoteCodeMark.cornerRadius(side: 84), style: .continuous))
                         .accessibilityHidden(true)
                     Text("NoteCode")
                         .font(.title.bold())
