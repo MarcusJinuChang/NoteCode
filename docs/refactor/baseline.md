@@ -194,8 +194,10 @@ By category:
 The 0D count was 13: it also had the StoreKitTest `SKTestTransaction.h:34`
 deprecation, which this build does not print. The old ratchet's 61 counted the
 compiler's source-excerpt lines; `check.sh` now prints the count by category
-too. A run with `--only` compiles fewer files, so its count is lower; the
-ratchet only means something after a clean build.
+too. An incremental build compiles fewer files, so its count is lower, and
+the ratchet only means something after a clean build: `check.sh --full`
+(without `--only`) cleans first and compares, and every other run prints
+"warnings: incremental, not compared".
 
 ## 5. The seam
 

@@ -114,9 +114,11 @@ hardware-keyboard chords, export and import in Files, a physical Duo.
 
 - The build prints 12 warnings (docs/refactor/baseline.md › Warnings, the
   `WARNINGS` line `scripts/check.sh` ratchets): five main-actor isolation
-  warnings that become errors in Swift 6 mode, and deprecations (two
+  warnings that become errors in Swift 6 mode, four deprecations (two
   `UIWindow(frame:)` left in tests, `traitCollectionDidChange`, the ad
-  banner's size). Update 2's 2W takes them to zero.
+  banner's size), an unnecessary effect marker in TipJarTests, unreachable
+  code after a `throw` in ListDragUITests, and AdConsent's "consider using
+  asynchronous alternative". Update 2's 2W takes them to zero.
 - Typing three hyphens by hand in prose turns into "—-" while autocorrect is
   on (smart dashes), so it doesn't become a rule; Style ▾'s rule and
   autocorrect off both work (features.md › Autocorrect).

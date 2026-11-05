@@ -16,10 +16,12 @@
 # and scripts/check-seam.sh first once they exist. Fails on a failing test, a build error, or more
 # warnings than docs/refactor/baseline.md records (a line `WARNINGS <n>`): the
 # count may only fall. A warning is a unique `file:line:col: warning:` line, so
-# the source excerpts the compiler prints under it are not counted. Only files
-# the build compiled are counted, so the ratchet means something after a clean
-# build. The logs are $TMPDIR/notecode-check/check.log (unit) and
-# check-ui.log; the result bundles beside them.
+# the source excerpts the compiler prints under it are not counted. The count
+# is compared only by --full without --only, which cleans the build first;
+# otherwise it prints "warnings: incremental, not compared" (see Warnings
+# below). The logs are check.log (unit) and check-ui.log, the result bundles
+# beside them, in $TMPDIR/notecode-check/<worktree>-<hash>/, one directory
+# per worktree; the run's last lines name it.
 # NOTECODE_SIM picks the simulator (default iPad Pro 13-inch (M5)).
 
 set -uo pipefail
@@ -47,6 +49,14 @@ if [[ -x scripts/lint-traps.sh ]]; then
 fi
 if [[ -x scripts/check-seam.sh ]]; then
   print "seam:"; scripts/check-seam.sh || rc=1
+fi
+
+# A reliable warning count needs every file compiled: see Warnings below.
+counted=$(( full && ! ${#suites} ))
+if (( counted )); then
+  start=$SECONDS
+  xcode_clean $tmp/check-clean.log || print "clean: xcodebuild clean failed (log: $tmp/check-clean.log)"
+  print "clean: $(( SECONDS - start ))s"
 fi
 
 take_lock
@@ -119,17 +129,33 @@ fi
 # The same warning prints once per build path (/var/… and /private/var/…) and
 # per architecture, so paths are cut to start at the target folder before the
 # de-duplication.
+#
+# The compiler prints a file's warnings only when it compiles that file, so an
+# incremental build's log holds the warnings of the files it rebuilt: 0 to 9
+# against a baseline of 12. Two ways to see them all: a clean build, or
+# rebuilding with every file's warnings cached between runs. The cache would
+# have to know when a file stopped warning, was deleted or moved target, and
+# an Xcode upgrade that adds warnings would only show as files are touched;
+# the clean build has none of that. It costs about 90s (baseline.md § 1,
+# packages included) on a --full run that already takes ten minutes, and
+# would double a Fast run, so only --full cleans and compares, and the Fast
+# loop does neither. --full also builds the UI target, as baseline.md's count
+# does; with --only it runs no UI tests, so it is not compared either.
 warnings=$(cat $logs | grep -E "^/.*:[0-9]+:[0-9]+: warning: " \
   | sed -E 's#^.*/(NoteCode(Tests|UITests)?/)#\1#' | sort -u)
 count=$(print -r -- "$warnings" | grep -c . || true)
-print "warnings: $count"
-print -r -- "$warnings" | grep . | awk '{ if (match($0, /\[#?[A-Za-z]+\]$/)) print substr($0, RSTART); else print "(no category)" }' | sort | uniq -c | sort -rn | head -8 | sed 's/^/  /'
 baseline=docs/refactor/baseline.md
-if [[ -f $baseline ]] && limit=$(grep -E "^WARNINGS [0-9]+" $baseline | head -1 | awk '{print $2}') && [[ -n $limit ]]; then
-  if (( count > limit )); then print "FAIL: $count warnings, baseline allows $limit"; rc=1
-  else print "warnings within baseline ($limit)"; fi
+if (( ! counted )); then
+  print "warnings: incremental, not compared ($count in the files this build compiled; --full counts them all)"
 else
-  print "(no WARNINGS line in $baseline yet: not enforced)"
+  print "warnings: $count (clean build)"
+  print -r -- "$warnings" | grep . | awk '{ if (match($0, /\[#?[A-Za-z]+\]$/)) print substr($0, RSTART); else print "(no category)" }' | sort | uniq -c | sort -rn | head -8 | sed 's/^/  /'
+  if [[ -f $baseline ]] && limit=$(grep -E "^WARNINGS [0-9]+" $baseline | head -1 | awk '{print $2}') && [[ -n $limit ]]; then
+    if (( count > limit )); then print "FAIL: $count warnings, baseline allows $limit"; rc=1
+    else print "warnings within baseline ($limit)"; fi
+  else
+    print "(no WARNINGS line in $baseline yet: not enforced)"
+  fi
 fi
 
 # macOS only if the scheme lists it. Informational: the Google Mobile Ads
@@ -152,5 +178,6 @@ if (( full )) && [[ -d server/run-proxy/node_modules ]]; then
     && print "run-proxy: ok" || { print "run-proxy: FAILED"; rc=1; }
 fi
 
+print "logs: $tmp"
 (( rc == 0 )) && print "CHECK OK" || print "CHECK FAILED"
 exit $rc

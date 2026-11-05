@@ -5,15 +5,20 @@
 root=${0:A:h:h}
 sim=${NOTECODE_SIM:-iPad Pro 13-inch (M5)}
 packages=~/Library/Developer/NoteCode-SourcePackages
-tmp=${TMPDIR:-/tmp}/notecode-check
+# Logs and result bundles: one directory per worktree. Sessions on this Mac
+# can share $TMPDIR, and with one fixed directory a session read another
+# worktree's check.log and reported its warnings as its own. Keyed by the
+# worktree folder's name and a hash of its absolute path, so two checkouts
+# with the same folder name still differ.
+tmp=${TMPDIR:-/tmp}/notecode-check/${root:t}-$(print -rn -- "$root" | shasum | cut -c1-10)
 mkdir -p "$tmp"
 
 # Two sessions must never share the simulator (AGENTS.md › Build/test: the
 # "Busy … failed preflight checks" failures). mkdir is atomic; the trap
 # removes the lock however the script ends (see the traps below). A lock left by a dead run is
 # taken over once its pid is gone. The lock is one fixed path for every
-# worktree and session (each session has its own TMPDIR, so a lock under $tmp
-# was never shared); NOTECODE_LOCK_DIR moves it. The logs stay under $tmp.
+# worktree and session (a lock under $tmp, which is per worktree, would never
+# be shared); NOTECODE_LOCK_DIR moves it. The logs stay under $tmp.
 take_lock() {
   local lockdir=${NOTECODE_LOCK_DIR:-$HOME/Library/Caches/NoteCode-check}
   mkdir -p "$lockdir"
@@ -58,6 +63,16 @@ xcode_test() {
     "$@" $extra -parallel-testing-enabled NO \
     -clonedSourcePackagesDirPath "$packages" \
     -resultBundlePath "$bundle" > "$log" 2>&1
+}
+
+# xcode_clean <log>: removes this worktree's build products (its own
+# DerivedData folder), so the next xcodebuild compiles every file and its log
+# carries every warning (check.sh --full's count). Uses no simulator, so it
+# runs before take_lock.
+xcode_clean() {
+  xcodebuild clean -project "$root/NoteCode.xcodeproj" -scheme NoteCode \
+    -destination "platform=iOS Simulator,name=$sim" \
+    -clonedSourcePackagesDirPath "$packages" > "$1" 2>&1
 }
 
 # Suite names → -only-testing arguments. A bare name is a suite (or a
