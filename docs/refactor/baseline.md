@@ -206,9 +206,9 @@ function of `NoteCode/Pro/`, one of the editor's Pro members, or
 (2X-seam.md › Where the code is today). The line below is what `check.sh`
 reads; the count may only fall, and 2X7 brings it to 0.
 
-SEAM 9
+SEAM 8
 
-2X6 (4 Nov) took both of DebugLaunch's Pro references out of Debug/ and the debug paywall out of NoteCodeScene: 12 files at main 348a257, 9 after.
+2X6 (4 Nov) took both of DebugLaunch's Pro references out of Debug/ and the debug paywall out of NoteCodeScene: 12 files at main 348a257, 9 after; 8 once merged with 2X4a (PR 168).
 
 It is 16, not the brief's 14: the brief's table predates counting
 `runBlockAtCaret` and `runService` by name, which adds `NoteCommands.swift`

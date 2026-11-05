@@ -68,8 +68,29 @@ struct ProDebugOptionsTests {
     @Test("The App Store edition's Welcome lines are the ones it has always had")
     func welcomeLines() {
         let lines = AppExtensions.appStore.runLines
-        #expect(WelcomeNote.content(lines).contains(
-            "Three backticks and a language start a code block. With NoteCode Pro, the run button runs it beside the page and shows what it prints. Copy puts it on the clipboard."))
+        // The whole note, as it was before the Run sentence came from the edition.
+        #expect(WelcomeNote.content(lines) == """
+        Type here like any note. Headings, **bold**, lists and `inline code` come from the bar below, or from Markdown as you type.
+
+        ## Code
+
+        Three backticks and a language start a code block. With NoteCode Pro, the run button runs it beside the page and shows what it prints. Copy puts it on the clipboard.
+
+        ```python
+        def greet(name):
+            return f"Hello, {name}!"
+
+        print(greet("CS133"))
+        ```
+
+        ## Ink
+
+        Tap the pencil in the bar to draw on the page. The Pencil always draws; a finger draws too, or scrolls, as the hand button says.
+
+        ## Pages
+
+        Notes are Letter pages. ••• › View shows them seamless, compressed or as printed sheets, and Share makes a PDF.
+        """)
         #expect(WelcomeScreen.features(lines).first?.detail
             == "Type ``` and a language for a highlighted block. NoteCode Pro runs it beside the page.")
     }

@@ -84,6 +84,10 @@ extension AppExtensions {
             runLines: RunLines(
                 note: "With NoteCode Pro, the run button runs it beside the page and shows what it prints.",
                 screen: "NoteCode Pro runs it beside the page."))
+#if canImport(UIKit)
+        // Explain Block, the options row's Explain and Summarise Note.
+        extensions.editorFeatures = [AssistantFeature.factory()]
+#endif
 #if DEBUG
         extensions.debugResetKeys = [RunDisclosure.key]
         extensions.debugRoot = { AnyView($0.modifier(DebugPaywall())) }

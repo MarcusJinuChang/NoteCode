@@ -63,6 +63,12 @@ struct AppExtensions: Sendable {
     var debugRoot: @MainActor @Sendable (AnyView) -> AnyView = { $0 }
 #endif
 
+#if canImport(UIKit)
+    /// What each note's editor gains (`EditorFeature`), in the order their
+    /// actions are shown. `PageDetailView` installs them in its editor.
+    var editorFeatures: [EditorFeatureFactory] = []
+#endif
+
     /// Adds nothing.
     static let none = AppExtensions()
 }
@@ -77,8 +83,8 @@ nonisolated struct RunLines: Sendable {
     /// A build with no run service: Run opens the block on a free online
     /// compiler (`CodeDestination`).
     static let compilerSite = RunLines(
-        note: "The run button opens it on a free online compiler.",
-        screen: "Run opens it on a free online compiler.")
+        note: "The run button takes it to a free online compiler.",
+        screen: "Run takes it to a free online compiler.")
 }
 
 /// A row an edition adds to a general list or form.
