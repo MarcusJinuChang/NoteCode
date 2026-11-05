@@ -35,6 +35,6 @@ struct ProSettings: View {
             }
         }
         .navigationTitle("Pro")
-        .sheet(isPresented: $showsPaywall) { PaywallView() }
+        .paywall(isPresented: $showsPaywall)
     }
 }

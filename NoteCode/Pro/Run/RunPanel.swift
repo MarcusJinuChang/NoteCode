@@ -507,16 +507,15 @@ private extension View {
 struct RunPanelHost: ViewModifier {
     var editor: NoteEditor
     var isCompact: Bool
-    @Binding var showsRunIsPro: Bool
+    @Binding var showsRunPaywall: Bool
     @Binding var windowWidth: CGFloat
+    /// The signed transaction each run sends (`ProGate.signedTransaction`).
     var transaction: () -> String
-    var pro: ProStatus?
 
     func body(content: Content) -> some View {
         content
             .task {
-                editor.pro = pro
-                editor.onRunNeedsPro = { showsRunIsPro = true }
+                editor.onRunNeedsPro = { showsRunPaywall = true }
                 editor.connectRun()
                 editor.run.runner = RunServiceFactory.make()
 #if DEBUG
@@ -535,9 +534,7 @@ struct RunPanelHost: ViewModifier {
                     .presentationDetents([.medium, .large])
                     .presentationBackgroundInteraction(.enabled(upThrough: .medium))
             }
-            .sheet(isPresented: $showsRunIsPro) {
-                PaywallView(reason: "Run in the app is part of NoteCode Pro.")
-            }
+            .paywall(isPresented: $showsRunPaywall, reason: ProGate.Reason.runInApp)
     }
 }
 
