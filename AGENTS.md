@@ -198,7 +198,11 @@ and palm rejection in the simulator are not representative.
 
 ## Debug launch options
 
-Debug builds only (`DebugLaunch.swift`, all behind `#if DEBUG`). They put the
+Debug builds only (`NoteCode/Debug/`, all behind `#if DEBUG`:
+`DebugLaunchOptions.swift` parses them, `DebugSeed.swift` and
+`DebugSession.swift` carry them out, `DebugStateReport.swift` is the
+report, and `DeviceProbe.swift` and `SelectionProbe.swift` read their own
+flags). They put the
 app in a known state in one command and report what's on screen, so a check
 doesn't take twenty gestures, a pasteboard that syncs with the Mac, or a
 rebuilt copy of the app with logging.
