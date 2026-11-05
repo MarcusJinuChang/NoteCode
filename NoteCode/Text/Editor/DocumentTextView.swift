@@ -218,6 +218,10 @@ struct DocumentTextView: UIViewRepresentable {
         /// The run and copy buttons floating over each code block.
         var overlay: CodeBlockOverlay?
 
+        /// Opens a compiler site's link (`openAtSite`). Replaceable so a test
+        /// can see where Run went without leaving the app.
+        var openURL: (URL) -> Void = { UIApplication.shared.open($0) }
+
         /// The keyboard traits the text view has now: prose or code.
         private(set) var rewritingPolicy = TextRewritingPolicy.initial
         private(set) var rewritesProse = TextRewritingPolicy.proseEnabledByDefault
@@ -535,51 +539,6 @@ struct DocumentTextView: UIViewRepresentable {
             return CodeBlockAction.target(atCaret: caret, in: targets, sourceLength: textView.textStorage.length)
         }
 
-        /// Runs a block: in the panel for Pro, the paywall for everyone else.
-        ///
-        /// Nothing is executed on the device: the panel sends the block to our
-        /// run service. Only a build without one hands it to a site instead.
-        func run(_ target: CodeBlockTarget, from textView: UITextView) {
-            guard let language = target.language, language.canRun else { return }
-
-            // The gate comes first (R4): a free reader's Run opens the paywall
-            // and does nothing else. Without a service none of this exists.
-            switch RunRoute.route(
-                hasRunner: editor?.run.isAvailable == true,
-                isPro: ProGate.isPro
-            ) {
-            case .paywall:
-                editor?.onRunNeedsPro?()
-                return
-            case .inApp:
-                textView.resignFirstResponder()
-                editor?.runInApp(target)
-                return
-            case .redirect:
-                break
-            }
-
-            openAtSite(code: target.code, language: language, from: textView)
-        }
-
-        /// Opens a block on a site (`CodeDestination.request(for:language:)`):
-        /// the panel's way out when a run can't happen, and Run itself in a
-        /// build without a service. Where the code travels in the link the
-        /// student lands on a finished run; where it can't, it goes on the
-        /// pasteboard and they paste it on arrival.
-        func openAtSite(code: String, language: CodeLanguage, from textView: UITextView?) {
-            let request = CodeDestination.request(for: code, language: language)
-
-            if let code = request.pasteboardCode {
-                UIPasteboard.general.string = code
-            }
-
-            // Dismiss the keyboard first. Leaving for Safari with it up means
-            // coming back to a view that has to re-lay-out under it.
-            textView?.resignFirstResponder()
-            UIApplication.shared.open(request.url)
-        }
-
         /// Re-parses and re-applies styling. Everything goes through the shared
         /// cache, so an edit parses the document exactly once no matter how many
         /// delegate callbacks it triggers.
@@ -609,7 +568,7 @@ struct DocumentTextView: UIViewRepresentable {
             refreshCaretFormatting(in: textView)
             let targets = CodeBlockAction.targets(in: source, blocks: blocks)
             overlay?.update(targets: targets)
-            editor?.run.update(blocks: targets)
+            editor?.blocksDidChange(targets)
             scheduleHighlighting(for: textView, source: source, blocks: blocks)
         }
 

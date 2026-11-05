@@ -117,11 +117,6 @@ nonisolated enum AppInfo {
     /// strings are read from anywhere. Tests read the iPad's.
     nonisolated(unsafe) static var deviceName = "iPad"
 
-    /// Our run proxy (`server/run-proxy/`), which Run in the app talks to. With
-    /// `nil` Run in the app doesn't exist: no In NoteCode choice, no Pro gate on
-    /// the run button, no panel. Never a Judge0 address or key; the proxy owns those.
-    static let runService: URL? = URL(string: "https://notecode-run-proxy.changm2608.workers.dev")
-
     /// Where Send Feedback and Feature Request write to: the support address,
     /// the same one the support and privacy pages publish. With `nil` both rows
     /// are left out: a mail button that opens a message to nobody is the kind

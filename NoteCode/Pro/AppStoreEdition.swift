@@ -92,8 +92,9 @@ extension AppExtensions {
              SettingsSection(id: "assistant", placement: .writing) { AssistantSettingsSection() }]
         }
 #if canImport(UIKit)
-        // Explain Block, the options row's Explain and Summarise Note.
-        extensions.editorFeatures = [AssistantFeature.factory()]
+        // Run in the app (the gate and the panel), then Explain Block, the
+        // options row's Explain and Summarise Note.
+        extensions.editorFeatures = [RunFeature.factory(), AssistantFeature.factory()]
 #endif
 #if DEBUG
         extensions.debugResetKeys = [RunDisclosure.key]

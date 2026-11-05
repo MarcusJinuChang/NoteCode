@@ -350,7 +350,7 @@ struct PageDetailView: View {
     /// went, leaving a bare chevron.
     @ToolbarContentBuilder
     private var runToggleItem: some ToolbarContent {
-        if editor.run.isAvailable {
+        if let run = editor.run, run.isAvailable {
             ToolbarItem(placement: .primaryAction) {
                 if isCompact || (windowWidth > 0 && windowWidth < HomeLayout.regularMinimumWidth) {
                     // A phone's bar has no room for the switch beside the
@@ -358,12 +358,12 @@ struct PageDetailView: View {
                     // (iPhone 17, 31 Oct): a button lands there as a row. A
                     // narrow regular window too, where the switch cut the
                     // title to "Week 6 · Has…" (an upright Duo, 669pt).
-                    Button(editor.run.isOpen ? "Back to Notes" : "Run", systemImage: editor.run.isOpen ? "doc.text" : "play") {
-                        showRun(!editor.run.isOpen)
+                    Button(run.isOpen ? "Back to Notes" : "Run", systemImage: run.isOpen ? "doc.text" : "play") {
+                        showRun(!run.isOpen)
                     }
                 } else {
                     NotesRunToggle(
-                        isRun: editor.run.isOpen,
+                        isRun: run.isOpen,
                         showsProMark: !ProGate.isPro,
                         onSelect: showRun
                     )
@@ -375,9 +375,9 @@ struct PageDetailView: View {
 
     private func showRun(_ wantsRun: Bool) {
         if !wantsRun {
-            withAnimation(.snappy) { editor.run.isOpen = false }
+            withAnimation(.snappy) { editor.run?.isOpen = false }
         } else if ProGate.isPro {
-            withAnimation(.snappy) { editor.run.isOpen = true; editor.run.isCollapsed = false }
+            withAnimation(.snappy) { editor.run?.isOpen = true; editor.run?.isCollapsed = false }
         } else {
             showsRunPaywall = true
         }
@@ -389,11 +389,11 @@ struct PageDetailView: View {
     private var runLayout: some View {
         HStack(spacing: 0) {
             content
-            if editor.run.isOpen, !isCompact {
+            if let run = editor.run, run.isOpen, !isCompact {
                 RunDock(
-                    session: editor.run,
+                    session: run,
                     transaction: { ProGate.signedTransaction },
-                    onShow: { editor.scroll(toBlock: $0) },
+                    onShow: { editor.scroll(toLineAt: $0.location) },
                     availableWidth: windowWidth
                 )
                 .transition(.move(edge: .trailing))

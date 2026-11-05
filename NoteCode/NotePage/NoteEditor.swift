@@ -208,36 +208,10 @@ final class NoteEditor {
     @ObservationIgnored var defaults = UserDefaults.standard
 
     /// Run or copy the code block the caret is in, if it's in one. The text
-    /// view's coordinator sets these: it owns the blocks and where they run.
+    /// view's coordinator sets these: it owns the blocks. Run asks the
+    /// features first, then opens a compiler site (`Coordinator.run`).
     @ObservationIgnored var runBlockAtCaret: (() -> Void)?
 
-    /// The Run panel's state for this note (RunPanel).
-    @ObservationIgnored let run = RunSession()
-
-    /// Opens the paywall: a free reader's Run, or a 402.
-    @ObservationIgnored var onRunNeedsPro: (() -> Void)?
-
-    /// Runs a block in the panel: opens it on that block and starts the run.
-    /// The caller has passed the gate (`RunRoute`).
-    func runInApp(_ target: CodeBlockTarget) {
-        guard let block = run.blocks.first(where: { $0.ordinal == target.id.ordinal }) else { return }
-        run.choose(block)
-        run.tab = .output
-        withAnimation(.snappy) { run.isOpen = true; run.isCollapsed = false }
-        run.run(transaction: ProGate.signedTransaction)
-    }
-
-    /// Wires the session to the subscription: a 402 means the subscription
-    /// ended without the app noticing, so it is re-read and the paywall opens.
-    func connectRun() {
-        run.onNotSubscribed = { [weak self] in
-            guard let self else { return }
-            Task { @MainActor in
-                await ProGate.refresh()
-                self.onRunNeedsPro?()
-            }
-        }
-    }
     /// Opens the formula editor for a new formula, inline or display; Done
     /// inserts it. The coordinator sets it (`FormulaEditor`).
     @ObservationIgnored var presentNewFormula: ((_ display: Bool) -> Void)?
@@ -252,6 +226,9 @@ final class NoteEditor {
     /// their actions are shown. Empty for `NoteEditor()`.
     private(set) var features: [any EditorFeature] = []
     @ObservationIgnored private var featuresInstalled = false
+    /// What the text view's coordinator offers the features, kept for a
+    /// feature installed after it connected.
+    @ObservationIgnored private var services: EditorServices?
 
     init(features: [EditorFeatureFactory] = []) {
         install(features)
@@ -263,6 +240,21 @@ final class NoteEditor {
         guard !featuresInstalled, !factories.isEmpty else { return }
         featuresInstalled = true
         features = factories.map { $0(self) }
+        if let services {
+            for feature in features { feature.connect(services) }
+        }
+    }
+
+    /// The text view's coordinator connected: hands its services to every
+    /// feature, now and as they are installed.
+    func connectFeatures(_ services: EditorServices) {
+        self.services = services
+        for feature in features { feature.connect(services) }
+    }
+
+    /// The note's code blocks after an edit, for every feature.
+    func blocksDidChange(_ targets: [CodeBlockTarget]) {
+        for feature in features { feature.blocksDidChange(targets) }
     }
 
     /// The installed feature of this type, if there is one.
@@ -1262,14 +1254,15 @@ final class NoteEditor {
         return (entries, NoteOutline.currentIndex(in: entries, atCharacter: top))
     }
 
-    /// The Run panel's chips: the note scrolls to a block's opening fence.
-    func scroll(toBlock block: RunBlock) {
-        page?.scroll(toLineAt: block.location)
-    }
-
     /// An outline tap: the heading's line at the top of the page.
     func scroll(toHeading entry: NoteOutline.Entry) {
         page?.scroll(toLineAt: entry.location)
+    }
+
+    /// The line at a UTF-16 offset at the top of the page: the Run panel's
+    /// chips scroll to a block's opening fence.
+    func scroll(toLineAt location: Int) {
+        page?.scroll(toLineAt: location)
     }
 
     // MARK: Undo
