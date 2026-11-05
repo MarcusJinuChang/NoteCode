@@ -58,13 +58,11 @@ struct PageDetailView: View {
     /// note opens: the page then writes its own place back as it is read.
     @State private var resumingAtPage: Int?
 
-    @Environment(ProStatus.self) private var pro: ProStatus?
-
     /// The window's width, for the Run dock's half-window limit.
     @State private var windowWidth: CGFloat = 0
-    /// Run was chosen by a free reader: Pro's, so it explains instead of
-    /// opening. P2's paywall replaces this alert.
-    @State private var showsRunIsPro = false
+    /// Run was chosen by a free reader: the paywall opens, with Run's reason,
+    /// instead of the panel (`RunPanelHost` presents it).
+    @State private var showsRunPaywall = false
 
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.displayScale) private var screenScale
@@ -246,8 +244,8 @@ struct PageDetailView: View {
 
 #if canImport(UIKit)
         .modifier(RunPanelHost(
-            editor: editor, isCompact: isCompact, showsRunIsPro: $showsRunIsPro,
-            windowWidth: $windowWidth, transaction: { pro?.signedTransaction ?? "" }, pro: pro
+            editor: editor, isCompact: isCompact, showsRunPaywall: $showsRunPaywall,
+            windowWidth: $windowWidth, transaction: { ProGate.signedTransaction }
         ))
 #endif
         .sheet(isPresented: $showsInfo) {
@@ -261,7 +259,7 @@ struct PageDetailView: View {
             AIResultSheet(editor: editor, job: job)
         }
         .sheet(isPresented: Binding(get: { editor.ai.needsPro }, set: { editor.ai.needsPro = $0 })) {
-            PaywallView(reason: "Explain Code and Summarise Note are part of NoteCode Pro.")
+            PaywallView(reason: ProGate.Reason.assistant)
         }
         .onChange(of: aiSettings, initial: true) { _, settings in
             settings.apply(to: editor.ai)
@@ -375,7 +373,7 @@ struct PageDetailView: View {
                 } else {
                     NotesRunToggle(
                         isRun: editor.run.isOpen,
-                        showsProMark: !(pro?.isPro ?? false),
+                        showsProMark: !ProGate.isPro,
                         onSelect: showRun
                     )
                 }
@@ -387,10 +385,10 @@ struct PageDetailView: View {
     private func showRun(_ wantsRun: Bool) {
         if !wantsRun {
             withAnimation(.snappy) { editor.run.isOpen = false }
-        } else if pro?.isPro == true {
+        } else if ProGate.isPro {
             withAnimation(.snappy) { editor.run.isOpen = true; editor.run.isCollapsed = false }
         } else {
-            showsRunIsPro = true
+            showsRunPaywall = true
         }
     }
 
@@ -403,7 +401,7 @@ struct PageDetailView: View {
             if editor.run.isOpen, !isCompact {
                 RunDock(
                     session: editor.run,
-                    transaction: { pro?.signedTransaction ?? "" },
+                    transaction: { ProGate.signedTransaction },
                     onShow: { editor.scroll(toBlock: $0) },
                     availableWidth: windowWidth
                 )

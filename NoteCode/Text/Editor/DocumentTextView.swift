@@ -546,7 +546,7 @@ struct DocumentTextView: UIViewRepresentable {
             // and does nothing else. Without a service none of this exists.
             switch RunRoute.route(
                 hasRunner: editor?.run.isAvailable == true,
-                isPro: editor?.pro?.isPro == true
+                isPro: ProGate.isPro
             ) {
             case .paywall:
                 editor?.onRunNeedsPro?()
