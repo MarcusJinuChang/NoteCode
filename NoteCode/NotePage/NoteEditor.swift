@@ -217,27 +217,6 @@ final class NoteEditor {
     /// Opens the paywall: a free reader's Run, or a 402.
     @ObservationIgnored var onRunNeedsPro: (() -> Void)?
 
-    /// Runs a block in the panel: opens it on that block and starts the run.
-    /// The caller has passed the gate (`RunRoute`).
-    func runInApp(_ target: CodeBlockTarget) {
-        guard let block = run.blocks.first(where: { $0.ordinal == target.id.ordinal }) else { return }
-        run.choose(block)
-        run.tab = .output
-        withAnimation(.snappy) { run.isOpen = true; run.isCollapsed = false }
-        run.run(transaction: ProGate.signedTransaction)
-    }
-
-    /// Wires the session to the subscription: a 402 means the subscription
-    /// ended without the app noticing, so it is re-read and the paywall opens.
-    func connectRun() {
-        run.onNotSubscribed = { [weak self] in
-            guard let self else { return }
-            Task { @MainActor in
-                await ProGate.refresh()
-                self.onRunNeedsPro?()
-            }
-        }
-    }
     /// Opens the formula editor for a new formula, inline or display; Done
     /// inserts it. The coordinator sets it (`FormulaEditor`).
     @ObservationIgnored var presentNewFormula: ((_ display: Bool) -> Void)?
@@ -1260,11 +1239,6 @@ final class NoteEditor {
         let entries = NoteOutline.entries(in: (textView?.text ?? "").nativeUTF8)
         let top = page?.topLineCharacter() ?? 0
         return (entries, NoteOutline.currentIndex(in: entries, atCharacter: top))
-    }
-
-    /// The Run panel's chips: the note scrolls to a block's opening fence.
-    func scroll(toBlock block: RunBlock) {
-        page?.scroll(toLineAt: block.location)
     }
 
     /// An outline tap: the heading's line at the top of the page.
