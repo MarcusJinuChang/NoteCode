@@ -936,8 +936,8 @@ final class NoteEditor {
             steps: total
         )
         selectionSizeTask?.cancel()
-        selectionSizeTask = Task { [weak self, settleDelay] in
-            try? await Task.sleep(for: settleDelay)
+        selectionSizeTask = Task { [weak self, settleDelay, settleClock] in
+            try? await settleClock.sleep(for: settleDelay)
             guard !Task.isCancelled else { return }
             self?.settleSelectionSize()
         }
@@ -1161,7 +1161,17 @@ final class NoteEditor {
     /// How long a size waits after a tap or a pick before the text re-flows,
     /// so a run of the size control's taps lays the note out once.
     @ObservationIgnored var settleDelay = Duration.milliseconds(120)
+    /// What `settleDelay` is measured on. Tests set one they move by hand;
+    /// the app keeps `ContinuousClock`, as `Task.sleep(for:)` uses.
+    @ObservationIgnored var settleClock: any Clock<Duration> = ContinuousClock()
     @ObservationIgnored private var settleTask: Task<Void, Never>?
+
+    /// Returns once the sizes waiting for `settleDelay`, the note's and the
+    /// selection's, have been applied, or were dropped. For tests.
+    func sizeSettled() async {
+        await settleTask?.value
+        await selectionSizeTask?.value
+    }
 
     /// Follows the note's stored size (`Page.textSize`), as the page opens
     /// and whenever something else changes it. A tap in flight wins until it
@@ -1180,8 +1190,8 @@ final class NoteEditor {
         guard size != textSize else { return }
         textSize = size
         settleTask?.cancel()
-        settleTask = Task { [weak self, settleDelay] in
-            try? await Task.sleep(for: settleDelay)
+        settleTask = Task { [weak self, settleDelay, settleClock] in
+            try? await settleClock.sleep(for: settleDelay)
             guard !Task.isCancelled else { return }
             self?.settleTextSize()
         }
