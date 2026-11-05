@@ -39,8 +39,8 @@ nonisolated struct NoteSort: Equatable, Sendable {
     var key: Key
     var ascending: Bool
 
-    static let defaultsKey = "noteSort"
-    static let `default` = NoteSort(key: .modified, ascending: false)
+    static let defaultsKey = SettingKeys.Notes.sort.name
+    static let `default` = SettingKeys.Notes.sort.defaultValue
 
     /// This sort with another key, the way round that key reads naturally.
     /// Switching from newest-first modified to title gives A to Z, not Z to A.

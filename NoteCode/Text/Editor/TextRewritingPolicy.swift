@@ -40,8 +40,8 @@ nonisolated enum TextRewritingPolicy: Equatable, Sendable {
 
     /// Settings › Writing › Autocorrect: whether prose is autocorrected,
     /// capitalised and given smart punctuation. Per device, on until turned off.
-    static let proseDefaultsKey = "autocorrectInProse"
-    static let proseEnabledByDefault = true
+    static let proseDefaultsKey = SettingKeys.Writing.autocorrectInProse.name
+    static let proseEnabledByDefault = SettingKeys.Writing.autocorrectInProse.defaultValue
 
     /// What a new editor starts with, before the caret has been placed.
     ///

@@ -45,10 +45,10 @@ nonisolated struct MarkerDimming: Equatable, Sendable {
 
     static let standard = MarkerDimming()
 
-    static let headingsKey = "markerDimming.headings"
-    static let bulletsKey = "markerDimming.bullets"
-    static let checkboxesKey = "markerDimming.checkboxes"
-    static let fencesKey = "markerDimming.fences"
+    static let headingsKey = SettingKeys.Writing.headingMarkers.name
+    static let bulletsKey = SettingKeys.Writing.bulletMarkers.name
+    static let checkboxesKey = SettingKeys.Writing.checkboxMarkers.name
+    static let fencesKey = SettingKeys.Writing.fenceMarkers.name
 }
 
 #if canImport(UIKit)

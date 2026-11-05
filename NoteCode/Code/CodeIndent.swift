@@ -18,10 +18,10 @@ nonisolated enum CodeIndent {
     // MARK: The setting
 
     /// Settings › Code › Indent Width. Per device.
-    static let widthKey = "indentWidth"
+    static let widthKey = SettingKeys.Code.indentWidth.name
 
     static let widths = [2, 4]
-    static let defaultWidth = 4
+    static let defaultWidth = SettingKeys.Code.indentWidth.defaultValue
 
     /// A stored width, or 4 for one the picker can't have made.
     static func validWidth(_ stored: Int?) -> Int {

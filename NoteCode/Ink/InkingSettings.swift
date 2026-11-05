@@ -55,14 +55,14 @@ nonisolated struct InkingSettings: Hashable, Sendable {
     /// Where a tool's settings are stored. The pen's and the highlighter's,
     /// and nothing for the other tools.
     static func defaultsKey(for kind: InkToolKind) -> String {
-        kind == .highlighter ? "highlighterSettings" : "penSettings"
+        SettingKeys.Drawing.inking(for: kind).name
     }
 
     /// What a tool starts on, before the reader has chosen: the pen in black,
     /// and the highlighter in yellow, since graphite, first in its palette,
     /// is the least like one.
     static func standard(for kind: InkToolKind) -> InkingSettings {
-        InkingSettings(color: kind == .highlighter ? InkColor.highlighterYellow : .black)
+        SettingKeys.Drawing.inking(for: kind).defaultValue
     }
 }
 
@@ -93,7 +93,7 @@ nonisolated enum SelectionKind: String, CaseIterable, Sendable {
     case lasso
     case rectangle
 
-    static let defaultsKey = "selectionKind"
+    static let defaultsKey = SettingKeys.Drawing.selectionKind.name
 
     var title: String {
         switch self {

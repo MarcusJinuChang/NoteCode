@@ -146,12 +146,12 @@ final class NoteEditor {
     /// Where the device keeps `fingerDraws`, so it carries over from note to
     /// note and across launches (`InkToolPersistence`). Stored the way the
     /// button says it, so a device that has never set it reads `true`.
-    static let fingerDrawsKey = "fingerDraws"
+    static let fingerDrawsKey = SettingKeys.Drawing.fingerDraws.name
 
     /// Settings › Drawing › After a Selection: back to the tool before the
     /// Select tool once the selection ends by the reader's choice. Off
     /// unless chosen.
-    static let returnToPreviousToolKey = "returnToPreviousTool"
+    static let returnToPreviousToolKey = SettingKeys.Drawing.returnToPreviousTool.name
 
     /// Whether the selection ending sends the reader back to their tool.
     /// Per device (`InkToolPersistence`).

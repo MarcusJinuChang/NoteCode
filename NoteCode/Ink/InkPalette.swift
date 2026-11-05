@@ -120,14 +120,14 @@ nonisolated extension InkColor {
 nonisolated extension InkPalette {
 
     /// What a new device's pen starts with.
-    static let standard = InkPalette(InkColor.penShades.map(\.color))
+    static let standard = SettingKeys.Drawing.penPalette.defaultValue
 
     /// What a new device's highlighter starts with.
-    static let standardHighlighter = InkPalette(InkColor.highlighterShades.map(\.color))
+    static let standardHighlighter = SettingKeys.Drawing.highlighterPalette.defaultValue
 
     /// What a tool starts with. A device that has saved a palette keeps it:
     /// `@AppStorage` reads this only where nothing is stored.
     static func standard(for kind: InkToolKind) -> InkPalette {
-        kind == .highlighter ? standardHighlighter : standard
+        SettingKeys.Drawing.palette(for: kind).defaultValue
     }
 }
