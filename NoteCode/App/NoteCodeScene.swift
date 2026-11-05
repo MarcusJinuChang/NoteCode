@@ -102,7 +102,9 @@ struct StorageUnavailableView: View {
 #if DEBUG
 /// The edition's `debugRoot`, outside everything else on the root view.
 private struct DebugRoot: ViewModifier {
-    let wrap: @MainActor @Sendable (AnyView) -> AnyView
+    // Not @Sendable: the modifier only calls it on the main actor, and the
+    // scene's copy of `debugRoot` reads as non-Sendable to the compiler.
+    let wrap: @MainActor (AnyView) -> AnyView
 
     func body(content: Content) -> some View {
         wrap(AnyView(content))
