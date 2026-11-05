@@ -113,7 +113,7 @@ nonisolated enum AppInfo {
 
     /// What the reader holds, for "on this iPad" and the like: an iPad, or an
     /// iPhone (the Duo is one). Set once at launch, before any of it shows
-    /// (`NoteCodeApp.init`), since `UIDevice` is the main actor's and the
+    /// (`NoteCodeScene.init`), since `UIDevice` is the main actor's and the
     /// strings are read from anywhere. Tests read the iPad's.
     nonisolated(unsafe) static var deviceName = "iPad"
 

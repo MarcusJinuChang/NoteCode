@@ -13,7 +13,7 @@
 #                     line coverage per top-level folder of NoteCode/.
 #
 # Every test run has a 120s per-test allowance. Runs scripts/lint-traps.sh
-# first once it exists. Fails on a failing test, a build error, or more
+# and scripts/check-seam.sh first once they exist. Fails on a failing test, a build error, or more
 # warnings than docs/refactor/baseline.md records (a line `WARNINGS <n>`): the
 # count may only fall. A warning is a unique `file:line:col: warning:` line, so
 # the source excerpts the compiler prints under it are not counted. Only files
@@ -44,6 +44,9 @@ log=$tmp/check.log bundle=$tmp/check.xcresult
 
 if [[ -x scripts/lint-traps.sh ]]; then
   print "lint:"; scripts/lint-traps.sh || rc=1
+fi
+if [[ -x scripts/check-seam.sh ]]; then
+  print "seam:"; scripts/check-seam.sh || rc=1
 fi
 
 take_lock
