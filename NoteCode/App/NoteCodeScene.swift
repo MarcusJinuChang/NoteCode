@@ -97,18 +97,3 @@ struct StorageUnavailableView: View {
         }
     }
 }
-
-#if DEBUG
-/// `-debug-paywall`: the paywall over whatever opens, for a screenshot.
-private struct DebugPaywall: ViewModifier {
-    @State private var shows = DebugLaunchOptions.current.paywall
-
-    func body(content: Content) -> some View {
-        content.sheet(isPresented: $shows) {
-            PaywallView(reason: "Explain Code and Summarise Note are part of NoteCode Pro.")
-                .environment(ProStatus.shared)
-                .modifier(AppearanceModifier())
-        }
-    }
-}
-#endif

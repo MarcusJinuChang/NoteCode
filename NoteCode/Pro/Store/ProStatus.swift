@@ -280,31 +280,3 @@ enum ProFailure: LocalizedError {
         }
     }
 }
-
-#if DEBUG
-/// `-debug-pro on|off`: Pro granted or not, with nothing asked of StoreKit.
-/// Buying grants it, so the paywall can be walked through either way.
-struct DebugProStore: ProStore {
-    let grants: Bool
-
-    private var granted: ProEntitlement {
-        ProEntitlement(productID: ProStatus.productID, expirationDate: Date().addingTimeInterval(30 * 86_400),
-                       revocationDate: nil, signedTransaction: "debug.jws.signature")
-    }
-
-    func product(id: String) async throws -> ProProduct? {
-        ProProduct(id: id, name: "NoteCode Pro", price: "$4.99")
-    }
-
-    func currentEntitlement(for id: String) async -> ProEntitlement? { grants ? granted : nil }
-
-    func purchase(id: String) async throws -> ProPurchaseOutcome {
-        try await Task.sleep(for: .milliseconds(600))
-        return .purchased(granted)
-    }
-
-    func sync() async throws {}
-
-    func updates(for id: String) -> AsyncStream<ProEntitlement> { AsyncStream { $0.finish() } }
-}
-#endif

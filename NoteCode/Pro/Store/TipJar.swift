@@ -176,19 +176,3 @@ struct StoreKitTipStore: TipStore {
         }
     }
 }
-
-#if DEBUG
-/// `-debug-tip-jar`: three tips at made-up prices, each thanked after a
-/// moment, with nothing charged and nothing asked of StoreKit.
-struct DebugTipStore: TipStore {
-    func tips(for ids: [String]) async throws -> [Tip] {
-        zip(ids, [("Small Tip", "$0.99", 0.99), ("Medium Tip", "$2.99", 2.99), ("Large Tip", "$4.99", 4.99)])
-            .map { Tip(id: $0, name: $1.0, price: $1.1, amount: Decimal($1.2)) }
-    }
-
-    func purchase(_ id: String) async throws -> TipOutcome {
-        try await Task.sleep(for: .milliseconds(600))
-        return .thanked
-    }
-}
-#endif
