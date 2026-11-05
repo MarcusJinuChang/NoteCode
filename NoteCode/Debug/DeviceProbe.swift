@@ -1,5 +1,5 @@
 //
-//  DebugProbe.swift
+//  DeviceProbe.swift
 //  NoteCode
 //
 //  `-debug-probe`: records what the system delivers to the app, in the app

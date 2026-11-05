@@ -97,7 +97,7 @@ struct ContentView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.requestReview) private var requestReview
-    @Environment(ProStatus.self) private var pro: ProStatus?
+    @Environment(\.appExtensions) private var extensions
 
 #if DEBUG
     /// True when a debug launch argument opened a note, in a store of its own
@@ -560,7 +560,7 @@ struct ContentView: View {
 #if DEBUG && canImport(UIKit)
         if DebugSession.shared.options.isActive { return }
 #endif
-        guard pro?.isPro == true || AdConsent.shared.trackingAnswered else { return }
+        guard extensions.mayAskForReview() else { return }
         let prompt = ReviewPrompt()
         let version = ReviewPrompt.version()
         guard prompt.isDue(version: version) else { return }
