@@ -93,6 +93,14 @@ struct DebugLaunchOptionsTests {
         #expect(options.problems.contains { $0.contains("-debug-pgae") })
     }
 
+    @Test("The probe arguments are known, so they aren't reported as unknown", arguments: [
+        "-debug-probe", "-debug-probe-snapshot", "-debug-probe-watch", "-debug-selection-probe",
+    ])
+    func probeArgumentsAreKnown(flag: String) {
+        let options = DebugLaunchOptions.parse([app, flag])
+        #expect(options.problems.isEmpty, "\(flag): \(options.problems)")
+    }
+
     @Test("Orientation without a seeded note is reported, since orientation belongs to a note")
     func orientationNeedsNote() {
         let options = DebugLaunchOptions.parse([app, "-debug-orientation", "landscape"])
