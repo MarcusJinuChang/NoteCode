@@ -23,8 +23,8 @@ final class RunFeature: EditorFeature {
     /// as the editor has the feature (`NoteEditor.features` is observed).
     let session = RunSession()
 
-    /// Opens the paywall: a free reader's Run, or a 402. The page's Run host
-    /// sets it (`RunPanelHost`).
+    /// Opens the paywall: a free reader's Run, from a block or the top bar,
+    /// or a 402. The feature's Run host sets it (`RunPanelHost`).
     var onNeedsPro: (() -> Void)?
 
     private let isPro: @MainActor () -> Bool
@@ -99,6 +99,45 @@ final class RunFeature: EditorFeature {
             return true
         case .redirect:
             return false
+        }
+    }
+
+    // MARK: On the page
+
+    /// The compact sheet, the free reader's paywall and the debug stub's
+    /// autorun, behind the page.
+    func pageAccessory() -> AnyView {
+        AnyView(RunPanelHost(feature: self, transaction: transaction))
+    }
+
+    /// The Notes | Run control, or a Run button where the bar has no room
+    /// for it. Nothing without a service.
+    func topBarItem(in layout: EditorPageLayout) -> AnyView? {
+        guard session.isAvailable else { return nil }
+        return AnyView(RunTopBarItem(
+            session: session, layout: layout, isPro: isPro,
+            onSelect: { [weak self] in self?.showRun($0) }
+        ))
+    }
+
+    /// The dock at the page's right, while the panel is open in a regular
+    /// width.
+    func sidePanel(in layout: EditorPageLayout) -> AnyView {
+        AnyView(RunSidePanel(
+            session: session, layout: layout, transaction: transaction,
+            onShow: { [weak self] in self?.editor?.scroll(toLineAt: $0.location) }
+        ))
+    }
+
+    /// The top bar's choice: back to the note, the panel for Pro, or the
+    /// paywall for a free reader.
+    func showRun(_ wantsRun: Bool) {
+        if !wantsRun {
+            withAnimation(.snappy) { session.isOpen = false }
+        } else if isPro() {
+            withAnimation(.snappy) { session.isOpen = true; session.isCollapsed = false }
+        } else {
+            onNeedsPro?()
         }
     }
 

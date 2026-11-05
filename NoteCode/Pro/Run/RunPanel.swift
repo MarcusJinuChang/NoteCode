@@ -500,45 +500,103 @@ private extension View {
     }
 }
 
-// MARK: - The host
+// MARK: - On the note's page
 
-/// What a note window adds for Run: the paywall's opening, the bottom sheet
-/// in a compact width, the free reader's paywall, and the debug stub's
-/// autorun. The runner is the feature's (`RunFeature`).
-struct RunPanelHost: ViewModifier {
-    var editor: NoteEditor
-    var isCompact: Bool
-    @Binding var showsRunPaywall: Bool
-    @Binding var windowWidth: CGFloat
+/// Run's item in the note's top bar (`RunFeature.topBarItem`).
+struct RunTopBarItem: View {
+    var session: RunSession
+    var layout: EditorPageLayout
+    var isPro: @MainActor () -> Bool
+    var onSelect: (Bool) -> Void
+
+    var body: some View {
+        if layout.isCompact || (layout.windowWidth > 0 && layout.windowWidth < HomeLayout.regularMinimumWidth) {
+            // A phone's bar has no room for the switch beside the
+            // title, and the overflow menu it goes to drops a picker
+            // (iPhone 17, 31 Oct): a button lands there as a row. A
+            // narrow regular window too, where the switch cut the
+            // title to "Week 6 · Has…" (an upright Duo, 669pt).
+            Button(session.isOpen ? "Back to Notes" : "Run", systemImage: session.isOpen ? "doc.text" : "play") {
+                onSelect(!session.isOpen)
+            }
+        } else {
+            NotesRunToggle(
+                isRun: session.isOpen,
+                showsProMark: !isPro(),
+                onSelect: onSelect
+            )
+        }
+    }
+}
+
+/// The dock beside the page while the panel is open, in a regular width
+/// (`RunFeature.sidePanel`); a compact width has the sheet instead.
+struct RunSidePanel: View {
+    var session: RunSession
+    var layout: EditorPageLayout
+    var transaction: () -> String
+    var onShow: (RunBlock) -> Void
+
+    var body: some View {
+        if session.isOpen, !layout.isCompact {
+            RunDock(
+                session: session,
+                transaction: transaction,
+                onShow: onShow,
+                availableWidth: layout.windowWidth
+            )
+            .transition(.move(edge: .trailing))
+        }
+    }
+}
+
+/// What a note's page keeps behind it for Run (`RunFeature.pageAccessory`):
+/// the paywall's opening, the bottom sheet in a compact width, the free
+/// reader's paywall, and the debug stub's autorun. The runner is the
+/// feature's.
+struct RunPanelHost: View {
+    let feature: RunFeature
     /// The signed transaction each run sends (`ProGate.signedTransaction`).
     var transaction: () -> String
 
-    func body(content: Content) -> some View {
-        content
-            // Again when the feature arrives: the page installs its features
-            // as it appears.
-            .task(id: editor.feature(RunFeature.self).map(ObjectIdentifier.init)) {
-                guard let feature = editor.feature(RunFeature.self) else { return }
+    /// Run was chosen by a free reader: the paywall opens, with Run's reason,
+    /// instead of the panel.
+    @State private var showsRunPaywall = false
+
+#if os(iOS)
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    private var isCompact: Bool { sizeClass == .compact }
+#else
+    private var isCompact: Bool { false }
+#endif
+
+    private var session: RunSession { feature.session }
+
+    var body: some View {
+        Color.clear
+            .accessibilityHidden(true)
+            .allowsHitTesting(false)
+            .task {
                 // The binding alone: the feature is the editor's, so a hook
                 // that held this host would hold the editor (F1).
                 feature.onNeedsPro = { [paywall = $showsRunPaywall] in paywall.wrappedValue = true }
 #if DEBUG
                 if ProDebugOptions.current.runStub != nil {
                     try? await Task.sleep(for: .seconds(1))
-                    feature.session.isOpen = true
-                    feature.session.run(transaction: transaction())
+                    session.isOpen = true
+                    session.run(transaction: transaction())
                 }
 #endif
             }
             .sheet(isPresented: Binding(
-                get: { editor.run?.isOpen == true && isCompact },
-                set: { if !$0 { editor.run?.isOpen = false } }
+                get: { session.isOpen && isCompact },
+                set: { if !$0 { session.isOpen = false } }
             )) {
-                if let session = editor.run {
-                    RunPanel(session: session, transaction: transaction, onShow: { editor.scroll(toLineAt: $0.location) })
-                        .presentationDetents([.medium, .large])
-                        .presentationBackgroundInteraction(.enabled(upThrough: .medium))
-                }
+                RunPanel(session: session, transaction: transaction, onShow: { [weak feature] in
+                    feature?.editor?.scroll(toLineAt: $0.location)
+                })
+                .presentationDetents([.medium, .large])
+                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
             }
             .paywall(isPresented: $showsRunPaywall, reason: ProGate.Reason.runInApp)
     }

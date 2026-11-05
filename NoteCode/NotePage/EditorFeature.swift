@@ -63,6 +63,15 @@ protocol EditorFeature: AnyObject {
     /// around it, so installing a feature never rebuilds the page.
     func pageAccessory() -> AnyView
 
+    /// An item in the note's top bar, before Share, or nil for none. The
+    /// page puts it in a `.primaryAction` item of its own.
+    func topBarItem(in layout: EditorPageLayout) -> AnyView?
+
+    /// A panel at the page's trailing edge, beside it: whatever width it
+    /// takes comes out of the page's area. Empty while it shows nothing; it
+    /// brings its own transition.
+    func sidePanel(in layout: EditorPageLayout) -> AnyView
+
     /// A block's Run, from its button, the edit menu or ⌘R, once its
     /// language is known to run. True when the feature took it; otherwise
     /// the next feature is asked, and then the block opens on a compiler
@@ -80,9 +89,20 @@ protocol EditorFeature: AnyObject {
 extension EditorFeature {
     func actions(for target: EditorActionTarget) -> [EditorAction] { [] }
     func pageAccessory() -> AnyView { AnyView(EmptyView()) }
+    func topBarItem(in layout: EditorPageLayout) -> AnyView? { nil }
+    func sidePanel(in layout: EditorPageLayout) -> AnyView { AnyView(EmptyView()) }
     func run(_ target: CodeBlockTarget, from textView: UITextView) -> Bool { false }
     func blocksDidChange(_ targets: [CodeBlockTarget]) {}
     func connect(_ services: EditorServices) {}
+}
+
+/// What the note's page says about the room it has, for a feature's top-bar
+/// item and side panel.
+struct EditorPageLayout: Equatable {
+    /// A compact width: the hotbar at the bottom, and no room beside the page.
+    var isCompact: Bool
+    /// The window's width, measured by the page; 0 until it is known.
+    var windowWidth: CGFloat
 }
 
 /// What the text view's coordinator does for a feature: general services,

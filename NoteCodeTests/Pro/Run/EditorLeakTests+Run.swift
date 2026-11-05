@@ -34,7 +34,7 @@ extension EditorLeakTests {
         #expect(feature == nil, "RunFeature still alive")
     }
 
-    /// The note window's Run host sets the feature's way to the paywall.
+    /// Run's host, behind the note's page, sets the feature's way to the paywall.
     /// That closure is kept by the feature the editor keeps, so it mustn't
     /// hold the editor (F1).
     @Test("The Run host lets its note's editor go")
@@ -102,11 +102,12 @@ private struct RunHostWindow: View {
     }
 }
 
-/// The part of a note window that hosts Run, with the editor in `@State`
-/// as `PageDetailView` keeps it.
+/// The part of a note window that hosts Run, shaped as `PageDetailView`
+/// has it: the editor in `@State`, each feature's side panel beside the
+/// page (`sidePanelLayout`), and each feature's accessory behind it, which
+/// for Run is the host with its own paywall flag.
 private struct RunHostProbe: View {
     @State private var editor: NoteEditor
-    @State private var showsRunPaywall = false
     @State private var windowWidth: CGFloat = 800
 
     init(editor: NoteEditor) {
@@ -114,10 +115,17 @@ private struct RunHostProbe: View {
     }
 
     var body: some View {
-        Color.clear.modifier(RunPanelHost(
-            editor: editor, isCompact: false, showsRunPaywall: $showsRunPaywall,
-            windowWidth: $windowWidth, transaction: { "" }
-        ))
+        HStack(spacing: 0) {
+            Color.clear
+            ForEach(editor.features.indices, id: \.self) { index in
+                editor.features[index].sidePanel(in: EditorPageLayout(isCompact: false, windowWidth: windowWidth))
+            }
+        }
+        .background {
+            ForEach(editor.features.indices, id: \.self) { index in
+                editor.features[index].pageAccessory()
+            }
+        }
     }
 }
 

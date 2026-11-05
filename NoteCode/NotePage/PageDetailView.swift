@@ -61,11 +61,9 @@ struct PageDetailView: View {
     /// note opens: the page then writes its own place back as it is read.
     @State private var resumingAtPage: Int?
 
-    /// The window's width, for the Run dock's half-window limit.
+    /// The window's width, for the features' top-bar item and side panel
+    /// (`EditorPageLayout`).
     @State var windowWidth: CGFloat = 0
-    /// Run was chosen by a free reader: the paywall opens, with Run's reason,
-    /// instead of the panel (`RunPanelHost` presents it).
-    @State var showsRunPaywall = false
 
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.displayScale) private var screenScale
@@ -210,7 +208,7 @@ struct PageDetailView: View {
                     .padding(.vertical, 8)
             }
 #endif
-            runLayout
+            sidePanelLayout
         }
         .navigationTitle(Binding(get: { page.displayTitle }, set: { page.rename(to: $0) }))
 #if os(iOS)
@@ -236,19 +234,13 @@ struct PageDetailView: View {
         .toolbarBackground(.visible, for: .navigationBar)
 #endif
 
-#if canImport(UIKit)
-        .modifier(RunPanelHost(
-            editor: editor, isCompact: isCompact, showsRunPaywall: $showsRunPaywall,
-            windowWidth: $windowWidth, transaction: { ProGate.signedTransaction }
-        ))
-#endif
         .sheet(isPresented: $showsInfo) {
             NoteInfoView(page: page, pageCount: openPageCount)
         }
 #if canImport(UIKit)
         // Each feature's sheets and settings, behind the page so that
         // installing one doesn't rebuild it (the assistant's result sheet
-        // and paywall).
+        // and paywall, Run's compact sheet and paywall).
         .background {
             ForEach(editor.features.indices, id: \.self) { index in
                 editor.features[index].pageAccessory()
@@ -371,7 +363,7 @@ struct PageDetailView: View {
         }
 
 #if canImport(UIKit)
-        runToggleItem
+        featureTopBarItem
 
         ToolbarItem(placement: .primaryAction) {
             NoteShareButton(editor: editor, title: page.displayTitle, fallbackText: page.content)
@@ -715,7 +707,7 @@ struct PageDetailView: View {
             .disabled(page.isTextLocked)
     }
 
-    private var runLayout: some View { content }
+    private var sidePanelLayout: some View { content }
 #endif
 }
 
