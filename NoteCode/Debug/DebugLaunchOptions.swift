@@ -5,7 +5,9 @@
 //  Launch arguments that open a debug build in a known state, parsed from the
 //  process's arguments. What they do is in DebugSeed.swift and
 //  DebugSession.swift; the report of what ends up on screen is in
-//  DebugStateReport.swift. Debug builds only.
+//  DebugStateReport.swift. An edition adds its own options as a
+//  `DebugOptionGroup` (the App Store's: Pro/Debug/ProDebugOptions.swift).
+//  Debug builds only.
 //
 
 #if DEBUG
@@ -20,7 +22,7 @@ import Foundation
 /// `-pageViewMode print` would set the mode with no code at all, but launch
 /// arguments outrank saved settings, so choosing a mode from the view menu
 /// would then appear to do nothing for the whole session.
-nonisolated struct DebugLaunchOptions: Equatable, Sendable {
+nonisolated struct DebugLaunchOptions: Sendable {
 
     enum Note: Equatable, Sendable {
         case fixture(DebugFixture)
@@ -54,15 +56,9 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
     /// Leave the saved flags and remembered places alone, which `-debug-home`
     /// otherwise clears: for a run on a device with someone's own notes.
     var keepsDefaults = false
-    /// The tip jar with stand-in tips, so its row and sheet can be looked at
-    /// without the products in App Store Connect (`DebugTipStore`).
-    var tipJar = false
-    var paywall = false
-    /// Pro on or off, with nothing asked of StoreKit (`DebugProStore`).
-    var pro: Bool?
-    /// Run answers with a canned result and the panel opens on the first
-    /// block and runs it (`DebugRunStub`).
-    var runStub: DebugRunStubKind?
+
+    /// What the edition's groups read, one value per group passed to `parse`.
+    private(set) var groups: [any DebugOptionGroup] = []
 
     /// Arguments that couldn't be used. Reported rather than ignored, so a
     /// typo can't pass for a check that ran.
@@ -70,136 +66,217 @@ nonisolated struct DebugLaunchOptions: Equatable, Sendable {
 
     var isActive: Bool {
         note != nil || mode != nil || orientation != nil || textSize != nil || page != nil || thenMode != nil
-            || writesReport || firstLaunch || home || tipJar || paywall || pro != nil || runStub != nil
+            || writesReport || firstLaunch || home || groups.contains { $0.isActive }
     }
 
-    static let current = parse(ProcessInfo.processInfo.arguments)
+    /// What `group` read, or `nil` if it wasn't passed to `parse`.
+    func group<Group: DebugOptionGroup>(_ group: Group.Type) -> Group? {
+        for value in groups {
+            if let value = value as? Group { return value }
+        }
+        return nil
+    }
 
-    static func parse(_ arguments: [String]) -> DebugLaunchOptions {
+    /// The edition's option groups. Its `@main` sets them before anything
+    /// reads `current`: `TipJar.shared`, made with the App Store's
+    /// extensions, reads it first, and an option whose group isn't here yet
+    /// would be reported as an unknown argument.
+    nonisolated(unsafe) static var editionGroups: [any DebugOptionGroup.Type]?
+
+    static let current: DebugLaunchOptions = {
+        assert(editionGroups != nil, "DebugLaunchOptions.current was read before the edition set editionGroups")
+        return parse(ProcessInfo.processInfo.arguments, groups: editionGroups ?? [])
+    }()
+
+    /// Walks `arguments` once, offering each flag to the general groups and
+    /// then to `groups`. A `-debug-` flag no group takes is an unknown
+    /// argument.
+    static func parse(_ arguments: [String], groups: [any DebugOptionGroup.Type] = []) -> DebugLaunchOptions {
         var options = DebugLaunchOptions()
-        var index = 0
+        options.groups = groups.map { $0.init() }
+        var reader = DebugArguments(arguments)
 
-        /// The argument after `flag`, if there is one that isn't another flag.
-        func value(for flag: String) -> String? {
-            guard index + 1 < arguments.count, !arguments[index + 1].hasPrefix("-") else {
-                options.problems.append("\(flag) needs a value")
-                return nil
+        while let flag = reader.flag {
+            let taken = options.takeNoteOption(flag, from: &reader)
+                || options.takeLayoutOption(flag, from: &reader)
+                || options.takeLaunchOption(flag)
+                || isProbeFlag(flag)
+                || options.offerToGroups(flag, from: &reader)
+            if !taken && flag.hasPrefix("-debug-") {
+                reader.problems.append("unknown argument \(flag)")
             }
-            index += 1
-            return arguments[index]
+            reader.advance()
         }
 
-        func choice<T: RawRepresentable & CaseIterable>(_ raw: String?, for flag: String) -> T? where T.RawValue == String {
-            guard let raw else { return nil }
-            if let parsed = T(rawValue: raw) { return parsed }
-            let expected = T.allCases.map(\.rawValue).joined(separator: ", ")
-            options.problems.append("\(flag): \"\(raw)\" isn't one of \(expected)")
+        options.problems = reader.problems
+        options.checkAcrossOptions(arguments)
+        return options
+    }
+
+    // MARK: - The general groups
+
+    /// The seeded note: which note, its orientation, text size and ink.
+    private mutating func takeNoteOption(_ flag: String, from reader: inout DebugArguments) -> Bool {
+        switch flag {
+        case "-debug-note":
+            if let fixture: DebugFixture = reader.choice(for: flag) {
+                setNote(.fixture(fixture), problems: &reader.problems)
+            }
+        case "-debug-note-file":
+            if let path = reader.value(for: flag) {
+                setNote(.file(path), problems: &reader.problems)
+            }
+        case "-debug-orientation":
+            orientation = reader.choice(for: flag)
+        case "-debug-text-size":
+            if let raw = reader.value(for: flag) {
+                if let size = Int(raw), NoteTypography.sizes.contains(size) {
+                    textSize = size
+                } else {
+                    reader.problems.append("\(flag): \"\(raw)\" isn't one of \(NoteTypography.sizes.map(String.init).joined(separator: ", "))")
+                }
+            }
+        case "-debug-ink-file":
+            inkFile = reader.value(for: flag)
+        default:
+            return false
+        }
+        return true
+    }
+
+    private mutating func setNote(_ note: Note, problems: inout [String]) {
+        if self.note != nil {
+            problems.append("more than one note given; using the last")
+        }
+        self.note = note
+    }
+
+    /// The view mode, the page, the switch after settling, and the report.
+    private mutating func takeLayoutOption(_ flag: String, from reader: inout DebugArguments) -> Bool {
+        switch flag {
+        case "-debug-mode":
+            mode = reader.choice(for: flag)
+        case "-debug-page":
+            if let raw = reader.value(for: flag) {
+                if let number = Int(raw), number >= 1 {
+                    page = number
+                } else {
+                    reader.problems.append("\(flag): \"\(raw)\" isn't a page number from 1")
+                }
+            }
+        case "-debug-then-mode":
+            thenMode = reader.choice(for: flag)
+        case "-debug-then-delay":
+            if let raw = reader.value(for: flag) {
+                if let seconds = Double(raw), seconds >= 0 {
+                    thenDelay = seconds
+                } else {
+                    reader.problems.append("\(flag): \"\(raw)\" isn't a number of seconds")
+                }
+            }
+        case "-debug-report":
+            writesReport = true
+        default:
+            return false
+        }
+        return true
+    }
+
+    /// A first launch, Home, and whether to leave the saved flags alone.
+    private mutating func takeLaunchOption(_ flag: String) -> Bool {
+        switch flag {
+        case "-debug-first-launch": firstLaunch = true
+        case "-debug-home":         home = true
+        case "-debug-keep-defaults": keepsDefaults = true
+        default:                    return false
+        }
+        return true
+    }
+
+    /// Read by DeviceProbe and SelectionProbe themselves; known here only so
+    /// the report doesn't call them unknown.
+    private static func isProbeFlag(_ flag: String) -> Bool {
+        ["-debug-probe", "-debug-probe-snapshot", "-debug-probe-watch", "-debug-selection-probe"].contains(flag)
+    }
+
+    private mutating func offerToGroups(_ flag: String, from reader: inout DebugArguments) -> Bool {
+        for index in groups.indices {
+            if groups[index].take(flag, from: &reader) { return true }
+        }
+        return false
+    }
+
+    /// Checks between options of the general groups, once every argument is read.
+    private mutating func checkAcrossOptions(_ arguments: [String]) {
+        if orientation != nil && note == nil {
+            problems.append("-debug-orientation applies to a seeded note; add -debug-note")
+        }
+        if textSize != nil && note == nil {
+            problems.append("-debug-text-size applies to a seeded note; add -debug-note")
+        }
+        if firstLaunch && home {
+            problems.append("-debug-first-launch and -debug-home both given; using -debug-first-launch")
+            home = false
+        }
+        if (firstLaunch || home) && note != nil {
+            problems.append("-debug-first-launch and -debug-home show what is there with no note open; the note given opens instead")
+            firstLaunch = false
+            home = false
+        }
+        if arguments.contains("-debug-then-delay") && thenMode == nil {
+            problems.append("-debug-then-delay does nothing without -debug-then-mode")
+        }
+    }
+}
+
+// MARK: - Groups
+
+/// Options an edition adds to the general ones. `parse` offers each flag the
+/// general groups don't take to every group it was given.
+nonisolated protocol DebugOptionGroup: Sendable {
+    init()
+
+    /// Takes `flag` if this group owns it, reading any value from
+    /// `arguments`, and returns whether it did.
+    mutating func take(_ flag: String, from arguments: inout DebugArguments) -> Bool
+
+    /// Whether any of this group's options was given.
+    var isActive: Bool { get }
+}
+
+/// The arguments being parsed, where `parse` is in them, and what couldn't
+/// be used: what every group needs to read its flags' values.
+nonisolated struct DebugArguments {
+    private let arguments: [String]
+    private var index = 0
+    var problems: [String] = []
+
+    init(_ arguments: [String]) {
+        self.arguments = arguments
+    }
+
+    /// The argument being looked at, or `nil` past the end.
+    var flag: String? { index < arguments.count ? arguments[index] : nil }
+
+    mutating func advance() { index += 1 }
+
+    /// The argument after `flag`, if there is one that isn't another flag.
+    mutating func value(for flag: String) -> String? {
+        guard index + 1 < arguments.count, !arguments[index + 1].hasPrefix("-") else {
+            problems.append("\(flag) needs a value")
             return nil
         }
+        index += 1
+        return arguments[index]
+    }
 
-        func setNote(_ note: Note) {
-            if options.note != nil {
-                options.problems.append("more than one note given; using the last")
-            }
-            options.note = note
-        }
-
-        while index < arguments.count {
-            let flag = arguments[index]
-            switch flag {
-            case "-debug-note":
-                if let fixture: DebugFixture = choice(value(for: flag), for: flag) {
-                    setNote(.fixture(fixture))
-                }
-            case "-debug-note-file":
-                if let path = value(for: flag) {
-                    setNote(.file(path))
-                }
-            case "-debug-mode":
-                options.mode = choice(value(for: flag), for: flag)
-            case "-debug-orientation":
-                options.orientation = choice(value(for: flag), for: flag)
-            case "-debug-text-size":
-                if let raw = value(for: flag) {
-                    if let size = Int(raw), NoteTypography.sizes.contains(size) {
-                        options.textSize = size
-                    } else {
-                        options.problems.append("\(flag): \"\(raw)\" isn't one of \(NoteTypography.sizes.map(String.init).joined(separator: ", "))")
-                    }
-                }
-            case "-debug-page":
-                if let raw = value(for: flag) {
-                    if let number = Int(raw), number >= 1 {
-                        options.page = number
-                    } else {
-                        options.problems.append("\(flag): \"\(raw)\" isn't a page number from 1")
-                    }
-                }
-            case "-debug-ink-file":
-                options.inkFile = value(for: flag)
-            case "-debug-then-mode":
-                options.thenMode = choice(value(for: flag), for: flag)
-            case "-debug-then-delay":
-                if let raw = value(for: flag) {
-                    if let seconds = Double(raw), seconds >= 0 {
-                        options.thenDelay = seconds
-                    } else {
-                        options.problems.append("\(flag): \"\(raw)\" isn't a number of seconds")
-                    }
-                }
-            case "-debug-report":
-                options.writesReport = true
-            case "-debug-first-launch":
-                options.firstLaunch = true
-            case "-debug-home":
-                options.home = true
-            case "-debug-keep-defaults":
-                options.keepsDefaults = true
-            case "-debug-tip-jar":
-                options.tipJar = true
-            case "-debug-paywall":
-                options.paywall = true
-            case "-debug-pro":
-                if let raw = value(for: flag) {
-                    switch raw {
-                    case "on":  options.pro = true
-                    case "off": options.pro = false
-                    default:    options.problems.append("\(flag): \"\(raw)\" isn't on or off")
-                    }
-                }
-            case "-debug-run-stub":
-                options.runStub = choice(value(for: flag), for: flag)
-            case "-debug-probe", "-debug-probe-snapshot", "-debug-probe-watch", "-debug-selection-probe":
-                // Read by DebugProbe and SelectionProbe themselves; known
-                // here only so the report doesn't call them unknown.
-                break
-            default:
-                if flag.hasPrefix("-debug-") {
-                    options.problems.append("unknown argument \(flag)")
-                }
-            }
-            index += 1
-        }
-
-        if options.orientation != nil && options.note == nil {
-            options.problems.append("-debug-orientation applies to a seeded note; add -debug-note")
-        }
-        if options.textSize != nil && options.note == nil {
-            options.problems.append("-debug-text-size applies to a seeded note; add -debug-note")
-        }
-        if options.firstLaunch && options.home {
-            options.problems.append("-debug-first-launch and -debug-home both given; using -debug-first-launch")
-            options.home = false
-        }
-        if (options.firstLaunch || options.home) && options.note != nil {
-            options.problems.append("-debug-first-launch and -debug-home show what is there with no note open; the note given opens instead")
-            options.firstLaunch = false
-            options.home = false
-        }
-        if arguments.contains("-debug-then-delay") && options.thenMode == nil {
-            options.problems.append("-debug-then-delay does nothing without -debug-then-mode")
-        }
-        return options
+    /// The argument after `flag`, as one of `T`'s cases.
+    mutating func choice<T: RawRepresentable & CaseIterable>(for flag: String) -> T? where T.RawValue == String {
+        guard let raw = value(for: flag) else { return nil }
+        if let parsed = T(rawValue: raw) { return parsed }
+        let expected = T.allCases.map(\.rawValue).joined(separator: ", ")
+        problems.append("\(flag): \"\(raw)\" isn't one of \(expected)")
+        return nil
     }
 }
 

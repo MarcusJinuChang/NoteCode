@@ -69,6 +69,7 @@ struct NoteList: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.appExtensions) private var extensions
     @AppStorage(AccentPalette.defaultsKey) private var accent = ""
     @Environment(ToastCenter.self) private var toasts: ToastCenter?
     // Every note, deleted ones included: the sections and search leave out
@@ -325,7 +326,7 @@ struct NoteList: View {
             }
             .buttonStyle(.borderedProminent)
             Button("Open Welcome Note") {
-                selection = WelcomeNote.make(in: modelContext)
+                selection = WelcomeNote.make(in: modelContext, runLines: extensions.runLines)
             }
         }
     }

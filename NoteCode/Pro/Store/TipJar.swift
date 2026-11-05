@@ -66,7 +66,7 @@ final class TipJar {
     /// The one the app uses. Tests make their own.
     static let shared: TipJar = {
 #if DEBUG
-        if DebugLaunchOptions.current.tipJar { return TipJar(store: DebugTipStore()) }
+        if ProDebugOptions.current.tipJar { return TipJar(store: DebugTipStore()) }
 #endif
         return TipJar(store: StoreKitTipStore())
     }()

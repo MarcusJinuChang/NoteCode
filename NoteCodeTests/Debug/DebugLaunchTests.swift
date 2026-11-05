@@ -93,6 +93,12 @@ struct DebugLaunchOptionsTests {
         #expect(options.problems.contains { $0.contains("-debug-pgae") })
     }
 
+    @Test("An edition's option, with no group to take it, is an unknown argument")
+    func editionOptionWithoutItsGroup() {
+        let options = DebugLaunchOptions.parse([app, "-debug-pro", "on"])
+        #expect(options.problems.contains("unknown argument -debug-pro"))
+    }
+
     @Test("The probe arguments are known, so they aren't reported as unknown", arguments: [
         "-debug-probe", "-debug-probe-snapshot", "-debug-probe-watch", "-debug-selection-probe",
     ])

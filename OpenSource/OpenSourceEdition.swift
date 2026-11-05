@@ -12,7 +12,15 @@ import SwiftUI
 @main
 struct NoteCodeApp: App {
     // Made once, when the app starts: the scene's init opens the store.
-    private let scene = NoteCodeScene(extensions: .none)
+    private let scene: NoteCodeScene
+
+    init() {
+#if DEBUG
+        // No options beyond the general ones (DebugLaunchOptions.swift).
+        DebugLaunchOptions.editionGroups = []
+#endif
+        scene = NoteCodeScene(extensions: .none)
+    }
 
     var body: some Scene { scene }
 }

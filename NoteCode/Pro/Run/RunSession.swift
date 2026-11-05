@@ -310,7 +310,7 @@ enum RunServiceFactory {
     /// seen without a proxy.
     @MainActor static func make(service: URL? = AppInfo.runService) -> (any CodeRunning)? {
 #if DEBUG
-        if let kind = DebugLaunchOptions.current.runStub { return DebugRunStub(kind: kind) }
+        if let kind = ProDebugOptions.current.runStub { return DebugRunStub(kind: kind) }
 #endif
         return service.map { RunServiceClient(baseURL: $0) }
     }

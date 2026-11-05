@@ -77,7 +77,7 @@ final class ProStatus {
     /// The one the app uses. Tests make their own.
     static let shared: ProStatus = {
 #if DEBUG
-        if let pro = DebugLaunchOptions.current.pro { return ProStatus(store: DebugProStore(grants: pro)) }
+        if let pro = ProDebugOptions.current.pro { return ProStatus(store: DebugProStore(grants: pro)) }
 #endif
         return ProStatus(store: StoreKitProStore())
     }()

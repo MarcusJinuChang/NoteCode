@@ -389,7 +389,7 @@ struct RecentlyDeletedTests {
         note("Deleted", deletedDaysAgo: 2)
         try context.save()
 
-        #expect(WelcomeNote.makeOnFirstLaunch(in: context, defaults: defaults) == nil)
+        #expect(WelcomeNote.makeOnFirstLaunch(in: context, runLines: .compilerSite, defaults: defaults) == nil)
         #expect(try stored().count == 1)
     }
 

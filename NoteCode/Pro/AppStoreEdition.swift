@@ -10,7 +10,16 @@ import SwiftUI
 @main
 struct NoteCodeApp: App {
     // Made once, when the app starts: the scene's init opens the store.
-    private let scene = NoteCodeScene(extensions: .appStore)
+    private let scene: NoteCodeScene
+
+    init() {
+#if DEBUG
+        // Before `.appStore`, whose TipJar.shared is the first to read the
+        // launch arguments: a group set after that read isn't parsed.
+        DebugLaunchOptions.editionGroups = [ProDebugOptions.self]
+#endif
+        scene = NoteCodeScene(extensions: .appStore)
+    }
 
     var body: some Scene { scene }
 }
@@ -23,7 +32,7 @@ extension AppExtensions {
 
     /// The App Store edition over these objects; tests pass stand-ins.
     static func appStore(tipJar: TipJar, pro: ProStatus, consent: AdConsent) -> AppExtensions {
-        AppExtensions(
+        var extensions = AppExtensions(
             start: {
                 // Finishes tips that arrive outside a purchase, and asks the store
                 // for the tips, so the list's foot knows whether to offer them.
@@ -71,6 +80,14 @@ extension AppExtensions {
             },
             settingsAppeared: { await consent.settingsAppeared(pro: pro) },
             // Not while a free reader's tracking prompt is still to come.
-            mayAskForReview: { pro.isPro || consent.trackingAnswered })
+            mayAskForReview: { pro.isPro || consent.trackingAnswered },
+            runLines: RunLines(
+                note: "With NoteCode Pro, the run button runs it beside the page and shows what it prints.",
+                screen: "NoteCode Pro runs it beside the page."))
+#if DEBUG
+        extensions.debugResetKeys = [RunDisclosure.key]
+        extensions.debugRoot = { AnyView($0.modifier(DebugPaywall())) }
+#endif
+        return extensions
     }
 }

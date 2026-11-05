@@ -112,7 +112,7 @@ struct NoteListFirstRunTests {
     func firstLaunchMakesIt() throws {
         let defaults = freshDefaults()
 
-        let page = try #require(WelcomeNote.makeOnFirstLaunch(in: context, defaults: defaults))
+        let page = try #require(WelcomeNote.makeOnFirstLaunch(in: context, runLines: .compilerSite, defaults: defaults))
 
         #expect(page.title == "Welcome to NoteCode")
         #expect(page.content.hasPrefix("Type here like any note."))
@@ -126,10 +126,10 @@ struct NoteListFirstRunTests {
     @Test("It is made once: deleting it doesn't bring it back")
     func madeOnce() throws {
         let defaults = freshDefaults()
-        let page = try #require(WelcomeNote.makeOnFirstLaunch(in: context, defaults: defaults))
+        let page = try #require(WelcomeNote.makeOnFirstLaunch(in: context, runLines: .compilerSite, defaults: defaults))
 
         try Page.delete([page], from: context)
-        let again = WelcomeNote.makeOnFirstLaunch(in: context, defaults: defaults)
+        let again = WelcomeNote.makeOnFirstLaunch(in: context, runLines: .compilerSite, defaults: defaults)
 
         #expect(again == nil)
         #expect(count(Page.self) == 0)
@@ -140,7 +140,7 @@ struct NoteListFirstRunTests {
         let defaults = freshDefaults()
         context.insert(Page(title: "Lecture 1"))
 
-        #expect(WelcomeNote.makeOnFirstLaunch(in: context, defaults: defaults) == nil)
+        #expect(WelcomeNote.makeOnFirstLaunch(in: context, runLines: .compilerSite, defaults: defaults) == nil)
         #expect(defaults.bool(forKey: WelcomeNote.madeKey))
         #expect(count(Page.self) == 1)
     }
@@ -149,17 +149,17 @@ struct NoteListFirstRunTests {
     func foldersAlreadyThere() {
         context.insert(Folder(name: "CS133"))
 
-        #expect(WelcomeNote.makeOnFirstLaunch(in: context, defaults: freshDefaults()) == nil)
+        #expect(WelcomeNote.makeOnFirstLaunch(in: context, runLines: .compilerSite, defaults: freshDefaults()) == nil)
         #expect(count(Page.self) == 0)
     }
 
     @Test("Asking for it again makes a new note each time")
     func askedFor() {
         let defaults = freshDefaults()
-        WelcomeNote.makeOnFirstLaunch(in: context, defaults: defaults)
+        WelcomeNote.makeOnFirstLaunch(in: context, runLines: .compilerSite, defaults: defaults)
 
-        let second = WelcomeNote.make(in: context)
-        let third = WelcomeNote.make(in: context)
+        let second = WelcomeNote.make(in: context, runLines: .compilerSite)
+        let third = WelcomeNote.make(in: context, runLines: .compilerSite)
 
         #expect(second !== third)
         #expect(count(Page.self) == 3)
@@ -173,8 +173,8 @@ struct NoteListFirstRunTests {
         lecture.modifiedAt = long
         context.insert(lecture)
 
-        WelcomeNote.make(in: context)
-        WelcomeNote.make(in: context)
+        WelcomeNote.make(in: context, runLines: .compilerSite)
+        WelcomeNote.make(in: context, runLines: .compilerSite)
 
         #expect(lecture.modifiedAt == long)
         #expect(lecture.createdAt == long)

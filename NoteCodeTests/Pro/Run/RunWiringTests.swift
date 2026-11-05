@@ -39,7 +39,7 @@ struct RunWiringTests {
     func noService() {
         #expect(RunRoute.route(hasRunner: false, isPro: false) == .redirect)
         #expect(RunRoute.route(hasRunner: false, isPro: true) == .redirect)
-        #expect(RunServiceFactory.make(service: nil) == nil || DebugLaunchOptions.current.runStub != nil)
+        #expect(RunServiceFactory.make(service: nil) == nil || ProDebugOptions.current.runStub != nil)
     }
 
     @Test("A free reader's tap reaches no service")
