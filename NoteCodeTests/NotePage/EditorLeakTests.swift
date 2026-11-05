@@ -48,6 +48,44 @@ struct EditorLeakTests {
         #expect(textView == nil, "Text view still alive")
         #expect(editor == nil, "NoteEditor still alive")
     }
+
+    /// The page's own wiring: `Coordinator.connect(_:to:)` hands the editor
+    /// closures that act on the text view. One the editor keeps that holds
+    /// the editor never lets it go (F1, 5 Nov). Run's feature as well:
+    /// `EditorLeakTests+Run.swift`.
+    @Test("A connected note's editor and coordinator are freed")
+    func connectedNoteIsFreed() async throws {
+        let refs = Self.openConnectedNote()
+        try await Task.sleep(for: .milliseconds(100))
+
+        #expect(refs.editor.value == nil, "NoteEditor still alive")
+        #expect(refs.coordinator.value == nil, "Coordinator still alive")
+    }
+
+    // MARK: Opening and closing
+
+    final class Weak<T: AnyObject> {
+        weak var value: T?
+        init(_ value: T?) { self.value = value }
+    }
+
+    /// A note opened through `EditorHarness`'s full wiring, which calls
+    /// `connect`, then closed: its page out of the window and the window
+    /// hidden. `inspect` sees the open note first.
+    static func openConnectedNote(
+        features: [EditorFeatureFactory] = [],
+        inspect: (EditorHarness) -> Void = { _ in }
+    ) -> (editor: Weak<NoteEditor>, coordinator: Weak<DocumentTextView.Coordinator>) {
+        autoreleasepool {
+            let harness = EditorHarness(features: features)
+            // The connection happened: ⌘R's hook is there.
+            #expect(harness.editor.runBlockAtCaret != nil)
+            inspect(harness)
+            harness.page.removeFromSuperview()
+            harness.window.isHidden = true
+            return (Weak(harness.editor), Weak(harness.coordinator))
+        }
+    }
 }
 
 #endif

@@ -42,7 +42,7 @@ extension DocumentTextView.Coordinator {
             refreshHeadingMarkers(in: textView)
         }
         // ⌘R and ⇧⌘C act on the block the caret is in, in text mode.
-        editor?.runBlockAtCaret = { [weak self, weak textView] in
+        editor?.runBlockAtCaret = { [weak self, weak textView, weak editor] in
             guard let self, let textView, editor?.mode == .text,
                   let target = target(atCaret: textView.selectedRange.location, in: textView)
             else { return }
@@ -51,13 +51,13 @@ extension DocumentTextView.Coordinator {
         // The features' services. The first parse came before the editor was
         // connected, so a feature reads the blocks as they are now.
         editor?.connectFeatures(featureServices(for: textView))
-        editor?.copyBlockAtCaret = { [weak self, weak textView] in
+        editor?.copyBlockAtCaret = { [weak self, weak textView, weak editor] in
             guard let self, let textView, editor?.mode == .text,
                   let target = target(atCaret: textView.selectedRange.location, in: textView)
             else { return }
             copy(target)
         }
-        editor?.codeBlockAtCaret = { [weak self, weak textView] in
+        editor?.codeBlockAtCaret = { [weak self, weak textView, weak editor] in
             guard let self, let textView, editor?.mode == .text else { return nil }
             return target(atCaret: textView.selectedRange.location, in: textView)
         }
@@ -71,7 +71,7 @@ extension DocumentTextView.Coordinator {
             guard let self, let textView, textView.isEditable, let edit = indentEdit(outdent: outdent, in: textView) else { return }
             apply(edit, to: textView)
         }
-        editor?.retagBlockAtCaret = { [weak self, weak textView] kind in
+        editor?.retagBlockAtCaret = { [weak self, weak textView, weak editor] kind in
             guard let self, let textView, editor?.mode == .text,
                   let target = target(atCaret: textView.selectedRange.location, in: textView)
             else { return }
