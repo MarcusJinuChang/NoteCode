@@ -39,4 +39,10 @@ struct AppExtensionsTests {
         #expect(AppExtensions.none.aboutRows().isEmpty)
         #expect(AppExtensions.none.mayAskForReview())
     }
+
+    @Test("With nothing added, Settings' list has no Pro row and Writing has no assistant section")
+    func settingsWithNone() {
+        #expect(AppExtensions.none.settings(at: .afterGeneral).isEmpty)
+        #expect(AppExtensions.none.settings(at: .writing).isEmpty)
+    }
 }

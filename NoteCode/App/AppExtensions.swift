@@ -50,6 +50,9 @@ struct AppExtensions: Sendable {
     /// system prompts never land on the same Home visit.
     var mayAskForReview: @MainActor @Sendable () -> Bool = { true }
 
+    /// Rows and sections in Settings, each with its place (`SettingsSection`).
+    var settingsSections: @MainActor @Sendable () -> [SettingsSection] = { [] }
+
     /// What the Welcome note and the title screen say Run does.
     var runLines = RunLines.compilerSite
 

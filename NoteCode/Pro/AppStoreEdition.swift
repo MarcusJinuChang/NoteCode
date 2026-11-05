@@ -84,6 +84,13 @@ extension AppExtensions {
             runLines: RunLines(
                 note: "With NoteCode Pro, the run button runs it beside the page and shows what it prints.",
                 screen: "NoteCode Pro runs it beside the page."))
+        // Pro second in Settings' list; the assistant at the end of Writing.
+        extensions.settingsSections = {
+            [SettingsSection(id: "pro", placement: .afterGeneral) {
+                NavigationLink { ProSettings() } label: { Label("Pro", systemImage: "star") }
+            },
+             SettingsSection(id: "assistant", placement: .writing) { AssistantSettingsSection() }]
+        }
 #if canImport(UIKit)
         // Explain Block, the options row's Explain and Summarise Note.
         extensions.editorFeatures = [AssistantFeature.factory()]
