@@ -4,7 +4,9 @@
 //
 //  What an upload to App Store Connect checks before a person ever sees the
 //  app. Each of these would bounce an upload or raise a question in review,
-//  and none of them shows up in the app itself.
+//  and none of them shows up in the app itself. These hold for both
+//  editions; what only the App Store edition ships (ads, tracking, the
+//  policy page's Run and ads sections) is in Pro/AppStoreReadinessTests+Pro.swift.
 //
 
 import Foundation
@@ -13,24 +15,6 @@ import Testing
 
 @Suite("Ready for the App Store", .tags(.library))
 struct AppStoreReadinessTests {
-
-    @Test("The privacy manifest ships in the app and declares what the ad SDK tracks")
-    func privacyManifest() throws {
-        let manifest = try Self.privacyManifest()
-
-        // Ads (P3): tracking is on, with the domains Google's SDK contacts,
-        // and every collected type is for third-party advertising, unlinked
-        // from the reader. Notes are never among them.
-        #expect(manifest["NSPrivacyTracking"] as? Bool == true)
-        let domains = try #require(manifest["NSPrivacyTrackingDomains"] as? [String])
-        #expect(domains.contains("doubleclick.net") && domains.contains("googlesyndication.com"))
-        let collected = try #require(manifest["NSPrivacyCollectedDataTypes"] as? [[String: Any]])
-        #expect(!collected.isEmpty)
-        for item in collected {
-            #expect(item["NSPrivacyCollectedDataTypeLinked"] as? Bool == false)
-            #expect(item["NSPrivacyCollectedDataTypePurposes"] as? [String] == ["NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising"])
-        }
-    }
 
     @Test("The manifest gives the app's own settings as its reason to read UserDefaults")
     func userDefaultsReason() throws {
@@ -48,20 +32,6 @@ struct AppStoreReadinessTests {
     @Test("The app says it uses only exempt encryption, so uploads skip the question")
     func exemptEncryption() {
         #expect(Bundle.main.object(forInfoDictionaryKey: "ITSAppUsesNonExemptEncryption") as? Bool == false)
-    }
-
-    @Test("The privacy policy link is https, and the drafted page covers Run and ads")
-    func privacyPolicyPage() throws {
-        #expect(AppInfo.privacyPolicy.scheme == "https")
-
-        // docs/site/privacy.md is the text published on gh-pages. Read it from
-        // the source tree; a tree that can't be found, or a page that isn't
-        // there, fails the test rather than skipping the check.
-        let page = TestPaths.repoRoot.appendingPathComponent("docs/site/privacy.md")
-        let text = try String(contentsOf: page, encoding: .utf8)
-        for phrase in ["Judge0", "Running code in the app", "Ads", "tracking", "Pro"] {
-            #expect(text.contains(phrase), "privacy.md should mention \(phrase)")
-        }
     }
 
     @Test("The app declares no background modes, since it uses none")
@@ -95,8 +65,9 @@ struct AppStoreReadinessTests {
 #endif
 
     /// The manifest as the app carries it. Tests run inside the app, so
-    /// `Bundle.main` is the app's bundle, not the test bundle's.
-    private static func privacyManifest() throws -> [String: Any] {
+    /// `Bundle.main` is the app's bundle, not the test bundle's. Internal:
+    /// the App Store edition's checks read it too (Pro/AppStoreReadinessTests+Pro.swift).
+    static func privacyManifest() throws -> [String: Any] {
         let url = try #require(Bundle.main.url(forResource: "PrivacyInfo", withExtension: "xcprivacy"))
         let data = try Data(contentsOf: url)
         return try #require(PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])

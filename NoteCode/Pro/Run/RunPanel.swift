@@ -592,13 +592,18 @@ struct RunPanelHost: View {
                 get: { session.isOpen && isCompact },
                 set: { if !$0 { session.isOpen = false } }
             )) {
-                RunPanel(session: session, transaction: transaction, onShow: { [weak feature] in
-                    feature?.editor?.scroll(toLineAt: $0.location)
-                })
+                RunPanel(session: session, transaction: transaction, onShow: Self.scroller(for: feature))
                 .presentationDetents([.medium, .large])
                 .presentationBackgroundInteraction(.enabled(upThrough: .medium))
             }
             .paywall(isPresented: $showsRunPaywall, reason: ProGate.Reason.runInApp)
+    }
+
+    /// Scrolls the note to a block. Holds the feature weakly, so the panel
+    /// never keeps the editor alive (F1). Made outside the sheet's closure,
+    /// which captures this host and with it the feature, strongly.
+    private static func scroller(for feature: RunFeature) -> (RunBlock) -> Void {
+        { [weak feature] in feature?.editor?.scroll(toLineAt: $0.location) }
     }
 }
 
