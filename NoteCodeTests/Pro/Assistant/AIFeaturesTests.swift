@@ -238,7 +238,7 @@ struct AIPromptTests {
 struct AIAssistantTests {
 
     private func assistant(_ model: FakeTextModel = FakeTextModel()) -> AIAssistant {
-        AIAssistant(client: model)
+        AIAssistant(client: model, isPro: { true })
     }
 
     @Test("It starts idle, streams, and ends done with the cleaned answer")
@@ -514,7 +514,7 @@ struct AISettingsTests {
     @Test("One apply hands every setting to the assistant, and a new job uses its length")
     @MainActor
     func apply() {
-        let ai = AIAssistant(client: FakeTextModel())
+        let ai = AIAssistant(client: FakeTextModel(), isPro: { true })
         AIFeatureSettings(isEnabled: false, length: .brief, insertStyle: .output).apply(to: ai)
         #expect(ai.settings == AIFeatureSettings(isEnabled: false, length: .brief, insertStyle: .output))
     }

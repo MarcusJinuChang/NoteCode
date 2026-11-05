@@ -23,7 +23,7 @@ extension AppExtensions {
 
     /// The App Store edition over these objects; tests pass stand-ins.
     static func appStore(tipJar: TipJar, pro: ProStatus, consent: AdConsent) -> AppExtensions {
-        AppExtensions(
+        var extensions = AppExtensions(
             start: {
                 // Finishes tips that arrive outside a purchase, and asks the store
                 // for the tips, so the list's foot knows whether to offer them.
@@ -72,5 +72,10 @@ extension AppExtensions {
             settingsAppeared: { await consent.settingsAppeared(pro: pro) },
             // Not while a free reader's tracking prompt is still to come.
             mayAskForReview: { pro.isPro || consent.trackingAnswered })
+#if canImport(UIKit)
+        // Explain Block, the options row's Explain and Summarise Note.
+        extensions.editorFeatures = [AssistantFeature.factory()]
+#endif
+        return extensions
     }
 }
