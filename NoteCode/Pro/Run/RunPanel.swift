@@ -519,7 +519,9 @@ struct RunPanelHost: ViewModifier {
             // as it appears.
             .task(id: editor.feature(RunFeature.self).map(ObjectIdentifier.init)) {
                 guard let feature = editor.feature(RunFeature.self) else { return }
-                feature.onNeedsPro = { showsRunPaywall = true }
+                // The binding alone: the feature is the editor's, so a hook
+                // that held this host would hold the editor (F1).
+                feature.onNeedsPro = { [paywall = $showsRunPaywall] in paywall.wrappedValue = true }
 #if DEBUG
                 if ProDebugOptions.current.runStub != nil {
                     try? await Task.sleep(for: .seconds(1))
