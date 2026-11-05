@@ -22,6 +22,12 @@ struct AppExtensions: Sendable {
     /// its own objects into the environment.
     var root: @MainActor @Sendable (AnyView) -> AnyView = { $0 }
 
+#if canImport(UIKit)
+    /// What each note's editor gains (`EditorFeature`), in the order their
+    /// actions are shown. `PageDetailView` installs them in its editor.
+    var editorFeatures: [EditorFeatureFactory] = []
+#endif
+
     /// Adds nothing.
     static let none = AppExtensions()
 }

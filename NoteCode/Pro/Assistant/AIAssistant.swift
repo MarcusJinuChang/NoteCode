@@ -86,10 +86,10 @@ final class AIAssistant {
     @ObservationIgnored private var generation = 0
 
     /// Whether the reader has Pro. The app's assistant reads `ProStatus`;
-    /// tests that aren't about the gate leave it open.
+    /// required, so no caller is Pro without saying so.
     @ObservationIgnored let isPro: @MainActor () -> Bool
 
-    init(client: any TextModelClient, isPro: @escaping @MainActor () -> Bool = { true }) {
+    init(client: any TextModelClient, isPro: @escaping @MainActor () -> Bool) {
         self.client = client
         self.isPro = isPro
     }

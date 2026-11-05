@@ -92,11 +92,9 @@ extension DocumentTextView.Coordinator {
             else { return }
             copy(target)
         }
-        editor?.explainBlockAtCaret = { [weak self, weak textView] in
-            guard let self, let textView, editor?.mode == .text,
-                  let target = target(atCaret: textView.selectedRange.location, in: textView)
-            else { return }
-            editor?.explain(target)
+        editor?.codeBlockAtCaret = { [weak self, weak textView] in
+            guard let self, let textView, editor?.mode == .text else { return nil }
+            return target(atCaret: textView.selectedRange.location, in: textView)
         }
         // The text options row's controls: the same edits as Tab, ⇧Tab and
         // a block's language button, one tap closer.

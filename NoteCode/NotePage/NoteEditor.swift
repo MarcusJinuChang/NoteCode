@@ -243,14 +243,37 @@ final class NoteEditor {
     @ObservationIgnored var presentNewFormula: ((_ display: Bool) -> Void)?
     @ObservationIgnored var copyBlockAtCaret: (() -> Void)?
 
-    /// The on-device assistant (Explain Code, Summarise Note). One per note,
-    /// like the editor; its settings arrive from `PageDetailView` through
-    /// `AIFeatureSettings.apply(to:)`.
-    @ObservationIgnored var ai = AIAssistant.system()
+    /// The code block the caret is in, in text mode; `nil` elsewhere. The
+    /// text view's coordinator sets this, as it does `runBlockAtCaret`: the
+    /// options row's feature actions act on it.
+    @ObservationIgnored var codeBlockAtCaret: (() -> CodeBlockTarget?)?
 
-    /// Explains the code block the caret is in, if it is in one. The text
-    /// view's coordinator sets this, as it does `runBlockAtCaret`.
-    @ObservationIgnored var explainBlockAtCaret: (() -> Void)?
+    /// What the edition adds to this editor (`EditorFeature`), in the order
+    /// their actions are shown. Empty for `NoteEditor()`.
+    private(set) var features: [any EditorFeature] = []
+    @ObservationIgnored private var featuresInstalled = false
+
+    init(features: [EditorFeatureFactory] = []) {
+        install(features)
+    }
+
+    /// Makes the features, once: a page that is handed its editor's features
+    /// after the editor was made (`PageDetailView`) calls this on appearing.
+    func install(_ factories: [EditorFeatureFactory]) {
+        guard !featuresInstalled, !factories.isEmpty else { return }
+        featuresInstalled = true
+        features = factories.map { $0(self) }
+    }
+
+    /// The installed feature of this type, if there is one.
+    func feature<F: EditorFeature>(_ type: F.Type) -> F? {
+        features.lazy.compactMap { $0 as? F }.first
+    }
+
+    /// Every feature's actions on `target` for one placement, in order.
+    func actions(for target: EditorActionTarget, in placement: EditorActionPlacement) -> [EditorAction] {
+        features.flatMap { $0.actions(for: target) }.filter { $0.placement == placement }
+    }
 
     /// Told after a code block's code is on the pasteboard, by the button, the
     /// edit menu or ⇧⌘C, so the page can say "Copied".

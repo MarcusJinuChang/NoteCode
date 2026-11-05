@@ -16,7 +16,16 @@ struct NoteCodeApp: App {
 }
 
 extension AppExtensions {
-    static let appStore = AppExtensions(
+    static let appStore: AppExtensions = {
+        var extensions = appStoreScene
+#if canImport(UIKit)
+        // Explain Block, the options row's Explain and Summarise Note.
+        extensions.editorFeatures = [AssistantFeature.factory()]
+#endif
+        return extensions
+    }()
+
+    private static let appStoreScene = AppExtensions(
         start: {
             // Finishes tips that arrive outside a purchase, and asks the store
             // for the tips, so the list's foot knows whether to offer them.

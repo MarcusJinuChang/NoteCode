@@ -83,12 +83,14 @@ extension DocumentTextView.Coordinator {
             Self.share(target.code, from: textView)
         })
 
-        // The on-device assistant. Left out when it is switched off or
-        // this iPad can never run it; otherwise the sheet says why not.
-        if let editor, editor.ai.offersFeatures, !target.isOutput {
-            actions.append(UIAction(title: editor.ai.isPro() ? "Explain Block" : "Explain Block (Pro)", image: UIImage(systemName: AIAction.explainBlock.systemImage)) { [weak editor] _ in
-                editor?.explain(target)
-            })
+        // What the edition adds (`EditorFeature`), after these: the
+        // assistant's Explain Block.
+        for action in editor?.actions(for: .codeBlock(target), in: .codeBlockMenu) ?? [] {
+            let item = UIAction(title: action.title, image: UIImage(systemName: action.symbol)) { _ in
+                action.perform()
+            }
+            if !action.isAvailable { item.attributes = .disabled }
+            actions.append(item)
         }
 
         return UIMenu(options: .displayInline, children: actions)
