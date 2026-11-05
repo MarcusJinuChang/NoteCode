@@ -24,6 +24,24 @@ pass; they are the acceptance a simulator can't give.
 | 2P4 | navigation: open a note, Home, the list in a compact width and back (`CompactScreen.path`, `SidebarPlan`); create from "+", from a template and from ⌘N; delete with Undo from the note (ContentView.swift:615–631) and from the list (NoteList.swift:772–793), and what each Undo reopens | No test names the toast's "Moved to Recently Deleted" today. `CompactLayoutTests` and `SidebarOnHomeTests` cover parts of navigation; extend, don't duplicate |
 | 2P5 | the ink tool's settings round trip: pen and highlighter width and colour, eraser mode and size, finger draws, return to previous tool, selection kind, written by the hotbar and read back by Settings › Drawing and a new note | `SettingsTests` pins the keys; nothing tests `InkToolPersistence` (Ink/HotbarPrimitives.swift:22) by name. Use `TestDefaults` |
 
+**The 2P4 tests can't be written without help** (found by T5, PR #163,
+4 Nov). Creating, deleting and Undo all live in private view state:
+ContentView's `selection`, `compactPath` and `@State toasts`,
+`newNote()` :436–457 and `delete(_:)` :615–631, and NoteList's
+`deletePages`/`announceMoved` :772–793. The pure parts (`CompactScreen.path`,
+`SidebarPlan`, `NewNotes.folder`, `Page.create`, `ToastCenter`) are tested
+already. There are two routes, and **2P4 has to choose one (open)**:
+
+- **A seam in app code.** Pass the `ToastCenter` in, and add a small model
+  object that the views hold, owning selection, the path, create and delete,
+  with the same for NoteList's delete. Unit tests then drive it through the
+  harness. That is an app change, so it lands in its own PR before the T5
+  tests.
+- **A UI test with no app change.** A `NoteCodeUITests` test launched with
+  `-debug-home` deletes a note from the note and from the list, presses the
+  toast's Undo, and checks what each one reopens. It runs only under
+  `check.sh --full`, not in the Fast plan a step runs.
+
 ## 2P1. `PageInkPipeline` out of `PageView` (three PRs; perf; Pencil after each)
 
 **Files.** PageView.swift: the ink state :152–175 (`inkState`,
