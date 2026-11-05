@@ -22,12 +22,13 @@ struct AdSlot: View {
     let placement: AdPlacement
     var opaque = false
     /// Absent (previews, tests) reads as Pro: no ad stack without a status.
+    /// Only its presence is read; whether it is Pro is `ProGate`'s.
     @Environment(ProStatus.self) private var pro: ProStatus?
     @State private var consent = AdConsent.shared
     @State private var showsPaywall = false
 
     var body: some View {
-        if adBannerShows(isPro: pro?.isPro ?? true, canRequestAds: consent.canRequestAds) {
+        if adBannerShows(isPro: pro == nil || ProGate.isPro, canRequestAds: consent.canRequestAds) {
             VStack(spacing: 0) {
                 AdBanner(unitID: placement.unitID(), personalised: consent.personalised)
                 // Under the ad, in the slot's own strip, so it covers nothing.
@@ -44,9 +45,7 @@ struct AdSlot: View {
                         .ignoresSafeArea(edges: .bottom)
                 }
             }
-            .sheet(isPresented: $showsPaywall) {
-                PaywallView(reason: "Pro removes the ads.")
-            }
+            .paywall(isPresented: $showsPaywall, reason: ProGate.Reason.removesAds)
         }
     }
 }

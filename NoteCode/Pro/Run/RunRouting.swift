@@ -25,7 +25,7 @@ nonisolated enum RunRoute: Equatable, Sendable {
     /// - Parameters:
     ///   - hasRunner: there is a service to run on (`AppInfo.runService`).
     ///     Without one the app behaves as it did before R: no gate, no panel.
-    ///   - isPro: `ProStatus.isPro`, the only thing read for the gate.
+    ///   - isPro: `ProGate.isPro`, the only thing read for the gate.
     static func route(hasRunner: Bool, isPro: Bool) -> RunRoute {
         guard hasRunner else { return .redirect }
         return isPro ? .inApp : .paywall

@@ -214,9 +214,6 @@ final class NoteEditor {
     /// The Run panel's state for this note (RunPanel).
     @ObservationIgnored let run = RunSession()
 
-    /// The subscription, for Run's gate and its signed transaction. Set by
-    /// `PageDetailView`; `nil` reads as a free reader.
-    @ObservationIgnored var pro: ProStatus?
     /// Opens the paywall: a free reader's Run, or a 402.
     @ObservationIgnored var onRunNeedsPro: (() -> Void)?
 
@@ -227,7 +224,7 @@ final class NoteEditor {
         run.choose(block)
         run.tab = .output
         withAnimation(.snappy) { run.isOpen = true; run.isCollapsed = false }
-        run.run(transaction: pro?.signedTransaction ?? "")
+        run.run(transaction: ProGate.signedTransaction)
     }
 
     /// Wires the session to the subscription: a 402 means the subscription
@@ -236,7 +233,7 @@ final class NoteEditor {
         run.onNotSubscribed = { [weak self] in
             guard let self else { return }
             Task { @MainActor in
-                await self.pro?.refresh()
+                await ProGate.refresh()
                 self.onRunNeedsPro?()
             }
         }
