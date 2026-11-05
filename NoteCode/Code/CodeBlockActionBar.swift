@@ -45,13 +45,15 @@ final class CodeBlockActionBar: UIView {
     private let runButton = CodeBlockActionBar.makeButton(
         systemName: "play.fill",
         tint: .tintColor,
-        label: "Run code block"
+        label: "Run code block",
+        identifier: "codeBlockRun"
     )
 
     private let copyButton = CodeBlockActionBar.makeButton(
         systemName: "doc.on.doc",
         tint: .secondaryLabel,
-        label: "Copy code block"
+        label: "Copy code block",
+        identifier: "codeBlockCopy"
     )
 
     private let stack = UIStackView()
@@ -132,11 +134,12 @@ final class CodeBlockActionBar: UIView {
         )
     }
 
-    private static func makeButton(systemName: String, tint: UIColor, label: String) -> UIButton {
+    private static func makeButton(systemName: String, tint: UIColor, label: String, identifier: String) -> UIButton {
         let button = UIButton(type: .system)
         button.setImage(icon(systemName), for: .normal)
         button.tintColor = tint
         button.accessibilityLabel = label
+        button.accessibilityIdentifier = identifier
         // The pointer lifts the button, instead of showing the text view's
         // I-beam over it.
         button.isPointerInteractionEnabled = true
