@@ -165,11 +165,11 @@ Briefs: 2X in [2X-seam.md](2X-seam.md); 2S2, 2T, 2P, 2C and 2W in their
 stream files once written. A T5 characterisation test lands before the step
 whose code it pins, never in the same PR.
 
-- **Wave 5:** 2X1 alone. Alongside: T5's tests for areas 2X doesn't touch.
-- **Wave 6:** 2X2, 2X3 and A5 at once (different files), then 2X6 (after
+- **Wave 5** (done, PR 164): 2X1 alone. Alongside: T5's tests for areas 2X doesn't touch.
+- **Wave 6** (done, PRs 165–169): 2X2, 2X3 and A5 at once (different files), then 2X6 (after
   A5, the pure move that splits DebugLaunch.swift; 2X-seam.md › Order) and
   2X4a (after 2X2: PageDetailView's sheets).
-- **Wave 7:** 2X4b and 2X5b, then 2X5c, then 2X7 alone. The seam count is
+- **Wave 7** (done, PRs 171, 172, 174, 175): 2X4b and 2X5b, then 2X5c, then 2X7 alone. The seam count is
   0 when this wave ends; `check.sh --full` and `build-open-source.sh` on
   `main`.
 - **Wave 8:** 2S2a, then 2S2b–2S2d (2S2b after 2X4b has taken the AI keys
