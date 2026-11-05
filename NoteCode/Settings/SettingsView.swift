@@ -66,6 +66,7 @@ extension View {
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appExtensions) private var extensions
 
     /// Makes the Welcome note and opens it. Settings dismisses itself first.
     var onOpenWelcomeNote: () -> Void = {}
@@ -84,11 +85,8 @@ struct SettingsView: View {
                 } label: {
                     Label("General", systemImage: "gearshape")
                 }
-                NavigationLink {
-                    ProSettings()
-                } label: {
-                    Label("Pro", systemImage: "star")
-                }
+                // The edition's rows (the App Store's: Pro).
+                ForEach(extensions.settings(at: .afterGeneral)) { $0.view }
                 NavigationLink {
                     NotesSettings(onExportFinished: { count in
                         dismiss()

@@ -85,4 +85,12 @@ struct AppStoreEditionTests {
         await edition.settingsAppeared()
         #expect(edition.aboutRows().map(\.id) == ["adPrivacyOptions"])
     }
+
+    @Test("Settings gets the Pro row after General, and Writing the assistant's section")
+    func settingsSections() {
+        let consent = AdConsent(platform: AdTests.FakePlatform(), defaults: defaults())
+        let edition = AppExtensions.appStore(tipJar: TipJar(store: TipJarTests.FakeStore()), pro: ProStatus(store: ProStatusTests.FakeStore()), consent: consent)
+        #expect(edition.settings(at: .afterGeneral).map(\.id) == ["pro"])
+        #expect(edition.settings(at: .writing).map(\.id) == ["assistant"])
+    }
 }

@@ -50,6 +50,9 @@ struct AppExtensions: Sendable {
     /// system prompts never land on the same Home visit.
     var mayAskForReview: @MainActor @Sendable () -> Bool = { true }
 
+    /// Rows and sections in Settings, each with its place (`SettingsSection`).
+    var settingsSections: @MainActor @Sendable () -> [SettingsSection] = { [] }
+
 #if canImport(UIKit)
     /// What each note's editor gains (`EditorFeature`), in the order their
     /// actions are shown. `PageDetailView` installs them in its editor.

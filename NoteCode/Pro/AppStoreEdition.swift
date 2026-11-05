@@ -72,6 +72,13 @@ extension AppExtensions {
             settingsAppeared: { await consent.settingsAppeared(pro: pro) },
             // Not while a free reader's tracking prompt is still to come.
             mayAskForReview: { pro.isPro || consent.trackingAnswered })
+        // Pro second in Settings' list; the assistant at the end of Writing.
+        extensions.settingsSections = {
+            [SettingsSection(id: "pro", placement: .afterGeneral) {
+                NavigationLink { ProSettings() } label: { Label("Pro", systemImage: "star") }
+            },
+             SettingsSection(id: "assistant", placement: .writing) { AssistantSettingsSection() }]
+        }
 #if canImport(UIKit)
         // Explain Block, the options row's Explain and Summarise Note.
         extensions.editorFeatures = [AssistantFeature.factory()]
