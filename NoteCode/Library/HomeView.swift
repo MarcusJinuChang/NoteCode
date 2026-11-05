@@ -69,7 +69,7 @@ struct HomeView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(ProStatus.self) private var pro: ProStatus?
+    @Environment(\.appExtensions) private var extensions
 
     /// An iPhone, a folded Duo, or a column too narrow for the iPad layout
     /// (`HomeLayout`): cards are smaller and the grids have two columns.
@@ -91,8 +91,8 @@ struct HomeView: View {
     var body: some View {
         let sections = HomeSections(pages: pages, folders: folders, lastOpened: memory.lastOpenedKey())
 
-        // The slot is below the page, not over it: Home's scroll view ends
-        // where the ad starts, so nothing scrolls under it.
+        // The edition's footer is below the page, not over it: Home's scroll
+        // view ends where it starts, so nothing scrolls under it.
         VStack(spacing: 0) {
             Group {
                 if sections.hasNoNotes {
@@ -101,11 +101,11 @@ struct HomeView: View {
                     populated(sections)
                 }
             }
-            AdSlot(placement: .home, opaque: true)
+            extensions.homeFooter()
         }
         .task(id: consentMayStart) {
             guard consentMayStart else { return }
-            await AdConsent.shared.homeAppeared(pro: pro)
+            await extensions.homeAppeared()
         }
         .coordinateSpace(.named("home"))
         .onGeometryChange(for: CGSize.self) { $0.size } action: { homeSize = $0 }

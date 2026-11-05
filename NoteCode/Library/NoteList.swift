@@ -106,11 +106,8 @@ struct NoteList: View {
     /// Whether the Recently Deleted sheet is showing.
     @State private var showsRecentlyDeleted = false
 
-    /// Whether the tip jar's sheet is showing.
-    @State private var showsTipJar = false
-
-    /// The app's tip jar, for the list's foot; absent in previews and tests.
-    @Environment(TipJar.self) private var tipJar: TipJar?
+    /// The sheet a row of the list's foot asked for (the App Store's tip jar).
+    @State private var footSheet: ExtensionSheet?
 
     /// The folder whose deletion is waiting on the reader's choice.
     @State private var deleting: Folder?
@@ -174,7 +171,7 @@ struct NoteList: View {
 
             // Not under the empty list's overlay, which would sit on it.
             if search.isEmpty, hasLiveNotes || !folders.live.isEmpty {
-                ListFoot(tipJar: tipJar) { showsTipJar = true }
+                ListFoot { footSheet = $0 }
             }
         }
 #if canImport(UIKit)
@@ -262,9 +259,7 @@ struct NoteList: View {
         .sheet(isPresented: $showsRecentlyDeleted) {
             RecentlyDeletedView()
         }
-        .sheet(isPresented: $showsTipJar) {
-            if let tipJar { TipJarView(jar: tipJar) }
-        }
+        .sheet(item: $footSheet) { $0.view }
         .alert("Rename Note", isPresented: $showsNameAlert) {
             TextField("Name", text: $typedName)
             Button("Cancel", role: .cancel) {}

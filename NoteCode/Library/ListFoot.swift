@@ -2,7 +2,7 @@
 //  ListFoot.swift
 //  NoteCode
 //
-//  The note list's last section: the tip jar, the links, and the mark.
+//  The note list's last section: the edition's rows, the links, and the mark.
 //
 
 import SwiftUI
@@ -11,41 +11,18 @@ import SwiftUI
 /// Request, Send Feedback and Privacy Policy, then the mark and the version as
 /// a sign-off under the notes.
 ///
-/// **A row exists only if it works**, as in Settings: the tip jar once the
-/// App Store has answered with its products, the mail rows once
+/// **A row exists only if it works**, as in Settings: the edition's rows
+/// (the App Store's ad, and its tip jar once the App Store has answered with
+/// its products) only when they show, the mail rows once
 /// `AppInfo.feedbackAddress` is set. The policy row is always there.
 struct ListFoot: View {
-    /// The tip jar, or `nil` where there is none (previews, tests).
-    var tipJar: TipJar?
-    var onOpenTipJar: () -> Void
-    @Environment(ProStatus.self) private var pro: ProStatus?
-    @State private var consent = AdConsent.shared
+    /// Shows a sheet an edition's row asks for; the note list presents it.
+    var present: @MainActor (ExtensionSheet) -> Void
+    @Environment(\.appExtensions) private var extensions
 
     var body: some View {
         Section {
-            // Guarded here too: an empty AdSlot would still be a blank row.
-            if adBannerShows(isPro: pro?.isPro ?? true, canRequestAds: consent.canRequestAds) {
-                AdSlot(placement: .list)
-            }
-            if let tipJar, tipJar.isAvailable {
-                Button(action: onOpenTipJar) {
-                    Label("Tip Jar", systemImage: "heart")
-                }
-                .accessibilityIdentifier("tipJarRow")
-            }
-            if let url = AppInfo.featureRequestURL() {
-                Link(destination: url) {
-                    Label("Feature Request", systemImage: "lightbulb")
-                }
-            }
-            if let url = AppInfo.feedbackURL() {
-                Link(destination: url) {
-                    Label("Send Feedback", systemImage: "envelope")
-                }
-            }
-            Link(destination: AppInfo.privacyPolicy) {
-                Label("Privacy Policy", systemImage: "hand.raised")
-            }
+            ForEach(rows(with: extensions)) { $0.view }
         } footer: {
             VStack(spacing: 6) {
                 NoteCodeMark()
@@ -64,8 +41,33 @@ struct ListFoot: View {
         // Rows here open things; none is a note, so none is ever selected.
         .buttonStyle(.plain)
         .selectionDisabled()
-        // Asks the store again if it had no answer at launch, so a slow
-        // store doesn't hide the jar until the next launch.
-        .task { tipJar?.load() }
+        // The App Store's asks the store for tips again (AppExtensions).
+        .task { extensions.listFootAppeared() }
+    }
+
+    /// The rows in order: the edition's first (the App Store's ad, then Tip
+    /// Jar), then Feature Request, Send Feedback and Privacy Policy.
+    func rows(with extensions: AppExtensions) -> [ExtensionRow] {
+        var rows = extensions.listFootRows(present)
+        if let url = AppInfo.featureRequestURL() {
+            rows.append(ExtensionRow(id: "featureRequest") {
+                Link(destination: url) {
+                    Label("Feature Request", systemImage: "lightbulb")
+                }
+            })
+        }
+        if let url = AppInfo.feedbackURL() {
+            rows.append(ExtensionRow(id: "sendFeedback") {
+                Link(destination: url) {
+                    Label("Send Feedback", systemImage: "envelope")
+                }
+            })
+        }
+        rows.append(ExtensionRow(id: "privacyPolicy") {
+            Link(destination: AppInfo.privacyPolicy) {
+                Label("Privacy Policy", systemImage: "hand.raised")
+            }
+        })
+        return rows
     }
 }
