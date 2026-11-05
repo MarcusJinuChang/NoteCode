@@ -78,7 +78,7 @@ so notes file into folders by class — CS133, algorithm practice (built 3 Oct).
     row was lifted is `ListDragState.item`, so a drop from elsewhere is refused.
   - **How a drop reaches the list** (24 Oct, read on Marcus's iPad Pro 11-inch
     on iOS 27.0.1, by a real press and drag from `ListDragUITests` and the
-    `-debug-probe` log, `DebugProbe.swift`). The first build put an
+    `-debug-probe` log, `DeviceProbe.swift`). The first build put an
     `.onDrop(of:delegate:)` on every row, and **nothing on a row was ever
     called**: the drag lifted and the drop did nothing. The same row-level
     delegate on a row of a `LazyVStack` was called (validate, entered,
