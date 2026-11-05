@@ -36,9 +36,6 @@ extension DocumentTextView.Coordinator {
         self.editor = editor
         editor?.rendersMarkdown = rendersMarkdown
         editor?.showsLineNumbers = showsLineNumbers
-        // The first parse came before the editor was connected.
-        let source = (textView.text ?? "").nativeUTF8
-        editor?.run.update(blocks: CodeBlockAction.targets(in: source, blocks: documentCache.blocks(for: source)))
         editor?.modeDidChange = { [weak self, weak textView] in
             guard let self, let textView else { return }
             refreshFenceVisibility(in: textView)
@@ -51,17 +48,9 @@ extension DocumentTextView.Coordinator {
             else { return }
             run(target, from: textView)
         }
-        editor?.run.openAtSite = { [weak self, weak textView] block in
-            self?.openAtSite(code: block.code, language: block.language, from: textView)
-        }
-        editor?.run.keepInNote = { [weak self, weak textView] ordinal, output in
-            guard let self, let textView else { return }
-            keepInNote(output, forBlockAt: ordinal, in: textView)
-        }
-        editor?.run.showLine = { [weak self, weak textView] block, line in
-            guard let self, let textView else { return }
-            showLine(line, ofBlockAt: block.ordinal, in: textView)
-        }
+        // The features' services. The first parse came before the editor was
+        // connected, so a feature reads the blocks as they are now.
+        editor?.connectFeatures(featureServices(for: textView))
         editor?.copyBlockAtCaret = { [weak self, weak textView] in
             guard let self, let textView, editor?.mode == .text,
                   let target = target(atCaret: textView.selectedRange.location, in: textView)

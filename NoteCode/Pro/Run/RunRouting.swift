@@ -23,7 +23,7 @@ nonisolated enum RunRoute: Equatable, Sendable {
     /// can't happen (`RunPresentation.offersSite`).
     ///
     /// - Parameters:
-    ///   - hasRunner: there is a service to run on (`AppInfo.runService`).
+    ///   - hasRunner: there is a service to run on (`RunServiceFactory.runService`).
     ///     Without one the app behaves as it did before R: no gate, no panel.
     ///   - isPro: `ProGate.isPro`, the only thing read for the gate.
     static func route(hasRunner: Bool, isPro: Bool) -> RunRoute {

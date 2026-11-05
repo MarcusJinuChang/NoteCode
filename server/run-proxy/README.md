@@ -34,7 +34,7 @@ Request bodies are never logged.
 ## Where it runs
 
 Deployed 28 Oct 2026 at `https://notecode-run-proxy.changm2608.workers.dev`
-(`AppInfo.runService`), with the `JUDGE0_KEY` secret set.
+(`RunServiceFactory.runService`), with the `JUDGE0_KEY` secret set.
 
 1. `PRO_PRODUCT_IDS` is `com.marcus.NoteCode.pro.monthly`, P1's subscription.
    Add any new Pro product id there, or its runs are refused with 402.
@@ -56,7 +56,7 @@ npx wrangler secret put JUDGE0_KEY   # paste the RapidAPI key when asked
 npx wrangler deploy
 ```
 
-`AppInfo.runService` in `AppSettings.swift` is the printed
+`RunServiceFactory.runService` in `AppSettings.swift` is the printed
 `https://notecode-run-proxy.<account>.workers.dev` URL; a redeploy keeps it.
 Run wrangler from this folder: at the repo root, `npx` fetches wrangler 4,
 which this project isn't on yet.

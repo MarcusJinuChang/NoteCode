@@ -502,8 +502,9 @@ private extension View {
 
 // MARK: - The host
 
-/// What a note window adds for Run: the runner, the bottom sheet in a compact
-/// width, the free reader's paywall, and the debug stub's autorun.
+/// What a note window adds for Run: the paywall's opening, the bottom sheet
+/// in a compact width, the free reader's paywall, and the debug stub's
+/// autorun. The runner is the feature's (`RunFeature`).
 struct RunPanelHost: ViewModifier {
     var editor: NoteEditor
     var isCompact: Bool
@@ -514,25 +515,28 @@ struct RunPanelHost: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .task {
-                editor.onRunNeedsPro = { showsRunPaywall = true }
-                editor.connectRun()
-                editor.run.runner = RunServiceFactory.make()
+            // Again when the feature arrives: the page installs its features
+            // as it appears.
+            .task(id: editor.feature(RunFeature.self).map(ObjectIdentifier.init)) {
+                guard let feature = editor.feature(RunFeature.self) else { return }
+                feature.onNeedsPro = { showsRunPaywall = true }
 #if DEBUG
                 if ProDebugOptions.current.runStub != nil {
                     try? await Task.sleep(for: .seconds(1))
-                    editor.run.isOpen = true
-                    editor.run.run(transaction: transaction())
+                    feature.session.isOpen = true
+                    feature.session.run(transaction: transaction())
                 }
 #endif
             }
             .sheet(isPresented: Binding(
-                get: { editor.run.isOpen && isCompact },
-                set: { if !$0 { editor.run.isOpen = false } }
+                get: { editor.run?.isOpen == true && isCompact },
+                set: { if !$0 { editor.run?.isOpen = false } }
             )) {
-                RunPanel(session: editor.run, transaction: transaction, onShow: { editor.scroll(toBlock: $0) })
-                    .presentationDetents([.medium, .large])
-                    .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+                if let session = editor.run {
+                    RunPanel(session: session, transaction: transaction, onShow: { editor.scroll(toLineAt: $0.location) })
+                        .presentationDetents([.medium, .large])
+                        .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+                }
             }
             .paywall(isPresented: $showsRunPaywall, reason: ProGate.Reason.runInApp)
     }

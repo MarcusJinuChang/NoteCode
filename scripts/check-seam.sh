@@ -14,7 +14,8 @@
 #    `onRunNeedsPro`), reached on a value called `editor`, or the named ones
 #    on their own;
 #  - the closures and setting that lead to Pro without naming it:
-#    `runBlockAtCaret`, `explainBlockAtCaret`, `runService`.
+#    `explainBlockAtCaret`, `runService`. (`runBlockAtCaret` left the list in
+#    2X5b: ⌘R now asks the editor's features, then opens a compiler site.)
 # NoteCode/, NoteCodeTests/ and NoteCodeUITests/ are searched.
 
 set -uo pipefail
@@ -24,7 +25,7 @@ cd ${0:A:h:h}
 types=(${(f)"$( { grep -rhoE '^((public|internal|private|fileprivate|final|nonisolated|@MainActor|@Observable) )*(struct|class|enum|actor|protocol|typealias|func) [A-Za-z_][A-Za-z0-9_]*' NoteCode/Pro --include='*.swift' | awk '{print $NF}'; } | sort -u)"})
 # Members named on their own, and those only counted on `editor`.
 members=(explain summariseNote insertAnswer runInApp connectRun onRunNeedsPro
-         runBlockAtCaret explainBlockAtCaret runService)
+         explainBlockAtCaret runService)
 words="${(j:|:)types}|${(j:|:)members}"
 # `editor.run`, `editor?.pro`, `editor!.ai`, `self.editor.run` …
 onEditor='editor[?!]?\.(ai|run|pro)'

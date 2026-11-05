@@ -305,10 +305,15 @@ nonisolated enum RunPresentation {
 // MARK: - The runner the app uses
 
 enum RunServiceFactory {
-    /// The client for `AppInfo.runService`, or `nil` when there is none, and
+    /// Our run proxy (`server/run-proxy/`), which Run in the app talks to. With
+    /// `nil` Run in the app doesn't exist: no In NoteCode choice, no Pro gate on
+    /// the run button, no panel. Never a Judge0 address or key; the proxy owns those.
+    nonisolated static let runService: URL? = URL(string: "https://notecode-run-proxy.changm2608.workers.dev")
+
+    /// The client for `runService`, or `nil` when there is none, and
     /// with it no Run control. The debug stub outranks it so the panel can be
     /// seen without a proxy.
-    @MainActor static func make(service: URL? = AppInfo.runService) -> (any CodeRunning)? {
+    @MainActor static func make(service: URL? = runService) -> (any CodeRunning)? {
 #if DEBUG
         if let kind = ProDebugOptions.current.runStub { return DebugRunStub(kind: kind) }
 #endif

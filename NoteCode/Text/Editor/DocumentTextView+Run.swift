@@ -3,7 +3,7 @@
 //  NoteCode
 //
 //  The coordinator's Run: a block's Run button, Run Block and ⌘R, a
-//  compiler site, and what the panel writes back into the note.
+//  compiler site, and the services a feature is handed (EditorServices).
 //
 
 #if canImport(UIKit)
@@ -12,28 +12,19 @@ import UIKit
 
 extension DocumentTextView.Coordinator {
 
-    /// Runs a block: in the panel for Pro, the paywall for everyone else.
+    /// Runs a block: the editor's features are asked first (Pro's Run: the
+    /// paywall, or the panel); with none that takes it, the block opens on a
+    /// compiler site.
     ///
     /// Nothing is executed on the device: the panel sends the block to our
     /// run service. Only a build without one hands it to a site instead.
     func run(_ target: CodeBlockTarget, from textView: UITextView) {
         guard let language = target.language, language.canRun else { return }
 
-        // The gate comes first (R4): a free reader's Run opens the paywall
-        // and does nothing else. Without a service none of this exists.
-        switch RunRoute.route(
-            hasRunner: editor?.run.isAvailable == true,
-            isPro: ProGate.isPro
-        ) {
-        case .paywall:
-            editor?.onRunNeedsPro?()
+        // A feature that takes it does its own gate (R4) and resigns the
+        // keyboard when it runs.
+        if editor?.features.contains(where: { $0.run(target, from: textView) }) == true {
             return
-        case .inApp:
-            textView.resignFirstResponder()
-            editor?.runInApp(target)
-            return
-        case .redirect:
-            break
         }
 
         openAtSite(code: target.code, language: language, from: textView)
@@ -54,32 +45,32 @@ extension DocumentTextView.Coordinator {
         // Dismiss the keyboard first. Leaving for Safari with it up means
         // coming back to a view that has to re-lay-out under it.
         textView?.resignFirstResponder()
-        UIApplication.shared.open(request.url)
+        openURL(request.url)
     }
 
-
-    /// Keep in Note: the run's output as an ```` ```output ```` block under
-    /// the code, or in place of the one already there. One `replace`, so one
-    /// undo step. Not in a locked note.
-    func keepInNote(_ output: String, forBlockAt ordinal: Int, in textView: UITextView) {
-        guard editor?.isTextLocked != true else { return }
-        let source = (textView.text ?? "").nativeUTF8
-        let targets = CodeBlockAction.targets(in: source, blocks: documentCache.blocks(for: source))
-        guard let edit = KeepInNote.edit(output: output, forBlockAt: ordinal, in: source, targets: targets) else { return }
-        apply(edit, to: textView)
-    }
-
-    /// A compile-error link: the caret on that line of the block, in view.
-    func showLine(_ line: Int, ofBlockAt ordinal: Int, in textView: UITextView) {
-        guard editor?.mode == .text else { return }
-        let source = (textView.text ?? "").nativeUTF8
-        let targets = CodeBlockAction.targets(in: source, blocks: documentCache.blocks(for: source))
-        guard let target = targets.first(where: { $0.id.ordinal == ordinal && !$0.isOutput }),
-              let offset = KeepInNote.caretOffset(line: line, in: target, source: source)
-        else { return }
-        if !textView.isFirstResponder { textView.becomeFirstResponder() }
-        textView.selectedRange = NSRange(location: offset, length: 0)
-        textView.scrollRangeToVisible(NSRange(location: offset, length: 0))
+    /// What this coordinator does for the editor's features, on `textView`.
+    func featureServices(for textView: UITextView) -> EditorServices {
+        EditorServices(
+            text: { [weak textView] in (textView?.text ?? "").nativeUTF8 },
+            blocks: { [weak self, weak textView] in
+                guard let self, let textView else { return [] }
+                let source = (textView.text ?? "").nativeUTF8
+                return CodeBlockAction.targets(in: source, blocks: documentCache.blocks(for: source))
+            },
+            openAtSite: { [weak self, weak textView] code, language in
+                self?.openAtSite(code: code, language: language, from: textView)
+            },
+            apply: { [weak self, weak textView] edit in
+                guard let self, let textView else { return }
+                apply(edit, to: textView)
+            },
+            placeCaret: { [weak textView] offset in
+                guard let textView else { return }
+                if !textView.isFirstResponder { textView.becomeFirstResponder() }
+                textView.selectedRange = NSRange(location: offset, length: 0)
+                textView.scrollRangeToVisible(NSRange(location: offset, length: 0))
+            }
+        )
     }
 }
 

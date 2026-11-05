@@ -218,6 +218,10 @@ struct DocumentTextView: UIViewRepresentable {
         /// The run and copy buttons floating over each code block.
         var overlay: CodeBlockOverlay?
 
+        /// Opens a compiler site's link (`openAtSite`). Replaceable so a test
+        /// can see where Run went without leaving the app.
+        var openURL: (URL) -> Void = { UIApplication.shared.open($0) }
+
         /// The keyboard traits the text view has now: prose or code.
         private(set) var rewritingPolicy = TextRewritingPolicy.initial
         private(set) var rewritesProse = TextRewritingPolicy.proseEnabledByDefault
@@ -564,7 +568,7 @@ struct DocumentTextView: UIViewRepresentable {
             refreshCaretFormatting(in: textView)
             let targets = CodeBlockAction.targets(in: source, blocks: blocks)
             overlay?.update(targets: targets)
-            editor?.run.update(blocks: targets)
+            editor?.blocksDidChange(targets)
             scheduleHighlighting(for: textView, source: source, blocks: blocks)
         }
 

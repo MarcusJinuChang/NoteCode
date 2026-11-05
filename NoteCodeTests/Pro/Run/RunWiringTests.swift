@@ -120,7 +120,7 @@ struct RunWiringTests {
         var stored = original
         let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 900, height: 1200))
         let textView = DocumentTextView.makeConfiguredTextView()
-        let editor = NoteEditor()
+        let editor = RunFeatureTests.editor(isPro: true)
         let page = PageView(textView: textView)
         let coordinator = DocumentTextView.Coordinator(text: Binding(get: { stored }, set: { stored = $0 }))
         textView.delegate = coordinator
@@ -138,9 +138,9 @@ struct RunWiringTests {
 
         // Runs are seconds apart, so a turn of the run loop apart (undo groups
         // what happens in one).
-        editor.run.keepInNote?(0, "1")
+        editor.run?.keepInNote?(0, "1")
         try await Task.sleep(for: .milliseconds(100))
-        editor.run.keepInNote?(0, "2")
+        editor.run?.keepInNote?(0, "2")
         try await Task.sleep(for: .milliseconds(200))
         #expect(textView.text == "Intro\n```python\nprint(1)\n```\n```output\n2\n```\nAfter\n")
 
@@ -168,7 +168,7 @@ struct RunWiringTests {
         var stored = source
         let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 900, height: 1200))
         let textView = DocumentTextView.makeConfiguredTextView()
-        let editor = NoteEditor()
+        let editor = RunFeatureTests.editor(isPro: true)
         let page = PageView(textView: textView)
         let coordinator = DocumentTextView.Coordinator(text: Binding(get: { stored }, set: { stored = $0 }))
         textView.delegate = coordinator
@@ -183,8 +183,8 @@ struct RunWiringTests {
         editor.attach(textView, canvas: page.canvas, page: page)
         coordinator.connect(editor, to: textView)
 
-        let block = try #require(editor.run.blocks.first)
-        editor.run.showLine?(block, 2)
+        let block = try #require(editor.run?.blocks.first)
+        editor.run?.showLine?(block, 2)
         #expect(textView.selectedRange.location == (source as NSString).range(of: "int b;").location)
     }
 }

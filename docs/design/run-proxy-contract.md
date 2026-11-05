@@ -6,7 +6,7 @@ The app knows our language names only, never a Judge0 id or key.
 
 ## Request
 
-`POST {AppInfo.runService}/run`, `Content-Type: application/json`:
+`POST {RunServiceFactory.runService}/run`, `Content-Type: application/json`:
 
 ```json
 { "language": "c++", "code": "…", "stdin": "…", "transaction": "<JWS>" }

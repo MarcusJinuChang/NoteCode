@@ -9,6 +9,7 @@
 #if canImport(UIKit)
 
 import SwiftUI
+import UIKit
 
 /// Where an action is offered.
 enum EditorActionPlacement: Equatable, Sendable {
@@ -61,11 +62,42 @@ protocol EditorFeature: AnyObject {
     /// hangs its sheets and watches its settings. Behind the page, not
     /// around it, so installing a feature never rebuilds the page.
     func pageAccessory() -> AnyView
+
+    /// A block's Run, from its button, the edit menu or ⌘R, once its
+    /// language is known to run. True when the feature took it; otherwise
+    /// the next feature is asked, and then the block opens on a compiler
+    /// site (`CodeDestination`).
+    func run(_ target: CodeBlockTarget, from textView: UITextView) -> Bool
+
+    /// The note's code blocks, after each restyle (changed or not).
+    func blocksDidChange(_ targets: [CodeBlockTarget])
+
+    /// The text view's coordinator is connected to the editor. Also called
+    /// when the feature is installed after that.
+    func connect(_ services: EditorServices)
 }
 
 extension EditorFeature {
     func actions(for target: EditorActionTarget) -> [EditorAction] { [] }
     func pageAccessory() -> AnyView { AnyView(EmptyView()) }
+    func run(_ target: CodeBlockTarget, from textView: UITextView) -> Bool { false }
+    func blocksDidChange(_ targets: [CodeBlockTarget]) {}
+    func connect(_ services: EditorServices) {}
+}
+
+/// What the text view's coordinator does for a feature: general services,
+/// none of which knows about any feature.
+struct EditorServices {
+    /// The note's text, read as the parser reads it (`nativeUTF8`).
+    var text: @MainActor () -> String
+    /// The note's code blocks, as they are now.
+    var blocks: @MainActor () -> [CodeBlockTarget]
+    /// Opens code on a compiler site, as Run does with no feature.
+    var openAtSite: @MainActor (_ code: String, _ language: CodeLanguage) -> Void
+    /// Applies an edit as typing does: one undo step, restyled, saved.
+    var apply: @MainActor (TextEdit) -> Void
+    /// The caret at a UTF-16 offset of the note, in view, with the keyboard up.
+    var placeCaret: @MainActor (_ offset: Int) -> Void
 }
 
 /// Makes a feature for an editor.
