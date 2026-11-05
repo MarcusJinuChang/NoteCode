@@ -12,12 +12,12 @@ import SwiftUI
 import UIKit
 
 struct AIResultSheet: View {
-    var editor: NoteEditor
+    var assistant: AssistantFeature
     var job: AIJob
 
     @State private var copied = false
 
-    private var ai: AIAssistant { editor.ai }
+    private var ai: AIAssistant { assistant.ai }
 
     var body: some View {
         NavigationStack {
@@ -112,7 +112,7 @@ struct AIResultSheet: View {
             } primaryAction: {
                 insert(result.text, as: ai.settings.insertStyle)
             }
-            .disabled(!editor.canInsertAnswer)
+            .disabled(!assistant.canInsertAnswer)
         case .failed, .idle:
             Button("Try Again", systemImage: "arrow.clockwise") { ai.begin(job) }
         case .unavailable:
@@ -121,7 +121,7 @@ struct AIResultSheet: View {
     }
 
     private func insert(_ text: String, as style: AIInsertStyle) {
-        if editor.insertAnswer(text, style: style, at: job.insertionOffset) {
+        if assistant.insertAnswer(text, style: style, at: job.insertionOffset) {
             ai.dismiss()
         }
     }

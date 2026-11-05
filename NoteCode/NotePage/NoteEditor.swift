@@ -243,20 +243,43 @@ final class NoteEditor {
     @ObservationIgnored var presentNewFormula: ((_ display: Bool) -> Void)?
     @ObservationIgnored var copyBlockAtCaret: (() -> Void)?
 
-    /// The on-device assistant (Explain Code, Summarise Note). One per note,
-    /// like the editor; its settings arrive from `PageDetailView` through
-    /// `AIFeatureSettings.apply(to:)`.
-    @ObservationIgnored var ai = AIAssistant.system()
+    /// The code block the caret is in, in text mode; `nil` elsewhere. The
+    /// text view's coordinator sets this, as it does `runBlockAtCaret`: the
+    /// options row's feature actions act on it.
+    @ObservationIgnored var codeBlockAtCaret: (() -> CodeBlockTarget?)?
 
-    /// Explains the code block the caret is in, if it is in one. The text
-    /// view's coordinator sets this, as it does `runBlockAtCaret`.
-    @ObservationIgnored var explainBlockAtCaret: (() -> Void)?
+    /// What the edition adds to this editor (`EditorFeature`), in the order
+    /// their actions are shown. Empty for `NoteEditor()`.
+    private(set) var features: [any EditorFeature] = []
+    @ObservationIgnored private var featuresInstalled = false
+
+    init(features: [EditorFeatureFactory] = []) {
+        install(features)
+    }
+
+    /// Makes the features, once: a page that is handed its editor's features
+    /// after the editor was made (`PageDetailView`) calls this on appearing.
+    func install(_ factories: [EditorFeatureFactory]) {
+        guard !featuresInstalled, !factories.isEmpty else { return }
+        featuresInstalled = true
+        features = factories.map { $0(self) }
+    }
+
+    /// The installed feature of this type, if there is one.
+    func feature<F: EditorFeature>(_ type: F.Type) -> F? {
+        features.lazy.compactMap { $0 as? F }.first
+    }
+
+    /// Every feature's actions on `target` for one placement, in order.
+    func actions(for target: EditorActionTarget, in placement: EditorActionPlacement) -> [EditorAction] {
+        features.flatMap { $0.actions(for: target) }.filter { $0.placement == placement }
+    }
 
     /// Told after a code block's code is on the pasteboard, by the button, the
     /// edit menu or ⇧⌘C, so the page can say "Copied".
     @ObservationIgnored var onBlockCopied: (() -> Void)?
 
-    @ObservationIgnored private weak var textView: UITextView?
+    @ObservationIgnored private(set) weak var textView: UITextView?
     @ObservationIgnored private weak var canvas: DrawingCanvas?
     @ObservationIgnored private weak var page: PageView?
     @ObservationIgnored private var savedSession: TextSession?
@@ -597,7 +620,7 @@ final class NoteEditor {
     }
 
     /// `perform` for an edit that may have nothing to do.
-    private func perform(_ makeEdit: (String, NSRange) -> TextEdit?) {
+    func perform(_ makeEdit: (String, NSRange) -> TextEdit?) {
         guard mode == .text, !isTextLocked, let textView else { return }
 
         guard let edit = makeEdit(textView.text ?? "", textView.selectedRange) else { return }
@@ -765,53 +788,6 @@ final class NoteEditor {
         guard mode == .text, !isTextLocked else { return }
         retagBlockAtCaret?(kind)
         refreshUndoState()
-    }
-
-    // MARK: The on-device assistant
-
-    /// Explain Code: opens the assistant's sheet on a block.
-    func explain(_ target: CodeBlockTarget) {
-        guard !target.isOutput, !target.code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        ai.begin(AIPrompts.explainJob(
-            code: target.code,
-            languageName: target.language?.displayName,
-            insertionOffset: min(NSMaxRange(target.range), textView?.textStorage.length ?? NSMaxRange(target.range)),
-            contextTokens: ai.contextTokens,
-            length: ai.settings.length
-        ))
-    }
-
-    /// Summarise Note: opens the assistant's sheet on the note's text.
-    func summariseNote(title: String) {
-        guard let textView else { return }
-        let text = textView.text ?? ""
-        ai.begin(AIPrompts.summariseJob(
-            text: text,
-            title: title,
-            insertionOffset: AIInsertion.anchor(caret: textView.selectedRange.location, in: text as NSString, codeRanges: codeRanges?() ?? []),
-            contextTokens: ai.contextTokens,
-            length: ai.settings.length
-        ))
-    }
-
-    /// Whether Insert Below can write: text mode, and not a locked note.
-    var canInsertAnswer: Bool {
-        mode == .text && !isTextLocked && textView != nil
-    }
-
-    /// Insert Below: the answer as a quote or an output block under the
-    /// block or line it was asked about. One edit through the text view, so
-    /// one undo step. Returns whether it wrote anything.
-    @discardableResult
-    func insertAnswer(_ answer: String, style: AIInsertStyle, at anchor: Int) -> Bool {
-        guard canInsertAnswer else { return false }
-        var wrote = false
-        perform { text, _ in
-            let edit = AIInsertion.edit(inserting: answer, style: style, at: anchor, in: text as NSString)
-            wrote = edit != nil
-            return edit
-        }
-        return wrote
     }
 
     /// + Output: an empty output block under the code block the caret is in.

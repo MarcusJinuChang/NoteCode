@@ -282,6 +282,17 @@ struct KeyboardAndMenuTests {
         #expect(!all.contains("Format"))
     }
 
+    @Test("With no editor features, a code block's menu is Run, Copy and Share, and the options row adds nothing")
+    func codeMenuWithoutFeatures() {
+        let harness = EditorHarness()
+        let menu = editMenu(harness, at: harness.offset(of: "int other"))
+
+        #expect(titles(of: menu) == ["Run Block", "Copy Block", "Share Block"])
+        #expect(harness.editor.features.isEmpty)
+        #expect(harness.editor.actions(for: .codeBlockAtCaret, in: .codeBlockRow).isEmpty)
+        #expect(harness.editor.actions(for: .note(title: "Note"), in: .noteMenu).isEmpty)
+    }
+
     @Test("A block with no language the app knows has no Run Block")
     func codeMenuWithoutLanguage() {
         let harness = EditorHarness("```\nplain text\n```\n")

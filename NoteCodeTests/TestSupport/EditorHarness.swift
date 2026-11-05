@@ -30,7 +30,7 @@ final class EditorHarness {
     var stored: String
     let window: UIWindow
     let textView = DocumentTextView.makeConfiguredTextView()
-    let editor = NoteEditor()
+    let editor: NoteEditor
     private(set) var page: PageView!
     var coordinator: DocumentTextView.Coordinator!
     var canvas: DrawingCanvas { page.canvas }
@@ -44,6 +44,8 @@ final class EditorHarness {
     ///     window when that is nil.
     ///   - lockedFirst: locks the text before the editor has a text view,
     ///     the way a locked note's page opens.
+    ///   - features: what the edition adds to the editor; none by default,
+    ///     as `NoteEditor()` has.
     init(
         _ text: String = TestFixtures.codeFenceNote,
         wiring: Wiring = .full,
@@ -54,8 +56,10 @@ final class EditorHarness {
         rendersMarkdown: Bool = false,
         window size: CGSize = CGSize(width: 1100, height: 1400),
         area: CGSize? = CGSize(width: 872, height: 1200),
-        lockedFirst: Bool = false
+        lockedFirst: Bool = false,
+        features: [EditorFeatureFactory] = []
     ) {
+        editor = NoteEditor(features: features)
         let caret = caretMarker.map { (text as NSString).range(of: $0).location }
         stored = caretMarker.map { text.replacingOccurrences(of: $0, with: "") } ?? text
         window = makeTestWindow(frame: CGRect(origin: .zero, size: size))

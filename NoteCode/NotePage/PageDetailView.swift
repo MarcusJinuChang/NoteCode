@@ -49,6 +49,9 @@ struct PageDetailView: View {
 
 #if canImport(UIKit)
     @State private var editor = NoteEditor()
+    /// The edition's editor features, installed in `editor` as the page
+    /// appears: `@State` is made before the environment can be read.
+    @Environment(\.appExtensions) private var extensions
     @Environment(ToastCenter.self) private var toasts: ToastCenter?
 
     /// Saves this note's ink. One per open note, like the editor.
@@ -124,15 +127,6 @@ struct PageDetailView: View {
     /// Settings › Writing › Autocorrect.
     @AppStorage(TextRewritingPolicy.proseDefaultsKey)
     private var rewritesProse = TextRewritingPolicy.proseEnabledByDefault
-    /// Settings › Writing › On-Device Assistant.
-    @AppStorage(AIFeatureSettings.enabledKey) private var aiEnabled = true
-    @AppStorage(AIFeatureSettings.lengthKey) private var aiLength = AIAnswerLength.standard.rawValue
-    @AppStorage(AIFeatureSettings.insertStyleKey) private var aiInsertStyle = AIInsertStyle.quote.rawValue
-
-    private var aiSettings: AIFeatureSettings {
-        AIFeatureSettings(isEnabled: aiEnabled, length: aiLength, insertStyle: aiInsertStyle)
-    }
-
     /// Whether the bar ticks as it lands on an edge (Settings › General).
     @AppStorage(SnapHaptic.defaultsKey)
     private var hapticOnSnap = SnapHaptic.isOnByDefault
@@ -252,18 +246,15 @@ struct PageDetailView: View {
             NoteInfoView(page: page, pageCount: openPageCount)
         }
 #if canImport(UIKit)
-        .sheet(item: Binding(
-            get: { editor.ai.job },
-            set: { if $0 == nil { editor.ai.dismiss() } }
-        )) { job in
-            AIResultSheet(editor: editor, job: job)
+        // Each feature's sheets and settings, behind the page so that
+        // installing one doesn't rebuild it (the assistant's result sheet
+        // and paywall).
+        .background {
+            ForEach(editor.features.indices, id: \.self) { index in
+                editor.features[index].pageAccessory()
+            }
         }
-        .sheet(isPresented: Binding(get: { editor.ai.needsPro }, set: { editor.ai.needsPro = $0 })) {
-            PaywallView(reason: ProGate.Reason.assistant)
-        }
-        .onChange(of: aiSettings, initial: true) { _, settings in
-            settings.apply(to: editor.ai)
-        }
+        .onAppear { editor.install(extensions.editorFeatures) }
 #endif
         .sheet(item: $editingFolder) { editing in
             FolderEditor(editing: editing)
@@ -514,11 +505,10 @@ struct PageDetailView: View {
             // same shortcut for when it isn't, and listed in the ⌘ overlay.
             .keyboardShortcut(.find)
 
-            if editor.ai.offersFeatures {
-                Button(AIAction.summariseNote.menuTitle(marksPro: !editor.ai.isPro()), systemImage: AIAction.summariseNote.systemImage) {
-                    editor.summariseNote(title: page.displayTitle)
-                }
-                .disabled(editor.mode != .text)
+            // What the edition adds (`EditorFeature`): Summarise Note.
+            ForEach(editor.actions(for: .note(title: page.displayTitle), in: .noteMenu)) { action in
+                Button(action.title, systemImage: action.symbol) { action.perform() }
+                    .disabled(!action.isAvailable)
             }
 #endif
 
