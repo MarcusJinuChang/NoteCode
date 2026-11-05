@@ -56,7 +56,7 @@ npx wrangler secret put JUDGE0_KEY   # paste the RapidAPI key when asked
 npx wrangler deploy
 ```
 
-`RunServiceFactory.runService` in `AppSettings.swift` is the printed
+`RunServiceFactory.runService` in `NoteCode/Pro/Run/RunSession.swift` is the printed
 `https://notecode-run-proxy.<account>.workers.dev` URL; a redeploy keeps it.
 Run wrangler from this folder: at the repo root, `npx` fetches wrangler 4,
 which this project isn't on yet.

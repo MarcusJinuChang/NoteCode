@@ -11,6 +11,7 @@ with this file: `scripts/perf.sh --compare docs/refactor/baseline.md` reads the
 | | |
 |---|---|
 | Unit tests (`-only-testing:NoteCodeTests`, TipJarTests skipped) | **1,859 test cases in 214 suites (1,355 parameterized arguments among them): 1,858 passed, 1 expected failure, 0 failed** |
+| Open-source build (`scripts/build-open-source.sh`, Fast plan; added 5 Nov at `main` 9361442, after 2X7) | **1,753 tests**: `NoteCodeTests` without `NoteCodeTests/Pro/`, plus `OpenSourceEditionTests` |
 | Wall time | **495 s** for `xcodebuild` (warm build): 6 s setup, 487.4 s first test to last, about 1 s to exit. Without coverage 492 s (§2) |
 | `TipJarTests` alone | 7 of 7 passed in 6 s (see Findings 1) |
 | UI tests (`NoteCodeUITests`, the first run ever) | 18 tests: 10 HotbarUITests (**6 failed**, see Findings 2), 2 ListDragUITests skipped, 2 NoteCodeUITests and 4 launch tests passed. 202 s |
@@ -203,7 +204,9 @@ the ratchet only means something after a clean build: `check.sh --full`
 
 Taken at `main` acdc5a0 (4 Nov 2026, 2X1). Counted by `scripts/check-seam.sh`:
 the files outside any `Pro/` folder whose code names a top-level type or
-function of `NoteCode/Pro/`, one of the editor's Pro members, or
+function of `NoteCode/Pro/`; one of the editor's Pro members (`ai`,
+`run` or `pro` on a value called `editor`, or `explain`, `summariseNote`,
+`insertAnswer`, `runInApp`, `connectRun` or `onRunNeedsPro` by name); or
 `explainBlockAtCaret` or `runService` (`runBlockAtCaret` left the list
 in 2X5b) (2X-seam.md › Where the code is today). The line below is what
 `check.sh` reads; the count may only fall, and 2X7 keeps it at 0.
@@ -212,7 +215,7 @@ SEAM 0
 
 2X6 (4 Nov) took both of DebugLaunch's Pro references out of Debug/ and the debug paywall out of NoteCodeScene: 12 files at main 348a257, 9 after; 8 once merged with 2X4a (PR 168); 6 with 2X4b (PR 171), which took SettingsView and WritingSettings; 1 with 2X5b (PR 172), leaving only PageDetailView; 0 with 2X5c (5 Nov), whose Run control, dock and host reach the page through the editor's features.
 
-It is 16, not the brief's 14: the brief's table predates counting
+At 2X1 it was 16, not the brief's 14: the brief's table predates counting
 `runBlockAtCaret` and `runService` by name, which adds `NoteCommands.swift`
 (⌘R's `editor?.runBlockAtCaret?()`) and `AppSettings.swift` (where
 `AppInfo.runService` is declared).

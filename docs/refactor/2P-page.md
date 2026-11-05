@@ -104,7 +104,7 @@ about 1,000 lines, and the release QA wants a reason for anything over 600.
 - `PageReading`: "Reopening where the reader left off" :622–674, "Search"
   :675–711 and "Outline" :712–749.
 
-**Must not.** Change the debug report's fields (DebugLaunch.swift's
+**Must not.** Change the debug report's fields (DebugStateReport.swift's
 `DebugStateReport` reads the page), where a note reopens, or where bands sit
 in any view mode.
 
@@ -132,6 +132,18 @@ a new object on every `init`, which SwiftUI runs far more often than it
 keeps the state. Make both lazy (an `@State` optional filled in `.task` or
 `onAppear`, or a small holder), so `init` allocates nothing. A test counts
 `NoteEditor` allocations across repeated inits.
+
+**Also, from PR 174's review (2X5c).** Fix while the file is split:
+- `isCompact` is internal only under `#if os(iOS)` (PageDetailView.swift:79–81),
+  but the extension that reads it is under `#if canImport(UIKit)`
+  (PageDetailView+Features.swift:61), so a UIKit platform that isn't iOS
+  would not compile. Make the two conditions match.
+- `editor` and `windowWidth` are `@State var` without `private`
+  (PageDetailView.swift:51, :66), loosened for the extension. Once the
+  parts own what they read, make them `private` again or say why not.
+- `RunHostProbe` (EditorLeakTests+Run.swift) never opens the panel, so the
+  dock's `onShow` closure is never built by a leak test. Open it once in
+  the probe so `EditorLeakTests` covers it.
 
 **Must not.** Change the toolbar order or the menu's items; save ink or
 bump `modifiedAt` while opening; F6 (`modifiedAt` on every keystroke,

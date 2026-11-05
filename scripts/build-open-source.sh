@@ -41,10 +41,14 @@ remove_tree() {
   git -C "$repo" worktree prune >/dev/null 2>&1
 }
 # One EXIT trap for both: lib-xcode.sh's releases the simulator lock, and a
-# second `trap … EXIT` would replace it.
+# second `trap … EXIT` would replace it. Both only once the lock is held: a
+# run interrupted while it waits for the lock must not remove the tree of
+# the run that holds it.
 cleanup() {
-  remove_tree
-  [[ -n ${_sim_lock:-} ]] && rm -rf "$_sim_lock"
+  if [[ -n ${_sim_lock:-} ]]; then
+    remove_tree
+    rm -rf "$_sim_lock"
+  fi
 }
 trap cleanup EXIT
 

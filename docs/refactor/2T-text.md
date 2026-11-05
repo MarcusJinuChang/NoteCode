@@ -169,6 +169,13 @@ observation still fires. Acceptance per PR: `NoteEditorTests`,
 `HotbarLayoutTests` pass. Device line (the last PR): undo and redo after
 typing, formatting, a size change and a paste each take one step.
 
+**Tests that reach Run through NoteEditor** (found in 2X5b, PR 172): Run's
+gate (`RunRoute.route`) defaults to `ProGate.isPro`, which reads
+`ProStatus.shared`. A test that runs a block through a `NoteEditor` must
+install `RunFeature` with the Pro state injected, as `RunFeatureTests`
+does, or its result depends on the shared store and the order tests run
+in.
+
 ## 2T8. Long functions (three PRs; perf)
 
 | Function | Today | Becomes |
