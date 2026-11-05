@@ -8,7 +8,9 @@
 #   --full            The Full plan (every unit test, .perf included), and also NoteCodeUITests, as their own xcodebuild run after
 #                     the unit tests (one invocation with both crashed the
 #                     unit bundle, baseline.md finding 2), and the run
-#                     proxy's `npm test` and `npx tsc --noEmit`.
+#                     proxy's `npm test` and `npx tsc --noEmit`, and
+#                     scripts/build-open-source.sh (the public build and its
+#                     unit tests, in a temporary worktree of HEAD).
 #   --coverage        Build with -enableCodeCoverage YES and print the app's
 #                     line coverage per top-level folder of NoteCode/.
 #
@@ -182,6 +184,14 @@ fi
 if (( full )) && [[ -d server/run-proxy/node_modules ]]; then
   ( cd server/run-proxy && npm test --silent 2>&1 | tail -5 && npx tsc --noEmit ) \
     && print "run-proxy: ok" || { print "run-proxy: FAILED"; rc=1; }
+fi
+
+# The open-source edition (2X7): NoteCode/ minus Pro/ plus OpenSource/,
+# built and tested in a temporary worktree. It takes the simulator lock
+# itself, so release ours first. Not with --only.
+if (( full )) && (( ! ${#suites} )) && [[ -x scripts/build-open-source.sh ]]; then
+  [[ -n ${_sim_lock:-} ]] && rm -rf "$_sim_lock" && _sim_lock=
+  print "open source:"; scripts/build-open-source.sh || rc=1
 fi
 
 print "logs: $tmp"
