@@ -53,6 +53,19 @@ struct AppExtensions: Sendable {
     /// Rows and sections in Settings, each with its place (`SettingsSection`).
     var settingsSections: @MainActor @Sendable () -> [SettingsSection] = { [] }
 
+    /// What the Welcome note and the title screen say Run does.
+    var runLines = RunLines.compilerSite
+
+#if DEBUG
+    /// Settings keys `-debug-first-launch` clears besides the general ones
+    /// (the App Store's: the Run disclosure).
+    var debugResetKeys: [String] = []
+
+    /// Wraps the root view in a debug build, outside everything else (the
+    /// App Store's: `-debug-paywall`).
+    var debugRoot: @MainActor @Sendable (AnyView) -> AnyView = { $0 }
+#endif
+
 #if canImport(UIKit)
     /// What each note's editor gains (`EditorFeature`), in the order their
     /// actions are shown. `PageDetailView` installs them in its editor.
@@ -61,6 +74,20 @@ struct AppExtensions: Sendable {
 
     /// Adds nothing.
     static let none = AppExtensions()
+}
+
+/// The sentence about Run in the Welcome note and on the title screen.
+nonisolated struct RunLines: Sendable {
+    /// In the Welcome note's Code section, after "…start a code block."
+    var note: String
+    /// The title screen's "Code that runs", after "…for a highlighted block."
+    var screen: String
+
+    /// A build with no run service: Run opens the block on a free online
+    /// compiler (`CodeDestination`).
+    static let compilerSite = RunLines(
+        note: "The run button takes it to a free online compiler.",
+        screen: "Run takes it to a free online compiler.")
 }
 
 /// A row an edition adds to a general list or form.

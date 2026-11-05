@@ -44,11 +44,12 @@ struct WelcomeScreen: View {
         var id: String { title }
     }
 
-    static let features = [
+    /// The three things the screen says, with the edition's sentence about Run.
+    static func features(_ runLines: RunLines) -> [Feature] { [
         Feature(
             symbol: "curlybraces",
             title: "Code that runs",
-            detail: "Type ``` and a language for a highlighted block. NoteCode Pro runs it beside the page."
+            detail: "Type ``` and a language for a highlighted block. \(runLines.screen)"
         ),
         Feature(
             symbol: "pencil.line",
@@ -60,11 +61,12 @@ struct WelcomeScreen: View {
             title: "Letter pages",
             detail: "Seamless, compressed or print layout, and any note shares as a PDF."
         ),
-    ]
+    ] }
 
     static let tagline = "Notes for code, ink and pages"
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.appExtensions) private var extensions
 
     var body: some View {
         GeometryReader { proxy in
@@ -107,7 +109,7 @@ struct WelcomeScreen: View {
                 .padding(.top, 8)
 
             VStack(alignment: .leading, spacing: 26) {
-                ForEach(Self.features) { feature in
+                ForEach(Self.features(extensions.runLines)) { feature in
                     HStack(alignment: .top, spacing: 18) {
                         Image(systemName: feature.symbol)
                             .font(.system(size: 22, weight: .semibold))

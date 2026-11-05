@@ -36,7 +36,8 @@ struct NoteCodeScene: Scene {
         let session = DebugSession.shared
         DebugLaunch.applyViewMode(session.options)
         DeviceProbe.start()
-        if let fresh = DebugLaunch.firstLaunchOrHomeStorage(session.options, session: session) {
+        if let fresh = DebugLaunch.firstLaunchOrHomeStorage(
+            session.options, session: session, alsoClearing: extensions.debugResetKeys) {
             storage = fresh
             openedPage = nil
             return
@@ -62,7 +63,7 @@ struct NoteCodeScene: Scene {
                     .environment(\.appExtensions, extensions)
                     .modifier(AppearanceModifier())
 #if DEBUG
-                    .modifier(DebugPaywall())
+                    .modifier(DebugRoot(wrap: extensions.debugRoot))
 #endif
             } else {
                 StorageUnavailableView(reason: storage.reason)
@@ -99,16 +100,12 @@ struct StorageUnavailableView: View {
 }
 
 #if DEBUG
-/// `-debug-paywall`: the paywall over whatever opens, for a screenshot.
-private struct DebugPaywall: ViewModifier {
-    @State private var shows = DebugLaunchOptions.current.paywall
+/// The edition's `debugRoot`, outside everything else on the root view.
+private struct DebugRoot: ViewModifier {
+    let wrap: @MainActor @Sendable (AnyView) -> AnyView
 
     func body(content: Content) -> some View {
-        content.sheet(isPresented: $shows) {
-            PaywallView(reason: "Explain Code and Summarise Note are part of NoteCode Pro.")
-                .environment(ProStatus.shared)
-                .modifier(AppearanceModifier())
-        }
+        wrap(AnyView(content))
     }
 }
 #endif

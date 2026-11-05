@@ -295,7 +295,7 @@ struct WelcomeScreenTests {
 
     @Test("It says three things, each with words")
     func features() {
-        #expect(WelcomeScreen.features.map(\.title) == ["Code that runs", "Ink on the same page", "Letter pages"])
-        #expect(WelcomeScreen.features.allSatisfy { !$0.detail.isEmpty && !$0.symbol.isEmpty })
+        #expect(WelcomeScreen.features(.compilerSite).map(\.title) == ["Code that runs", "Ink on the same page", "Letter pages"])
+        #expect(WelcomeScreen.features(.compilerSite).allSatisfy { !$0.detail.isEmpty && !$0.symbol.isEmpty })
     }
 }

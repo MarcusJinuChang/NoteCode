@@ -517,7 +517,7 @@ struct ContentView: View {
     /// Opened like a note the reader made, so the list slides away for it.
     /// Other notes are untouched, dates included.
     private func openWelcomeNote() {
-        let page = WelcomeNote.make(in: modelContext)
+        let page = WelcomeNote.make(in: modelContext, runLines: extensions.runLines)
         openedSearch = NoteSearch("")
         selection = page
     }
@@ -583,7 +583,7 @@ struct ContentView: View {
     /// in memory and meant to hold exactly that note.
     private func makeWelcomeNoteOnFirstLaunch() {
         guard !storageIsEphemeral, !opensDebugNote else { return }
-        WelcomeNote.makeOnFirstLaunch(in: modelContext)
+        WelcomeNote.makeOnFirstLaunch(in: modelContext, runLines: extensions.runLines)
     }
 
     /// How far above the page's bottom edge a toast sits: clear of the hotbar

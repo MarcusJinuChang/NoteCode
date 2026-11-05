@@ -310,44 +310,8 @@ enum RunServiceFactory {
     /// seen without a proxy.
     @MainActor static func make(service: URL? = AppInfo.runService) -> (any CodeRunning)? {
 #if DEBUG
-        if let kind = DebugLaunchOptions.current.runStub { return DebugRunStub(kind: kind) }
+        if let kind = ProDebugOptions.current.runStub { return DebugRunStub(kind: kind) }
 #endif
         return service.map { RunServiceClient(baseURL: $0) }
     }
 }
-
-#if DEBUG
-nonisolated enum DebugRunStubKind: String, CaseIterable, Sendable {
-    case ok, compileError = "compile-error", runtimeError = "runtime-error"
-    case timeLimit = "time-limit", capped
-}
-
-/// Canned answers for `-debug-run-stub`, so the panel can be seen without a proxy.
-nonisolated struct DebugRunStub: CodeRunning {
-    var kind: DebugRunStubKind
-
-    func run(_ job: RunJob) async throws -> RunResult {
-        try await Task.sleep(for: .milliseconds(400))
-        switch kind {
-        case .ok:
-            return RunResult(status: .ok, stdout: "Hello, NoteCode\n42\n", timeSeconds: 0.02, memoryKB: 3174, runsLeft: 18)
-        case .compileError:
-            return RunResult(
-                status: .compileError,
-                compileOutput: "main.cpp:5:3: error: use of undeclared identifier 'cout'\n  cout << x;\n  ^\n",
-                runsLeft: 17
-            )
-        case .runtimeError:
-            return RunResult(
-                status: .runtimeError(exitCode: 1, signal: nil), stdout: "before\n",
-                stderr: "terminate called after throwing an instance of 'std::out_of_range'\n",
-                timeSeconds: 0.01, memoryKB: 2900
-            )
-        case .timeLimit:
-            return RunResult(status: .timeLimit, stdout: "1\n2\n3\n", timeSeconds: 5.0, memoryKB: 2048)
-        case .capped:
-            throw RunServiceError.capped(RunCap(scope: .daily, runsLeft: 0, resetsAt: nil))
-        }
-    }
-}
-#endif
