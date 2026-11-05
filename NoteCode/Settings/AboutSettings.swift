@@ -10,8 +10,7 @@ import SwiftUI
 struct AboutSettings: View {
     var onOpenWelcomeNote: () -> Void
     var onShowWelcomeScreen: () -> Void
-    @Environment(ProStatus.self) private var pro: ProStatus?
-    @State private var consent = AdConsent.shared
+    @Environment(\.appExtensions) private var extensions
 
     var body: some View {
         Form {
@@ -42,18 +41,14 @@ struct AboutSettings: View {
                     Link("Send Feedback", destination: feedback)
                 }
                 Link("Privacy Policy", destination: AppInfo.privacyPolicy)
-                // Where the law lets the reader change their answer to
-                // Google's consent form; UMP says where (AdConsent).
-                if consent.privacyOptionsRequired {
-                    Button("Ad Privacy Options") { Task { await consent.showPrivacyOptions() } }
-                        .accessibilityIdentifier("adPrivacyOptionsButton")
-                }
+                // The edition's rows (the App Store's Ad Privacy Options).
+                ForEach(extensions.aboutRows()) { $0.view }
                 NavigationLink("Acknowledgements") { AcknowledgementsPage() }
                 LabeledContent("Version", value: AppInfo.versionString())
             }
         }
         .navigationTitle("Help and About")
-        .task { await consent.settingsAppeared(pro: pro) }
+        .task { await extensions.settingsAppeared() }
     }
 }
 
