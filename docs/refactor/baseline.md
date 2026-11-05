@@ -186,16 +186,18 @@ By category:
 |---|---|
 | 5 | main actor-isolated static member referenced from a Sendable or nonisolated context (Swift 6 error): ProStatus.swift:250, ProStatusTests:64, PaywallTests:21 and :63, FormulaEditingTests:154 |
 | 3 | `[#DeprecatedDeclaration]`: `UIWindow(frame:)` in TestWindow.swift:36 and TextRewritingPolicyTests:338, `traitCollectionDidChange` in PageWindowChrome.swift:94 |
-| 1 | `[#DeprecatedDeclaration]` Google Mobile Ads banner size, AdBanner.swift:62 |
+| 1 | `[#DeprecatedDeclaration]` Google Mobile Ads banner size, AdBanner.swift:61 |
 | 1 | `[#UnnecessaryEffectMarker]` TipJarTests.swift:199 |
 | 1 | code after `throw` never executed, ListDragUITests.swift:27 |
-| 1 | "consider using asynchronous alternative function", AdConsent.swift:149 |
+| 1 | "consider using asynchronous alternative function", AdConsent.swift:138 |
 
 The 0D count was 13: it also had the StoreKitTest `SKTestTransaction.h:34`
 deprecation, which this build does not print. The old ratchet's 61 counted the
 compiler's source-excerpt lines; `check.sh` now prints the count by category
-too. A run with `--only` compiles fewer files, so its count is lower; the
-ratchet only means something after a clean build.
+too. An incremental build compiles fewer files, so its count is lower, and
+the ratchet only means something after a clean build: `check.sh --full`
+(without `--only`) cleans first and compares, and every other run prints
+"warnings: incremental, not compared".
 
 ## 5. The seam
 

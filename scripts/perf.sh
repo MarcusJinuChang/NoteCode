@@ -5,7 +5,8 @@
 #
 # With --compare, each row also shows the change against the `PERF` line of the
 # same name in the file, and the script exits 1 if any is more than 10% worse.
-# Numbers under 5ms are not judged (noise). Log: $TMPDIR/notecode-check/perf.log.
+# Numbers under 5ms are not judged (noise). Log: perf.log in this worktree's
+# own $TMPDIR/notecode-check/<worktree>-<hash>/ (lib-xcode.sh), printed last.
 
 set -uo pipefail
 source ${0:A:h}/lib-xcode.sh
@@ -43,4 +44,5 @@ print -r -- "$rows" | while read -r _ name secs; do
   fi
   print
 done
+print "log: $log"
 exit $rc
