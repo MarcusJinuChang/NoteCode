@@ -519,7 +519,7 @@ struct RunPanelHost: ViewModifier {
                 editor.connectRun()
                 editor.run.runner = RunServiceFactory.make()
 #if DEBUG
-                if DebugLaunchOptions.current.runStub != nil {
+                if ProDebugOptions.current.runStub != nil {
                     try? await Task.sleep(for: .seconds(1))
                     editor.run.isOpen = true
                     editor.run.run(transaction: transaction())

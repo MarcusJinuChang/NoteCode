@@ -211,11 +211,14 @@ struct ProStatusTests {
 
     @Test("-debug-pro on and off, and a bad value")
     func debugLaunch() {
-        #expect(DebugLaunchOptions.parse(["app", "-debug-pro", "on"]).pro == true)
-        #expect(DebugLaunchOptions.parse(["app", "-debug-pro", "off"]).pro == false)
-        #expect(DebugLaunchOptions.parse(["app"]).pro == nil)
-        let bad = DebugLaunchOptions.parse(["app", "-debug-pro", "maybe"])
-        #expect(bad.pro == nil)
+        func pro(_ arguments: [String]) -> Bool? {
+            DebugLaunchOptions.parse(arguments, groups: [ProDebugOptions.self]).group(ProDebugOptions.self)?.pro
+        }
+        #expect(pro(["app", "-debug-pro", "on"]) == true)
+        #expect(pro(["app", "-debug-pro", "off"]) == false)
+        #expect(pro(["app"]) == nil)
+        let bad = DebugLaunchOptions.parse(["app", "-debug-pro", "maybe"], groups: [ProDebugOptions.self])
+        #expect(bad.group(ProDebugOptions.self)?.pro == nil)
         #expect(!bad.problems.isEmpty)
     }
 

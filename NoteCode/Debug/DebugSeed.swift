@@ -152,11 +152,15 @@ enum DebugLaunch {
     /// the next normal launch: its store isn't empty, so no Welcome note is made
     /// (`WelcomeNote.makeOnFirstLaunch`), but the title screen shows once more.
     ///
-    /// - Parameter defaults: where the flags and remembered places live; a
-    ///   test passes its own, so it doesn't clear the device's.
+    /// - Parameters:
+    ///   - editionKeys: the edition's own first-launch flags
+    ///     (`AppExtensions.debugResetKeys`).
+    ///   - defaults: where the flags and remembered places live; a test
+    ///     passes its own, so it doesn't clear the device's.
     static func firstLaunchOrHomeStorage(
         _ options: DebugLaunchOptions,
         session: DebugSession,
+        alsoClearing editionKeys: [String] = [],
         defaults: UserDefaults = .standard
     ) -> Storage? {
         guard options.firstLaunch || options.home else { return nil }
@@ -174,8 +178,8 @@ enum DebugLaunch {
         }
 
         if !options.keepsDefaults {
-            for key in [WelcomeScreen.shownKey, WelcomeNote.madeKey, NoteMemory.lastOpenedKey, NoteMemory.placesKey,
-                        RunDisclosure.key] {
+            for key in [WelcomeScreen.shownKey, WelcomeNote.madeKey, NoteMemory.lastOpenedKey, NoteMemory.placesKey]
+                + editionKeys {
                 defaults.removeObject(forKey: key)
             }
             if options.home {

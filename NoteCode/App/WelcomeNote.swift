@@ -85,12 +85,14 @@ nonisolated enum WelcomeNote {
     /// never cleared: deleting the note must not bring it back.
     static let madeKey = "welcomeNoteMade"
 
-    static let content = """
+    /// The note's text, with the edition's sentence about Run.
+    static func content(_ runLines: RunLines) -> String {
+        """
     Type here like any note. Headings, **bold**, lists and `inline code` come from the bar below, or from Markdown as you type.
 
     ## Code
 
-    Three backticks and a language start a code block. With NoteCode Pro, the run button runs it beside the page and shows what it prints. Copy puts it on the clipboard.
+    Three backticks and a language start a code block. \(runLines.note) Copy puts it on the clipboard.
 
     ```python
     def greet(name):
@@ -107,6 +109,7 @@ nonisolated enum WelcomeNote {
 
     Notes are Letter pages. ••• › View shows them seamless, compressed or as printed sheets, and Share makes a PDF.
     """
+    }
 
     /// Makes the note, as a new one each time. This is what Settings › Help
     /// and About › Welcome Note asks for, and what the empty list offers.
@@ -115,8 +118,8 @@ nonisolated enum WelcomeNote {
     /// for it doesn't reorder the list by moving another note's date.
     @discardableResult
     @MainActor
-    static func make(in context: ModelContext, orientation: PageOrientation = .portrait) -> Page {
-        let page = Page(title: title, content: content)
+    static func make(in context: ModelContext, runLines: RunLines, orientation: PageOrientation = .portrait) -> Page {
+        let page = Page(title: title, content: content(runLines))
         page.orientation = orientation
         context.insert(page)
         return page
@@ -135,6 +138,7 @@ nonisolated enum WelcomeNote {
     @MainActor
     static func makeOnFirstLaunch(
         in context: ModelContext,
+        runLines: RunLines,
         defaults: UserDefaults = .standard
     ) -> Page? {
         guard !defaults.bool(forKey: madeKey) else { return nil }
@@ -145,6 +149,6 @@ nonisolated enum WelcomeNote {
         let noteCount = (try? context.fetchCount(FetchDescriptor<Page>())) ?? 0
         let folderCount = (try? context.fetchCount(FetchDescriptor<Folder>())) ?? 0
         guard noteCount == 0, folderCount == 0 else { return nil }
-        return make(in: context)
+        return make(in: context, runLines: runLines)
     }
 }
