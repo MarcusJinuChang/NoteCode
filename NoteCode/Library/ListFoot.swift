@@ -48,7 +48,7 @@ struct ListFoot: View {
     /// The rows in order: the edition's first (the App Store's ad, then Tip
     /// Jar), then Feature Request, Send Feedback and Privacy Policy.
     func rows(with extensions: AppExtensions) -> [ExtensionRow] {
-        var rows = extensions.listFootRows(present)
+        var rows = extensions.listFootRows { [present] in present($0) }
         if let url = AppInfo.featureRequestURL() {
             rows.append(ExtensionRow(id: "featureRequest") {
                 Link(destination: url) {

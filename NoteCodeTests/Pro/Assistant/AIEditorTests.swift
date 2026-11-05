@@ -16,7 +16,7 @@ import Testing
 @MainActor
 struct AIEditorTests {
 
-    private static let note = "Intro\n\n```cpp\nint add(int a, int b) { return a + b; }\n```\n\nAfter\n"
+    nonisolated private static let note = "Intro\n\n```cpp\nint add(int a, int b) { return a + b; }\n```\n\nAfter\n"
 
     private func harness(
         availability: AIAvailability = .available,
