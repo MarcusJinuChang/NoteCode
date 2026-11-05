@@ -48,7 +48,7 @@ struct PageDetailView: View {
     @Query private var folders: [Folder]
 
 #if canImport(UIKit)
-    @State private var editor = NoteEditor()
+    @State var editor = NoteEditor()
     /// The edition's editor features, installed in `editor` as the page
     /// appears: `@State` is made before the environment can be read.
     @Environment(\.appExtensions) private var extensions
@@ -61,11 +61,9 @@ struct PageDetailView: View {
     /// note opens: the page then writes its own place back as it is read.
     @State private var resumingAtPage: Int?
 
-    /// The window's width, for the Run dock's half-window limit.
-    @State private var windowWidth: CGFloat = 0
-    /// Run was chosen by a free reader: the paywall opens, with Run's reason,
-    /// instead of the panel (`RunPanelHost` presents it).
-    @State private var showsRunPaywall = false
+    /// The window's width, for the features' top-bar item and side panel
+    /// (`EditorPageLayout`).
+    @State var windowWidth: CGFloat = 0
 
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.displayScale) private var screenScale
@@ -78,7 +76,7 @@ struct PageDetailView: View {
     /// back when the width does (a Duo unfolded).
 #if os(iOS)
     @Environment(\.horizontalSizeClass) private var sizeClass
-    private var isCompact: Bool { sizeClass == .compact }
+    var isCompact: Bool { sizeClass == .compact }
 #else
     private var isCompact: Bool { false }
 #endif
@@ -210,7 +208,7 @@ struct PageDetailView: View {
                     .padding(.vertical, 8)
             }
 #endif
-            runLayout
+            sidePanelLayout
         }
         .navigationTitle(Binding(get: { page.displayTitle }, set: { page.rename(to: $0) }))
 #if os(iOS)
@@ -236,19 +234,13 @@ struct PageDetailView: View {
         .toolbarBackground(.visible, for: .navigationBar)
 #endif
 
-#if canImport(UIKit)
-        .modifier(RunPanelHost(
-            editor: editor, isCompact: isCompact, showsRunPaywall: $showsRunPaywall,
-            windowWidth: $windowWidth, transaction: { ProGate.signedTransaction }
-        ))
-#endif
         .sheet(isPresented: $showsInfo) {
             NoteInfoView(page: page, pageCount: openPageCount)
         }
 #if canImport(UIKit)
         // Each feature's sheets and settings, behind the page so that
         // installing one doesn't rebuild it (the assistant's result sheet
-        // and paywall).
+        // and paywall, Run's compact sheet and paywall).
         .background {
             ForEach(editor.features.indices, id: \.self) { index in
                 editor.features[index].pageAccessory()
@@ -344,65 +336,6 @@ struct PageDetailView: View {
 
     // MARK: Header
 
-#if canImport(UIKit)
-    /// The Notes | Run control, on the right with Share and •••. Not
-    /// `.principal`, which replaces the title: the note's name and its menu
-    /// went, leaving a bare chevron.
-    @ToolbarContentBuilder
-    private var runToggleItem: some ToolbarContent {
-        if let run = editor.run, run.isAvailable {
-            ToolbarItem(placement: .primaryAction) {
-                if isCompact || (windowWidth > 0 && windowWidth < HomeLayout.regularMinimumWidth) {
-                    // A phone's bar has no room for the switch beside the
-                    // title, and the overflow menu it goes to drops a picker
-                    // (iPhone 17, 31 Oct): a button lands there as a row. A
-                    // narrow regular window too, where the switch cut the
-                    // title to "Week 6 · Has…" (an upright Duo, 669pt).
-                    Button(run.isOpen ? "Back to Notes" : "Run", systemImage: run.isOpen ? "doc.text" : "play") {
-                        showRun(!run.isOpen)
-                    }
-                } else {
-                    NotesRunToggle(
-                        isRun: run.isOpen,
-                        showsProMark: !ProGate.isPro,
-                        onSelect: showRun
-                    )
-                }
-            }
-            .sharedBackgroundVisibility(.hidden)
-        }
-    }
-
-    private func showRun(_ wantsRun: Bool) {
-        if !wantsRun {
-            withAnimation(.snappy) { editor.run?.isOpen = false }
-        } else if ProGate.isPro {
-            withAnimation(.snappy) { editor.run?.isOpen = true; editor.run?.isCollapsed = false }
-        } else {
-            showsRunPaywall = true
-        }
-    }
-
-    /// The note, with the Run panel docked at its right where there is room.
-    /// The panel narrows the page's area and nothing else: the page's zoom
-    /// and place are its own.
-    private var runLayout: some View {
-        HStack(spacing: 0) {
-            content
-            if let run = editor.run, run.isOpen, !isCompact {
-                RunDock(
-                    session: run,
-                    transaction: { ProGate.signedTransaction },
-                    onShow: { editor.scroll(toLineAt: $0.location) },
-                    availableWidth: windowWidth
-                )
-                .transition(.move(edge: .trailing))
-            }
-        }
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { windowWidth = $0 }
-    }
-#endif
-
     /// Home beside the sidebar button; Share and ••• on the right, in the label colour, not the accent,
     /// which belongs to the tools and the page. The sidebar button on the
     /// left is the system's: it opens the list over the page, and in a
@@ -430,7 +363,7 @@ struct PageDetailView: View {
         }
 
 #if canImport(UIKit)
-        runToggleItem
+        featureTopBarItem
 
         ToolbarItem(placement: .primaryAction) {
             NoteShareButton(editor: editor, title: page.displayTitle, fallbackText: page.content)
@@ -546,7 +479,7 @@ struct PageDetailView: View {
     // MARK: Page
 
 #if canImport(UIKit)
-    private var content: some View {
+    var content: some View {
         ZStack {
             DocumentTextView(
                 text: $page.content,
@@ -774,7 +707,7 @@ struct PageDetailView: View {
             .disabled(page.isTextLocked)
     }
 
-    private var runLayout: some View { content }
+    private var sidePanelLayout: some View { content }
 #endif
 }
 

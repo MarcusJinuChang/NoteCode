@@ -204,13 +204,13 @@ the ratchet only means something after a clean build: `check.sh --full`
 Taken at `main` acdc5a0 (4 Nov 2026, 2X1). Counted by `scripts/check-seam.sh`:
 the files outside any `Pro/` folder whose code names a top-level type or
 function of `NoteCode/Pro/`, one of the editor's Pro members, or
-`runBlockAtCaret`, `explainBlockAtCaret` or `runService`
-(2X-seam.md › Where the code is today). The line below is what `check.sh`
-reads; the count may only fall, and 2X7 brings it to 0.
+`explainBlockAtCaret` or `runService` (`runBlockAtCaret` left the list
+in 2X5b) (2X-seam.md › Where the code is today). The line below is what
+`check.sh` reads; the count may only fall, and 2X7 keeps it at 0.
 
-SEAM 1
+SEAM 0
 
-2X6 (4 Nov) took both of DebugLaunch's Pro references out of Debug/ and the debug paywall out of NoteCodeScene: 12 files at main 348a257, 9 after; 8 once merged with 2X4a (PR 168); 6 with 2X4b (PR 171), which took SettingsView and WritingSettings; 1 with 2X5b (PR 172), leaving only PageDetailView.
+2X6 (4 Nov) took both of DebugLaunch's Pro references out of Debug/ and the debug paywall out of NoteCodeScene: 12 files at main 348a257, 9 after; 8 once merged with 2X4a (PR 168); 6 with 2X4b (PR 171), which took SettingsView and WritingSettings; 1 with 2X5b (PR 172), leaving only PageDetailView; 0 with 2X5c (5 Nov), whose Run control, dock and host reach the page through the editor's features.
 
 It is 16, not the brief's 14: the brief's table predates counting
 `runBlockAtCaret` and `runService` by name, which adds `NoteCommands.swift`
