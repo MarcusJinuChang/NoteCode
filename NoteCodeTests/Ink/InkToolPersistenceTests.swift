@@ -156,6 +156,7 @@ struct InkToolPersistenceTests {
 
     @Test("A pen or selection kind written over an open note does not reach it")
     func penAndSelectionNotPushed() async throws {
+        // Pinned as found, not a decision: the refactor keeps it, and changing it is an F fix.
         let note = try await openNote()
         defer { note.close() }
 
@@ -173,6 +174,7 @@ struct InkToolPersistenceTests {
 
     @Test("Return to Previous Tool goes one way: the editor's own change is not stored")
     func returnToPreviousToolOneWay() async throws {
+        // Pinned as found, not a decision: the refactor keeps it, and changing it is an F fix.
         let note = try await openNote()
         defer { note.close() }
 

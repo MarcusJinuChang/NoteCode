@@ -57,12 +57,16 @@ struct HighlightingDebounceTests {
         let harness = await openNote()
 
         harness.type("return 2;\n", at: harness.offset(of: "int value"))
-        // The restyle the edit made is synchronous; the colouring is not.
-        // What was typed is plain until the pass lands ...
+        // The debounce: the restyle the edit made is synchronous, the
+        // colouring is not, so what was typed is plain now and coloured once
+        // the pass has landed (below). How long the pause is (20ms) is not
+        // pinned: that needs T6's injected clock.
         #expect(colour(at: harness.offset(of: "return"), in: harness) == UIColor.label)
-        // ... and the rest of the block keeps the colours it had, though
+        // The rest of the block keeps the colours it had, though
         // `scheduleHighlighting`'s comment says the restyle resets every
-        // foreground in it to `.label`.
+        // foreground in it to `.label`. Pinned as found, not a decision: 2T1
+        // keeps the code's behaviour and doesn't make the code match its
+        // comment; changing either is an F fix.
         #expect(colour(at: harness.offset(of: "int value"), in: harness) != UIColor.label)
 
         await harness.coordinator.highlightingFinished()
