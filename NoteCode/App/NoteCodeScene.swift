@@ -63,7 +63,7 @@ struct NoteCodeScene: Scene {
                     .environment(\.appExtensions, extensions)
                     .modifier(AppearanceModifier())
 #if DEBUG
-                    .modifier(DebugRoot(wrap: extensions.debugRoot))
+                    .modifier(DebugRoot(extensions: extensions))
 #endif
             } else {
                 StorageUnavailableView(reason: storage.reason)
@@ -102,12 +102,12 @@ struct StorageUnavailableView: View {
 #if DEBUG
 /// The edition's `debugRoot`, outside everything else on the root view.
 private struct DebugRoot: ViewModifier {
-    // Not @Sendable: the modifier only calls it on the main actor, and the
-    // scene's copy of `debugRoot` reads as non-Sendable to the compiler.
-    let wrap: @MainActor (AnyView) -> AnyView
+    // The extensions, not the closure: passing `debugRoot` itself converted
+    // it to a Sendable function type, which the compiler warned about.
+    let extensions: AppExtensions
 
     func body(content: Content) -> some View {
-        wrap(AnyView(content))
+        extensions.debugRoot(AnyView(content))
     }
 }
 #endif
