@@ -32,7 +32,7 @@ struct NoteCodeScene: Scene {
         // The edition's own start: the App Store's starts the tip jar, then Pro.
         extensions.start()
 #if DEBUG && canImport(UIKit)
-        // See DebugSession.swift. A no-op unless a -debug- argument was passed.
+        // See DebugSeed.swift and DebugSession.swift. A no-op unless a -debug- argument was passed.
         let session = DebugSession.shared
         DebugLaunch.applyViewMode(session.options)
         DeviceProbe.start()
