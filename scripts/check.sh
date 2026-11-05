@@ -52,14 +52,20 @@ if [[ -x scripts/check-seam.sh ]]; then
 fi
 
 # A reliable warning count needs every file compiled: see Warnings below.
+# The clean runs inside the lock (lib-xcode.sh › xcode_clean says why). If it
+# fails, the build is incremental after all, so the count is not compared.
 counted=$(( full && ! ${#suites} ))
+take_lock
 if (( counted )); then
   start=$SECONDS
-  xcode_clean $tmp/check-clean.log || print "clean: xcodebuild clean failed (log: $tmp/check-clean.log)"
-  print "clean: $(( SECONDS - start ))s"
+  if xcode_clean $tmp/check-clean.log; then
+    print "clean: $(( SECONDS - start ))s"
+  else
+    print "clean: xcodebuild clean failed, warnings will not be compared (log: $tmp/check-clean.log)"
+    counted=0
+  fi
 fi
 
-take_lock
 export NOTECODE_COVERAGE=$cov
 only=(${(f)"$(only_args $suites)"})
 logs=()

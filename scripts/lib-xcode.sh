@@ -67,8 +67,12 @@ xcode_test() {
 
 # xcode_clean <log>: removes this worktree's build products (its own
 # DerivedData folder), so the next xcodebuild compiles every file and its log
-# carries every warning (check.sh --full's count). Uses no simulator, so it
-# runs before take_lock.
+# carries every warning (check.sh --full's count). Call it holding the lock:
+# it needs no simulator, but xcodebuild resolves packages into the shared
+# $packages folder first, and the lock is what keeps two worktrees'
+# xcodebuilds off it at once. -disableAutomaticPackageResolution would avoid
+# the write, but fails a clean on a machine (or after a Package.resolved
+# change) whose packages are not resolved yet, and the clean is ~2s.
 xcode_clean() {
   xcodebuild clean -project "$root/NoteCode.xcodeproj" -scheme NoteCode \
     -destination "platform=iOS Simulator,name=$sim" \
