@@ -82,9 +82,10 @@ struct NoteList: View {
     @Environment(\.appExtensions) private var extensions
     @AppStorage(SettingKeys.General.accent) private var accent
     @Environment(ToastCenter.self) private var toasts: ToastCenter?
-    // Every note, deleted ones included: the sections and search leave out
-    // what is in Recently Deleted (`Page.live`), and the foot counts it.
-    @Query(sort: \Page.modifiedAt, order: .reverse) private var pages: [Page]
+    // The notes that are not in Recently Deleted (F8: the store leaves the
+    // others out, rather than the list loading them to filter). The foot
+    // counts the others in the store (`Page.deletedCount`).
+    @Query(filter: Page.livePredicate, sort: \Page.modifiedAt, order: .reverse) private var pages: [Page]
     @Query private var folders: [Folder]
 
     /// How notes are ordered. Per device, like the view mode: it's how this
@@ -140,7 +141,7 @@ struct NoteList: View {
         let sections = NoteListSections(pages: pages, folders: folders, sort: sort)
         let results = search.results(in: pages, sort: sort)
         let hasLiveNotes = pages.contains(where: \.isLive)
-        let deletedCount = pages.filter { !$0.isLive }.count
+        let deletedCount = Page.deletedCount(in: modelContext)
 
         ScrollViewReader { proxy in
         List(selection: $selection) {

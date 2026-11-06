@@ -51,8 +51,8 @@ struct HomeView: View {
     /// appearance, which a first launch's title screen covers.
     var consentMayStart = true
 
-    // Every note, deleted ones included: `HomeSections` leaves those out.
-    @Query(sort: \Page.modifiedAt, order: .reverse) private var pages: [Page]
+    // The notes that are not in Recently Deleted (F8).
+    @Query(filter: Page.livePredicate, sort: \Page.modifiedAt, order: .reverse) private var pages: [Page]
     @Query private var folders: [Folder]
 
     @State private var editingFolder: FolderEditing?
