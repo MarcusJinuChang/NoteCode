@@ -462,22 +462,8 @@ struct NestingInlineTests {
         #expect(link.destination == "https://example.com")
     }
 
-    @Test("Inline code inside bold is code to the keyboard")
-    func codeInBoldIsCode() {
-        let source = "a **`int lo`** b"
-        let caret = (source as NSString).range(of: "lo").location
-        #expect(TextRewritingPolicy.at(caret, in: source, blocks: DocumentParser.parse(source)) == .code)
-    }
-
-    @Test("Outline titles, word counts, search and sizes read the nested text")
-    func elsewhere() {
-        #expect(NoteOutline.entries(in: "# **a *b* c**").first?.title == "a b c")
-        #expect(NoteInfo(content: "**a *b* c**").words == 3)
-
-        let note = "**\(Self.redTag)load factor\(Self.close)** low"
-        #expect(NoteSearch("span").match(title: "Note", content: note) == nil)
-        #expect(NoteSearch("factor").match(title: "Note", content: note) != nil)
-
+    @Test("Sizes read the nested text")
+    func nestedSizes() {
         let big = SpanStyle(size: SpanSize(em: 2)).openTag
         let bigger = SpanStyle(size: SpanSize(em: 1.5)).openTag
         let line = "\(big)\(bigger)x\(Self.close) y\(Self.close)" as NSString

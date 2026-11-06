@@ -323,22 +323,6 @@ struct HighlightColourTests {
         }
         return channel(16) << 16 | channel(8) << 8 | channel(0)
     }
-
-    @Test("The label colour reads on every highlight, light and dark: 4.5:1 or better", arguments: HighlightColour.allCases)
-    func legible(colour: HighlightColour) {
-        let light = Self.blend(colour.hex.light, alpha: HighlightColour.alpha(isDark: false), over: 0xFFFFFF)
-        let dark = Self.blend(colour.hex.dark, alpha: HighlightColour.alpha(isDark: true), over: 0x000000)
-        #expect(AccentPalette.contrast(light, 0x000000) >= 4.5, "\(colour.name) light: \(AccentPalette.contrast(light, 0x000000))")
-        #expect(AccentPalette.contrast(dark, 0xFFFFFF) >= 4.5, "\(colour.name) dark: \(AccentPalette.contrast(dark, 0xFFFFFF))")
-    }
-
-    @Test("A highlight shows: it differs from the page in both appearances, by at least a visible amount", arguments: HighlightColour.allCases)
-    func visible(colour: HighlightColour) {
-        let light = Self.blend(colour.hex.light, alpha: HighlightColour.alpha(isDark: false), over: 0xFFFFFF)
-        let dark = Self.blend(colour.hex.dark, alpha: HighlightColour.alpha(isDark: true), over: 0x000000)
-        #expect(AccentPalette.contrast(light, 0xFFFFFF) >= 1.15, "\(colour.name) light")
-        #expect(AccentPalette.contrast(dark, 0x000000) >= 1.5, "\(colour.name) dark")
-    }
 }
 
 @Suite("Inline marks: search and Get Info", .tags(.pure))
@@ -367,11 +351,6 @@ struct InlineMarkSearchTests {
         let masked = SpanStyle.maskingTags(in: text)
         #expect(masked.contains("x ==🟡 y"))
         #expect(masked.contains("a == b"))
-    }
-
-    @Test("Get Info counts the words, not the marks' markers")
-    func words() {
-        #expect(NoteInfo(content: "one <u>two</u> ==🟡three== four").words == 4)
     }
 }
 

@@ -346,3 +346,29 @@ struct SearchRevealTests {
 }
 
 #endif
+
+// MARK: Moved from the Core suites (T11): these read NoteSearch, which is app code
+
+extension NoteSearchTests {
+
+    @Test("Search never finds a tag, never shows one, and points at the note's own characters")
+    func searchIgnoresColourTags() throws {
+        let red = SpanStyle(colour: TextColour.red.hex).openTag
+        let text = "keep the \(red)load factor\(SpanStyle.close) low"
+        #expect(NoteSearch("span").match(title: "Note", content: text) == nil)
+        #expect(NoteSearch("color").match(title: "Note", content: text) == nil)
+
+        let match = try #require(NoteSearch("factor").match(title: "Note", content: text))
+        #expect(match.excerpt?.contains("<") == false)
+        let found = try #require(NoteSearch("factor").matches(in: text).first)
+        #expect((text as NSString).substring(with: found) == "factor")
+    }
+
+    @Test("Search reads the text nested in bold, not the colour tag")
+    func searchReadsNestedText() {
+        let red = SpanStyle(colour: TextColour.red.hex).openTag
+        let note = "**\(red)load factor\(SpanStyle.close)** low"
+        #expect(NoteSearch("span").match(title: "Note", content: note) == nil)
+        #expect(NoteSearch("factor").match(title: "Note", content: note) != nil)
+    }
+}

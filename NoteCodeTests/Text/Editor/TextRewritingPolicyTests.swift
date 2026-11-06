@@ -401,4 +401,26 @@ struct TextRewritingPolicyTests {
     }
 }
 
+// MARK: Moved from the Core suites (T11): these read TextRewritingPolicy, which is app code
+
+extension TextRewritingPolicyTests {
+
+    @Test("Smart punctuation is a straight quote made curly or hyphens made a dash, and nothing else")
+    func smartPunctuation() {
+        #expect(TextRewritingPolicy.isSmartPunctuation(replacing: "\"", with: "\u{201C}"))
+        #expect(TextRewritingPolicy.isSmartPunctuation(replacing: "\"", with: "\u{201D}"))
+        #expect(TextRewritingPolicy.isSmartPunctuation(replacing: "'", with: "\u{2019}"))
+        #expect(TextRewritingPolicy.isSmartPunctuation(replacing: "--", with: "\u{2014}"))
+        #expect(!TextRewritingPolicy.isSmartPunctuation(replacing: "\"", with: "x"))
+        #expect(!TextRewritingPolicy.isSmartPunctuation(replacing: "lo", with: "log"))
+    }
+
+    @Test("Inline code inside bold is code to the keyboard")
+    func codeInBoldIsCode() {
+        let source = "a **`int lo`** b"
+        let caret = (source as NSString).range(of: "lo").location
+        #expect(TextRewritingPolicy.at(caret, in: source, blocks: DocumentParser.parse(source)) == .code)
+    }
+}
+
 #endif
