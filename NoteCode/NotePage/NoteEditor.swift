@@ -212,8 +212,11 @@ final class NoteEditor {
     /// follow, set by `setTextLocked(_:)`.
     private(set) var isTextLocked = false
 
-    var canUndo = false
-    var canRedo = false
+    var canUndo: Bool { undoRouter.canUndo }
+    var canRedo: Bool { undoRouter.canRedo }
+
+    /// Undo and redo (`UndoRouter`): which stack, and whether either has a step.
+    @ObservationIgnored private(set) var undoRouter: UndoRouter!
 
     /// The flags that say an edit is the app's own, so the delegate doesn't
     /// take it for the keyboard's: a formatting button's edit, the typing
@@ -276,8 +279,14 @@ final class NoteEditor {
     init(features: [EditorFeatureFactory] = [], inkTools: InkToolStore = InkToolStore()) {
         self.inkTools = inkTools
         inkTools.listen(self) { editor, change in editor.storeDidChange(change) }
+        undoRouter = UndoRouter(editor: self)
         install(features)
     }
+
+    func undo() { undoRouter.undo() }
+    func redo() { undoRouter.redo() }
+    func undoFromKeyboard() { undoRouter.undoFromKeyboard() }
+    func redoFromKeyboard() { undoRouter.redoFromKeyboard() }
 
     /// Makes the features, once: a page that is handed its editor's features
     /// after the editor was made (`PageDetailView`) calls this on appearing.
@@ -455,7 +464,7 @@ final class NoteEditor {
         canvas?.tool = inkTool.pencilKitTool
         canvas?.allowsFingerDrawing = !isPencilOnly
         canvas?.onUndoDidChange = { [weak self] in
-            self?.refreshUndoState()
+            self?.undoRouter.refresh()
             // Undo can bring back or remove what is selected.
             self?.page?.selection.refresh()
         }
@@ -474,7 +483,7 @@ final class NoteEditor {
         savedSession = mode.apply(to: textView, canvas: canvas, saved: nil, textLocked: isTextLocked)
         applySelecting()
         applyScrolling()
-        refreshUndoState()
+        undoRouter.refresh()
     }
 
     func setMode(_ newMode: EditorMode) {
@@ -487,7 +496,7 @@ final class NoteEditor {
         applyScrolling()
         if newMode != .ink { page?.selection.clear() }
         applySelecting()
-        refreshUndoState()
+        undoRouter.refresh()
         modeDidChange?()
     }
 
@@ -505,7 +514,7 @@ final class NoteEditor {
         if let textView {
             savedSession = mode.apply(to: textView, canvas: canvas, saved: savedSession, textLocked: locked)
         }
-        refreshUndoState()
+        undoRouter.refresh()
     }
 
     /// Hands the page's pans whatever the mode and the Pencil lock leave them.
@@ -674,7 +683,7 @@ final class NoteEditor {
             textView.replace(range, withText: edit.replacement)
         }
         textView.selectedRange = edit.selection
-        refreshUndoState()
+        undoRouter.refresh()
     }
 
     // MARK: The typing style
@@ -781,7 +790,7 @@ final class NoteEditor {
         typingAnchor = TypingAnchor(
             from: edit.selection.location, suffix: storage.length - edit.selection.location, caret: edit.selection.location
         )
-        refreshUndoState()
+        undoRouter.refresh()
     }
 
     /// The selection changed. A caret that went somewhere the typing didn't
@@ -808,14 +817,14 @@ final class NoteEditor {
     func indent(outdent: Bool) {
         guard mode == .text, !isTextLocked else { return }
         textTarget?.indentAtCaret(outdent: outdent)
-        refreshUndoState()
+        undoRouter.refresh()
     }
 
     /// The language menu's pick for the block the caret is in.
     func setCodeBlockKind(_ kind: CodeBlockKind) {
         guard mode == .text, !isTextLocked else { return }
         textTarget?.retagBlockAtCaret(kind)
-        refreshUndoState()
+        undoRouter.refresh()
     }
 
     /// + Output: an empty output block under the code block the caret is in.
@@ -847,7 +856,7 @@ final class NoteEditor {
     /// lines an edit rewrites can't move a range not yet done.
     func recolourText(_ ranges: [NSRange], to hex: Int?) {
         guard !isTextLocked, let textView else { return }
-        defer { refreshUndoState() }
+        defer { undoRouter.refresh() }
         editGuard.perform(as: .formatting) {
             for range in ranges.sorted(by: { $0.location > $1.location }) {
                 let text = textView.text ?? ""
@@ -1269,7 +1278,6 @@ final class NoteEditor {
     func scroll(toLineAt location: Int) {
         page?.scroll(toLineAt: location)
     }
-
 }
 
 #endif

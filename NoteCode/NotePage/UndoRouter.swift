@@ -1,8 +1,9 @@
 //
-//  NoteEditor+Undo.swift
+//  UndoRouter.swift
 //  NoteCode
 //
-//  Undo and redo for whichever layer has the page.
+//  Undo and redo for whichever layer has the page, and whether there is
+//  anything to undo, which the hotbar shows.
 //
 
 #if canImport(UIKit)
@@ -12,9 +13,21 @@ import PaperKit
 import SwiftUI
 import UIKit
 
-extension NoteEditor {
+/// Picks the undo stack of the layer taking input, and keeps `canUndo` and
+/// `canRedo` for the hotbar. `NoteEditor` forwards to it; the text view's
+/// coordinator and the editor tell it (`refresh()`) whenever an edit may have
+/// changed what there is to undo.
+@Observable
+final class UndoRouter {
 
-    // MARK: Undo
+    @ObservationIgnored private unowned let editor: NoteEditor
+
+    private(set) var canUndo = false
+    private(set) var canRedo = false
+
+    init(editor: NoteEditor) {
+        self.editor = editor
+    }
 
     /// The undo stack of whichever layer is taking input.
     ///
@@ -27,20 +40,20 @@ extension NoteEditor {
     /// None while the text is locked: undoing typing would change locked
     /// text. Ink keeps its stack, since the lock leaves ink alone.
     private var activeUndoManager: UndoManager? {
-        switch mode {
-        case .text: isTextLocked ? nil : textView?.undoManager
-        case .ink:  canvas?.undoManager
+        switch editor.mode {
+        case .text: editor.isTextLocked ? nil : editor.textView?.undoManager
+        case .ink:  editor.canvas?.undoManager
         }
     }
 
     func undo() {
         activeUndoManager?.undo()
-        refreshUndoState()
+        refresh()
     }
 
     func redo() {
         activeUndoManager?.redo()
-        refreshUndoState()
+        refresh()
     }
 
     /// ⌘Z and ⇧⌘Z, from the menu bar.
@@ -61,7 +74,7 @@ extension NoteEditor {
 
     private var otherTextInputUndoManager: UndoManager? {
         guard let responder = UIResponder.currentFirstResponder,
-              responder is UITextInput, responder !== textView
+              responder is UITextInput, responder !== editor.textView
         else { return nil }
         return responder.undoManager
     }
@@ -71,7 +84,7 @@ extension NoteEditor {
     /// Assigns only on a real change. This runs on every keystroke, and an
     /// observable property invalidates its readers on any assignment, equal
     /// value or not — the whole hotbar would re-render per character.
-    func refreshUndoState() {
+    func refresh() {
         let undo = activeUndoManager?.canUndo ?? false
         let redo = activeUndoManager?.canRedo ?? false
         if canUndo != undo { canUndo = undo }
