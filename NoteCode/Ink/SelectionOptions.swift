@@ -29,7 +29,7 @@ struct SelectOptions: View {
                 HotbarButton("Done Editing", "checkmark") { selection.finishEditingInPaperKit() }
             } else if let selection = editor.selection, !selection.isEmpty {
                 HotbarDivider(isVertical: isVertical)
-                SelectionSwatches(selection: selection, isVertical: isVertical)
+                SelectionSwatches(selection: selection, palette: editor.inkTools[palette: .pen], isVertical: isVertical)
                 if selection.canEditInPaperKit {
                     HotbarButton("Edit", "slider.horizontal.3") { selection.editInPaperKit() }
                 }
@@ -46,10 +46,8 @@ struct SelectOptions: View {
 /// The pen's palette as a way to recolour what is selected.
 private struct SelectionSwatches: View {
     var selection: InkSelection
+    var palette: InkPalette
     var isVertical: Bool
-
-    @AppStorage(InkPalette.defaultsKey(for: .pen))
-    private var palette = InkPalette.standard(for: .pen)
 
     @Environment(\.colorScheme) private var colorScheme
 

@@ -28,7 +28,7 @@ struct FingerDrawsPersistenceTests {
     @MainActor
     private final class OpenNote {
         let container: ModelContainer
-        let editor = NoteEditor()
+        let editor: NoteEditor
         let window = HotbarLayoutTests.makeWindow()
 
         init(defaults: UserDefaults) throws {
@@ -36,6 +36,7 @@ struct FingerDrawsPersistenceTests {
                 for: NoteSchema.current,
                 configurations: ModelConfiguration(isStoredInMemoryOnly: true)
             )
+            editor = NoteEditor(inkTools: InkToolStore(defaults: defaults))
             editor.defaults = defaults
             let page = Page(title: "Graphs", content: "# Graphs\n\nA tree is a graph with no cycles.\n")
             container.mainContext.insert(page)

@@ -33,7 +33,7 @@ final class NoteSession {
     /// The note's editor.
     var editor: NoteEditor {
         if let madeEditor { return madeEditor }
-        let editor = NoteEditor()
+        let editor = NoteEditor(inkTools: .device)
         Self.editorsMade += 1
         madeEditor = editor
         return editor

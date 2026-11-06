@@ -30,25 +30,66 @@ final class NoteEditor {
     /// must not make the hotbar re-render.
     @ObservationIgnored var modeDidChange: (() -> Void)?
 
-    /// What ink mode draws with. Kept here rather than in the hotbar so the
-    /// canvas can take it as it changes.
-    var inkTool = InkToolState() {
+    /// What the pen, highlighter, eraser and Select tool are set to, and
+    /// Finger Draws, kept for the device (`InkToolStore`). The editor holds
+    /// only the tool in hand.
+    let inkTools: InkToolStore
+
+    /// The tool in hand. Not stored: a note opens on the pen.
+    private var toolKind = InkToolKind.pen {
         didSet {
-            guard inkTool != oldValue else { return }
-            if inkTool.kind != oldValue.kind {
-                previousInkKind = oldValue.kind
-            }
-            canvas?.tool = inkTool.pencilKitTool
-            page?.selection.kind = inkTool.selectionKind
-            applySelecting()
+            guard toolKind != oldValue else { return }
+            previousInkKind = oldValue
+            toolDidChange()
             // The selection is the canvas controller's, not the tool's, so it
             // outlived the lasso (reported 21 Oct). Only *leaving* the lasso
             // clears it: `insertIntoInk` selects what it inserted and then
             // switches to the lasso, and that must keep the selection.
-            if oldValue.kind == .lasso, inkTool.kind != .lasso {
+            if oldValue == .lasso, toolKind != .lasso {
                 canvas?.clearPaperKitSelection()
                 page?.selection.clear()
             }
+        }
+    }
+
+    /// What ink mode draws with: the tool in hand, and the store's settings.
+    /// Kept here rather than in the hotbar so the canvas can take it as it
+    /// changes.
+    var inkTool: InkToolState {
+        get {
+            InkToolState(
+                kind: toolKind, pen: inkTools.pen, highlighter: inkTools.highlighter,
+                eraser: inkTools.eraser, selectionKind: inkTools.selectionKind
+            )
+        }
+        set {
+            inkTools.pen = newValue.pen
+            inkTools.highlighter = newValue.highlighter
+            inkTools.eraser = newValue.eraser
+            inkTools.selectionKind = newValue.selectionKind
+            toolKind = newValue.kind
+        }
+    }
+
+    /// The canvas takes the tool, and the Select tool its shape.
+    private func toolDidChange() {
+        canvas?.tool = inkTool.pencilKitTool
+        page?.selection.kind = inkTools.selectionKind
+        applySelecting()
+    }
+
+    /// The store changed under this note: from its own hotbar, or from
+    /// Settings.
+    private func storeDidChange(_ change: InkToolStore.Change) {
+        switch change {
+        case .tool:
+            toolDidChange()
+        case .fingerDraws:
+            canvas?.allowsFingerDrawing = !isPencilOnly
+            applySelecting()
+            applyScrolling()
+        case .returnsToPreviousTool, .palette:
+            break
         }
     }
 
@@ -123,13 +164,9 @@ final class NoteEditor {
     /// and selects instead — what you want with the Pencil in hand and a palm
     /// resting on the page. After the first change it is whatever the reader
     /// last chose on this device (`fingerDrawsKey`).
-    var isPencilOnly = false {
-        didSet {
-            guard isPencilOnly != oldValue else { return }
-            canvas?.allowsFingerDrawing = !isPencilOnly
-            applySelecting()
-            applyScrolling()
-        }
+    var isPencilOnly: Bool {
+        get { !inkTools.fingerDraws }
+        set { inkTools.fingerDraws = !newValue }
     }
 
     /// The same switch as `isPencilOnly`, said the way the hotbar's hand
@@ -144,7 +181,7 @@ final class NoteEditor {
     var wantsTextRow = false
 
     /// Where the device keeps `fingerDraws`, so it carries over from note to
-    /// note and across launches (`InkToolPersistence`). Stored the way the
+    /// note and across launches (`InkToolStore`). Stored the way the
     /// button says it, so a device that has never set it reads `true`.
     static let fingerDrawsKey = SettingKeys.Drawing.fingerDraws.name
 
@@ -154,8 +191,11 @@ final class NoteEditor {
     static let returnToPreviousToolKey = SettingKeys.Drawing.returnToPreviousTool.name
 
     /// Whether the selection ending sends the reader back to their tool.
-    /// Per device (`InkToolPersistence`).
-    @ObservationIgnored var returnsToPreviousTool = false
+    /// Per device (`InkToolStore`).
+    var returnsToPreviousTool: Bool {
+        get { inkTools.returnsToPreviousTool }
+        set { inkTools.returnsToPreviousTool = newValue }
+    }
 
     /// The Select tool's selection ended because the reader let go of it:
     /// Delete, or a tap on empty space. Never a tool or mode switch (they
@@ -230,7 +270,12 @@ final class NoteEditor {
     /// feature installed after it connected.
     @ObservationIgnored private var services: EditorServices?
 
-    init(features: [EditorFeatureFactory] = []) {
+    /// - Parameter inkTools: the tool settings. A store with no device behind
+    ///   it unless the note is opened for the reader (`NoteSession`), so an
+    ///   editor made in a test reaches no real settings.
+    init(features: [EditorFeatureFactory] = [], inkTools: InkToolStore = InkToolStore()) {
+        self.inkTools = inkTools
+        inkTools.listen(self) { editor, change in editor.storeDidChange(change) }
         install(features)
     }
 

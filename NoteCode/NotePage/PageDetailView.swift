@@ -321,8 +321,6 @@ struct PageDetailView: View {
         .coordinateSpace(.named(Hotbar.coordinateSpace))
         .onGeometryChange(for: CGSize.self) { $0.size } action: { pageSize = $0 }
         .modifier(PencilGestures(router: pencil, editor: editor, dock: dock))
-        // What each ink tool is set to carries over from note to note.
-        .modifier(InkToolPersistence(editor: editor))
     }
 
     /// Under the header.

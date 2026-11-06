@@ -2,76 +2,16 @@
 //  HotbarPrimitives.swift
 //  NoteCode
 //
-//  What the hotbar and the options row are built from: the persisted tool
-//  settings, the colour swatches, the eraser's options, and the small
-//  pieces (stack, button, divider, icon, swatch, dot). Moved out of
-//  InkToolbar.swift.
+//  What the hotbar and the options row are built from: the colour swatches,
+//  the eraser's options, and the small pieces (stack, button, divider, icon,
+//  swatch, dot). Moved out of InkToolbar.swift. The tool settings they show
+//  are `InkToolStore`'s.
 //
 
 #if canImport(UIKit)
 
 import SwiftUI
 import UniformTypeIdentifiers
-
-/// Keeps what the pen, highlighter and eraser are set to, and Finger Draws,
-/// from one note to the next. The editor has the live copy; this is the
-/// device's.
-///
-/// Per device, like the palettes and the dock: it's how this reader likes to
-/// work, not part of any note. Each tool remembers its own colour and width.
-struct InkToolPersistence: ViewModifier {
-    var editor: NoteEditor
-
-    @AppStorage(SettingKeys.Drawing.penSettings)
-    private var pen
-
-    @AppStorage(SettingKeys.Drawing.highlighterSettings)
-    private var highlighter
-
-    @AppStorage(SettingKeys.Drawing.eraser)
-    private var eraser
-
-    @AppStorage(SettingKeys.Drawing.fingerDraws)
-    private var fingerDraws
-
-    @AppStorage(SettingKeys.Drawing.selectionKind)
-    private var selectionKind
-
-    @AppStorage(SettingKeys.Drawing.returnToPreviousTool)
-    private var returnsToPreviousTool
-
-    func body(content: Content) -> some View {
-        content
-            .onAppear {
-                editor.inkTool.pen = pen
-                editor.inkTool.highlighter = highlighter
-                editor.inkTool.eraser = eraser
-                editor.fingerDraws = fingerDraws
-                editor.inkTool.selectionKind = selectionKind
-                editor.returnsToPreviousTool = returnsToPreviousTool
-            }
-            .onChange(of: editor.inkTool.pen) { _, changed in pen = changed }
-            .onChange(of: editor.inkTool.highlighter) { _, changed in highlighter = changed }
-            .onChange(of: editor.inkTool.eraser) { _, changed in eraser = changed }
-            .onChange(of: editor.fingerDraws) { _, changed in fingerDraws = changed }
-            .onChange(of: editor.inkTool.selectionKind) { _, changed in selectionKind = changed }
-            .onChange(of: returnsToPreviousTool) { _, stored in editor.returnsToPreviousTool = stored }
-            // Settings changes these from a sheet over the open note, whose
-            // editor was set from them as it appeared. Guarded by equality
-            // so the editor's own change, written above, isn't echoed back.
-            .onChange(of: eraser) { _, stored in
-                if editor.inkTool.eraser != stored { editor.inkTool.eraser = stored }
-            }
-            .onChange(of: fingerDraws) { _, stored in
-                if editor.fingerDraws != stored { editor.fingerDraws = stored }
-            }
-            // Choosing a colour set rewrites the highlighter's remembered
-            // colour from Settings, over the open note.
-            .onChange(of: highlighter) { _, stored in
-                if editor.inkTool.highlighter != stored { editor.inkTool.highlighter = stored }
-            }
-    }
-}
 
 // MARK: - Colours
 
@@ -84,13 +24,10 @@ struct InkSwatches: View {
     var kind: InkToolKind
     var isVertical: Bool
 
-    @AppStorage private var palette: InkPalette
-
-    init(editor: NoteEditor, kind: InkToolKind, isVertical: Bool) {
-        self.editor = editor
-        self.kind = kind
-        self.isVertical = isVertical
-        _palette = AppStorage(wrappedValue: .standard(for: kind), InkPalette.defaultsKey(for: kind))
+    /// This tool's palette, from the store (the device's).
+    private var palette: InkPalette {
+        get { editor.inkTools[palette: kind] }
+        nonmutating set { editor.inkTools[palette: kind] = newValue }
     }
 
     /// The colour this tool draws in.
@@ -162,7 +99,7 @@ struct InkSwatches: View {
         } preview: {
             HotbarSwatch(color: shown, isSelected: false, isMarker: kind == .highlighter)
         }
-        .onDrop(of: [.plainText], delegate: SwatchDrop(target: color, palette: $palette, dragged: $dragged))
+        .onDrop(of: [.plainText], delegate: SwatchDrop(target: color, palette: Binding(get: { palette }, set: { palette = $0 }), dragged: $dragged))
         .accessibilityLabel(color.name)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityActions {

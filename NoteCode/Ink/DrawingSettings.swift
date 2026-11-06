@@ -12,21 +12,22 @@ import SwiftUI
 import UIKit
 
 struct DrawingSettings: View {
-    @AppStorage(SettingKeys.Drawing.fingerDraws) private var fingerDraws
-    @AppStorage(SettingKeys.Drawing.returnToPreviousTool) private var returnsToPreviousTool
-    @AppStorage(SettingKeys.Drawing.eraser) private var eraser
+    /// The tool settings: the device's, which an open note reads too.
+    @Bindable private var tools: InkToolStore
     @AppStorage(SettingKeys.Drawing.addPagesWhileDrawing) private var addsPages
-    @AppStorage(SettingKeys.Drawing.penPalette) private var pen
-    @AppStorage(SettingKeys.Drawing.highlighterPalette) private var highlighter
     @AppStorage(SettingKeys.Drawing.paletteSet) private var chosenSet
     @State private var confirmsReset = false
     /// The set the reader picked, until they have said yes to losing their
     /// own colours.
     @State private var pendingSet: InkPaletteSet?
 
+    init(tools: InkToolStore = .device) {
+        self.tools = tools
+    }
+
     /// The set the palettes are exactly, or `nil` once they are the reader's.
     private var matchingSet: InkPaletteSet? {
-        InkPaletteSet.matching(pen: pen, highlighter: highlighter)
+        InkPaletteSet.matching(pen: tools[palette: .pen], highlighter: tools[palette: .highlighter])
     }
 
     /// What Reset Colours resets to: the device's set.
@@ -37,13 +38,13 @@ struct DrawingSettings: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Finger Draws", isOn: $fingerDraws)
+                Toggle("Finger Draws", isOn: $tools.fingerDraws)
             } footer: {
                 Text("Where a note starts. The hotbar's hand button switches it, and the device keeps the last choice.")
             }
 
             Section {
-                Toggle("Return to Previous Tool", isOn: $returnsToPreviousTool)
+                Toggle("Return to Previous Tool", isOn: $tools.returnsToPreviousTool)
             } footer: {
                 Text("After a selection ends, by Delete or by tapping empty space, go back to the tool you had before Select. Choosing another tool never does this.")
             }
@@ -71,12 +72,12 @@ struct DrawingSettings: View {
             }
 
             Section {
-                NavigationLink("Pens") { PaletteSettings(kind: .pen) }
-                NavigationLink("Highlighters") { PaletteSettings(kind: .highlighter) }
+                NavigationLink("Pens") { PaletteSettings(tools: tools, kind: .pen) }
+                NavigationLink("Highlighters") { PaletteSettings(tools: tools, kind: .highlighter) }
                 NavigationLink {
-                    EraserSettingsPage()
+                    EraserSettingsPage(tools: tools)
                 } label: {
-                    LabeledContent("Eraser", value: eraser.summary)
+                    LabeledContent("Eraser", value: tools.eraser.summary)
                 }
                 Button("Reset Colours to Defaults", role: .destructive) {
                     confirmsReset = true
@@ -115,16 +116,16 @@ struct DrawingSettings: View {
 /// A tool's palette: the swatches the hotbar offers, in order. Swipe to
 /// remove one (the last stays), Edit to reorder, and add from Apple's picker.
 private struct PaletteSettings: View {
+    var tools: InkToolStore
     var kind: InkToolKind
 
-    @AppStorage private var palette: InkPalette
+    private var palette: InkPalette {
+        get { tools[palette: kind] }
+        nonmutating set { tools[palette: kind] = newValue }
+    }
+
     @State private var picker = InkColorPicker()
     @Environment(\.colorScheme) private var colorScheme
-
-    init(kind: InkToolKind) {
-        self.kind = kind
-        _palette = AppStorage(wrappedValue: .standard(for: kind), InkPalette.defaultsKey(for: kind))
-    }
 
     private var style: UIUserInterfaceStyle {
         colorScheme == .dark ? .dark : .light
@@ -178,12 +179,14 @@ private struct PaletteSettings: View {
 }
 
 private struct EraserSettingsPage: View {
-    @AppStorage(SettingKeys.Drawing.eraser) private var eraser
+    @Bindable var tools: InkToolStore
+
+    private var eraser: EraserSettings { tools.eraser }
 
     var body: some View {
         Form {
             Section {
-                Picker("Erases", selection: $eraser.mode) {
+                Picker("Erases", selection: $tools.eraser.mode) {
                     Text("Pixels").tag(EraserSettings.Mode.partial)
                     Text("Whole Strokes").tag(EraserSettings.Mode.wholeStroke)
                 }
@@ -193,14 +196,14 @@ private struct EraserSettingsPage: View {
 
             // The object eraser takes whole strokes and has no width.
             Section("Size") {
-                Picker("Size", selection: $eraser.size) {
+                Picker("Size", selection: $tools.eraser.size) {
                     ForEach(EraserSettings.Size.allCases, id: \.self) { Text($0.rawValue.capitalized) }
                 }
                 .pickerStyle(.inline)
                 .labelsHidden()
 
                 if eraser.size == .custom {
-                    Slider(value: $eraser.customWidth, in: EraserSettings.widthRange) {
+                    Slider(value: $tools.eraser.customWidth, in: EraserSettings.widthRange) {
                         Text("Custom Size")
                     }
                 }
