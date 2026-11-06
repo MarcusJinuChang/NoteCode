@@ -77,6 +77,16 @@ final class EditRouter {
             return false
         }
 
+        // A typed --- is a rule, not "—-": at a line's start the keyboard's
+        // dash is kept as the hyphens typed (F-fixes, Dashes).
+        if text == "\u{2013}" || text == "\u{2014}", isTyping(in: textView), textView.markedTextRange == nil,
+           range.length > 0,
+           NSMaxRange(range) <= (textView.text as NSString).length,
+           let edit = TextRewritingPolicy.hyphensKept(replacing: range, with: text, in: textView.text as NSString) {
+            apply(edit)
+            return false
+        }
+
         // Undo and redo put text back by replacing it, which looks exactly
         // like a keyboard correction: undoing a language pick, whose tag
         // was replaced inside a fence, was turned away, and used up the
