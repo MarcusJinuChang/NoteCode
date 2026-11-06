@@ -45,7 +45,7 @@ final class InkSelection {
 
     typealias ElementID = MarkupOrderedSet.ElementID
 
-    /// Lasso or rectangle. Per device (`InkToolPersistence`).
+    /// Lasso or rectangle. Per device (`InkToolStore`).
     var kind = SelectionKind.lasso
 
     /// The elements selected: every piece of every object the shape touched.

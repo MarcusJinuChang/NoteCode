@@ -2,14 +2,16 @@
 //  InkToolPersistenceTests.swift
 //  NoteCodeTests
 //
-//  T5, before 2P5: the ink tool's settings round trip as it is today, through
-//  `InkToolPersistence` (Ink/HotbarPrimitives.swift). The hotbar changes the
-//  open note's editor; the modifier writes what it changed to the device's
-//  settings, which the next note's editor starts from and Settings › Drawing
-//  reads. Settings writes the same keys over an open note, and some of them
-//  reach it. `FingerDrawsPersistenceTests` covers Finger Draws through the
-//  whole note page; this pins every tool setting through the modifier alone.
-//  The settings are a `TestDefaults`, handed in by `.defaultAppStorage`.
+//  The ink tool's settings round trip: the hotbar changes the open note's
+//  editor, `InkToolStore` writes what changed to the device's settings,
+//  which the next note's editor starts from and Settings › Drawing reads.
+//  Settings writes the same keys over an open note, and some of them reach
+//  it. Written in T5 against `InkToolPersistence`, and kept through 2P5,
+//  which put the store in its place: the assertions are the same, only how
+//  a note's editor is given its settings has changed.
+//  `FingerDrawsPersistenceTests` covers Finger Draws through the whole note
+//  page; this pins every tool setting through the editor and the store.
+//  The settings are a `TestDefaults`.
 //
 
 #if canImport(UIKit)
@@ -25,38 +27,18 @@ struct InkToolPersistenceTests {
 
     private let device = TestDefaults("InkTool")
 
-    /// One open note's editor, with the modifier the note page puts on it.
+    /// One open note's editor, with the store the device gives it.
     @MainActor
     private final class OpenNote {
-        let editor = NoteEditor()
-        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 400, height: 400))
+        let editor: NoteEditor
 
-        /// - Parameter fingerDraws: what the editor has before the modifier
-        ///   has read the settings.
-        init(defaults: UserDefaults, fingerDraws: Bool) {
-            editor.fingerDraws = fingerDraws
-            let root = Color.clear
-                .modifier(InkToolPersistence(editor: editor))
-                .defaultAppStorage(defaults)
-            window.rootViewController = UIHostingController(rootView: root)
-            window.makeKeyAndVisible()
-        }
-
-        func close() {
-            window.isHidden = true
-            window.rootViewController = nil
+        init(defaults: UserDefaults) {
+            editor = NoteEditor(inkTools: InkToolStore(defaults: defaults))
         }
     }
 
-    /// Opens a note and waits for its `onAppear` to have set the editor:
-    /// `sentinel` puts Finger Draws the other way first, so its arrival says
-    /// the stored settings have been read.
-    private func openNote() async throws -> OpenNote {
-        let stored = device.defaults.object(forKey: NoteEditor.fingerDrawsKey) as? Bool ?? true
-        let note = OpenNote(defaults: device.defaults, fingerDraws: !stored)
-        let arrived = await waitFor { note.editor.fingerDraws == stored }
-        try #require(arrived, "onAppear never set the editor")
-        return note
+    private func openNote() -> OpenNote {
+        OpenNote(defaults: device.defaults)
     }
 
     private func string(_ key: String) -> String? {
@@ -67,9 +49,8 @@ struct InkToolPersistenceTests {
     private static let green = InkColor(red: 0.1, green: 0.7, blue: 0.2, alpha: 0.5)
 
     @Test("With nothing stored, a note opens on the standard tools")
-    func standardTools() async throws {
-        let note = try await openNote()
-        defer { note.close() }
+    func standardTools() {
+        let note = openNote()
         let tool = note.editor.inkTool
 
         #expect(tool.pen == InkingSettings.standard(for: .pen))
@@ -84,8 +65,8 @@ struct InkToolPersistenceTests {
     }
 
     @Test("What the hotbar sets in one note is stored, and the next note opens with it")
-    func hotbarToNextNote() async throws {
-        let first = try await openNote()
+    func hotbarToNextNote() {
+        let first = openNote()
         first.editor.inkTool.pen = InkingSettings(color: Self.red, width: .bold)
         first.editor.inkTool.highlighter = InkingSettings(color: Self.green, width: .fine)
         var eraser = EraserSettings()
@@ -96,17 +77,14 @@ struct InkToolPersistenceTests {
         first.editor.inkTool.selectionKind = .rectangle
         first.editor.fingerDraws = false
 
-        let written = await waitFor { device.defaults.object(forKey: NoteEditor.fingerDrawsKey) as? Bool == false }
-        try #require(written)
         // The keys Settings › Drawing reads, in the form it reads them.
         #expect(string(InkingSettings.defaultsKey(for: .pen)) == InkingSettings(color: Self.red, width: .bold).rawValue)
         #expect(string(InkingSettings.defaultsKey(for: .highlighter)) == InkingSettings(color: Self.green, width: .fine).rawValue)
         #expect(string(EraserSettings.defaultsKey).flatMap(EraserSettings.init(rawValue:)) == eraser)
         #expect(string(SelectionKind.defaultsKey) == SelectionKind.rectangle.rawValue)
-        first.close()
+        #expect(device.defaults.object(forKey: NoteEditor.fingerDrawsKey) as? Bool == false)
 
-        let second = try await openNote()
-        defer { second.close() }
+        let second = openNote()
         let tool = second.editor.inkTool
         #expect(tool.pen == InkingSettings(color: Self.red, width: .bold))
         #expect(tool.highlighter == InkingSettings(color: Self.green, width: .fine))
@@ -116,24 +94,20 @@ struct InkToolPersistenceTests {
     }
 
     @Test("The tool in hand is not stored: the next note opens on the pen")
-    func toolKindNotStored() async throws {
-        let first = try await openNote()
+    func toolKindNotStored() {
+        let first = openNote()
         first.editor.inkTool.kind = .eraser
-        // Something that is stored, to know the modifier has had its turn.
+        // Something that is stored, to know the store has had its turn.
         first.editor.fingerDraws = false
-        let written = await waitFor { device.defaults.object(forKey: NoteEditor.fingerDrawsKey) as? Bool == false }
-        try #require(written)
-        first.close()
+        #expect(device.defaults.object(forKey: NoteEditor.fingerDrawsKey) as? Bool == false)
 
-        let second = try await openNote()
-        defer { second.close() }
+        let second = openNote()
         #expect(second.editor.inkTool.kind == .pen)
     }
 
-    @Test("Settings › Drawing over an open note reaches it: eraser, Finger Draws, Return to Previous Tool, the highlighter")
+    @Test("Settings › Drawing over an open note reaches it: eraser, Finger Draws, Return to Previous Tool, the highlighter, the palettes")
     func settingsReachTheOpenNote() async throws {
-        let note = try await openNote()
-        defer { note.close() }
+        let note = openNote()
 
         var eraser = EraserSettings()
         eraser.mode = .wholeStroke
@@ -144,12 +118,16 @@ struct InkToolPersistenceTests {
         let highlighter = InkingSettings(color: Self.green, width: .medium)
         device.defaults.set(highlighter.rawValue, forKey: InkingSettings.defaultsKey(for: .highlighter))
         device.defaults.set(false, forKey: NoteEditor.fingerDrawsKey)
+        // And a reset, or a set, rewrites the palettes.
+        let palette = InkPalette([Self.red])
+        device.defaults.set(palette.rawValue, forKey: InkPalette.defaultsKey(for: .pen))
 
         let reached = await waitFor {
             !note.editor.fingerDraws
                 && note.editor.inkTool.eraser == eraser
                 && note.editor.returnsToPreviousTool
                 && note.editor.inkTool.highlighter == highlighter
+                && note.editor.inkTools[palette: .pen] == palette
         }
         #expect(reached)
     }
@@ -157,8 +135,7 @@ struct InkToolPersistenceTests {
     @Test("A pen or selection kind written over an open note does not reach it")
     func penAndSelectionNotPushed() async throws {
         // Pinned as found, not a decision: the refactor keeps it, and changing it is an F fix.
-        let note = try await openNote()
-        defer { note.close() }
+        let note = openNote()
 
         device.defaults.set(InkingSettings(color: Self.red, width: .bold).rawValue, forKey: InkingSettings.defaultsKey(for: .pen))
         device.defaults.set(SelectionKind.rectangle.rawValue, forKey: SelectionKind.defaultsKey)
@@ -172,19 +149,48 @@ struct InkToolPersistenceTests {
         #expect(note.editor.inkTool.selectionKind == .lasso)
     }
 
-    @Test("Return to Previous Tool goes one way: the editor's own change is not stored")
-    func returnToPreviousToolOneWay() async throws {
-        // Pinned as found, not a decision: the refactor keeps it, and changing it is an F fix.
-        let note = try await openNote()
-        defer { note.close() }
+    @Test("Settings writes through the store the open note reads: no echo, no second copy")
+    func settingsShareTheStore() {
+        let tools = InkToolStore(defaults: device.defaults)
+        let note = NoteEditor(inkTools: tools)
 
-        note.editor.returnsToPreviousTool = true
-        // Something that is stored, to know the modifier has had its turn.
-        note.editor.fingerDraws = false
-        let written = await waitFor { device.defaults.object(forKey: NoteEditor.fingerDrawsKey) as? Bool == false }
-        try #require(written)
+        // What Settings › Drawing's toggles do.
+        tools.fingerDraws = false
+        tools.returnsToPreviousTool = true
+        var eraser = EraserSettings()
+        eraser.mode = .wholeStroke
+        tools.eraser = eraser
 
-        #expect(device.defaults.object(forKey: NoteEditor.returnToPreviousToolKey) == nil)
+        #expect(!note.fingerDraws)
+        #expect(note.returnsToPreviousTool)
+        #expect(note.inkTool.eraser == eraser)
+        #expect(device.defaults.object(forKey: NoteEditor.fingerDrawsKey) as? Bool == false)
+        #expect(device.defaults.object(forKey: NoteEditor.returnToPreviousToolKey) as? Bool == true)
+        #expect(string(EraserSettings.defaultsKey).flatMap(EraserSettings.init(rawValue:)) == eraser)
+    }
+
+    @Test("A palette the swatches change is stored, and the next note has it")
+    func paletteRoundTrip() {
+        let first = openNote()
+        let palette = InkPalette([Self.red, Self.green])
+        first.editor.inkTools[palette: .highlighter] = palette
+        #expect(string(InkPalette.highlighterDefaultsKey) == palette.rawValue)
+        // The pen's is untouched.
+        #expect(string(InkPalette.defaultsKey) == nil)
+
+        let second = openNote()
+        #expect(second.editor.inkTools[palette: .highlighter] == palette)
+        #expect(second.editor.inkTools[palette: .pen] == InkPalette.standard(for: .pen))
+    }
+
+    @Test("With no device behind it, a store keeps its settings in memory only")
+    func memoryOnly() {
+        let editor = NoteEditor()
+        editor.inkTool.pen = InkingSettings(color: Self.red, width: .bold)
+        editor.fingerDraws = false
+        let other = NoteEditor()
+        #expect(other.inkTool.pen == InkingSettings.standard(for: .pen))
+        #expect(other.fingerDraws)
     }
 }
 
