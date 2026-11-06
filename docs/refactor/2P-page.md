@@ -30,14 +30,16 @@ ContentView's `selection`, `compactPath` and `@State toasts`,
 `newNote()` :436–457 and `delete(_:)` :615–631, and NoteList's
 `deletePages`/`announceMoved` :772–793. The pure parts (`CompactScreen.path`,
 `SidebarPlan`, `NewNotes.folder`, `Page.create`, `ToastCenter`) are tested
-already. There are two routes, and **2P4 has to choose one (open)**:
+already. There were two routes; **2P4 took route A (decided 6 Nov, landed as
+"2P4-seam": `NoteNavigation`, App/NoteNavigation.swift, with
+NoteNavigationTests)**:
 
 - **A seam in app code.** Pass the `ToastCenter` in, and add a small model
   object that the views hold, owning selection, the path, create and delete,
   with the same for NoteList's delete. Unit tests then drive it through the
   harness. That is an app change, so it lands in its own PR before the T5
   tests.
-- **A UI test with no app change.** A `NoteCodeUITests` test launched with
+- **Not taken: a UI test with no app change.** A `NoteCodeUITests` test launched with
   `-debug-home` deletes a note from the note and from the list, presses the
   toast's Undo, and checks what each one reopens. It runs only under
   `check.sh --full`, not in the Fast plan a step runs.

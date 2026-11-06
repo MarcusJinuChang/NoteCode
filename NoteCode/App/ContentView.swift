@@ -16,18 +16,28 @@ struct ContentView: View {
     /// `persistentModelID`, which changes from a temporary ID to a permanent
     /// one on first save — a new note would close itself a moment after
     /// opening.
-    @State private var selection: Page?
+    @State private var nav = NoteNavigation()
+    private var selection: Page? {
+        get { nav.selection }
+        nonmutating set { nav.selection = newValue }
+    }
 
     /// The app opens on Home with the list beside it (`SidebarPlan`); over a
     /// note the list is away until ☰ brings it over the page.
-    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    private var columnVisibility: NavigationSplitViewVisibility {
+        get { nav.columnVisibility }
+        nonmutating set { nav.columnVisibility = newValue }
+    }
 
     /// In a compact width (an iPhone, a folded Duo) there is no room for the
     /// list over the page, so the window is a stack instead: Home at its root,
     /// the list pushed on it, a note pushed on either (roadmap step 11). What
     /// is pushed, kept in step with `selection` and with the split view's
     /// `columnVisibility`, so a Duo folding or unfolding keeps its place.
-    @State private var compactPath: [CompactScreen] = []
+    private var compactPath: [CompactScreen] {
+        get { nav.compactPath }
+        nonmutating set { nav.compactPath = newValue }
+    }
 
 #if os(iOS)
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -54,12 +64,18 @@ struct ContentView: View {
     /// The search the open note was opened from, so it can show where it
     /// matched. Taken as a note opens rather than read live, so typing in
     /// the search field doesn't redraw the note under the list.
-    @State private var openedSearch = NoteSearch("")
+    private var openedSearch: NoteSearch {
+        get { nav.openedSearch }
+        nonmutating set { nav.openedSearch = newValue }
+    }
 
     /// A note the reader has just made, which opens with its title being
     /// renamed. Cleared when another note opens, so coming back to this one
     /// later doesn't start renaming again.
-    @State private var newPage: Page?
+    private var newPage: Page? {
+        get { nav.newPage }
+        nonmutating set { nav.newPage = newValue }
+    }
 
     /// Whether Settings is showing. Held here, above the list, so ⌘, opens it
     /// whether or not the list is on screen.
@@ -121,12 +137,14 @@ struct ContentView: View {
 #elseif DEBUG
         opensDebugNote = openedPage != nil
 #endif
-        _selection = State(initialValue: openedPage)
         // The list is away for the first layout and comes in right after it
         // (`SidebarPlan.launchDelay`), on Home, or over a note when storage
         // failed and the warning is the list's.
-        _columnVisibility = State(initialValue: .detailOnly)
-        _compactPath = State(initialValue: openedPage != nil ? [.note] : storageIsEphemeral ? [.list] : [])
+        _nav = State(initialValue: NoteNavigation(
+            selection: openedPage,
+            columnVisibility: .detailOnly,
+            compactPath: openedPage != nil ? [.note] : storageIsEphemeral ? [.list] : []
+        ))
     }
 
     var body: some View {
@@ -239,7 +257,7 @@ struct ContentView: View {
     }
 
     private var splitView: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
+        NavigationSplitView(columnVisibility: $nav.columnVisibility) {
             noteList(showsToasts: columnVisibility != .detailOnly)
                 // The joined control carries the list button, in a note.
                 .toolbar(removing: selection == nil || isCompact ? nil : .sidebarToggle)
@@ -264,7 +282,7 @@ struct ContentView: View {
     /// Home, the list and a note, one pushed on another. The back button
     /// takes the place of ☰ and the house, so the note's header has neither.
     private var compactStack: some View {
-        NavigationStack(path: $compactPath) {
+        NavigationStack(path: $nav.compactPath) {
             home
                 .navigationDestination(for: CompactScreen.self) { screen in
                     switch screen {
@@ -285,6 +303,7 @@ struct ContentView: View {
         NoteList(
             storageIsEphemeral: storageIsEphemeral,
             selection: opening,
+            navigation: nav,
             searchText: $searchText,
             onNewPage: { newPage = $0 },
             onShowSettings: { showsSettings = true },
@@ -436,27 +455,12 @@ struct ContentView: View {
     /// its title ready to rename, through `Page.create` like every other way
     /// of making one.
     private func newNote() {
-        let page = Page.create(
-            orientation: newNoteOrientation,
-            in: NewNotes.folder(whileViewing: selection),
-            context: modelContext
-        )
-        newPage = page
-        openedSearch = NoteSearch("")
-        selection = page
+        nav.newNote(orientation: newNoteOrientation, context: modelContext)
     }
 
     /// A note from a template, made and opened the way ⌘N makes one.
     private func newNote(from template: NoteTemplate) {
-        let page = Page.create(
-            from: template,
-            orientation: newNoteOrientation,
-            in: NewNotes.folder(whileViewing: selection),
-            context: modelContext
-        )
-        newPage = page
-        openedSearch = NoteSearch("")
-        selection = page
+        nav.newNote(from: template, orientation: newNoteOrientation, context: modelContext)
     }
 
     /// Opens a note from Home. Not from a search: Home has none, so the note
@@ -615,22 +619,7 @@ struct ContentView: View {
     /// Nothing asks: the toast's Undo puts the note back and, if the reader
     /// hasn't opened another since, reopens it.
     private func delete(_ page: Page) {
-        selection = nil
-        // In the stack, back to the list, as the split view brings it over.
-        compactPath = [.list]
-        withAnimation {
-            columnVisibility = .all
-            // If saving fails, the change is still pending in the context,
-            // and autosave tries again.
-            try? Page.moveToRecentlyDeleted([page], from: modelContext)
-        }
-        toasts.show("Moved to Recently Deleted", actionTitle: "Undo") {
-            withAnimation { try? Page.restore([page], in: modelContext) }
-            if selection == nil {
-                openedSearch = NoteSearch("")
-                selection = page
-            }
-        }
+        nav.delete(page, context: modelContext, toasts: toasts)
     }
 }
 
