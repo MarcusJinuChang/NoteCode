@@ -39,7 +39,7 @@ struct NoteNavigationTests {
         let nav = NoteNavigation()
         nav.openedSearch = NoteSearch("loop")
 
-        let page = nav.newNote(orientation: .default, context: context)
+        let page = NoteActions(navigation: nav, context: context, toasts: nil).newNote(orientation: .default)
 
         #expect(nav.selection === page)
         #expect(nav.newPage === page)
@@ -54,10 +54,10 @@ struct NoteNavigationTests {
         open.folder = folder
         let nav = NoteNavigation(selection: open)
 
-        let plain = nav.newNote(orientation: .default, context: context)
+        let plain = NoteActions(navigation: nav, context: context, toasts: nil).newNote(orientation: .default)
         #expect(plain.folder === folder)
 
-        let templated = nav.newNote(from: .lecture, orientation: .default, context: context)
+        let templated = NoteActions(navigation: nav, context: context, toasts: nil).newNote(from: .lecture, orientation: .default)
         #expect(templated.folder === folder)
         #expect(templated.title == NoteTemplate.lecture.title)
         #expect(nav.selection === templated)
@@ -69,7 +69,7 @@ struct NoteNavigationTests {
         let page = note("Open")
         let nav = NoteNavigation(selection: page, columnVisibility: .detailOnly, compactPath: [.note])
 
-        nav.delete(page, context: context, toasts: toasts)
+        NoteActions(navigation: nav, context: context, toasts: toasts).moveToRecentlyDeleted([page], reopening: page)
 
         #expect(nav.selection == nil)
         #expect(nav.compactPath == [.list])
@@ -90,7 +90,7 @@ struct NoteNavigationTests {
         let other = note("Other")
         let nav = NoteNavigation(selection: page)
 
-        nav.delete(page, context: context, toasts: toasts)
+        NoteActions(navigation: nav, context: context, toasts: toasts).moveToRecentlyDeleted([page], reopening: page)
         nav.selection = other
         toasts.performAction()
 
@@ -105,7 +105,7 @@ struct NoteNavigationTests {
         let beside = note("Beside")
         let nav = NoteNavigation(selection: open)
 
-        nav.deletePages([open, beside], context: context, toasts: toasts)
+        NoteActions(navigation: nav, context: context, toasts: toasts).moveToRecentlyDeleted([open, beside])
 
         #expect(nav.selection == nil)
         #expect(open.deletedAt != nil && beside.deletedAt != nil)
@@ -123,7 +123,7 @@ struct NoteNavigationTests {
         let other = note("Other")
         let nav = NoteNavigation(selection: open)
 
-        nav.deletePages([other], context: context, toasts: toasts)
+        NoteActions(navigation: nav, context: context, toasts: toasts).moveToRecentlyDeleted([other])
 
         #expect(nav.selection === open)
         #expect(toasts.current?.message == "Moved to Recently Deleted")
@@ -132,7 +132,7 @@ struct NoteNavigationTests {
     @Test("Deleting nothing shows no toast")
     func deleteNothing() {
         let toasts = ToastCenter()
-        NoteNavigation().deletePages([], context: context, toasts: toasts)
+        NoteActions(navigation: NoteNavigation(), context: context, toasts: toasts).moveToRecentlyDeleted([])
         #expect(toasts.current == nil)
     }
 
@@ -145,7 +145,7 @@ struct NoteNavigationTests {
         inside.folder = folder
         let nav = NoteNavigation(selection: inside)
 
-        nav.delete(folder, .withNotes, context: context, toasts: toasts)
+        NoteActions(navigation: nav, context: context, toasts: toasts).delete(folder, .withNotes)
 
         #expect(nav.selection == nil)
         #expect(toasts.current?.message == "Moved “Old” to Recently Deleted")

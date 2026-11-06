@@ -73,6 +73,10 @@ struct NoteList: View {
 
     @FocusState private var searchIsFocused: Bool
 
+    private var actions: NoteActions {
+        NoteActions(navigation: navigation, context: modelContext, toasts: toasts)
+    }
+
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.appExtensions) private var extensions
@@ -230,7 +234,7 @@ struct NoteList: View {
                 // A tap makes a note the way Settings › New Notes says; holding
                 // it offers the other orientation and a folder.
                 Menu {
-                    newNoteButtons(in: newNoteFolder)
+                    NewNoteButtons { addPage($0, in: newNoteFolder) }
                     Divider()
                     templateMenu(in: newNoteFolder)
                     Divider()
@@ -347,96 +351,16 @@ struct NoteList: View {
 
     // MARK: Rows
 
-    /// A row's picture of the note's first page: 30 by 39 (the `Library`
-    /// board), Letter's proportions.
-    private static let thumbnailSize = CGSize(width: 30, height: 39)
-
-    /// How far a row is pushed in for each folder above it.
-    private func indent(_ depth: Int) -> CGFloat {
-        CGFloat(min(depth, 6)) * 18
-    }
-
-    /// One note's row, at `depth` folders down. Dragged to file it, and a
-    /// drop target itself: dropped on, it files the other note beside it.
-    private func noteRow(_ page: Page, depth: Int, showsFolder: Bool) -> some View {
-        HStack(spacing: 12) {
-            NoteThumbnailView(page: page)
-                .frame(width: Self.thumbnailSize.width, height: Self.thumbnailSize.height)
-            VStack(alignment: .leading) {
-                Text(page.displayTitle)
-                    .font(.headline)
-                HStack(spacing: 4) {
-                    if page.isTextLocked {
-                        Image(systemName: "lock.fill")
-                            .accessibilityLabel("Text Locked")
-                    }
-                    if showsFolder, let folder = page.folder {
-                        Text(folder.name)
-                        Text("·")
-                    }
-                    // The date the list is sorted by, so the order can be read
-                    // off the rows.
-                    Text(
-                        sort.displayedDate(modified: page.modifiedAt, created: page.createdAt),
-                        format: Date.FormatStyle(date: .abbreviated, time: .shortened)
-                    )
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.leading, indent(depth))
-        .tag(page)
-        .opensOnTapInCompactWidth { selection = page }
-        .listRowBackground(rowBackground(for: page))
-        .contextMenu { noteMenu(page) }
-        .onDrag { drag.lift(.note(page)) }
-        .modifier(ListRowDrop(
-            target: .note(page), hoverID: .row(.note(page.persistentModelID)), drag: drag
-        ))
-    }
-
-    /// A search's results: each note's title, the line it matched on, and
-    /// where it's filed, with the words searched for in bold.
+    /// A search's results, each opening its note.
     private func resultRows(_ results: [NoteSearch.Result], for search: NoteSearch) -> some View {
         ForEach(results) { result in
-            let page = result.page
-            HStack(spacing: 12) {
-                NoteThumbnailView(page: page)
-                    .frame(width: Self.thumbnailSize.width, height: Self.thumbnailSize.height)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(search.highlighted(page.displayTitle))
-                        .font(.headline)
-                    if let excerpt = result.match.excerpt {
-                        Text(search.highlighted(excerpt))
-                            .font(.subheadline)
-                            .lineLimit(2)
-                    }
-                    HStack(spacing: 4) {
-                        if let folder = page.folder {
-                            Text(folder.name)
-                            Text("·")
-                        }
-                        Text(
-                            sort.displayedDate(modified: page.modifiedAt, created: page.createdAt),
-                            format: Date.FormatStyle(date: .abbreviated, time: .shortened)
-                        )
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                }
-            }
-            .tag(page)
-            .opensOnTapInCompactWidth { selection = page }
-            .listRowBackground(rowBackground(for: page))
-            .contextMenu { noteMenu(page) }
+            NoteResultRow(
+                result: result, search: search, sort: sort,
+                isSelected: selection == result.page,
+                menu: noteMenu(result.page),
+                onOpen: { selection = result.page }
+            )
         }
-    }
-
-    /// The selected note's row is the accent at a low strength, with the
-    /// label colour kept for its text: never white on solid orange.
-    private func rowBackground(for page: Page) -> Color? {
-        selection == page ? RowSelectionTint.color(isDark: colorScheme == .dark, accent: accent) : nil
     }
 
     /// Folders, the notes beside them and what is open in them, flattened into
@@ -450,12 +374,23 @@ struct NoteList: View {
         return ForEach(rows) { row in
             switch row {
             case .folder(let section, let depth, let isOpen):
-                folderRow(section, depth: depth, isOpen: isOpen)
+                FolderRow(
+                    section: section, depth: depth, isOpen: isOpen, drag: drag,
+                    menu: folderMenu(section.folder),
+                    isDeleting: isDeleting(section.folder),
+                    onToggle: { toggle(section.folder) },
+                    onDelete: { delete(section.folder, $0) }
+                )
             case .note(let page, let depth, let showsFolder):
-                noteRow(page, depth: depth, showsFolder: showsFolder)
+                NoteRow(
+                    page: page, depth: depth, showsFolder: showsFolder, sort: sort,
+                    isSelected: selection == page, drag: drag,
+                    menu: noteMenu(page),
+                    onOpen: { selection = page }
+                )
             case .empty(_, let depth):
                 emptyFolderRow
-                    .padding(.leading, indent(depth))
+                    .padding(.leading, NoteListMetrics.indent(depth))
                     .deleteDisabled(true)
             }
         }
@@ -463,75 +398,6 @@ struct NoteList: View {
             deletePages(offsets.compactMap { offset in
                 if case .note(let page, _, _) = rows[offset] { page } else { nil }
             })
-        }
-    }
-
-    /// A folder's row: an arrow on the left that opens and closes it, the
-    /// folder's face and name, and how many notes are under it. A tap
-    /// anywhere on the row does what the arrow does. Dragged to move or
-    /// arrange it; dropped on, its top and bottom edges arrange and its middle
-    /// takes what is dropped (`ListDrop`).
-    private func folderRow(_ section: NoteListSections.FolderSection, depth: Int, isOpen: Bool) -> some View {
-        let folder = section.folder
-        return HStack(spacing: 4) {
-            Button {
-                toggle(folder)
-            } label: {
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .rotationEffect(.degrees(isOpen ? 90 : 0))
-                    .frame(width: 28, height: TapTarget.minimum)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(isOpen ? "Close \(folder.name)" : "Open \(folder.name)")
-            .accessibilityIdentifier("folderArrow")
-
-            HStack(spacing: 10) {
-                FolderBadge(folder: folder)
-                Text(folder.name)
-                    .fontWeight(.semibold)
-            }
-            .accessibilityElement(children: .combine)
-            Spacer()
-            Text(section.noteCount, format: .number)
-                .foregroundStyle(.secondary)
-        }
-        .padding(.leading, indent(depth))
-        .contentShape(Rectangle())
-        .onTapGesture { toggle(folder) }
-        .deleteDisabled(true)
-        .onDrag { drag.lift(.folder(folder)) }
-        .modifier(ListRowDrop(
-            target: .folder(folder), hoverID: .row(.folder(folder.persistentModelID)), drag: drag
-        ))
-        .contextMenu { folderMenu(folder) }
-        // On the row, not the list: on an iPad the dialog is a popover, and
-        // attached to the list it pointed at the middle of the list's edge.
-        .confirmationDialog(
-            "Delete “\(folder.name)”?",
-            isPresented: isDeleting(folder),
-            titleVisibility: .visible
-        ) {
-            let count = folder.subtreeLivePageCount
-            if count == 0 {
-                Button("Delete Folder", role: .destructive) {
-                    delete(folder, .keepingNotes)
-                }
-            } else {
-                Button("Delete Folder and ^[\(count) Note](inflect: true)", role: .destructive) {
-                    delete(folder, .withNotes)
-                }
-                Button("Delete Folder, Keep Notes") {
-                    delete(folder, .keepingNotes)
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            if folder.subtreeLivePageCount > 0 || !(folder.subfolders ?? []).isEmpty {
-                Text("Kept notes and folders move up one level, to where this folder is. The folder and what is deleted with it wait in Recently Deleted for 30 days.")
-            }
         }
     }
 
@@ -545,7 +411,7 @@ struct NoteList: View {
                 withAnimation { editMode = .active }
             }
 #endif
-            sortMenu
+            NoteSortMenu(sort: $sort)
             Divider()
             Button("Import…", systemImage: "square.and.arrow.down", action: onImport)
             Button("Export All Notes…", systemImage: "square.and.arrow.up", action: onExportAll)
@@ -556,41 +422,6 @@ struct NoteList: View {
                 .accessibilityIdentifier("settingsButton")
         } label: {
             Label("More", systemImage: "ellipsis.circle")
-        }
-    }
-
-    private var sortMenu: some View {
-        Menu {
-            Picker("Sort By", selection: sortKey) {
-                ForEach(NoteSort.Key.allCases, id: \.self) { key in
-                    Text(key.title).tag(key)
-                }
-            }
-            // The way round that reads naturally for the key comes first:
-            // newest first for dates, A to Z for titles.
-            Picker("Order", selection: $sort.ascending) {
-                let natural = sort.key.naturallyAscending
-                ForEach([natural, !natural], id: \.self) { ascending in
-                    Text(ascending ? sort.orderTitles.ascending : sort.orderTitles.descending)
-                        .tag(ascending)
-                }
-            }
-        } label: {
-            Label("Sort By", systemImage: "arrow.up.arrow.down")
-        }
-    }
-
-    @ViewBuilder
-    private func newNoteButtons(in folder: Folder?) -> some View {
-        // Which way up a note's pages are is chosen here, once. Changing it
-        // later would re-wrap the text at another width and move every line
-        // out from under its ink.
-        ForEach(PageOrientation.allCases, id: \.self) { orientation in
-            Button {
-                addPage(orientation, in: folder)
-            } label: {
-                Label("\(orientation.title) Pages", systemImage: orientation.systemImage)
-            }
         }
     }
 
@@ -611,12 +442,8 @@ struct NoteList: View {
         .accessibilityIdentifier("fromTemplateMenu")
     }
 
-    /// The note's long-press menu is the title menu: the same view, so the
-    /// same rows in the same order. The list renames through the name alert,
-    /// since it has no title to edit in place, and deletes without asking, as
-    /// it always has: the note goes to Recently Deleted, and the toast undoes it.
-    private func noteMenu(_ page: Page) -> some View {
-        NoteTitleMenu(
+    private func noteMenu(_ page: Page) -> NoteMenu {
+        NoteMenu(
             page: page,
             folders: folders,
             onNewFolder: { editingFolder = .new(moving: page) },
@@ -627,40 +454,19 @@ struct NoteList: View {
         )
     }
 
-    @ViewBuilder
-    private func folderMenu(_ folder: Folder) -> some View {
-        Button(
-            folder.isPinned ? "Unpin Folder" : "Pin Folder",
-            systemImage: folder.isPinned ? "pin.slash" : "pin"
-        ) {
-            withAnimation { folder.isPinned.toggle() }
-        }
-        Button("Rename…", systemImage: "pencil") {
-            editingFolder = .rename(folder)
-        }
-        Menu("New", systemImage: "plus") {
-            newNoteButtons(in: folder)
-            Divider()
-            Button("Folder Inside…", systemImage: "folder.badge.plus") {
+    private func folderMenu(_ folder: Folder) -> FolderMenu {
+        FolderMenu(
+            folder: folder,
+            folders: folders,
+            onRename: { editingFolder = .rename(folder) },
+            onNewNote: { addPage($0, in: folder) },
+            onNewFolderInside: {
                 closedFolders.remove(folder.persistentModelID)
                 editingFolder = .new(moving: nil, in: folder)
-            }
-        }
-        Divider()
-        Menu("Move To", systemImage: "folder") {
-            Button("Top Level", systemImage: "tray") {
-                move(folder, into: nil)
-            }
-            .disabled(folder.parent == nil)
-            ForEach(folders.live.filter { folder.canMove(into: $0) && $0 !== folder.parent }
-                .sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }) { target in
-                Button(target.path) { move(folder, into: target) }
-            }
-        }
-        Divider()
-        Button("Delete Folder…", systemImage: "trash", role: .destructive) {
-            deleting = folder
-        }
+            },
+            onMove: { move(folder, into: $0) },
+            onDelete: { deleting = folder }
+        )
     }
 
     // MARK: Bindings
@@ -703,11 +509,6 @@ struct NoteList: View {
             }
         }
         try? modelContext.save()
-    }
-
-    /// Picking a key also picks the way round that reads naturally for it.
-    private var sortKey: Binding<NoteSort.Key> {
-        Binding { sort.key } set: { sort = sort.with(key: $0) }
     }
 
     private func isDeleting(_ folder: Folder) -> Binding<Bool> {
@@ -772,25 +573,10 @@ struct NoteList: View {
 
     /// Moves notes to Recently Deleted, with a toast that puts them back.
     private func deletePages(_ deleted: [Page]) {
-        navigation.deletePages(deleted, context: modelContext, toasts: toasts)
+        actions.moveToRecentlyDeleted(deleted)
     }
 
     private func delete(_ folder: Folder, _ deletion: Folder.Deletion) {
-        navigation.delete(folder, deletion, context: modelContext, toasts: toasts)
-    }
-}
-
-/// The selected note's row, behind its text: the accent at 18% in light and
-/// 22% in dark, the design's tint (#FFE9CF over white for the default accent).
-/// The label colour stays on top, so it reads in both appearances, which solid
-/// orange with white text would not for the smaller type.
-enum RowSelectionTint {
-    static func opacity(isDark: Bool) -> Double {
-        isDark ? 0.22 : 0.18
-    }
-
-    /// - Parameter accent: the stored accent (`AccentPalette.defaultsKey`).
-    static func color(isDark: Bool, accent: String) -> Color {
-        Color.accent(stored: accent).opacity(opacity(isDark: isDark))
+        actions.delete(folder, deletion)
     }
 }
