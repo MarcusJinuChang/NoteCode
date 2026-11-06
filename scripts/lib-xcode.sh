@@ -19,10 +19,16 @@ mkdir -p "$tmp"
 # taken over once its pid is gone. The lock is one fixed path for every
 # worktree and session (a lock under $tmp, which is per worktree, would never
 # be shared); NOTECODE_LOCK_DIR moves it. The logs stay under $tmp.
+# One lock per simulator: runs on different simulators (NOTECODE_SIM, e.g.
+# the "NoteCode Lane B" and "NoteCode Lane C" copies of the iPad Pro 13-inch)
+# go at once; two runs on one simulator still queue. The default simulator
+# keeps the old path, sim.lock.
 take_lock() {
   local lockdir=${NOTECODE_LOCK_DIR:-$HOME/Library/Caches/NoteCode-check}
   mkdir -p "$lockdir"
   local lock=$lockdir/sim.lock owner
+  [[ -n ${NOTECODE_SIM:-} && $sim != "iPad Pro 13-inch (M5)" ]] &&
+    lock=$lockdir/sim-$(print -rn -- "$sim" | shasum | cut -c1-10).lock
   while ! mkdir "$lock" 2>/dev/null; do
     owner=$(cat "$lock/pid" 2>/dev/null || true)
     if [[ -n $owner ]] && ! kill -0 "$owner" 2>/dev/null; then
