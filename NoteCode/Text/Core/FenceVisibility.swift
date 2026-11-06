@@ -15,7 +15,7 @@ nonisolated enum ShowMarkdown: String, CaseIterable, Sendable {
     /// Every block shows its fences all the time.
     case always
 
-    static let defaultsKey = "showMarkdown"
+    static let defaultsKey = SettingKeys.Writing.showMarkdown.name
 
     var title: String {
         switch self {

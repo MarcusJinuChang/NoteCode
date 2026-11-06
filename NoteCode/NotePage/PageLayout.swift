@@ -25,8 +25,8 @@ nonisolated enum PageViewMode: String, CaseIterable, Sendable {
     /// Separate sheets of paper, margins and all, the way they would print.
     case print
 
-    static let `default` = PageViewMode.seamless
-    static let defaultsKey = "pageViewMode"
+    static let `default` = SettingKeys.Notes.viewMode.defaultValue
+    static let defaultsKey = SettingKeys.Notes.viewMode.name
 }
 
 /// The geometry of a paged note, as pure functions.
@@ -301,8 +301,8 @@ nonisolated struct PageLayout: Equatable, Sendable {
 /// that ends in the last page's foot adds a page, through Add Page's path.
 nonisolated enum InkPageGrowth {
     /// Settings › Drawing › Add Pages While Drawing; on until turned off.
-    static let defaultsKey = "addPagesWhileDrawing"
-    static let defaultEnabled = true
+    static let defaultsKey = SettingKeys.Drawing.addPagesWhileDrawing.name
+    static let defaultEnabled = SettingKeys.Drawing.addPagesWhileDrawing.defaultValue
 
     /// The share of a page's body, from the bottom, that counts as its foot:
     /// about 1.4 inches of a Letter page, three or four lines of handwriting.

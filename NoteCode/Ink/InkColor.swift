@@ -41,14 +41,14 @@ nonisolated struct InkPalette: Equatable, Sendable {
 
     /// The pen's palette. It kept this key when the highlighter got its own,
     /// so a palette a device saved before then is still its pen's.
-    static let defaultsKey = "inkPalette"
+    static let defaultsKey = SettingKeys.Drawing.penPalette.name
 
-    static let highlighterDefaultsKey = "highlighterPalette"
+    static let highlighterDefaultsKey = SettingKeys.Drawing.highlighterPalette.name
 
     /// Where a tool's palette is stored. Only the pen and highlighter have
     /// one; anything else answers with the pen's.
     static func defaultsKey(for kind: InkToolKind) -> String {
-        kind == .highlighter ? highlighterDefaultsKey : defaultsKey
+        SettingKeys.Drawing.palette(for: kind).name
     }
 
     /// Never empty, and never holding one colour twice.

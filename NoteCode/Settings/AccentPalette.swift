@@ -28,7 +28,7 @@ import AppKit
 /// enough to get it (`textHex`). The default keeps the design's own pair.
 nonisolated enum AccentPalette {
 
-    static let defaultsKey = "accentColor"
+    static let defaultsKey = SettingKeys.General.accent.name
 
     /// The design's orange, `#FA8500`.
     static let defaultHex = 0xFA8500
@@ -147,7 +147,7 @@ extension Color {
 /// (`AccentPalette.labelOnFillIsBlack`).
 private struct AccentFill<S: Shape>: ViewModifier {
     let shape: S
-    @AppStorage(AccentPalette.defaultsKey) private var stored = ""
+    @AppStorage(SettingKeys.General.accent) private var stored
 
     func body(content: Content) -> some View {
         let black = AccentPalette.parse(stored).map(AccentPalette.labelOnFillIsBlack) ?? false

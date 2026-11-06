@@ -66,8 +66,8 @@ extension CodeKey: ExpressibleByStringLiteral {
 nonisolated enum CodeKeys {
 
     /// Settings › Code › Code Keys. Per device; on until turned off.
-    static let enabledKey = "codeKeys"
-    static let enabledByDefault = true
+    static let enabledKey = SettingKeys.Code.codeKeys.name
+    static let enabledByDefault = SettingKeys.Code.codeKeys.defaultValue
 
     /// The keys for where the caret is: all of them in code, none in prose.
     ///

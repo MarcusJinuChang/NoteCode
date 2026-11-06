@@ -20,8 +20,8 @@ nonisolated enum AppAppearance: String, CaseIterable, Sendable {
     case light
     case dark
 
-    static let `default` = AppAppearance.system
-    static let defaultsKey = "appearance"
+    static let `default` = SettingKeys.General.appearance.defaultValue
+    static let defaultsKey = SettingKeys.General.appearance.name
 
     var title: String {
         switch self {
@@ -34,8 +34,8 @@ nonisolated enum AppAppearance: String, CaseIterable, Sendable {
 
 /// Settings › General › Haptic on Snap: a tick as the hotbar lands on an edge.
 nonisolated enum SnapHaptic {
-    static let defaultsKey = "hapticOnSnap"
-    static let isOnByDefault = true
+    static let defaultsKey = SettingKeys.General.hapticOnSnap.name
+    static let isOnByDefault = SettingKeys.General.hapticOnSnap.defaultValue
 }
 
 /// Settings › General › App Icon: the Default icon and the two alternates.

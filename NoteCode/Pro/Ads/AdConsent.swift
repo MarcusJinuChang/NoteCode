@@ -58,7 +58,7 @@ final class AdConsent {
     private var gathering = false
     /// UMP has been asked this launch. Its answers aren't kept between launches.
     private var consentInfoUpdated = false
-    private static let visitsKey = "adHomeVisits"
+    private static let visitsKey = SettingKeys.Ads.homeVisits.name
 
     init(platform: AdPlatform, defaults: UserDefaults) {
         self.platform = platform

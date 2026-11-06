@@ -371,7 +371,7 @@ struct RunDock: View {
     /// The window's width, for the half-window limit.
     var availableWidth: CGFloat
 
-    @AppStorage(RunDockWidth.key) private var storedWidth = RunDockWidth.initial
+    @AppStorage(SettingKeys.Run.panelWidth) private var storedWidth
     @State private var dragStart: Double?
 
     var body: some View {
@@ -429,8 +429,8 @@ struct RunDock: View {
 
 /// The dock's width, app-wide: 360pt to start, 280pt to half the window.
 nonisolated enum RunDockWidth {
-    static let key = "runPanelWidth"
-    static let initial = 360.0
+    static let key = SettingKeys.Run.panelWidth.name
+    static let initial = SettingKeys.Run.panelWidth.defaultValue
     static let minimum = 280.0
 
     static func clamped(_ width: Double, available: CGFloat) -> CGFloat {

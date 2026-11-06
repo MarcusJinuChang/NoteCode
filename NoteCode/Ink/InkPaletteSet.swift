@@ -17,7 +17,7 @@ nonisolated enum InkPaletteSet: String, CaseIterable, Sendable {
     case refined
     case original
 
-    static let defaultsKey = "inkPaletteSet"
+    static let defaultsKey = SettingKeys.Drawing.paletteSet.name
 
     var title: String {
         switch self {

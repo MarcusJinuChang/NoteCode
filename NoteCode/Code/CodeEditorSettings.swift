@@ -28,8 +28,8 @@ nonisolated struct CodeEditorSettings: Equatable, Sendable {
 
 /// Settings › Code › Line Numbers.
 nonisolated enum LineNumbers {
-    static let defaultsKey = "lineNumbers"
-    static let enabledByDefault = false
+    static let defaultsKey = SettingKeys.Code.lineNumbers.name
+    static let enabledByDefault = SettingKeys.Code.lineNumbers.defaultValue
 }
 
 #if canImport(UIKit)
