@@ -9,6 +9,16 @@
 
 import UIKit
 
+extension NSAttributedString.Key {
+    /// Marks a run of code the highlighter coloured (and a character typed
+    /// after one, which takes its colour until the next pass). Syntax
+    /// colours are told apart from every other foreground by this, not by
+    /// comparing colour values: a theme may colour a token exactly
+    /// `.label`, and the output text colour no longer has to be a hair off
+    /// it. The value is `true`.
+    static let noteCodeSyntax = NSAttributedString.Key("com.marcus.NoteCode.syntax")
+}
+
 enum DocumentStyler {
 
     // MARK: Attributes
@@ -325,7 +335,7 @@ enum DocumentStyler {
         // uncoloured until the next highlight pass rather than inheriting the
         // colour of whatever they were typed after.
         for run in existingColors {
-            styled.addAttribute(.foregroundColor, value: run.color, range: run.range)
+            styled.addAttributes([.foregroundColor: run.color, .noteCodeSyntax: true], range: run.range)
         }
 
         let wanted = styled.attributedSubstring(from: span)
@@ -449,7 +459,6 @@ enum DocumentStyler {
     /// and get reapplied from scratch.
     private static func codeColors(in storage: NSTextStorage, layouts: [BlockLayout]) -> [ColorRun] {
         var preserved: [ColorRun] = []
-        let defaultColor = UIColor.label
 
         for layout in layouts where layout.block.isCode && layout.block.codeBlock?.isOutput != true {
             // A block with no language is plain text: its old colours belong to
@@ -459,15 +468,16 @@ enum DocumentStyler {
             let range = layout.contentRange
             guard range.location >= 0, range.location + range.length <= storage.length else { continue }
 
-            storage.enumerateAttribute(.foregroundColor, in: range) { value, subrange, _ in
-                // An output block's text colour is its default, not a syntax
-                // colour: carried into a block just retagged to a language,
-                // it would show as pale grey on the page until highlighting
-                // caught up.
-                guard let color = value as? UIColor, color != defaultColor,
-                      color != CodeOutputPanel.textColor
-                else { return }
-                preserved.append(ColorRun(range: subrange, color: color))
+            // Only runs the highlighter marked. An output block's text colour
+            // is its default, not a syntax colour: carried into a block just
+            // retagged to a language, it would show as pale grey on the page
+            // until highlighting caught up, and it carries no mark.
+            storage.enumerateAttribute(.noteCodeSyntax, in: range) { marked, markedRange, _ in
+                guard marked != nil else { return }
+                storage.enumerateAttribute(.foregroundColor, in: markedRange) { value, subrange, _ in
+                    guard let color = value as? UIColor else { return }
+                    preserved.append(ColorRun(range: subrange, color: color))
+                }
             }
         }
 
@@ -618,6 +628,7 @@ enum DocumentStyler {
 
         for range in ranges where range.location >= 0 && range.location + range.length <= length {
             storage.addAttribute(.foregroundColor, value: UIColor.label, range: range)
+            storage.removeAttribute(.noteCodeSyntax, range: range)
         }
 
         for run in runs {
@@ -628,7 +639,7 @@ enum DocumentStyler {
                   run.range.location + run.range.length <= length
             else { continue }
 
-            storage.addAttribute(.foregroundColor, value: run.color, range: run.range)
+            storage.addAttributes([.foregroundColor: run.color, .noteCodeSyntax: true], range: run.range)
         }
         storage.endEditing()
     }
@@ -667,6 +678,7 @@ enum DocumentStyler {
             var attributes = codeAttributes(typography)
             if let inherited = inheritedCodeColor(at: caret, in: textView.textStorage) {
                 attributes[.foregroundColor] = inherited
+                attributes[.noteCodeSyntax] = true
             }
             textView.typingAttributes = attributes
         case .heading(let level, _):
@@ -698,8 +710,10 @@ enum DocumentStyler {
         // A colour shouldn't carry onto a new line.
         guard storage.mutableString.character(at: caret - 1) != 0x0A else { return nil }
 
-        guard let color = storage.attribute(.foregroundColor, at: caret - 1, effectiveRange: nil) as? UIColor,
-              color != markerColor, color != .clear   // don't pick up a dimmed or hidden fence line
+        // Only a coloured run: the dimmed or hidden fence line, and plain
+        // text, carry no mark.
+        guard storage.attribute(.noteCodeSyntax, at: caret - 1, effectiveRange: nil) != nil,
+              let color = storage.attribute(.foregroundColor, at: caret - 1, effectiveRange: nil) as? UIColor
         else { return nil }
 
         return color
