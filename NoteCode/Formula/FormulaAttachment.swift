@@ -46,18 +46,15 @@ enum FormulaAttachment {
         var metrics: Metrics
     }
 
-    private static var cache: [Key: Drawn] = [:]
-    private static let cacheLimit = 500
+    private static let cache = BoundedCache<Key, Drawn>(limit: 500)
 
     /// The attachment for `tex` (already through `TeXAliases`) at the text's
     /// `pointSize`, or nil when SwiftMath can't typeset it.
     private static func drawn(tex: String, pointSize: CGFloat, display: Bool) -> Drawn? {
         let key = Key(tex: tex, points: pointSize, display: display)
-        if let cached = cache[key] { return cached }
-        guard let fresh = render(tex: tex, pointSize: pointSize * sizeScale, display: display) else { return nil }
-        if cache.count >= cacheLimit { cache.removeAll(keepingCapacity: true) }
-        cache[key] = fresh
-        return fresh
+        return cache.value(for: key) {
+            render(tex: tex, pointSize: pointSize * sizeScale, display: display)
+        }
     }
 
     /// `fitting` is for a display block, whose formula scales down to the
