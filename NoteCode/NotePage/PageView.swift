@@ -144,35 +144,12 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// (`captureInk`), so reading this first finishes any still on their way.
     var ink: PaperMarkup {
         commitInk()
-        return inkState.ink
+        return inkPipeline.state.ink
     }
 
-    /// The stored ink, and where each element sat on the canvas when it was
-    /// last shown or read. See `InkCapture.State`.
-    private var inkState: InkCapture.State
-
-    /// The canvas as the reader last left it, not yet taken into `inkState`,
-    /// with the layout and page count it was drawn in.
-    private struct InkSnapshot {
-        var markup: PaperMarkup
-        var layout: PageLayout
-        var pageCount: Int
-        var serial: Int
-    }
-
-    /// The newest snapshot not yet taken in, whether a capture is working on
-    /// it or it's waiting for the one before to finish.
-    private var newestSnapshot: InkSnapshot?
-    private var snapshotSerial = 0
-    private var isCapturing = false
-
-    /// Bumped whenever `inkState` is replaced on the main thread, so a
-    /// capture that started from the old one drops its result.
-    private var inkGeneration = 0
-
-    /// The lowest point of the ink as shown, cached so working out the page
-    /// count — which every layout pass does — doesn't walk the strokes.
-    private var inkBottom: CGFloat?
+    /// The stored ink, the snapshot on its way in, the generation and the
+    /// ink's lowest point (`PageInkPipeline`).
+    private let inkPipeline: PageInkPipeline
 
     /// Called with the note's ink, in print coordinates, whenever the reader
     /// changes it: a stroke drawn, erased or moved.
@@ -212,13 +189,13 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         let selection = InkSelection()
         self.selection = selection
         self.selectionOverlay = InkSelectionOverlay(selection: selection)
-        self.inkState = InkCapture.State(ink: PaperMarkup(bounds: CGRect(
+        self.inkPipeline = PageInkPipeline(state: InkCapture.State(ink: PaperMarkup(bounds: CGRect(
             origin: .zero,
             size: CGSize(
                 width: layout.pageSize.width,
                 height: PageLayout(orientation: layout.orientation, mode: .print).noteHeight(pageCount: 1)
             )
-        )))
+        ))))
         super.init(frame: .zero)
 
         // Neither scroll view should invent insets of its own. SwiftUI keeps
@@ -953,7 +930,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// of the last page's body, which gives the same page count again.
     private func noteHeight(forTextHeight height: CGFloat) -> CGFloat {
         let textBottom = height - textView.textContainerInset.bottom
-        pageCount = pageLayout.pageCount(textBottom: textBottom, inkBottom: inkBottom, minimum: minimumPageCount)
+        pageCount = pageLayout.pageCount(textBottom: textBottom, inkBottom: inkPipeline.bottom, minimum: minimumPageCount)
         return pageLayout.noteHeight(pageCount: pageCount)
     }
 
@@ -966,7 +943,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// its ink: when ink reaches the last page, there is one more. Compressed
     /// and print layout show their pages, and have Add Page.
     private func keepPageBelowInk() {
-        guard pageLayout.mode == .seamless, let inkBottom,
+        guard pageLayout.mode == .seamless, let inkBottom = inkPipeline.bottom,
               pageLayout.pageIndex(atY: inkBottom) >= pageCount - 1
         else { return }
         raiseMinimum(to: pageCount + 1)
@@ -1021,8 +998,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     ///   note's orientation — the form ink is stored and printed in.
     func setInk(_ markup: PaperMarkup) {
         // Whatever was on its way in belonged to the ink this replaces.
-        newestSnapshot = nil
-        inkState = InkCapture.State(ink: markup)
+        inkPipeline.replace(with: markup)
         showInk()
     }
 
@@ -1035,9 +1011,9 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         // Strokes still on their way in were drawn in the layout the canvas
         // shows until now, and are taken in by it before anything moves.
         commitInk()
-        inkGeneration += 1
+        inkPipeline.invalidate()
 
-        let ink = inkState.ink
+        let ink = inkPipeline.state.ink
         let print = PageLayout(orientation: pageLayout.orientation, mode: .print)
         // Compressed and print layout show a stroke across a border only on
         // the page it was started on (`InkPages`); seamless shows it whole.
@@ -1071,7 +1047,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
             // Added and placed a set at a time, never an element at a time:
             // see `convert`. Removed one at a time, which is few: a set
             // without them keeps them, and so does `removeAll(where:)`.
-            let reshaped = inkState.wholeOnCanvas.union(inkState.specked).filter { stored[$0] != nil }
+            let reshaped = inkPipeline.state.wholeOnCanvas.union(inkPipeline.state.specked).filter { stored[$0] != nil }
             for id in Set(shown.subelements.ids) where stored[id] == nil || reshaped.contains(id) {
                 shown.subelements.removeElement(for: id)
             }
@@ -1125,12 +1101,12 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         // The canvas holds exactly the stored elements this mode shows now,
         // pieces included, and nothing is left to undo.
         let (frames, contents) = InkMarkupTransforms.frames(of: canvas.markup)
-        inkState.shown = frames
-        inkState.contents = contents
-        inkState.wholeOnCanvas = []
-        inkState.specked = []
-        inkState.buried = [:]
-        inkBottom = frames.values.map(\.maxY).max()
+        inkPipeline.state.shown = frames
+        inkPipeline.state.contents = contents
+        inkPipeline.state.wholeOnCanvas = []
+        inkPipeline.state.specked = []
+        inkPipeline.state.buried = [:]
+        inkPipeline.bottom = frames.values.map(\.maxY).max()
         // The page count depends on the ink, and nothing about the text changed.
         textView.reapplyContentHeightAdjustment()
         textView.setNeedsLayout()
@@ -1173,32 +1149,24 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// measurable. A burst of strokes is taken in as one: while a capture
     /// runs, only the newest snapshot waits.
     private func captureInk() {
-        snapshotSerial += 1
-        newestSnapshot = InkSnapshot(
-            markup: canvas.markup,
-            layout: pageLayout,
-            pageCount: pageCount,
-            serial: snapshotSerial
-        )
+        inkPipeline.enqueue(markup: canvas.markup, layout: pageLayout, pageCount: pageCount)
         startCapture()
     }
 
     private func startCapture() {
-        guard !isCapturing, let snapshot = newestSnapshot else { return }
-        isCapturing = true
-        let state = inkState
-        let generation = inkGeneration
+        guard !inkPipeline.isCapturing, let snapshot = inkPipeline.newestSnapshot else { return }
+        inkPipeline.isCapturing = true
+        let state = inkPipeline.state
+        let generation = inkPipeline.generation
         let (markup, layout, pageCount) = (snapshot.markup, snapshot.layout, snapshot.pageCount)
         Task { [weak self] in
             let result = await Task.detached(priority: .userInitiated) {
                 InkCapture.capture(markup, into: state, layout: layout, pageCount: pageCount)
             }.value
             guard let self else { return }
-            isCapturing = false
-            if generation == inkGeneration {
-                if newestSnapshot?.serial == snapshot.serial {
-                    newestSnapshot = nil
-                }
+            inkPipeline.isCapturing = false
+            if generation == inkPipeline.generation {
+                inkPipeline.finish(snapshot)
                 apply(result)
             }
             startCapture()
@@ -1209,20 +1177,18 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     /// still on its way: before ink is shown again, read, printed or saved
     /// for the app leaving the screen.
     func commitInk() {
-        guard let snapshot = newestSnapshot else { return }
-        newestSnapshot = nil
         // A capture still running started from the state this replaces.
-        inkGeneration += 1
-        apply(InkCapture.capture(snapshot.markup, into: inkState, layout: snapshot.layout, pageCount: snapshot.pageCount))
+        guard let snapshot = inkPipeline.takeForCommit() else { return }
+        apply(InkCapture.capture(snapshot.markup, into: inkPipeline.state, layout: snapshot.layout, pageCount: snapshot.pageCount))
     }
 
     private func apply(_ result: InkCapture.Result) {
-        inkState = result.state
+        inkPipeline.state = result.state
         guard result.changed else { return }
         onInkChanged?(result.state.ink)
 
-        let before = inkBottom
-        inkBottom = result.inkBottom
+        let before = inkPipeline.bottom
+        inkPipeline.bottom = result.inkBottom
         if !result.reshow.isEmpty {
             showOwnPieces(result.reshow)
         }
@@ -1230,7 +1196,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         // the text changed to trigger that on its own. Only a page's worth
         // can change the count, and a layout pass on every stroke cost 8ms.
         let page = { (bottom: CGFloat?) in bottom.map(self.pageLayout.pageIndex(atY:)) }
-        if page(before) != page(inkBottom) {
+        if page(before) != page(inkPipeline.bottom) {
             textView.reapplyContentHeightAdjustment()
             textView.setNeedsLayout()
         }
@@ -1266,7 +1232,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
     private func showOwnPieces(_ pieces: [PKStroke]) {
         var markup = canvas.markup
         for piece in pieces {
-            let whole = inkState.shown[piece.elementID] ?? piece.renderFrame
+            let whole = inkPipeline.state.shown[piece.elementID] ?? piece.renderFrame
             markup.subelements.updateOrAppend(InkPages.shown(piece, over: whole))
         }
         canvas.markup = markup
@@ -1274,14 +1240,14 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate {
         // Where PaperKit has them now, which may be rounded from theirs.
         let now = canvas.markup.subelements
         for piece in pieces {
-            inkState.shown[piece.elementID] = now[piece.elementID]?.renderFrame
-            inkState.specked.insert(piece.elementID)
+            inkPipeline.state.shown[piece.elementID] = now[piece.elementID]?.renderFrame
+            inkPipeline.state.specked.insert(piece.elementID)
         }
-        inkBottom = inkState.shown.values.map(\.maxY).max()
+        inkPipeline.bottom = inkPipeline.state.shown.values.map(\.maxY).max()
         // A snapshot waiting to be taken in was taken before this.
-        if var waiting = newestSnapshot {
+        if var waiting = inkPipeline.newestSnapshot {
             waiting.markup = canvas.markup
-            newestSnapshot = waiting
+            inkPipeline.newestSnapshot = waiting
         }
     }
 
