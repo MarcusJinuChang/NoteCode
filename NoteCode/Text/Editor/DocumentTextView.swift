@@ -19,75 +19,19 @@ struct DocumentTextView: UIViewRepresentable {
     /// tests and previews.
     var editor: NoteEditor? = nil
 
-    /// The note's page orientation and the device's view mode.
-    var pageLayout = PageLayout()
+    /// The half of the inputs that belong to the `PageView` this makes:
+    /// layout, clearances, area, ink, reveal, resume, page count and growth,
+    /// callbacks. See `PageConfiguration`.
+    var pageConfiguration = PageConfiguration()
 
-    /// Room to leave above the keyboard for a hotbar riding up with it. See
-    /// `PageView.keyboardClearance`.
-    var keyboardClearance: CGFloat = 0
-
-    /// Room the bottom of the text keeps from the area's edge for a hotbar
-    /// floating over it. See `PageView.restingClearance`.
-    var restingClearance: CGFloat = 0
-
-    /// The edges SwiftUI leaves around the page's area, for a hotbar docked
-    /// at a side, and the animation the page moves with when they change, so
-    /// it follows the hotbar. See `PageView.areaWillChange`.
-    var areaInsets = UIEdgeInsets.zero
-    var areaAnimation: Animation? = nil
-
-    /// Loads the note's ink as the page is made, and saves it as it changes.
-    /// Optional, like `editor`, so the editor still stands alone.
-    var inkSaver: DrawingSaveScheduler? = nil
-
-    /// The search the note was opened from. Its matches are shown once, as
-    /// the page is made: a new search typed while the note is open is the
-    /// list's business, not the page's.
-    var revealing = NoteSearch("")
-
-    /// The page to open the note at (counted from 0): where it was last read
-    /// on this device. Ignored when the note was opened from a search, which
-    /// shows its match instead.
-    var resumingAtPage: Int? = nil
-
-    /// Told which page the reader is on as it changes, so the device can
-    /// remember it. Optional, like `editor`, so the editor still stands alone.
-    var onReadingPlaceChanged: ((NoteMemory.Place) -> Void)? = nil
-
-    /// Settings › Writing › Show Markdown: whether a code block's backticks
-    /// show only while it is being edited, or always.
-    var showMarkdown = ShowMarkdown.whileEditing
-
-    /// Settings › Writing › Markers: how dim the visible markers are.
-    var markerDimming = MarkerDimming.standard
-
-    /// Whether the note's Markdown markers take no room on the page
-    /// (`Page.markdownLayout == rendered`). A legacy note keeps them visible,
-    /// because its ink was drawn against that layout.
-    var rendersMarkdown = false
-
-    /// Settings › Code: indent width, the code-keys row, line numbers.
-    var codeSettings = CodeEditorSettings()
-
-    /// Settings › Writing › Autocorrect: whether prose is autocorrected and
-    /// given smart punctuation (code never is).
-    var rewritesProse = TextRewritingPolicy.proseEnabledByDefault
+    /// The editor's settings, which move together: Show Markdown, marker
+    /// dimming, whether the markers take room, Settings › Code and
+    /// Autocorrect. See `EditorSettings`.
+    var editorSettings = EditorSettings()
 
     /// The note's text size (`Page.textSize`), which sets every font the
     /// note is laid out in.
     var typography = NoteTypography.standard
-
-    /// The fewest pages the note has (`Page.minimumPageCount`), and where a
-    /// raise made by the page (Add Page, seamless's buffer) is kept.
-    var minimumPageCount = 1
-    var onMinimumPageCountChanged: ((Int) -> Void)? = nil
-
-    /// Settings › Drawing › Add Pages While Drawing.
-    var addsPagesWhileDrawing = InkPageGrowth.defaultEnabled
-
-    /// Told whenever the page scrolls, with the place it is scrolled to, for
-    /// the page badge. Optional, like `editor`.
-    var onScrolled: ((NoteMemory.Place) -> Void)? = nil
 
     // MARK: UIViewRepresentable
 
@@ -100,62 +44,24 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.observeEdits(of: textView)
         context.coordinator.attachOverlay(to: textView)
         context.coordinator.observeAppearance(of: textView)
-        context.coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
-        context.coordinator.setTypography(typography, in: textView)
-        codeSettings.apply(to: context.coordinator, in: textView)
-        context.coordinator.setRewritesProse(rewritesProse, in: textView)
-        markerDimming.apply(to: context.coordinator, in: textView)
+        editorSettings.apply(to: context.coordinator, in: textView, typography: typography)
         textView.text = text
         context.coordinator.invalidateStyling()
         context.coordinator.restyle(textView)
-        context.coordinator.showMarkdown = showMarkdown
+        editorSettings.applyShowMarkdown(to: context.coordinator)
         context.coordinator.connect(editor, to: textView)
         let page = PageView(textView: textView)
         context.coordinator.keepBars(under: page.canvas)
         // After the page: `attach` applies the current mode, which now moves a
         // canvas knob too, and the canvas is the page's.
         editor?.attach(textView, canvas: page.canvas, page: page)
-        page.pageLayout = pageLayout
-        page.minimumPageCount = minimumPageCount
-        page.addsPagesWhileDrawing = addsPagesWhileDrawing
-        page.onMinimumPageCountChanged = onMinimumPageCountChanged
-        page.keyboardClearance = keyboardClearance
-        page.restingClearance = restingClearance
-        page.areaWillChange(to: areaInsets, animation: nil)
-        // After the layout: stored ink is in print coordinates for the note's
-        // own orientation, and the page starts out portrait.
-        if let inkSaver {
-            if let stored = inkSaver.loadInk() {
-                page.setInk(stored)
-            }
-            page.onInkChanged = { [weak inkSaver] ink in inkSaver?.inkDidChange(ink) }
-        }
-        let matches = revealing.matches(in: text)
-        if let first = matches.first {
-            page.reveal(first, highlighting: matches)
-        } else if let resumingAtPage {
-            page.restore(toPage: resumingAtPage)
-        }
-        page.onReadingPlaceChanged = onReadingPlaceChanged
-        page.onScrolled = onScrolled
+        pageConfiguration.apply(toNew: page, text: text)
         return page
     }
 
     func updateUIView(_ page: PageView, context: Context) {
         let textView = page.textView
-        page.pageLayout = pageLayout
-        page.minimumPageCount = max(minimumPageCount, page.minimumPageCount)
-        page.addsPagesWhileDrawing = addsPagesWhileDrawing
-        page.onMinimumPageCountChanged = onMinimumPageCountChanged
-        page.keyboardClearance = keyboardClearance
-        page.restingClearance = restingClearance
-        page.onReadingPlaceChanged = onReadingPlaceChanged
-        page.onScrolled = onScrolled
-        // Before SwiftUI lays the new area out, so the page can follow the
-        // hotbar from where it is now. Not the transaction's animation: the
-        // dock is stored in `@AppStorage`, and its change arrives here
-        // without the drop's `withAnimation` (logged, 17 Oct).
-        page.areaWillChange(to: areaInsets, animation: areaAnimation)
+        pageConfiguration.apply(to: page)
 
         // A new text size re-wraps the whole note, so the page keeps the
         // reader on the line they were reading, as a new orientation does.
@@ -170,11 +76,8 @@ struct DocumentTextView: UIViewRepresentable {
         // through a stale one.
         context.coordinator.text = $text
         context.coordinator.editor = editor
-        context.coordinator.showMarkdown = showMarkdown
-        context.coordinator.setRendersMarkdown(rendersMarkdown, in: textView)
-        codeSettings.apply(to: context.coordinator, in: textView)
-        context.coordinator.setRewritesProse(rewritesProse, in: textView)
-        markerDimming.apply(to: context.coordinator, in: textView)
+        editorSettings.applyShowMarkdown(to: context.coordinator)
+        editorSettings.apply(to: context.coordinator, in: textView)
 
         // Only push text down when it actually differs. Assigning `.text`
         // unconditionally would reset the selection on every render and fight

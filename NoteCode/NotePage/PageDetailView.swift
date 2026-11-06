@@ -448,39 +448,43 @@ struct PageDetailView: View {
             DocumentTextView(
                 text: $page.content,
                 editor: editor,
-                pageLayout: PageLayout(orientation: page.orientation, mode: settings.viewMode),
-                keyboardClearance: keyboardClearance,
-                restingClearance: CanvasGeometry.restingClearance(dock: dock, footprint: Hotbar.footprint),
-                areaInsets: UIEdgeInsets(
-                    top: pageInsets.top, left: pageInsets.leading,
-                    bottom: pageInsets.bottom, right: pageInsets.trailing
+                pageConfiguration: PageConfiguration(
+                    pageLayout: PageLayout(orientation: page.orientation, mode: settings.viewMode),
+                    keyboardClearance: keyboardClearance,
+                    restingClearance: CanvasGeometry.restingClearance(dock: dock, footprint: Hotbar.footprint),
+                    areaInsets: UIEdgeInsets(
+                        top: pageInsets.top, left: pageInsets.leading,
+                        bottom: pageInsets.bottom, right: pageInsets.trailing
+                    ),
+                    // The hotbar's own snap, so the two move as one.
+                    areaAnimation: .snappy,
+                    inkSaver: inkSaver,
+                    revealing: revealing,
+                    resumingAtPage: resumingAtPage,
+                    onReadingPlaceChanged: { [weak page] place in
+                        // A note made moments ago has no permanent ID until it is
+                        // saved; `settledID` saves it, as the autosave would.
+                        if let page, let id = page.settledID {
+                            NoteMemory().setPlace(place, of: id)
+                        }
+                    },
+                    minimumPageCount: page.minimumPageCount,
+                    onMinimumPageCountChanged: { [weak page] count in
+                        if let page, count > page.minimumPageCount { page.minimumPageCount = count }
+                    },
+                    addsPagesWhileDrawing: settings.addsPagesWhileDrawing,
+                    onScrolled: noteScrolled
                 ),
-                // The hotbar's own snap, so the two move as one.
-                areaAnimation: .snappy,
-                inkSaver: inkSaver,
-                revealing: revealing,
-                resumingAtPage: resumingAtPage,
-                onReadingPlaceChanged: { [weak page] place in
-                    // A note made moments ago has no permanent ID until it is
-                    // saved; `settledID` saves it, as the autosave would.
-                    if let page, let id = page.settledID {
-                        NoteMemory().setPlace(place, of: id)
-                    }
-                },
-                showMarkdown: settings.showMarkdown,
-                markerDimming: MarkerDimming(
-                    headings: settings.headingMarkers, bullets: settings.bulletMarkers, checkboxes: settings.checkboxMarkers, fences: settings.fenceMarkers
+                editorSettings: EditorSettings(
+                    showMarkdown: settings.showMarkdown,
+                    markerDimming: MarkerDimming(
+                        headings: settings.headingMarkers, bullets: settings.bulletMarkers, checkboxes: settings.checkboxMarkers, fences: settings.fenceMarkers
+                    ),
+                    rendersMarkdown: true,
+                    codeSettings: CodeEditorSettings(indentWidth: settings.indentWidth, codeKeys: settings.codeKeys, lineNumbers: settings.lineNumbers),
+                    rewritesProse: settings.rewritesProse
                 ),
-                rendersMarkdown: true,
-                codeSettings: CodeEditorSettings(indentWidth: settings.indentWidth, codeKeys: settings.codeKeys, lineNumbers: settings.lineNumbers),
-                rewritesProse: settings.rewritesProse,
-                typography: NoteTypography(bodySize: page.textSize, lineSpacing: page.lineSpacing),
-                minimumPageCount: page.minimumPageCount,
-                onMinimumPageCountChanged: { [weak page] count in
-                    if let page, count > page.minimumPageCount { page.minimumPageCount = count }
-                },
-                addsPagesWhileDrawing: settings.addsPagesWhileDrawing,
-                onScrolled: noteScrolled
+                typography: NoteTypography(bodySize: page.textSize, lineSpacing: page.lineSpacing)
             )
             // Square and unbordered: the page fills its area. Nothing clips
             // it here: the page view is a scroll view, which keeps a page
