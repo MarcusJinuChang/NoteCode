@@ -26,7 +26,7 @@ import UIKit
 /// every mode paginates identically. The bands make typing cost more, because
 /// TextKit lays out everything below an edit once any exclusion path exists —
 /// see docs/archive/phase-drawing-layer.md for the numbers.
-final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost {
+final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, PageScrollIndicatorHost, PageZoomHost, PageKeyboardInsetHost {
 
     let textView: DocumentUITextView
 
@@ -51,9 +51,8 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost {
     static let pageColor = UIColor.systemBackground
     static let surroundColor = UIColor.secondarySystemBackground
 
-    private let indicator = UIView()
-    private var offsetObservation: NSKeyValueObservation?
-    private var fadeTask: Task<Void, Never>?
+    /// The note's scroll indicator, at this view's edge.
+    private lazy var scrollIndicator = PageScrollIndicator(host: self)
     private var lastPanTranslation = CGPoint.zero
     private let sidewaysFling = SidewaysFling()
     /// The page's edge: a hairline and a soft shadow behind the text view
@@ -73,8 +72,10 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost {
         }
     }
 
-    /// The reader's zoom, relative to fitting the page's width to the area.
-    private(set) var zoom: CGFloat = 1
+    /// The reader's zoom, relative to fitting the page's width to the area
+    /// (`PageZoom`).
+    private lazy var zoomControl = PageZoom(host: self)
+    var zoom: CGFloat { zoomControl.zoom }
 
     /// The area's width when the page was last fitted to it, so a change of
     /// width re-centres a page fitted to its text column.
@@ -159,9 +160,6 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost {
     /// list just for being looked at.
     var onInkChanged: ((PaperMarkup) -> Void)?
 
-    private let pinch = UIPinchGestureRecognizer()
-    private var zoomAtPinchStart: CGFloat = 1
-
     /// Which touches scroll the note on the canvas, for the mode. Set by
     /// `NoteEditor`; off the canvas, `offCanvas` applies instead.
     var scrolling = PageScrolling.standard {
@@ -210,7 +208,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost {
         alwaysBounceVertical = false
         showsVerticalScrollIndicator = false
         // The text view is what scrolls, and its own indicator sits inside the
-        // page sheet. The note's indicator is `indicator` below, at the
+        // page sheet. The note's indicator is `scrollIndicator`, at the
         // window's edge.
         textView.showsVerticalScrollIndicator = false
         addSubview(pageEdge)
@@ -251,9 +249,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost {
         selectionOverlay.takesTouch = canvas.takesTouch
         textView.insertSubview(selectionOverlay, aboveSubview: covers)
 
-        pinch.addTarget(self, action: #selector(handlePinch(_:)))
-        pinch.delegate = self
-        addGestureRecognizer(pinch)
+        zoomControl.install()
 
         applyPageLayout(replacing: nil)
 
@@ -268,166 +264,54 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost {
         // own layout of what's on screen covers edits too, and comes before
         // the frame is drawn.
         textView.addViewportLayoutObserver { [weak self] in
-            guard let self, pinch.state != .changed else { return }
+            guard let self, !zoomControl.isPinching else { return }
             matchRenderingScale()
         }
 
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(keyboardWillChangeFrame),
-            name: UIResponder.keyboardWillChangeFrameNotification,
-            object: nil
-        )
+        keyboardInset.install()
 
 #if DEBUG
         DebugSession.shared.attach(self)
 #endif
     }
 
-    // MARK: Keyboard
+    // MARK: Keyboard and the hotbar
 
-    /// The keyboard's last frame, in screen coordinates.
-    private var keyboardFrame: CGRect?
+    /// The room the page keeps for the keyboard and the hotbar, and its move
+    /// with the hotbar (`PageKeyboardInset`).
+    private lazy var keyboardInset = PageKeyboardInset(host: self)
 
-    /// Brings a screen-coordinates frame into a window's. Replaceable because
-    /// a window made outside a scene, as in a test, has no screen space to
-    /// convert from and answers with a zero rect.
-    var windowFrameForScreenFrame: (CGRect, UIWindow) -> CGRect = { frame, window in
-        window.convert(frame, from: window.screen.coordinateSpace)
+    var windowFrameForScreenFrame: (CGRect, UIWindow) -> CGRect {
+        get { keyboardInset.windowFrameForScreenFrame }
+        set { keyboardInset.windowFrameForScreenFrame = newValue }
     }
 
     /// Room to leave above the keyboard, in screen points: the hotbar's, when
-    /// it is docked at the bottom, since it rides up with the keyboard over
-    /// the page.
-    var keyboardClearance: CGFloat = 0 {
-        didSet {
-            guard keyboardClearance != oldValue else { return }
-            applyKeyboardInset(duration: 0.25)
-        }
+    /// it is docked at the bottom.
+    var keyboardClearance: CGFloat {
+        get { keyboardInset.keyboardClearance }
+        set { keyboardInset.keyboardClearance = newValue }
     }
 
     /// Room the bottom of the text keeps from the area's edge, in screen
-    /// points, for a hotbar floating over the bottom of the page: the end of
-    /// the note can then be scrolled out from under it. The keyboard's inset
-    /// already includes the bar's height, so the larger of the two applies,
-    /// not their sum.
-    var restingClearance: CGFloat = 0 {
-        didSet {
-            guard restingClearance != oldValue else { return }
-            applyKeyboardInset(duration: 0.25)
-        }
+    /// points, for a hotbar floating over the bottom of the page.
+    var restingClearance: CGFloat {
+        get { keyboardInset.restingClearance }
+        set { keyboardInset.restingClearance = newValue }
     }
 
-    // MARK: Moving with the hotbar
-
-    /// The space SwiftUI gives the page, as the edges it leaves: the strip a
-    /// hotbar docked at a side takes. Only compared, to know the area is
-    /// about to change: SwiftUI lays the area out.
-    private(set) var areaInsets = UIEdgeInsets.zero
-
-    /// The animation the next change of area moves the page with.
-    private var areaMotion: Animation?
-
-    /// Where the page was on screen after the last layout pass: the text
-    /// view's centre in window coordinates, its scale and its size.
-    private var lastPlaceOnScreen: (center: CGPoint, scale: CGFloat, size: CGSize)?
+    /// The space SwiftUI gives the page, as the edges it leaves.
+    var areaInsets: UIEdgeInsets { keyboardInset.areaInsets }
 
     /// The page's area is about to become `insets` less than the window, and
     /// the page should get there with `animation`.
-    ///
-    /// SwiftUI lays a UIKit view out where it ends up, at once: it resized
-    /// this view, or moved a container above it, while the hotbar slid to its
-    /// new edge with `.snappy`, so the page jumped. This is called before
-    /// SwiftUI lays out the new area (logged, 17 Oct), and this view hears of
-    /// a move only through here (a move without a resize lays nothing out),
-    /// so it lays out again and animates the page from where it was on
-    /// screen (`layoutSubviews`). Nothing under Reduce Motion.
     func areaWillChange(to insets: UIEdgeInsets, animation: Animation?) {
-        guard insets != areaInsets else { return }
-        areaInsets = insets
-        guard let animation, !UIAccessibility.isReduceMotionEnabled, lastPlaceOnScreen != nil else { return }
-        areaMotion = animation
-        setNeedsLayout()
-    }
-
-    /// Puts the page back where it was on screen, at its old scale, and
-    /// animates it to where this layout pass put it.
-    ///
-    /// The view stops clipping while it moves: the page starts partly outside
-    /// its new area and slides in, which clipped would have lost a strip of
-    /// it at once.
-    private func movePage(from old: (center: CGPoint, scale: CGFloat, size: CGSize), with animation: Animation) {
-        guard window != nil else { return }
-        let start = convert(old.center, from: nil)
-        let end = (transform: textView.transform, size: textView.bounds.size, center: textView.center)
-        guard abs(start.x - end.center.x) > 0.5 || abs(start.y - end.center.y) > 0.5 || old.scale != displayScale
-        else { return }
-
-        UIView.performWithoutAnimation {
-            textView.transform = CGAffineTransform(scaleX: old.scale, y: old.scale)
-            textView.bounds.size = old.size
-            textView.center = start
-        }
-        clipsToBounds = false
-        UIView.animate(animation) {
-            self.textView.transform = end.transform
-            self.textView.bounds.size = end.size
-            self.textView.center = end.center
-        } completion: {
-            self.clipsToBounds = true
-        }
+        keyboardInset.areaWillChange(to: insets, animation: animation)
     }
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
-        // A clearance set before the page had a window, as it is when made.
-        if window != nil, restingClearance > 0 {
-            applyKeyboardInset(duration: 0)
-        }
-    }
-
-    /// Keeps the caret clear of the keyboard without resizing the page.
-    ///
-    /// Fires for showing, hiding, and the keyboard changing height (the
-    /// shortcut bar, the emoji keyboard, undocking). The inset moves with the
-    /// keyboard's own animation.
-    @objc private func keyboardWillChangeFrame(_ notification: Notification) {
-        guard let end = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue
-        else { return }
-        keyboardFrame = end
-
-        let duration = (notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double) ?? 0.25
-        let curve = (notification.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? Int) ?? 7
-        applyKeyboardInset(duration: duration, options: UIView.AnimationOptions(rawValue: UInt(curve) << 16))
-    }
-
-    /// Insets the text view for whatever of the page the keyboard covers.
-    private func applyKeyboardInset(duration: TimeInterval, options: UIView.AnimationOptions = []) {
-        guard let window else { return }
-
-        var inset = displayScale > 0 ? restingClearance / displayScale : 0
-        if let keyboardFrame {
-            inset = max(inset, CanvasGeometry.keyboardInset(
-                keyboard: windowFrameForScreenFrame(keyboardFrame, window),
-                area: convert(bounds, to: window),
-                screenWidth: window.bounds.width,
-                displayScale: displayScale,
-                clearance: keyboardClearance
-            ))
-        }
-        guard textView.contentInset.bottom != inset else { return }
-        let growing = inset > textView.contentInset.bottom
-
-        UIView.animate(withDuration: duration, delay: 0, options: options.union(.beginFromCurrentState)) {
-            self.textView.contentInset.bottom = inset
-            self.textView.verticalScrollIndicatorInsets.bottom = inset
-        }
-
-        // A keyboard coming up over the line being typed on: bring it back
-        // into view, as a text view that insets itself would.
-        if growing, textView.isFirstResponder {
-            textView.scrollRangeToVisible(textView.selectedRange)
-        }
+        keyboardInset.pageDidMoveToWindow()
     }
 
     @available(*, unavailable)
@@ -443,9 +327,8 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost {
         let area = bounds.size
         guard area.width > 0, area.height > 0 else { return }
 
-        let motion = areaMotion
-        areaMotion = nil
-        let before = lastPlaceOnScreen
+        let motion = keyboardInset.takeAreaMotion()
+        let before = keyboardInset.lastPlaceOnScreen
 
         let scale = CanvasGeometry.displayScale(
             areaWidth: area.width,
@@ -470,22 +353,22 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost {
         }
 
         if let motion, let before {
-            movePage(from: before, with: motion)
+            keyboardInset.movePage(from: before, with: motion)
         }
         if window != nil {
-            lastPlaceOnScreen = (convert(textView.center, to: nil), displayScale, textView.bounds.size)
+            keyboardInset.lastPlaceOnScreen = (convert(textView.center, to: nil), displayScale, textView.bounds.size)
         }
     }
 
     /// The text column, offered for fitting in a compact width only: an
     /// iPhone, a folded Duo, a narrow Split View (`CanvasGeometry.fitScale`).
-    private var columnWidth: CGFloat? {
+    var columnWidth: CGFloat? {
         guard traitCollection.horizontalSizeClass == .compact else { return nil }
         return CanvasGeometry.columnWidth(textWidth: pageLayout.textWidth)
     }
 
     /// Draws the page at `scale` in the current area.
-    private func apply(scale: CGFloat) {
+    func apply(scale: CGFloat) {
         let area = bounds.size
         let pageWidth = pageLayout.pageSize.width
         let frame = CanvasGeometry.pageFrame(in: area, pageWidth: pageWidth, scale: scale)
@@ -493,8 +376,8 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost {
 
         let scaleChanged = displayScale != scale
         displayScale = scale
-        if scaleChanged, restingClearance > 0 {
-            applyKeyboardInset(duration: 0)
+        if scaleChanged {
+            keyboardInset.displayScaleChanged()
         }
         if textView.transform.a != scale {
             textView.transform = CGAffineTransform(scaleX: scale, y: scale)
@@ -525,7 +408,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost {
 
         // Re-rendering every line on every frame of a pinch would stutter.
         // The pinch's end catches up.
-        if pinch.state != .changed {
+        if !zoomControl.isPinching {
             matchRenderingScale()
         }
     }
@@ -567,7 +450,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost {
         defer { DebugSession.shared.pageDidLayout(self) }
 #endif
         updatePageFurniture()
-        if pinch.state != .changed {
+        if !zoomControl.isPinching {
             matchRenderingScale()
         }
         if let reveal = pendingReveal, textView.bounds.height > 0 {
@@ -1075,53 +958,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost {
     /// - Parameter focus: a point in this view's visible area, in screen
     ///   points from its top left.
     func setZoom(_ newZoom: CGFloat, about focus: CGPoint) {
-        let area = bounds.size
-        guard area.width > 0, area.height > 0 else { return }
-
-        let clamped = CanvasGeometry.clampedZoom(newZoom)
-        let pageWidth = pageLayout.pageSize.width
-        let next = CanvasGeometry.zoom(
-            CanvasGeometry.Viewport(
-                scale: displayScale,
-                horizontalOffset: contentOffset.x,
-                verticalOffset: textView.contentOffset.y
-            ),
-            to: CanvasGeometry.displayScale(
-                areaWidth: area.width,
-                pageWidth: pageWidth,
-                columnWidth: columnWidth,
-                zoom: clamped,
-                gutter: CanvasGeometry.gutter(for: pageLayout.mode)
-            ),
-            about: focus,
-            area: area,
-            pageWidth: pageWidth,
-            noteHeight: textView.contentSize.height
-        )
-
-        zoom = clamped
-        apply(scale: next.scale)
-        contentOffset.x = next.horizontalOffset
-        textView.contentOffset.y = next.verticalOffset
-    }
-
-    @objc private func handlePinch(_ gesture: UIPinchGestureRecognizer) {
-        switch gesture.state {
-        case .began:
-            zoomAtPinchStart = zoom
-            // Two fingers moving apart also look like a scroll. Stop both
-            // scroll views taking a share of the gesture while it zooms.
-            setPanning(enabled: false)
-        case .changed:
-            let location = gesture.location(in: self)
-            let focus = CGPoint(x: location.x - contentOffset.x, y: location.y - contentOffset.y)
-            setZoom(zoomAtPinchStart * gesture.scale, about: focus)
-        case .ended, .cancelled, .failed:
-            setPanning(enabled: true)
-            matchRenderingScale()
-        default:
-            break
-        }
+        zoomControl.setZoom(newZoom, about: focus)
     }
 
     // MARK: Touches
@@ -1175,13 +1012,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost {
         isScrollEnabled = false
         panGestureRecognizer.isEnabled = false
 
-        indicator.isUserInteractionEnabled = false
-        indicator.alpha = 0
-        addSubview(indicator)
-        textView.addLayoutObserver { [weak self] in self?.updateIndicator() }
-        offsetObservation = textView.observe(\.contentOffset) { [weak self] _, _ in
-            self?.indicatorMoved()
-        }
+        scrollIndicator.install()
     }
 
     @objc private func textViewPanChanged(_ pan: UIPanGestureRecognizer) {
@@ -1215,81 +1046,12 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost {
         return true
     }
 
-    // MARK: The scroll indicator
-
-    /// A capsule at this view's right edge, so it runs at the window's edge,
-    /// not the page's. It shows while the note moves and fades after.
-    static let indicatorWidth: CGFloat = 3
-    static let indicatorInset: CGFloat = 3
-    static let indicatorMinimumLength: CGFloat = 36
-
-    /// Where the indicator sits in this view, or nil when the note fits.
-    /// `offset` and `content` are in page points; `scale` turns them to
-    /// screen points.
-    static func indicatorFrame(
-        offset: CGFloat, content: CGFloat, area: CGSize, scale: CGFloat, sideways: CGFloat
-    ) -> CGRect? {
-        let total = content * scale
-        guard total > area.height + 0.5 else { return nil }
-        let length = max(area.height * area.height / total, indicatorMinimumLength)
-        let travel = area.height - length
-        let progress = min(max(offset * scale / (total - area.height), 0), 1)
-        return CGRect(
-            x: sideways + area.width - indicatorWidth - indicatorInset,
-            y: progress * travel,
-            width: indicatorWidth,
-            height: length
-        )
-    }
-
-    private func updateIndicator() {
-        indicator.backgroundColor = UIColor.label.withAlphaComponent(0.35)
-        indicator.layer.cornerRadius = Self.indicatorWidth / 2
-        // Not the keyboard's inset: the bar rides above it and the note
-        // scrolls under, so the indicator runs the whole window.
-        guard let frame = Self.indicatorFrame(
-            offset: textView.contentOffset.y + textView.contentInset.top,
-            content: textView.contentSize.height,
-            area: bounds.size,
-            scale: displayScale,
-            sideways: contentOffset.x
-        ) else {
-            indicator.isHidden = true
-            return
-        }
-        indicator.isHidden = false
-        indicator.frame = frame.offsetBy(dx: 0, dy: contentOffset.y)
-        bringSubviewToFront(indicator)
-    }
-
-    /// How long the indicator stays after it last moved, then how long it
-    /// takes to fade.
-    private static let indicatorHold: Duration = .seconds(0.8)
-    private static let indicatorFadeOut: TimeInterval = 0.3
-
-    private func indicatorMoved() {
-        updateIndicator()
-        guard !indicator.isHidden else { return }
-        fadeTask?.cancel()
-        indicator.layer.removeAllAnimations()
-        indicator.alpha = 1
-        fadeTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: Self.indicatorHold)
-            guard !Task.isCancelled, let self else { return }
-            UIView.animate(withDuration: Self.indicatorFadeOut) { self.indicator.alpha = 0 }
-        }
-    }
-
-    private func setPanning(enabled: Bool) {
-        textView.panGestureRecognizer.isEnabled = enabled
-    }
-
     func gestureRecognizer(
         _ gestureRecognizer: UIGestureRecognizer,
         shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
     ) -> Bool {
         // A scroll already under way mustn't keep the pinch from starting.
-        gestureRecognizer === pinch && (other === panGestureRecognizer || other === textView.panGestureRecognizer)
+        gestureRecognizer === zoomControl.pinch && (other === panGestureRecognizer || other === textView.panGestureRecognizer)
     }
 
     // MARK: Rendering
@@ -1306,7 +1068,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost {
     /// The canvas is left out: PaperKit keeps its own views' scale, and draws
     /// ink at the density it's shown at by zooming instead — see
     /// `DrawingCanvas.renderScale`.
-    private func matchRenderingScale() {
+    func matchRenderingScale() {
         let value = CanvasGeometry.renderingScale(
             displayScale: displayScale,
             screenScale: traitCollection.displayScale
