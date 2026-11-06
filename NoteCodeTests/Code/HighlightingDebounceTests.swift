@@ -59,8 +59,8 @@ struct HighlightingDebounceTests {
         harness.type("return 2;\n", at: harness.offset(of: "int value"))
         // The debounce: the restyle the edit made is synchronous, the
         // colouring is not, so what was typed is plain now and coloured once
-        // the pass has landed (below). How long the pause is (20ms) is not
-        // pinned: that needs T6's injected clock.
+        // the pass has landed (below). How long the pause is (20ms) is pinned
+        // below, on T6's injected clock.
         #expect(colour(at: harness.offset(of: "return"), in: harness) == UIColor.label)
         // The rest of the block keeps the colours it had, though
         // `scheduleHighlighting`'s comment says the restyle resets every
@@ -109,6 +109,55 @@ struct HighlightingDebounceTests {
         #expect(coloured(in: harness.source.range(of: "After the block."), of: harness).isEmpty)
         await harness.coordinator.highlightingFinished()
         #expect(coloured(in: harness.source.range(of: "After the block."), of: harness).isEmpty)
+    }
+
+    // MARK: On T6's clock
+
+    @Test("Colours land when the 20ms pause is over, not a millisecond before")
+    func coloursLandAtTwentyMilliseconds() async {
+        let harness = await openNote()
+        let clock = ManualClock()
+        harness.coordinator.highlightClock = clock
+
+        harness.type("return 2;\n", at: harness.offset(of: "int value"))
+        await clock.untilSleeping()
+        clock.advance(by: .milliseconds(19))
+        #expect(clock.sleeping == 1, "still inside the pause")
+        #expect(colour(at: harness.offset(of: "return"), in: harness) == UIColor.label)
+
+        clock.advance(by: .milliseconds(1))
+        await harness.coordinator.highlightingFinished()
+        #expect(clock.sleeping == 0)
+        #expect(colour(at: harness.offset(of: "return"), in: harness) != UIColor.label)
+    }
+
+    @Test("A newer edit cancels the pause of the older pass: one pause is left, and it is the newer one's")
+    func newerEditCancelsTheOlderPause() async {
+        let harness = await openNote()
+        let clock = ManualClock()
+        harness.coordinator.highlightClock = clock
+
+        harness.type("int a = 1;\n", at: harness.offset(of: "int value"))
+        await clock.untilSleeping()
+        clock.advance(by: .milliseconds(15))
+
+        // 15ms in, a second edit: the older pass must not land at 20ms.
+        let prose = "Some prose typed first, longer than the fence line\n"
+        harness.type(prose, at: 0)
+        await clock.untilSleeping()
+        #expect(clock.sleeping == 1, "the older pause was cancelled, not left running")
+
+        // 20ms after the first edit is only 5ms after the second.
+        clock.advance(by: .milliseconds(5))
+        #expect(clock.sleeping == 1, "the newer pass still has 15ms to wait")
+        #expect(colour(at: harness.offset(of: "int a"), in: harness) == UIColor.label)
+
+        clock.advance(by: .milliseconds(15))
+        await harness.coordinator.highlightingFinished()
+        #expect(clock.sleeping == 0)
+        #expect(colour(at: harness.offset(of: "int a"), in: harness) != UIColor.label)
+        let typed = NSRange(location: 0, length: (prose as NSString).length)
+        #expect(coloured(in: typed, of: harness).isEmpty)
     }
 }
 
