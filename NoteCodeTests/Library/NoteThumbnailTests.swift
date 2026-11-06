@@ -264,6 +264,85 @@ struct NoteThumbnailPictureTests {
         return page
     }
 
+    /// Records where, and for which note, the ink was asked for.
+    private final class LoaderLog: @unchecked Sendable {
+        private let lock = NSLock()
+        private var _calls: [(onMain: Bool, id: PersistentIdentifier)] = []
+        func record(onMain: Bool, id: PersistentIdentifier) {
+            lock.lock(); defer { lock.unlock() }
+            _calls.append((onMain, id))
+        }
+        var calls: [(onMain: Bool, id: PersistentIdentifier)] {
+            lock.lock(); defer { lock.unlock() }
+            return _calls
+        }
+    }
+
+    @Test("F7: a note's ink is read off the main thread by default, and an injected loader is asked for that note")
+    func inkIsReadOffMain() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let page = try savedPage("Inked")
+        let id = try #require(page.settledID)
+
+        let reads = LoaderLog()
+        NoteInk.observeRead = { onMain in reads.record(onMain: onMain, id: id) }
+        defer { NoteInk.observeRead = nil }
+        _ = try #require(await ThumbnailStore(directory: directory).thumbnail(for: page))
+        #expect(reads.calls.count == 1)
+        #expect(reads.calls.first?.onMain == false, "the ink was read on the main thread")
+
+        let asked = LoaderLog()
+        let other = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: other) }
+        let store = ThumbnailStore(directory: other) { _, id in
+            asked.record(onMain: Thread.isMainThread, id: id)
+            return Data()
+        }
+        _ = try #require(await store.thumbnail(for: page))
+        #expect(asked.calls.map(\.id) == [id])
+    }
+
+    @Test("F7: the default loader reads the stored ink off the main thread, and the picture is the same")
+    func storedInkDrawsTheSame() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let layout = PageLayout(orientation: .portrait, mode: .print)
+        let markup = TestInk.markup(strokesAt: [layout.sheet(ofPage: 0).minY + 300])
+        let bytes = try await DrawingCodec.encode(markup)
+        let page = Page(title: "Inked", content: "Hello", drawingData: bytes)
+        context.insert(page)
+        try context.save()
+
+        let id = try #require(page.settledID)
+        let read = await Task.detached { [container] in NoteInk.read(container: container, id: id) }.value
+        #expect(read == bytes)
+
+        let store = ThumbnailStore(directory: directory)
+        let made = try #require(await store.thumbnail(for: page))
+        let direct = try #require(await NoteThumbnail.render(
+            NoteThumbnail.Source(text: "Hello", orientation: page.orientation, drawingData: bytes,
+                                 rendersMarkdown: true, typography: page.typography)))
+        #expect(try pixels(of: made).data == pixels(of: direct).data)
+        let blank = try #require(await NoteThumbnail.render(
+            NoteThumbnail.Source(text: "Hello", orientation: page.orientation, drawingData: Data(),
+                                 rendersMarkdown: true, typography: page.typography)))
+        #expect(try pixels(of: made).data != pixels(of: blank).data, "the ink did not reach the picture")
+    }
+
+    @Test("F7: a note purged while its ink is being read gets no picture")
+    func purgedDuringRead() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let page = try savedPage("Going")
+        let store = ThumbnailStore(directory: directory) { container, id in
+            await MainActor.run { page.deletedAt = .now }
+            return NoteInk.read(container: container, id: id)
+        }
+        #expect(await store.thumbnail(for: page) == nil)
+        #expect(store.rendered == 0)
+    }
+
     @Test("A picture is made once, then served from memory, then from its file in a new session")
     func caching() async throws {
         let directory = temporaryDirectory()

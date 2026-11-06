@@ -345,7 +345,17 @@ struct HomeView: View {
         .accessibilityHint("Opens the note")
         .trackingFrame(of: page, in: $cardFrames)
         .accessibilityIdentifier("homeContinueCard")
-        .task(id: page.modifiedAt) { continueFacts = Self.facts(of: page) }
+        .task(id: page.modifiedAt) {
+            // The text's facts at once; "Ink" once the bytes have been read
+            // off the main actor (F7).
+            continueFacts = Self.facts(of: page, hasInk: false)
+            guard let container = page.modelContext?.container, let id = page.settledID,
+                  !page.isDeleted, page.isLive
+            else { return }
+            let ink = await NoteInk.load(container, id)
+            guard !Task.isCancelled, !ink.isEmpty, page.modelContext != nil, !page.isDeleted else { return }
+            continueFacts = Self.facts(of: page, hasInk: true)
+        }
     }
 
     private func continueLabel(_ page: Page, place: NoteMemory.Place?) -> String {
@@ -356,9 +366,9 @@ struct HomeView: View {
     }
 
     /// The languages a note has code in, and "Ink" if it has any.
-    private static func facts(of page: Page) -> [String] {
+    private static func facts(of page: Page, hasInk: Bool) -> [String] {
         var facts = NoteInfo(content: page.content).code.compactMap { $0.language?.displayName }
-        if !page.drawingData.isEmpty {
+        if hasInk {
             facts.append("Ink")
         }
         return facts
