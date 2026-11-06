@@ -196,7 +196,7 @@ extension TipJarTests {
 
         // A refund ends it.
         let transaction = try #require(session.allTransactions().first)
-        try await session.refundTransaction(identifier: UInt(transaction.identifier))
+        try session.refundTransaction(identifier: UInt(transaction.identifier))
         // The test session pushed no `Transaction.updates` for a refund (simulator,
         // 27 Oct), so this is the launch path: a refunded transaction is no
         // longer among the current entitlements. The live path is `revocation`.

@@ -335,7 +335,7 @@ struct TextRewritingPolicyTests {
     @Test("Turning Autocorrect off in Settings reaches a note that is already open")
     func settingReachesOpenNote() throws {
         let setting = Setting()
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 820, height: 1180))
+        let window = makeSceneLessTestWindow(frame: CGRect(x: 0, y: 0, width: 820, height: 1180))
         window.rootViewController = UIHostingController(rootView: Host(setting: setting))
         window.makeKeyAndVisible()
         defer { window.isHidden = true; window.rootViewController = nil }

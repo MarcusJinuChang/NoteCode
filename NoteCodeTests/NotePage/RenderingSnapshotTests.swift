@@ -19,7 +19,7 @@ import UIKit
 @MainActor
 struct RenderingSnapshotTests {
 
-    private static let area = CGSize(width: 640, height: 360)
+    private nonisolated static let area = CGSize(width: 640, height: 360)
 
     /// A page of `text`, as the app wires it, markers hidden away from the caret.
     private func editor(_ text: String, caretMarker: String? = nil, layout: PageLayout = PageLayout(),

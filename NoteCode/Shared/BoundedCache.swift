@@ -10,7 +10,7 @@
 
 import Foundation
 
-final class BoundedCache<Key: Hashable, Value>: @unchecked Sendable {
+nonisolated final class BoundedCache<Key: Hashable, Value>: @unchecked Sendable {
     private let lock = NSLock()
     private var entries: [Key: Value] = [:]
     let limit: Int

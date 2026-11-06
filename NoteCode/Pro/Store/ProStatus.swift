@@ -258,7 +258,7 @@ struct StoreKitProStore: ProStore {
     }
 
     /// The entitlement a verified transaction for `id` stands for.
-    private static func entitlement(_ result: VerificationResult<Transaction>, for id: String) -> ProEntitlement? {
+    private nonisolated static func entitlement(_ result: VerificationResult<Transaction>, for id: String) -> ProEntitlement? {
         guard case .verified(let transaction) = result, transaction.productID == id else { return nil }
         return ProEntitlement(
             productID: transaction.productID,

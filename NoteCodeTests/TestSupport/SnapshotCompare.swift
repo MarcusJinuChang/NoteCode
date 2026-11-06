@@ -42,7 +42,9 @@ enum Snapshot {
     /// known by its screen: the simulator's name is a copy's own in a lane.
     @MainActor static var onReferenceModel: Bool {
         do {
-            let screen = UIScreen.main
+            // The test host's own scene: `UIScreen.main` is deprecated.
+            guard let screen = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first?.screen
+            else { return false }
             return screen.scale == 2 && max(screen.bounds.width, screen.bounds.height) == 1376
                 && min(screen.bounds.width, screen.bounds.height) == 1032
         }

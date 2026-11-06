@@ -193,20 +193,20 @@ struct RecentlyDeletedPage: View {
     }
 
     private func restore(_ folder: Folder) {
-        withAnimation { Storage.attempt("restore a folder") { try Folder.restore([folder], in: modelContext) } }
+        withAnimation { _ = Storage.attempt("restore a folder") { try Folder.restore([folder], in: modelContext) } }
     }
 
     private func deleteNow(_ folder: Folder) {
-        withAnimation { Storage.attempt("delete a folder for good") { try Folder.deleteForGood([folder], from: modelContext) } }
+        withAnimation { _ = Storage.attempt("delete a folder for good") { try Folder.deleteForGood([folder], from: modelContext) } }
     }
 
     private func restore(_ page: Page) {
-        withAnimation { Storage.attempt("restore a note") { try Page.restore([page], in: modelContext) } }
+        withAnimation { _ = Storage.attempt("restore a note") { try Page.restore([page], in: modelContext) } }
     }
 
     /// Hard-deletes through `Page.delete`, which reads nothing from the note.
     private func deleteNow(_ page: Page) {
-        withAnimation { Storage.attempt("delete a note for good") { try Page.delete([page], from: modelContext) } }
+        withAnimation { _ = Storage.attempt("delete a note for good") { try Page.delete([page], from: modelContext) } }
     }
 
     private func deleteAll() {

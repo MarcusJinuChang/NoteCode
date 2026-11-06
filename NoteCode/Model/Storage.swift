@@ -94,10 +94,10 @@ protocol Savable {
 extension ModelContext: Savable {}
 
 extension Storage {
-    private static let logger = Logger(subsystem: "com.marcus.NoteCode", category: "storage")
+    private nonisolated static let logger = Logger(subsystem: "com.marcus.NoteCode", category: "storage")
 
     /// The default `report` of the calls below: writes the failure to the log.
-    static func logFailure(_ reason: String, _ error: any Error) {
+    nonisolated static func logFailure(_ reason: String, _ error: any Error) {
         logger.error("Could not \(reason, privacy: .public): \(error.localizedDescription, privacy: .public)")
     }
 

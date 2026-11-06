@@ -42,7 +42,8 @@ final class PageScrollIndicator {
         host.addSubview(view)
         host.textView.addLayoutObserver { [weak self] in self?.update() }
         offsetObservation = host.textView.observe(\.contentOffset) { [weak self] _, _ in
-            self?.moved()
+            // KVO delivers on the thread that scrolled, which is the main one.
+            MainActor.assumeIsolated { self?.moved() }
         }
     }
 

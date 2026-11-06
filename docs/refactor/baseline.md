@@ -207,18 +207,16 @@ clean build of the app, unit and UI targets:
     grep -E "^/.*:[0-9]+:[0-9]+: warning: " build.log \
       | sed -E 's#^.*/(NoteCode(Tests|UITests)?/)#\1#' | sort -u | wc -l
 
-WARNINGS 12
+WARNINGS 2
 
-By category:
+Re-taken at `main` after 2W (6 Nov 2026) on a clean build: 31 warnings before,
+2 now. Both are the compiler's and have no replacement that keeps what the
+app does, so the ratchet keeps them:
 
-| Count | Warning |
-|---|---|
-| 5 | main actor-isolated static member referenced from a Sendable or nonisolated context (Swift 6 error): ProStatus.swift:250, ProStatusTests:64, PaywallTests:21 and :63, FormulaEditingTests:154 |
-| 3 | `[#DeprecatedDeclaration]`: `UIWindow(frame:)` in TestWindow.swift:36 and TextRewritingPolicyTests:338, `traitCollectionDidChange` in PageWindowChrome.swift:94 |
-| 1 | `[#DeprecatedDeclaration]` Google Mobile Ads banner size, AdBanner.swift:61 |
-| 1 | `[#UnnecessaryEffectMarker]` TipJarTests.swift:199 |
-| 1 | code after `throw` never executed, ListDragUITests.swift:27 |
-| 1 | "consider using asynchronous alternative function", AdConsent.swift:138 |
+| Count | Warning | Why it stays |
+|---|---|---|
+| 1 | `[#DeprecatedDeclaration]` `currentOrientationAnchoredAdaptiveBanner(width:)`, AdBanner.swift:61 | The SDK's replacement is the large anchored banner, up to 150pt on an iPad, which Marcus ruled out on 31 Oct (docs/design/shipping.md › Ads). |
+| 1 | `[#DeprecatedDeclaration]` `UIWindow(frame:)`, TestWindow.swift:36 | `makeSceneLessTestWindow`: a window with no scene is the thing those tests measure (`PageSettlingTests`, `TextRegionSelectionTests`, `TextRewritingPolicyTests`); `init(windowScene:)` is the other case. |
 
 The 0D count was 13: it also had the StoreKitTest `SKTestTransaction.h:34`
 deprecation, which this build does not print. The old ratchet's 61 counted the

@@ -23,12 +23,13 @@ final class ListDragUITests: XCTestCase {
     private func launch() throws -> XCUIApplication {
 #if targetEnvironment(simulator)
         throw XCTSkip("the simulator doesn't deliver drops; run on a device")
-#endif
+#else
         let app = XCUIApplication()
         app.launchArguments = ["-debug-home", "-debug-keep-defaults", "-debug-probe"]
         app.launch()
         XCTAssertTrue(app.staticTexts["Exam 1 review"].waitForExistence(timeout: 10), "the sample notes never showed")
         return app
+#endif
     }
 
     /// The sidebar's list: Home, beside it, has titles of its own.
