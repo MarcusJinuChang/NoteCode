@@ -8,9 +8,9 @@
 import SwiftUI
 
 struct CodeSettings: View {
-    @AppStorage(CodeKeys.enabledKey) private var codeKeys = CodeKeys.enabledByDefault
-    @AppStorage(CodeIndent.widthKey) private var indentWidth = CodeIndent.defaultWidth
-    @AppStorage(LineNumbers.defaultsKey) private var lineNumbers = LineNumbers.enabledByDefault
+    @AppStorage(SettingKeys.Code.codeKeys) private var codeKeys
+    @AppStorage(SettingKeys.Code.indentWidth) private var indentWidth
+    @AppStorage(SettingKeys.Code.lineNumbers) private var lineNumbers
 
     var body: some View {
         Form {
