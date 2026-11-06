@@ -603,6 +603,8 @@ private struct CountsSaves: ViewModifier {
 
     func body(content: Content) -> some View {
         content.task {
+            // A save made while the view was away was not heard.
+            tick += 1
             for await _ in NotificationCenter.default.notifications(named: ModelContext.didSave) {
                 tick += 1
             }
