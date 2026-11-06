@@ -15,7 +15,10 @@ nonisolated enum ShowMarkdown: String, CaseIterable, Sendable {
     /// Every block shows its fences all the time.
     case always
 
-    static let defaultsKey = SettingKeys.Writing.showMarkdown.name
+    /// The stored name. A literal here, not read from `SettingKeys`, so Core
+    /// needs nothing of the app; `SettingKeys.Writing.showMarkdown` takes its
+    /// name from this, and `SettingsTests` pins the string.
+    static let defaultsKey = "showMarkdown"
 
     var title: String {
         switch self {

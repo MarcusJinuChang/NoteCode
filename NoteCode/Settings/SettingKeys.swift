@@ -48,7 +48,7 @@ nonisolated enum SettingKeys {
 
     /// Settings › Writing.
     enum Writing {
-        static let showMarkdown = SettingKey(name: "showMarkdown", defaultValue: ShowMarkdown.whileEditing)
+        static let showMarkdown = SettingKey(name: ShowMarkdown.defaultsKey, defaultValue: ShowMarkdown.whileEditing)
         static let autocorrectInProse = SettingKey(name: "autocorrectInProse", defaultValue: true)
         static let headingMarkers = SettingKey(name: "markerDimming.headings", defaultValue: MarkerLevel.dim)
         static let bulletMarkers = SettingKey(name: "markerDimming.bullets", defaultValue: MarkerLevel.dim)
