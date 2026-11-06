@@ -104,6 +104,6 @@ numbers in each PR, and the new budget in `docs/refactor/baseline.md`.
   RecentlyDeletedView).
 - **Known problems Marcus may pick:**
   - Smart dashes turn a typed `---` into "—-".
-  - Compiler Explorer's pinned ids go stale.
+  - Compiler Explorer's pinned ids go stale (refreshed 6 Nov, `scripts/refresh-ce-ids.sh`; rerun when a new gcc, Python, Rust or Go ships).
   - Syntax colours carry no weight or italic. That one is a feature,
     not a fix.

@@ -96,7 +96,7 @@ nonisolated enum InkCapture {
     ///   - pageCount: the note's pages when it was drawn, for the regions
     ///     strokes are cut to.
     static func capture(_ canvas: PaperMarkup, into state: State, layout: PageLayout, pageCount: Int) -> Result {
-        // One walk of the canvas, with `for`: see `PageView.frames(of:)`.
+        // One walk of the canvas, with `for`: see `InkMarkupTransforms.frames(of:)`.
         var frames: [ElementID: CGRect] = [:]
         var contents: [ElementID: Int] = [:]
         var touched: [any Markup] = []

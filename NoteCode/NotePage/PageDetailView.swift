@@ -70,8 +70,7 @@ struct PageDetailView: View {
     /// What the badge's hold is measured on (`badgeHold`).
     @Environment(\.debounceClock) private var debounceClock
 
-    @AppStorage(HotbarDock.defaultsKey)
-    private var storedDock: HotbarDock = .default
+    let settings = NoteViewSettings()
 
     /// In a compact width the bar is at the bottom whatever this device
     /// stored, and can't be moved; the stored edge is the iPad's, and comes
@@ -89,51 +88,14 @@ struct PageDetailView: View {
     private var dock: HotbarDock {
         get {
             if isCompact { return .bottom }
-            return FoldAvoidance.dock(storedDock, avoiding: folds, in: pageSize, band: Hotbar.footprint)
+            return FoldAvoidance.dock(settings.storedDock, avoiding: folds, in: pageSize, band: Hotbar.footprint)
         }
-        nonmutating set { if !isCompact { storedDock = newValue } }
+        nonmutating set { if !isCompact { settings.storedDock = newValue } }
     }
 
     /// The active folds over the page area, in its coordinates
     /// (`FoldReader`). None on any device but a Duo, nor on a Duo flat open.
     @State private var folds: [CGRect] = []
-
-    /// How pages are shown. Per device, like the dock: it's how this reader
-    /// likes to look at notes, and changes nothing in the note itself.
-    @AppStorage(PageViewMode.defaultsKey)
-    private var viewMode: PageViewMode = .default
-
-    /// Whether a code block's backticks show only while it is edited, or
-    /// always. Settings › Writing has the switch.
-    @AppStorage(ShowMarkdown.defaultsKey)
-    private var showMarkdown: ShowMarkdown = .whileEditing
-
-    /// Settings › Writing › Markers: how dim each kind of visible marker is.
-    @AppStorage(MarkerDimming.headingsKey) private var headingMarkers = MarkerLevel.dim
-    @AppStorage(MarkerDimming.bulletsKey) private var bulletMarkers = MarkerLevel.dim
-    @AppStorage(MarkerDimming.checkboxesKey) private var checkboxMarkers = MarkerLevel.dim
-    @AppStorage(MarkerDimming.fencesKey) private var fenceMarkers = MarkerLevel.dim
-
-    /// Settings › Code: the indent width, the row of code keys, line numbers.
-    @AppStorage(CodeIndent.widthKey)
-    private var indentWidth = CodeIndent.defaultWidth
-
-    @AppStorage(CodeKeys.enabledKey)
-    private var codeKeys = CodeKeys.enabledByDefault
-
-    @AppStorage(LineNumbers.defaultsKey)
-    private var lineNumbers = LineNumbers.enabledByDefault
-
-    /// Settings › Writing › Autocorrect.
-    @AppStorage(TextRewritingPolicy.proseDefaultsKey)
-    private var rewritesProse = TextRewritingPolicy.proseEnabledByDefault
-    /// Whether the bar ticks as it lands on an edge (Settings › General).
-    @AppStorage(SnapHaptic.defaultsKey)
-    private var hapticOnSnap = SnapHaptic.isOnByDefault
-
-    /// Settings › Drawing › Add Pages While Drawing.
-    @AppStorage(InkPageGrowth.defaultsKey)
-    private var addsPagesWhileDrawing = InkPageGrowth.defaultEnabled
 
     /// Counts the bar's drops; each one is a snap for the haptic to follow.
     @State private var snaps = 0
@@ -308,7 +270,7 @@ struct PageDetailView: View {
         // The menu bar's shortcuts act on this note.
         .openNote(OpenNote(
             editor: editor,
-            viewMode: $viewMode,
+            viewMode: settings.$viewMode,
             printNote: { [editor, title = page.displayTitle] in
                 Task { await editor.printNote(title: title) }
             },
@@ -397,7 +359,7 @@ struct PageDetailView: View {
         Menu {
 #if canImport(UIKit)
             Section("View") {
-                Picker("View", selection: $viewMode) {
+                Picker("View", selection: settings.$viewMode) {
                     ForEach(PageViewMode.allCases, id: \.self) { mode in
                         Label(mode.title, systemImage: mode.systemImage).tag(mode)
                     }
@@ -408,7 +370,7 @@ struct PageDetailView: View {
 
 #if canImport(UIKit)
             // Seamless adds its own pages as ink reaches the end.
-            if viewMode != .seamless {
+            if settings.viewMode != .seamless {
                 Button("Add Page", systemImage: "plus.rectangle.on.rectangle") {
                     editor.addPage()
                 }
@@ -487,7 +449,7 @@ struct PageDetailView: View {
                 text: $page.content,
                 editor: editor,
                 pageConfiguration: PageConfiguration(
-                    pageLayout: PageLayout(orientation: page.orientation, mode: viewMode),
+                    pageLayout: PageLayout(orientation: page.orientation, mode: settings.viewMode),
                     keyboardClearance: keyboardClearance,
                     restingClearance: CanvasGeometry.restingClearance(dock: dock, footprint: Hotbar.footprint),
                     areaInsets: UIEdgeInsets(
@@ -510,17 +472,17 @@ struct PageDetailView: View {
                     onMinimumPageCountChanged: { [weak page] count in
                         if let page, count > page.minimumPageCount { page.minimumPageCount = count }
                     },
-                    addsPagesWhileDrawing: addsPagesWhileDrawing,
+                    addsPagesWhileDrawing: settings.addsPagesWhileDrawing,
                     onScrolled: noteScrolled
                 ),
                 editorSettings: EditorSettings(
-                    showMarkdown: showMarkdown,
+                    showMarkdown: settings.showMarkdown,
                     markerDimming: MarkerDimming(
-                        headings: headingMarkers, bullets: bulletMarkers, checkboxes: checkboxMarkers, fences: fenceMarkers
+                        headings: settings.headingMarkers, bullets: settings.bulletMarkers, checkboxes: settings.checkboxMarkers, fences: settings.fenceMarkers
                     ),
                     rendersMarkdown: true,
-                    codeSettings: CodeEditorSettings(indentWidth: indentWidth, codeKeys: codeKeys, lineNumbers: lineNumbers),
-                    rewritesProse: rewritesProse
+                    codeSettings: CodeEditorSettings(indentWidth: settings.indentWidth, codeKeys: settings.codeKeys, lineNumbers: settings.lineNumbers),
+                    rewritesProse: settings.rewritesProse
                 ),
                 typography: NoteTypography(bodySize: page.textSize, lineSpacing: page.lineSpacing)
             )
@@ -550,7 +512,7 @@ struct PageDetailView: View {
             )
                 .padding(Hotbar.margin)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: dock.alignment)
-                .sensoryFeedback(.alignment, trigger: snaps) { _, _ in hapticOnSnap }
+                .sensoryFeedback(.alignment, trigger: snaps) { _, _ in settings.hapticOnSnap }
         }
         // The surround, behind the hotbar's reserved strips and the margins
         // around the page view too: what isn't the page is the surround, not

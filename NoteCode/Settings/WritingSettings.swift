@@ -8,13 +8,12 @@
 import SwiftUI
 
 struct WritingSettings: View {
-    @AppStorage(ShowMarkdown.defaultsKey) private var showMarkdown = ShowMarkdown.whileEditing
-    @AppStorage(TextRewritingPolicy.proseDefaultsKey)
-    private var rewritesProse = TextRewritingPolicy.proseEnabledByDefault
-    @AppStorage(MarkerDimming.headingsKey) private var headingMarkers = MarkerLevel.dim
-    @AppStorage(MarkerDimming.bulletsKey) private var bulletMarkers = MarkerLevel.dim
-    @AppStorage(MarkerDimming.checkboxesKey) private var checkboxMarkers = MarkerLevel.dim
-    @AppStorage(MarkerDimming.fencesKey) private var fenceMarkers = MarkerLevel.dim
+    @AppStorage(SettingKeys.Writing.showMarkdown) private var showMarkdown
+    @AppStorage(SettingKeys.Writing.autocorrectInProse) private var rewritesProse
+    @AppStorage(SettingKeys.Writing.headingMarkers) private var headingMarkers
+    @AppStorage(SettingKeys.Writing.bulletMarkers) private var bulletMarkers
+    @AppStorage(SettingKeys.Writing.checkboxMarkers) private var checkboxMarkers
+    @AppStorage(SettingKeys.Writing.fenceMarkers) private var fenceMarkers
     @Environment(\.appExtensions) private var extensions
 
     var body: some View {

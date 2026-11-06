@@ -28,8 +28,8 @@ import UIKit
 /// (the caret, the selection, the Run button). The default sets neither, so
 /// the `AccentColor` asset and its Increase Contrast variants apply as before.
 struct AppearanceModifier: ViewModifier {
-    @AppStorage(AppAppearance.defaultsKey) private var appearance = AppAppearance.default
-    @AppStorage(AccentPalette.defaultsKey) private var accent = ""
+    @AppStorage(SettingKeys.General.appearance) private var appearance
+    @AppStorage(SettingKeys.General.accent) private var accent
 
     func body(content: Content) -> some View {
         let custom = AccentPalette.parse(accent)

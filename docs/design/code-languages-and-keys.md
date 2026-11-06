@@ -13,7 +13,11 @@ v3 phase 4 (13 Oct, `docs/archive/ui-design-v3-implementation.md`).
     lists it; the menu says "Copy only" under it.
   - **Run mapping, checked on the live sites on 13 Oct.** Compiler Explorer
     ids are pinned: C `cg162` (`-O2 -std=c17`), Rust `r1990` (`-O`), Go `gl1260`,
-    beside `g162` and `python314` (re-checked 23 Oct: nothing was retired, but
+    beside `g162` and `python315` (re-checked 6 Nov with
+    `scripts/refresh-ce-ids.sh`: Python 3.15 was out, moved up from `python314`,
+    the other four still the newest; refresh by running it and editing
+    `CodeDestination.compilerExplorerCompiler` and `CodeLanguagesTests`.
+    Earlier, 23 Oct: nothing was retired, but
     gcc 16.2 and Python 3.14 were out, so those three moved up from `cg152`,
     `g142` and `python313`, each compiled and run through the API). Each was compiled and run through
     `/api/compiler/<id>/compile` with `execute` on, and a `clientstate` link

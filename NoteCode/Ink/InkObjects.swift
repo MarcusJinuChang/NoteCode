@@ -44,7 +44,7 @@ nonisolated enum InkObjects {
     /// roughly around it. A stroke is touched when a point of its visible
     /// path is in the shape; anything else when its frame is.
     ///
-    /// Walks the markup once with `for`; see `PageView.frames(of:)`.
+    /// Walks the markup once with `for`; see `InkMarkupTransforms.frames(of:)`.
     static func select(_ shape: SelectionShape, in markup: PaperMarkup) -> Set<ElementID> {
         let area = shape.bounds
         guard !area.isNull else { return [] }

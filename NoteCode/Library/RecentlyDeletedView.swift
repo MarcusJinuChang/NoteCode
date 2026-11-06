@@ -66,7 +66,7 @@ struct RecentlyDeletedView: View {
 struct RecentlyDeletedPage: View {
     var showsDone: Bool
 
-    @AppStorage(AccentPalette.defaultsKey) private var accent = ""
+    @AppStorage(SettingKeys.General.accent) private var accent
 
     @Query(filter: Page.deletedPredicate, sort: \Page.deletedAt, order: .reverse)
     private var allDeletedPages: [Page]

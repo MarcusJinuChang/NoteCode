@@ -22,23 +22,23 @@ import UniformTypeIdentifiers
 struct InkToolPersistence: ViewModifier {
     var editor: NoteEditor
 
-    @AppStorage(InkingSettings.defaultsKey(for: .pen))
-    private var pen = InkingSettings.standard(for: .pen)
+    @AppStorage(SettingKeys.Drawing.penSettings)
+    private var pen
 
-    @AppStorage(InkingSettings.defaultsKey(for: .highlighter))
-    private var highlighter = InkingSettings.standard(for: .highlighter)
+    @AppStorage(SettingKeys.Drawing.highlighterSettings)
+    private var highlighter
 
-    @AppStorage(EraserSettings.defaultsKey)
-    private var eraser = EraserSettings()
+    @AppStorage(SettingKeys.Drawing.eraser)
+    private var eraser
 
-    @AppStorage(NoteEditor.fingerDrawsKey)
-    private var fingerDraws = true
+    @AppStorage(SettingKeys.Drawing.fingerDraws)
+    private var fingerDraws
 
-    @AppStorage(SelectionKind.defaultsKey)
-    private var selectionKind = SelectionKind.lasso
+    @AppStorage(SettingKeys.Drawing.selectionKind)
+    private var selectionKind
 
-    @AppStorage(NoteEditor.returnToPreviousToolKey)
-    private var returnsToPreviousTool = false
+    @AppStorage(SettingKeys.Drawing.returnToPreviousTool)
+    private var returnsToPreviousTool
 
     func body(content: Content) -> some View {
         content
@@ -377,7 +377,7 @@ struct HotbarIcon: View {
 
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.colorSchemeContrast) private var contrast
-    @AppStorage(IconStyle.defaultsKey) private var iconStyle = IconStyle()
+    @AppStorage(SettingKeys.General.iconStyle) private var iconStyle
 
     /// Our own icon for this symbol, unless the reader chose the system's.
     private var drawn: (icon: NoteIcon, weight: IconWeight)? {

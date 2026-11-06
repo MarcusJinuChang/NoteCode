@@ -57,7 +57,7 @@ struct NoteWindowControl: View {
     var onToggleList: () -> Void
     var onGoHome: (() -> Void)?
 
-    @AppStorage(IconStyle.defaultsKey) private var iconStyle = IconStyle()
+    @AppStorage(SettingKeys.General.iconStyle) private var iconStyle
 
     var body: some View {
         HStack(spacing: 0) {

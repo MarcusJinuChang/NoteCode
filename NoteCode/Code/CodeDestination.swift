@@ -170,14 +170,16 @@ extension CodeDestination {
     /// (`/api/compilers/<language>`: every earlier pin was still there, and gcc
     /// 16.2 and Python 3.14 were out), each by compiling and running a
     /// hello-world through its API (`/api/compiler/<id>/compile` with `execute`
-    /// on) and reading the output. The newest release of each, so the ids are
-    /// the part that will go stale.
+    /// on) and reading the output. Python 3.15 (out 9 Oct) moved up from 3.14 on
+    /// 6 November 2026; the rest were still the newest. The newest release of
+    /// each, so the ids are the part that will go stale: `scripts/refresh-ce-ids.sh`
+    /// lists what is newer and proves each pin still runs.
     private static func compilerExplorerCompiler(
         for language: CodeLanguage
     ) -> (id: String, options: String)? {
         switch language {
         case .cpp:    ("g162", "-O2 -std=c++17")
-        case .python: ("python314", "")
+        case .python: ("python315", "")
         case .c:      ("cg162", "-O2 -std=c17")
         case .rust:   ("r1990", "-O")
         case .go:     ("gl1260", "")
