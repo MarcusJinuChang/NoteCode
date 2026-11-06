@@ -77,14 +77,6 @@ struct TextColourTests {
         #expect(InlineNode.Kind.opening(.styled(SpanStyle(colour: Self.red))).discriminant != InlineNode.Kind.opening(.styled(SpanStyle(colour: Self.blue))).discriminant)
     }
 
-    @Test("Every colour reads at 4.5:1 or better on the page in both appearances")
-    func contrast() {
-        for colour in TextColour.allCases {
-            #expect(AccentPalette.contrast(AccentPalette.textHex(for: colour.hex, isDark: false), 0xFFFFFF) >= 4.5, "\(colour.name) light")
-            #expect(AccentPalette.contrast(AccentPalette.textHex(for: colour.hex, isDark: true), 0x000000) >= 4.5, "\(colour.name) dark")
-        }
-    }
-
     // MARK: Colouring
 
     static func apply(_ edit: TextEdit?, to text: String) -> (text: String, selection: NSRange)? {
@@ -174,33 +166,6 @@ struct TextColourTests {
     }
 
     // MARK: Elsewhere
-
-    @Test("Smart punctuation is a straight quote made curly or hyphens made a dash, and nothing else")
-    func smartPunctuation() {
-        #expect(TextRewritingPolicy.isSmartPunctuation(replacing: "\"", with: "\u{201C}"))
-        #expect(TextRewritingPolicy.isSmartPunctuation(replacing: "\"", with: "\u{201D}"))
-        #expect(TextRewritingPolicy.isSmartPunctuation(replacing: "'", with: "\u{2019}"))
-        #expect(TextRewritingPolicy.isSmartPunctuation(replacing: "--", with: "\u{2014}"))
-        #expect(!TextRewritingPolicy.isSmartPunctuation(replacing: "\"", with: "x"))
-        #expect(!TextRewritingPolicy.isSmartPunctuation(replacing: "lo", with: "log"))
-    }
-
-    @Test("Search never finds a tag, never shows one, and points at the note's own characters")
-    func search() throws {
-        let text = "keep the \(Self.tag(Self.red))load factor\(Self.close) low"
-        #expect(NoteSearch("span").match(title: "Note", content: text) == nil)
-        #expect(NoteSearch("color").match(title: "Note", content: text) == nil)
-
-        let match = try #require(NoteSearch("factor").match(title: "Note", content: text))
-        #expect(match.excerpt?.contains("<") == false)
-        let found = try #require(NoteSearch("factor").matches(in: text).first)
-        #expect((text as NSString).substring(with: found) == "factor")
-    }
-
-    @Test("A colour's tags aren't words in Get Info")
-    func wordCount() {
-        #expect(NoteInfo(content: "a \(Self.tag(Self.red))red word\(Self.close) b").words == 4)
-    }
 
     // MARK: The caret
 

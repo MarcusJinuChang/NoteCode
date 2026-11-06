@@ -14,8 +14,8 @@
 #   --coverage        Build with -enableCodeCoverage YES and print the app's
 #                     line coverage per top-level folder of NoteCode/.
 #
-# Every test run has a 120s per-test allowance. Runs scripts/lint-traps.sh
-# and scripts/check-seam.sh first once they exist. Fails on a failing test, a build error, or more
+# Every test run has a 120s per-test allowance. Runs scripts/lint-traps.sh,
+# scripts/check-seam.sh and scripts/core-test.sh (`swift test`) first. Fails on a failing test, a build error, or more
 # warnings than docs/refactor/baseline.md records (a line `WARNINGS <n>`): the
 # count may only fall. A warning is a unique `file:line:col: warning:` line, so
 # the source excerpts the compiler prints under it are not counted. The count
@@ -51,6 +51,11 @@ if [[ -x scripts/lint-traps.sh ]]; then
 fi
 if [[ -x scripts/check-seam.sh ]]; then
   print "seam:"; scripts/check-seam.sh || rc=1
+fi
+if [[ -x scripts/core-test.sh ]]; then
+  # The pure tests, on the Mac and in seconds (Package.swift). They run again
+  # in the unit run below, as part of the app's test bundle.
+  print "core:"; scripts/core-test.sh || rc=1
 fi
 
 # A reliable warning count needs every file compiled: see Warnings below.

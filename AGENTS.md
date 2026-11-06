@@ -187,6 +187,15 @@ and consent). The run proxy in `server/run-proxy` is its own npm project.
     xcodebuild test -project NoteCode.xcodeproj -scheme NoteCode \
       -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)'
 
+The pure tests (`NoteCodeTests/Text/Core`, bar the two that read
+`DebugFixture`) also run on the Mac with no simulator: `swift test`, or
+`scripts/core-test.sh`, which `check.sh` runs first. The root `Package.swift`
+compiles `NoteCode/Text/Core` in place under the module name `NoteCode`, and
+is test-only: the app does not depend on it, nothing in Core is `public`, and
+the Xcode project does not know it. So a file in Core that needs UIKit or an
+app type fails to compile there, and a test that does belongs in the folder of
+what it tests, not in Core.
+
 Tests use Swift Testing (`@Suite` / `@Test`), not XCTest. Suites that touch
 UIKit are wrapped in `#if canImport(UIKit)` and marked `@MainActor`.
 

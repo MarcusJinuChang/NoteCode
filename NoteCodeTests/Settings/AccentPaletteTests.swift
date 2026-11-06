@@ -171,3 +171,46 @@ struct AccentPaletteTests {
                 == (try centre(of: Rectangle().fill(Color.accentColor))))
     }
 }
+
+// MARK: Moved from the Core suites (T11): these read AccentPalette, which is app code
+
+extension AccentPaletteTests {
+
+    @Test("Every colour reads at 4.5:1 or better on the page in both appearances")
+    func textColoursContrast() {
+        for colour in TextColour.allCases {
+            #expect(AccentPalette.contrast(AccentPalette.textHex(for: colour.hex, isDark: false), 0xFFFFFF) >= 4.5, "\(colour.name) light")
+            #expect(AccentPalette.contrast(AccentPalette.textHex(for: colour.hex, isDark: true), 0x000000) >= 4.5, "\(colour.name) dark")
+        }
+    }
+}
+
+@Suite("Highlight colours: contrast", .tags(.library))
+struct HighlightContrastTests {
+
+    /// Blends `hex` at `alpha` over a page colour, as the display does.
+    private static func blend(_ hex: Int, alpha: Double, over page: Int) -> Int {
+        func channel(_ shift: Int) -> Int {
+            let top = Double((hex >> shift) & 0xFF)
+            let below = Double((page >> shift) & 0xFF)
+            return Int((top * alpha + below * (1 - alpha)).rounded())
+        }
+        return channel(16) << 16 | channel(8) << 8 | channel(0)
+    }
+
+    @Test("The label colour reads on every highlight, light and dark: 4.5:1 or better", arguments: HighlightColour.allCases)
+    func legible(colour: HighlightColour) {
+        let light = Self.blend(colour.hex.light, alpha: HighlightColour.alpha(isDark: false), over: 0xFFFFFF)
+        let dark = Self.blend(colour.hex.dark, alpha: HighlightColour.alpha(isDark: true), over: 0x000000)
+        #expect(AccentPalette.contrast(light, 0x000000) >= 4.5, "\(colour.name) light: \(AccentPalette.contrast(light, 0x000000))")
+        #expect(AccentPalette.contrast(dark, 0xFFFFFF) >= 4.5, "\(colour.name) dark: \(AccentPalette.contrast(dark, 0xFFFFFF))")
+    }
+
+    @Test("A highlight shows: it differs from the page in both appearances, by at least a visible amount", arguments: HighlightColour.allCases)
+    func visible(colour: HighlightColour) {
+        let light = Self.blend(colour.hex.light, alpha: HighlightColour.alpha(isDark: false), over: 0xFFFFFF)
+        let dark = Self.blend(colour.hex.dark, alpha: HighlightColour.alpha(isDark: true), over: 0x000000)
+        #expect(AccentPalette.contrast(light, 0xFFFFFF) >= 1.15, "\(colour.name) light")
+        #expect(AccentPalette.contrast(dark, 0x000000) >= 1.5, "\(colour.name) dark")
+    }
+}

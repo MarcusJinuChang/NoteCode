@@ -84,6 +84,16 @@ struct NoteOutlineEntriesTests {
     }
 }
 
+// MARK: Moved from the Core suites (T11): this reads NoteOutline, which is app code
+
+extension NoteOutlineEntriesTests {
+
+    @Test("Outline titles read the nested text")
+    func titlesReadNestedText() {
+        #expect(NoteOutline.entries(in: "# **a *b* c**").first?.title == "a b c")
+    }
+}
+
 #if canImport(UIKit)
 
 import UIKit

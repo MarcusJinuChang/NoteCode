@@ -113,3 +113,24 @@ struct NoteInfoTests {
         #expect(NoteInfo(content: "costs \\$5 and \\$6").words == 4)
     }
 }
+
+// MARK: Moved from the Core suites (T11): these read NoteInfo, which is app code
+
+extension NoteInfoTests {
+
+    @Test("A colour's tags aren't words in Get Info")
+    func colourTagsAreNotWords() {
+        let red = SpanStyle(colour: TextColour.red.hex).openTag
+        #expect(NoteInfo(content: "a \(red)red word\(SpanStyle.close) b").words == 4)
+    }
+
+    @Test("Get Info counts the words, not the marks' markers")
+    func markersAreNotWords() {
+        #expect(NoteInfo(content: "one <u>two</u> ==🟡three== four").words == 4)
+    }
+
+    @Test("Get Info counts the words of nested text")
+    func nestedWords() {
+        #expect(NoteInfo(content: "**a *b* c**").words == 3)
+    }
+}

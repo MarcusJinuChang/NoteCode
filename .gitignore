@@ -22,3 +22,6 @@ DerivedData/
 
 # macOS
 .DS_Store
+
+# The test-only package at the root (Package.swift) pins SwiftMath itself.
+/Package.resolved

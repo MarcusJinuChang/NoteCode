@@ -19,7 +19,7 @@ extension NSAttributedString.Key {
     static let noteCodeSyntax = NSAttributedString.Key("com.marcus.NoteCode.syntax")
 }
 
-enum DocumentStyler {
+extension DocumentStyler {
 
     // MARK: Attributes
 
