@@ -259,7 +259,9 @@ Briefs, and T5–T8's place in the waves: [2C-2W.md](2C-2W.md) (4 Nov).
 1. **An agent:**
    - `check.sh --full` passes.
    - `perf.sh --compare`: nothing more than 10% worse, and the gains are
-     recorded.
+     recorded. (6 Nov: not met in absolute terms on a loaded Mac; a control run
+     of the baseline commit reads equally worse, so no regression. A run on an
+     idle Mac is still owed: baseline.md › Release QA.)
    - `build-open-source.sh` passes, and the warning count is 0.
 2. **A fresh reviewer session audits the architecture:**
    - The seam count is 0, and the traps are intact.
