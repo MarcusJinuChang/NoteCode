@@ -35,6 +35,7 @@ final class DrawingSaveScheduler {
 
     @ObservationIgnored private let page: Page
     @ObservationIgnored private let delay: Duration
+    @ObservationIgnored private let clock: any Clock<Duration>
     @ObservationIgnored private let encode: @Sendable (PaperMarkup) async throws -> Data
 
     /// What the stored ink says about its objects beyond PaperKit's bytes
@@ -56,14 +57,18 @@ final class DrawingSaveScheduler {
 
     /// - Parameters:
     ///   - delay: how long drawing has to pause before a save.
+    ///   - clock: what the pause is measured on. For tests; the app always
+    ///     uses `ContinuousClock`, which is what `Task.sleep(for:)` uses.
     ///   - encode: for tests; the app always uses `DrawingCodec.encode`.
     init(
         page: Page,
         delay: Duration = .milliseconds(500),
+        clock: any Clock<Duration> = ContinuousClock(),
         encode: @escaping @Sendable (PaperMarkup) async throws -> Data = DrawingCodec.encode
     ) {
         self.page = page
         self.delay = delay
+        self.clock = clock
         self.encode = encode
     }
 
@@ -92,8 +97,8 @@ final class DrawingSaveScheduler {
         guard mayWrite else { return }
         pending = markup
         waiting?.cancel()
-        waiting = Task { [weak self, delay] in
-            try? await Task.sleep(for: delay)
+        waiting = Task { [weak self, delay, clock] in
+            try? await clock.sleep(for: delay)
             guard !Task.isCancelled, let self else { return }
             self.waiting = nil
             await self.startSave().value
@@ -110,6 +115,17 @@ final class DrawingSaveScheduler {
 
     /// Whether ink is waiting for the pause to end. For tests.
     var isWaiting: Bool { waiting != nil }
+
+    /// Returns once the pause in progress, if any, has ended and every save
+    /// it started is on the page. Unlike `flush()` it doesn't cut the pause
+    /// short, so a test can await the save the pause would make. For tests.
+    func settled() async {
+        while let waiting {
+            await waiting.value
+            if self.waiting == waiting { break }
+        }
+        await lastSave?.value
+    }
 
     private func startSave() -> Task<Void, Never> {
         let previous = lastSave

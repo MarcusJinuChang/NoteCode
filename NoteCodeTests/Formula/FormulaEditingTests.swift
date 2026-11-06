@@ -234,7 +234,7 @@ struct FormulaEditingViewTests {
         #expect(textView.selectedRange == NSRange(location: inline.location, length: 0))
 
         // A turn of the run loop later, as a reader's next action would be.
-        try await Task.sleep(for: .milliseconds(50))
+        await harness.nextTap()
         let undo = try #require(textView.undoManager)
         undo.undo()
         #expect(textView.text == before, "one undo step puts the whole formula back")
@@ -253,7 +253,7 @@ struct FormulaEditingViewTests {
         let allowed = harness.coordinator.textView(textView, shouldChangeTextIn: NSRange(location: caret - 1, length: 1), replacementText: "")
         #expect(!allowed)
         #expect(textView.text == "a\nb")
-        try await Task.sleep(for: .milliseconds(50))
+        await harness.nextTap()
         textView.undoManager?.undo()
         #expect(textView.text == before)
     }
@@ -284,7 +284,7 @@ struct FormulaEditingViewTests {
         let edit = FormulaEditing.replacing(spans[0], with: "y^3", in: textView.textStorage.mutableString)
         harness.coordinator.apply(edit, to: textView)
         #expect(textView.text.contains("$y^3$"))
-        try await Task.sleep(for: .milliseconds(50))
+        await harness.nextTap()
         textView.undoManager?.undo()
         #expect(textView.text == before)
     }

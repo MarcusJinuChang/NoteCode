@@ -98,6 +98,8 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.requestReview) private var requestReview
     @Environment(\.appExtensions) private var extensions
+    /// What the launch delay and the rating prompt's wait are measured on.
+    @Environment(\.debounceClock) private var debounceClock
 
 #if DEBUG
     /// True when a debug launch argument opened a note, in a store of its own
@@ -175,7 +177,7 @@ struct ContentView: View {
             isCovered: showsSettings || showsWelcomeScreen
         ))
         .task {
-            try? await Task.sleep(for: SidebarPlan.launchDelay)
+            try? await debounceClock.sleep(for: SidebarPlan.launchDelay)
             if SidebarPlan.showsList(noteOpen: selection != nil, storageFailed: storageIsEphemeral) {
                 columnVisibility = .all
             }
@@ -564,10 +566,10 @@ struct ContentView: View {
         let prompt = ReviewPrompt()
         let version = ReviewPrompt.version()
         guard prompt.isDue(version: version) else { return }
-        Task {
+        Task { [debounceClock] in
             // Once the note has shrunk back into Home, and only if the reader
             // is still there rather than in the next note.
-            try? await Task.sleep(for: .seconds(1))
+            try? await debounceClock.sleep(for: .seconds(1))
             guard selection == nil else { return }
             prompt.markAsked(version: version)
             requestReview()

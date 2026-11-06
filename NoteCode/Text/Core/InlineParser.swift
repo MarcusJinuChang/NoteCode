@@ -154,138 +154,186 @@ nonisolated enum InlineParser {
         var cursor = range.lowerBound
         let limit = range.upperBound
 
+        // Each tokenizer reads what starts at `cursor` and returns where the
+        // walk goes on, or `nil` when nothing there is its own and the walk
+        // steps one character.
         while cursor < limit {
             let character = text[cursor]
+            let next: String.Index?
             switch character {
             case "`":
-                // Inline code wins over everything: `a *b* c` is code holding
-                // asterisks, not code wrapped around emphasis.
-                let contentStart = text.index(after: cursor)
-                if let closing = firstIndex(of: "`", in: text, from: contentStart, limit: limit), closing > contentStart {
-                    let end = text.index(after: closing)
-                    pieces.append(Piece(kind: .opening(.inlineCode), range: cursor..<contentStart))
-                    pieces.append(Piece(kind: .closing(.inlineCode), range: closing..<end))
-                    cursor = end
-                    continue
-                }
-
+                next = codeSpan(text, at: cursor, limit: limit, into: &pieces)
             case "\\":
-                // `\$` is a dollar. It is the only escape there is, and it
-                // is read here, past code (found first) and inside a link's
-                // text, but never inside a formula, which is skipped whole.
-                let next = text.index(after: cursor)
-                if next < limit, text[next] == "$" {
-                    pieces.append(Piece(kind: .escape, range: cursor..<next))
-                    cursor = text.index(after: next)
-                    continue
-                }
-
+                next = escape(text, at: cursor, limit: limit, into: &pieces)
             case "$" where allowsLinks:
-                // A formula is an atom: nothing inside is read, so `$a*b*c$`
-                // has no emphasis. Not in a link's text, where it is text.
-                if let math = mathSpan(in: text, at: cursor, limit: limit) {
-                    pieces.append(Piece(kind: .opening(.math(math.style)), range: math.opening))
-                    pieces.append(Piece(kind: .closing(.math(math.style)), range: math.closing))
-                    cursor = math.closing.upperBound
-                    continue
-                }
-
+                next = math(text, at: cursor, limit: limit, into: &pieces)
             case "[" where allowsLinks:
-                if let link = markdownLink(in: text, at: cursor, limit: limit) {
-                    pieces.append(Piece(kind: .opening(.link), range: cursor..<link.text.lowerBound, destination: link.destination))
-                    collect(text, in: link.text, allowsLinks: false, into: &pieces)
-                    pieces.append(Piece(kind: .closing(.link), range: link.text.upperBound..<link.end, destination: link.destination))
-                    cursor = link.end
-                    continue
-                }
-
+                next = link(text, at: cursor, limit: limit, into: &pieces)
             case "h" where allowsLinks:
-                // Inside a highlight, a `==` at an address's end is the
-                // highlight's, not the address's.
-                let highlightOpen = { delimiters.contains { $0.active && $0.tagFamily == 2 } }
-                if let end = bareLink(in: text, at: cursor, lower: range.lowerBound, limit: limit, endsAtHighlight: highlightOpen) {
-                    pieces.append(Piece(kind: .address, range: cursor..<end, destination: cursor..<end))
-                    cursor = end
-                    continue
-                }
-
+                next = address(text, at: cursor, lower: range.lowerBound, limit: limit, delimiters: delimiters, into: &pieces)
             case "*", "_", "~":
-                var end = text.index(after: cursor)
-                var length = 1
-                while end < limit, text[end] == character {
-                    end = text.index(after: end)
-                    length += 1
-                }
-                // One tilde is prose: `~5ms`, `~/Developer`.
-                if character != "~" || length >= 2 {
-                    let before: Character? = cursor > range.lowerBound ? text[text.index(before: cursor)] : nil
-                    let after: Character? = end < limit ? text[end] : nil
-                    let (canOpen, canClose) = flanking(character, before: before, after: after)
-                    delimiters.append(Delimiter(
-                        kind: .run(character), lower: cursor, upper: end, count: length, length: length,
-                        canOpen: canOpen, canClose: canClose
-                    ))
-                }
-                cursor = end
-                continue
-
+                next = emphasisRun(text, at: cursor, lower: range.lowerBound, limit: limit, into: &delimiters)
             case "<":
-                if let tag = SpanStyle.openingTag(in: text, at: cursor, limit: limit) {
-                    delimiters.append(tagDelimiter(.styled(tag.style), cursor..<tag.end))
-                    cursor = tag.end
-                    continue
-                }
-                if let end = InlineTag.underlineOpening(in: text, at: cursor, limit: limit) {
-                    delimiters.append(tagDelimiter(.underline, cursor..<end))
-                    cursor = end
-                    continue
-                }
-                if let end = SpanStyle.closingTag(in: text, at: cursor, limit: limit) {
-                    closeRun(at: cursor..<end, family: 0, delimiters: &delimiters, in: text, into: &pieces)
-                    cursor = end
-                    continue
-                }
-                if let end = InlineTag.underlineClosing(in: text, at: cursor, limit: limit) {
-                    closeRun(at: cursor..<end, family: 1, delimiters: &delimiters, in: text, into: &pieces)
-                    cursor = end
-                    continue
-                }
-
+                next = tag(text, at: cursor, limit: limit, delimiters: &delimiters, into: &pieces)
             case "=":
-                var end = text.index(after: cursor)
-                var length = 1
-                while end < limit, text[end] == "=" {
-                    end = text.index(after: end)
-                    length += 1
-                }
-                guard length >= 2 else { cursor = end; continue }
-                // With a highlight open, the first two close it. What is
-                // left of the run is read next, so `====🔴` ends one highlight
-                // and starts another, and `===` is a closing `==` and an `=`.
-                if delimiters.contains(where: { $0.active && $0.tagFamily == 2 }) {
-                    let closeEnd = text.index(cursor, offsetBy: 2)
-                    closeRun(at: cursor..<closeEnd, family: 2, delimiters: &delimiters, in: text, into: &pieces)
-                    cursor = closeEnd
-                    continue
-                }
-                // Otherwise only a run of exactly two, then an emoji, opens
-                // one: `a == b` and `====` are text.
-                if length == 2, let open = InlineTag.highlightOpening(in: text, at: cursor, limit: limit) {
-                    delimiters.append(tagDelimiter(.highlight(open.colour), cursor..<open.end))
-                    cursor = open.end
-                    continue
-                }
-                cursor = end
-                continue
-
+                next = highlightRun(text, at: cursor, limit: limit, delimiters: &delimiters, into: &pieces)
             default:
-                break
+                next = nil
             }
-            cursor = text.index(after: cursor)
+            cursor = next ?? text.index(after: cursor)
         }
 
         processEmphasis(&delimiters, above: -1, in: text, into: &pieces)
     }
+
+    // MARK: Tokenizers
+
+    /// Inline code wins over everything: `a *b* c` is code holding
+    /// asterisks, not code wrapped around emphasis.
+    private static func codeSpan(_ text: String, at cursor: String.Index, limit: String.Index, into pieces: inout [Piece]) -> String.Index? {
+        let contentStart = text.index(after: cursor)
+        guard let closing = firstIndex(of: "`", in: text, from: contentStart, limit: limit), closing > contentStart else { return nil }
+        let end = text.index(after: closing)
+        pieces.append(Piece(kind: .opening(.inlineCode), range: cursor..<contentStart))
+        pieces.append(Piece(kind: .closing(.inlineCode), range: closing..<end))
+        return end
+    }
+
+    /// `\$` is a dollar. It is the only escape there is, and it is read
+    /// here, past code (found first) and inside a link's text, but never
+    /// inside a formula, which is skipped whole.
+    private static func escape(_ text: String, at cursor: String.Index, limit: String.Index, into pieces: inout [Piece]) -> String.Index? {
+        let next = text.index(after: cursor)
+        guard next < limit, text[next] == "$" else { return nil }
+        pieces.append(Piece(kind: .escape, range: cursor..<next))
+        return text.index(after: next)
+    }
+
+    /// A formula is an atom: nothing inside is read, so `$a*b*c$` has no
+    /// emphasis. Not in a link's text, where it is text.
+    private static func math(_ text: String, at cursor: String.Index, limit: String.Index, into pieces: inout [Piece]) -> String.Index? {
+        guard let math = mathSpan(in: text, at: cursor, limit: limit) else { return nil }
+        pieces.append(Piece(kind: .opening(.math(math.style)), range: math.opening))
+        pieces.append(Piece(kind: .closing(.math(math.style)), range: math.closing))
+        return math.closing.upperBound
+    }
+
+    /// A `[text](destination)` link. Its text is read on its own, without
+    /// links, so nothing in it pairs with anything outside.
+    private static func link(_ text: String, at cursor: String.Index, limit: String.Index, into pieces: inout [Piece]) -> String.Index? {
+        guard let link = markdownLink(in: text, at: cursor, limit: limit) else { return nil }
+        pieces.append(Piece(kind: .opening(.link), range: cursor..<link.text.lowerBound, destination: link.destination))
+        collect(text, in: link.text, allowsLinks: false, into: &pieces)
+        pieces.append(Piece(kind: .closing(.link), range: link.text.upperBound..<link.end, destination: link.destination))
+        return link.end
+    }
+
+    /// A bare `http(s)://` address. Inside a highlight, a `==` at its end
+    /// is the highlight's, not the address's.
+    private static func address(
+        _ text: String,
+        at cursor: String.Index,
+        lower: String.Index,
+        limit: String.Index,
+        delimiters: [Delimiter],
+        into pieces: inout [Piece]
+    ) -> String.Index? {
+        let highlightOpen = { delimiters.contains { $0.active && $0.tagFamily == 2 } }
+        guard let end = bareLink(in: text, at: cursor, lower: lower, limit: limit, endsAtHighlight: highlightOpen) else { return nil }
+        pieces.append(Piece(kind: .address, range: cursor..<end, destination: cursor..<end))
+        return end
+    }
+
+    /// A run of `*`, `_` or `~`, put on the stack for the resolver. Always
+    /// consumed, whether or not it can pair.
+    private static func emphasisRun(
+        _ text: String,
+        at cursor: String.Index,
+        lower: String.Index,
+        limit: String.Index,
+        into delimiters: inout [Delimiter]
+    ) -> String.Index {
+        let character = text[cursor]
+        var end = text.index(after: cursor)
+        var length = 1
+        while end < limit, text[end] == character {
+            end = text.index(after: end)
+            length += 1
+        }
+        // One tilde is prose: `~5ms`, `~/Developer`.
+        if character != "~" || length >= 2 {
+            let before: Character? = cursor > lower ? text[text.index(before: cursor)] : nil
+            let after: Character? = end < limit ? text[end] : nil
+            let (canOpen, canClose) = flanking(character, before: before, after: after)
+            delimiters.append(Delimiter(
+                kind: .run(character), lower: cursor, upper: end, count: length, length: length,
+                canOpen: canOpen, canClose: canClose
+            ))
+        }
+        return end
+    }
+
+    /// A `<`: a styled run's or an underline's opening tag goes on the
+    /// stack, and a closing tag pairs with the opening one.
+    private static func tag(
+        _ text: String,
+        at cursor: String.Index,
+        limit: String.Index,
+        delimiters: inout [Delimiter],
+        into pieces: inout [Piece]
+    ) -> String.Index? {
+        if let tag = SpanStyle.openingTag(in: text, at: cursor, limit: limit) {
+            delimiters.append(tagDelimiter(.styled(tag.style), cursor..<tag.end))
+            return tag.end
+        }
+        if let end = InlineTag.underlineOpening(in: text, at: cursor, limit: limit) {
+            delimiters.append(tagDelimiter(.underline, cursor..<end))
+            return end
+        }
+        if let end = SpanStyle.closingTag(in: text, at: cursor, limit: limit) {
+            closeRun(at: cursor..<end, family: 0, delimiters: &delimiters, in: text, into: &pieces)
+            return end
+        }
+        if let end = InlineTag.underlineClosing(in: text, at: cursor, limit: limit) {
+            closeRun(at: cursor..<end, family: 1, delimiters: &delimiters, in: text, into: &pieces)
+            return end
+        }
+        return nil
+    }
+
+    /// A run of `=`: closes an open highlight, or opens one. Always consumed.
+    private static func highlightRun(
+        _ text: String,
+        at cursor: String.Index,
+        limit: String.Index,
+        delimiters: inout [Delimiter],
+        into pieces: inout [Piece]
+    ) -> String.Index {
+        var end = text.index(after: cursor)
+        var length = 1
+        while end < limit, text[end] == "=" {
+            end = text.index(after: end)
+            length += 1
+        }
+        guard length >= 2 else { return end }
+        // With a highlight open, the first two close it. What is left of the
+        // run is read next, so `====🔴` ends one highlight and starts
+        // another, and `===` is a closing `==` and an `=`.
+        if delimiters.contains(where: { $0.active && $0.tagFamily == 2 }) {
+            let closeEnd = text.index(cursor, offsetBy: 2)
+            closeRun(at: cursor..<closeEnd, family: 2, delimiters: &delimiters, in: text, into: &pieces)
+            return closeEnd
+        }
+        // Otherwise only a run of exactly two, then an emoji, opens one:
+        // `a == b` and `====` are text.
+        if length == 2, let open = InlineTag.highlightOpening(in: text, at: cursor, limit: limit) {
+            delimiters.append(tagDelimiter(.highlight(open.colour), cursor..<open.end))
+            return open.end
+        }
+        return end
+    }
+
+    // MARK: Resolving the delimiters
 
     /// Whether a run of `character` between `before` and `after` can open
     /// and close a span. `nil` is the edge of the block, which counts as a

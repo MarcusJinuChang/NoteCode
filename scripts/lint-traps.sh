@@ -21,6 +21,9 @@
 #  8 reportPerf in a test without .perf on itself or its suite (perf.sh runs
 #    only the Perf plan, so its PERF line would never be read). The test is
 #    the last @Test above the call, and the suite the last @Suite
+#  9 a sleep or run-loop spin in NoteCodeTests/ (Task.sleep, RunLoop.main.run,
+#    RunLoop.current.run, usleep, Thread.sleep), as a count that may only
+#    fall (T6). A test awaits the work's hook, or moves a ManualClock
 
 set -uo pipefail
 cd ${0:A:h:h}
@@ -85,6 +88,12 @@ limit=$(awk '$1 == "limit" && $2 == 7 { print $3 }' $allow 2>/dev/null)
 if [[ -z $limit ]]; then limit=0; fi
 (( count > limit )) && hits+=("NoteCodeTests rule 7: UserDefaults.standard $count times, limit $limit (the count may only fall)")
 
+# 9
+sleeps=$(code_lines NoteCodeTests | grep -cE 'Task\.sleep|RunLoop\.(main|current)\.run|usleep|Thread\.sleep')
+sleepLimit=$(awk '$1 == "limit" && $2 == 9 { print $3 }' $allow 2>/dev/null)
+if [[ -z $sleepLimit ]]; then sleepLimit=0; fi
+(( sleeps > sleepLimit )) && hits+=("NoteCodeTests rule 9: $sleeps sleeps or run-loop spins, limit $sleepLimit (the count may only fall)")
+
 # 8
 for f in $(grep -rl 'reportPerf(' NoteCodeTests --include='*.swift' | grep -v '/TestSupport/Perf\.swift$' | sort); do
   awk '
@@ -102,4 +111,4 @@ if (( ${#hits} )); then
   print -l -- $hits
   print "lint-traps: ${#hits} hit(s)"; exit 1
 fi
-print "lint-traps: clean (rule 7: $count/$limit)"
+print "lint-traps: clean (rule 7: $count/$limit, rule 9: $sleeps/$sleepLimit)"

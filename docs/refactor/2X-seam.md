@@ -105,9 +105,10 @@ move of the section the step changes into a `Type+Area.swift` file
 
 From update-2.md › Must not change, checked against today's code:
 
-- The unnamed `WindowGroup` (NoteCodeApp.swift:56).
-- `TipJar.shared.start()` before `ProStatus.shared.start()`, both before the
-  DEBUG seeding (NoteCodeApp.swift:30–32).
+- The unnamed `WindowGroup` (NoteCodeScene.swift:58).
+- `TipJar.shared.start()` before `ProStatus.shared.start()`
+  (AppStoreEdition.swift:39–41), both before the DEBUG seeding: the scene
+  calls `extensions.start()` first (NoteCodeScene.swift:33).
 - `AdConsent.homeAppeared` runs from Home's own `.task(id: consentMayStart)`
   (HomeView.swift:106–109), not from the ad strip's view, which a Pro reader
   never sees.
@@ -300,6 +301,12 @@ NoteList, AboutSettings).
 and the consent form (first launch); the list foot shows the ad, then Tip
 Jar; Tip Jar opens its sheet from the list; Settings › Help and About shows
 Ad Privacy Options where UMP requires it. Pro reader: no ad anywhere.
+
+**Left after 2X3** (PR 167). `AdSlot` still reads `AdConsent.shared`
+(AdBanner.swift:27), as the brief allowed for Pro's own files, so the
+edition's `consent:` instance and the ad strip's could differ if anything
+ever made a second `AdConsent`. Nothing does today. Hand the edition's
+instance to `AdSlot` when `Pro/Ads` is next edited, or in the split.
 
 ## 2X4a. The assistant's actions as an editor feature
 

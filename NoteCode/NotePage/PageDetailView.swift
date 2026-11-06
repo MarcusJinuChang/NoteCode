@@ -67,6 +67,8 @@ struct PageDetailView: View {
 
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.displayScale) private var screenScale
+    /// What the badge's hold is measured on (`badgeHold`).
+    @Environment(\.debounceClock) private var debounceClock
 
     @AppStorage(HotbarDock.defaultsKey)
     private var storedDock: HotbarDock = .default
@@ -636,8 +638,8 @@ struct PageDetailView: View {
             withAnimation(.easeOut(duration: Self.badgeFadeIn)) { badgeVisible = true }
         }
         badgeTimer?.cancel()
-        badgeTimer = Task {
-            try? await Task.sleep(for: Self.badgeHold)
+        badgeTimer = Task { [debounceClock] in
+            try? await debounceClock.sleep(for: Self.badgeHold)
             guard !Task.isCancelled else { return }
             withAnimation(.easeOut(duration: Self.badgeFadeOut)) { badgeVisible = false }
         }

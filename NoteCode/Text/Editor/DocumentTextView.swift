@@ -381,6 +381,10 @@ struct DocumentTextView: UIViewRepresentable {
         /// actor.
         private static let highlightDelay = Duration.milliseconds(20)
 
+        /// What `highlightDelay` is measured on. Tests set one they move by
+        /// hand; the app keeps `ContinuousClock`, as `Task.sleep(for:)` uses.
+        var highlightClock: any Clock<Duration> = ContinuousClock()
+
         init(text: Binding<String>) {
             self.text = text
             super.init()
@@ -617,8 +621,8 @@ struct DocumentTextView: UIViewRepresentable {
             }
             guard !jobs.isEmpty else { return }
 
-            highlightTask = Task { [weak self, weak textView] in
-                try? await Task.sleep(for: Self.highlightDelay)
+            highlightTask = Task { [weak self, weak textView, highlightClock] in
+                try? await highlightClock.sleep(for: Self.highlightDelay)
                 guard !Task.isCancelled, let self, let textView else { return }
 
                 var painted: [ColorRun] = []

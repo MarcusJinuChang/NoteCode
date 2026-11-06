@@ -151,7 +151,8 @@ final class EditorHarness {
 
     func settle() async throws {
         textView.layoutIfNeeded()
-        try await Task.sleep(for: .milliseconds(300))
+        await coordinator?.highlightingFinished()
+        await editor.sizeSettled()
         textView.layoutIfNeeded()
     }
 
@@ -163,9 +164,9 @@ final class EditorHarness {
         try? await Task.sleep(for: .milliseconds(30))
     }
 
-    /// Long enough for a shortened `NoteEditor.settleDelay` (20ms) to pass.
+    /// Returns once the sizes waiting for `NoteEditor.settleDelay` are applied.
     func wait() async {
-        try? await Task.sleep(for: .milliseconds(120))
+        await editor.sizeSettled()
     }
 
     // MARK: What a reader sees
