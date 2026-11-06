@@ -365,9 +365,8 @@ final class NoteEditor {
             orientation: page.pageLayout.orientation,
             pageCount: page.pageCount,
             minimumPages: page.minimumPageCount,
-            rendersMarkdown: rendersMarkdown,
-            lineNumbers: showsLineNumbers,
-            typography: typography
+            typography: typography,
+            settings: NotePDF.Settings(rendersMarkdown: rendersMarkdown, lineNumbers: showsLineNumbers)
         ))
     }
 
