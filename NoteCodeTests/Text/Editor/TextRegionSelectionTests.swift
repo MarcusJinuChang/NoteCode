@@ -176,7 +176,9 @@ struct TextRegionSelectionTests {
         let rig = Rig("prose line\n```cpp\nint x;\n```\n")
         rig.editor.inkTool.kind = .lasso
         // The coordinator that supplies code ranges isn't in this rig; say where code is.
-        rig.editor.codeRanges = { [CodeRange(range: NSRange(location: 11, length: 17), isClosed: true)] }
+        let target = StubTextTarget(codeRanges: [CodeRange(range: NSRange(location: 11, length: 17), isClosed: true)])
+        rig.editor.textTarget = target
+        defer { withExtendedLifetime(target) {} }
         let lines = rig.lines
         let code = try #require(lines.first { $0.range.location >= 11 })
 
@@ -189,6 +191,19 @@ struct TextRegionSelectionTests {
         locked.selection.select(.rectangle(line.rect))
         #expect(locked.selection.textPieces.isEmpty)
     }
+}
+
+/// A `TextCommandTarget` that only says where the code is.
+@MainActor
+private final class StubTextTarget: TextCommandTarget {
+    let codeRanges: [CodeRange]
+    init(codeRanges: [CodeRange]) { self.codeRanges = codeRanges }
+    func codeBlockAtCaret() -> CodeBlockTarget? { nil }
+    func runBlockAtCaret() {}
+    func copyBlockAtCaret() {}
+    func indentAtCaret(outdent: Bool) {}
+    func retagBlockAtCaret(_ kind: CodeBlockKind) {}
+    func presentNewFormula(display: Bool) {}
 }
 
 #endif

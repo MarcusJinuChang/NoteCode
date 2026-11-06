@@ -66,7 +66,7 @@ final class AssistantFeature: EditorFeature {
                 placement: .codeBlockRow,
                 rowWidth: 58,
                 perform: { [weak self] in
-                    guard let self, let block = editor?.codeBlockAtCaret?() else { return }
+                    guard let self, let block = editor?.codeBlockAtCaret else { return }
                     explain(block)
                 }
             )]
@@ -107,7 +107,7 @@ final class AssistantFeature: EditorFeature {
         ai.begin(AIPrompts.summariseJob(
             text: text,
             title: title,
-            insertionOffset: AIInsertion.anchor(caret: textView.selectedRange.location, in: text as NSString, codeRanges: editor.codeRanges?() ?? []),
+            insertionOffset: AIInsertion.anchor(caret: textView.selectedRange.location, in: text as NSString, codeRanges: editor.codeRanges),
             contextTokens: ai.contextTokens,
             length: ai.settings.length
         ))

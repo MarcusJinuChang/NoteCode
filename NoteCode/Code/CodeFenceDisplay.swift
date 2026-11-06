@@ -41,42 +41,13 @@ extension DocumentTextView.Coordinator {
             refreshFenceVisibility(in: textView)
             refreshHeadingMarkers(in: textView)
         }
-        // ⌘R and ⇧⌘C act on the block the caret is in, in text mode.
-        editor?.runBlockAtCaret = { [weak self, weak textView, weak editor] in
-            guard let self, let textView, editor?.mode == .text,
-                  let target = target(atCaret: textView.selectedRange.location, in: textView)
-            else { return }
-            run(target, from: textView)
-        }
+        // ⌘R, ⇧⌘C, the options row's indent and language controls, and the
+        // new-formula sheet all reach the text view through this one weak
+        // reference (`TextCommandTarget`).
+        editor?.textTarget = self
         // The features' services. The first parse came before the editor was
         // connected, so a feature reads the blocks as they are now.
         editor?.connectFeatures(featureServices(for: textView))
-        editor?.copyBlockAtCaret = { [weak self, weak textView, weak editor] in
-            guard let self, let textView, editor?.mode == .text,
-                  let target = target(atCaret: textView.selectedRange.location, in: textView)
-            else { return }
-            copy(target)
-        }
-        editor?.codeBlockAtCaret = { [weak self, weak textView, weak editor] in
-            guard let self, let textView, editor?.mode == .text else { return nil }
-            return target(atCaret: textView.selectedRange.location, in: textView)
-        }
-        // The text options row's controls: the same edits as Tab, ⇧Tab and
-        // a block's language button, one tap closer.
-        editor?.codeRanges = { [weak self, weak textView] in
-            guard let self, let textView else { return [] }
-            return codeRanges(in: textView.textStorage)
-        }
-        editor?.indentAtCaret = { [weak self, weak textView] outdent in
-            guard let self, let textView, textView.isEditable, let edit = indentEdit(outdent: outdent, in: textView) else { return }
-            apply(edit, to: textView)
-        }
-        editor?.retagBlockAtCaret = { [weak self, weak textView, weak editor] kind in
-            guard let self, let textView, editor?.mode == .text,
-                  let target = target(atCaret: textView.selectedRange.location, in: textView)
-            else { return }
-            setKind(kind, of: target, in: textView)
-        }
         refreshFenceVisibility(in: textView)
     }
 

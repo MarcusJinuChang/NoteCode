@@ -134,9 +134,16 @@ struct DocumentTextView: UIViewRepresentable {
         /// The run and copy buttons floating over each code block.
         var overlay: CodeBlockOverlay?
 
+        /// What can be done to a code block: copy, run, the menu, indent
+        /// (`CodeBlockCommands`).
+        let codeBlocks = CodeBlockCommands()
+
         /// Opens a compiler site's link (`openAtSite`). Replaceable so a test
         /// can see where Run went without leaving the app.
-        var openURL: (URL) -> Void = { UIApplication.shared.open($0) }
+        var openURL: (URL) -> Void {
+            get { codeBlocks.openURL }
+            set { codeBlocks.openURL = newValue }
+        }
 
         /// The keyboard traits and the code-keys row (`KeyboardPolicyController`).
         let keyboard = KeyboardPolicyController()
@@ -312,51 +319,6 @@ struct DocumentTextView: UIViewRepresentable {
             // so a block just typed had a bar and no place for it: hidden,
             // until something else laid the text view out.
             textView.addViewportLayoutObserver { [weak overlay] in overlay?.reposition(laysOutViewport: false) }
-        }
-
-        /// Puts a block's code on the pasteboard, with a light tap. One path
-        /// for the button, the edit menu and ⇧⌘C.
-        func copy(_ target: CodeBlockTarget) {
-            UIPasteboard.general.string = target.code
-            Haptics.copyBlock()
-            editor?.onBlockCopied?()
-        }
-
-        /// The code block the caret is in, for the edit menu and ⌘R and ⇧⌘C.
-        func target(atCaret caret: Int, in textView: UITextView) -> CodeBlockTarget? {
-            let targets = snapshot(of: textView).targets
-            return CodeBlockAction.target(atCaret: caret, in: targets, sourceLength: textView.textStorage.length)
-        }
-
-        /// ⇧Tab, and whether it has anything to do.
-        func outdentListItems(in textView: UITextView) {
-            guard let edit = indentEdit(outdent: true, in: textView) else { return }
-            apply(edit, to: textView)
-        }
-
-        func canOutdentListItems(in textView: UITextView) -> Bool {
-            textView.isEditable && indentEdit(outdent: true, in: textView) != nil
-        }
-
-        /// One level in or out at the caret: the code lines' rule in a code
-        /// block, the list item's elsewhere. Tab, ⇧Tab and the text options
-        /// row's ⇥ and ⇤ all ask here.
-        func indentEdit(outdent: Bool, in textView: UITextView) -> TextEdit? {
-            if let edit = CodeIndent.indentEdit(
-                in: textView.textStorage.mutableString,
-                selection: textView.selectedRange,
-                outdent: outdent,
-                codeRanges: codeRanges(in: textView.textStorage),
-                width: indentWidth
-            ) {
-                return edit
-            }
-            return MarkdownFormatting.indent(
-                in: textView.textStorage.mutableString,
-                selection: textView.selectedRange,
-                outdent: outdent,
-                codeRanges: codeRanges(in: textView.textStorage)
-            )
         }
 
         /// Tells the hotbar what the caret is in. Called on every caret move

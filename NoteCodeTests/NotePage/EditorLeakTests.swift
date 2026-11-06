@@ -79,7 +79,7 @@ struct EditorLeakTests {
         autoreleasepool {
             let harness = EditorHarness(features: features)
             // The connection happened: ⌘R's hook is there.
-            #expect(harness.editor.runBlockAtCaret != nil)
+            #expect(harness.editor.textTarget != nil)
             inspect(harness)
             harness.page.removeFromSuperview()
             harness.window.isHidden = true

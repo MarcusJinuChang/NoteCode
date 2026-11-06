@@ -265,10 +265,6 @@ extension DocumentTextView.Coordinator {
             guard let self, let textView else { return }
             extendNote(toReach: point, in: textView)
         }
-        editor?.presentNewFormula = { [weak self, weak textView] display in
-            guard let self, let textView else { return }
-            presentNewFormulaEditor(display: display, in: textView)
-        }
         textView.touchTarget = { [weak gestures] point in gestures?.targetAt?(point) != nil }
         textView.outdentHandler = { [weak self, weak textView] in
             guard let self, let textView else { return }
