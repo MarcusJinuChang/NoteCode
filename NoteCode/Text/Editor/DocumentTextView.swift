@@ -211,75 +211,9 @@ struct DocumentTextView: UIViewRepresentable {
         /// `CodeSelectionHighlight`.
         var paintedCodeSelection: [NSRange] = []
 
-        /// What the document looked like at the last styling pass, so only the
-        /// blocks that actually changed get restyled.
-
-        let highlighter: SyntaxHighlighter = HighlightSwiftHighlighter()
-        var highlightTask: Task<Void, Never>?
-
-        /// Bumped on every edit. A highlight result carrying an older number
-        /// describes a document that no longer exists, so it gets dropped.
-        var highlightGeneration = 0
-
-        /// Blocks already coloured, keyed by content. A block whose code hasn't
-        /// changed keeps the colours already in the text storage, so only the
-        /// block being edited needs re-highlighting.
-        var highlightedBlocks: Set<HighlightKey> = []
-
-        /// A block as it was coloured: its code and the language it was
-        /// coloured as. The tag is part of it because a retag changes neither
-        /// the block's id nor its code, and the colours must still follow.
-        struct HighlightKey: Hashable {
-            var id: CodeBlockID
-            var language: String
-
-            nonisolated init(block: CodeBlock) {
-                id = block.id
-                language = block.infoString.split(separator: " ").first.map { $0.lowercased() } ?? ""
-            }
-        }
-
-        /// The appearance `highlightedBlocks` were coloured for.
-        ///
-        /// Syntax colours are fixed values picked from one theme, not dynamic
-        /// colours like `.label`, so a block coloured under dark is not coloured
-        /// for light just because its code hasn't changed.
-        var highlightedAppearance: HighlightAppearance?
-
-        /// The appearance code is always coloured for, whatever the text
-        /// view's traits say. Nil follows the traits, as the editor does.
-        ///
-        /// Paper is light (`PrintedNote`), and its text view can't say so
-        /// itself: a view in no window takes its appearance from the scene,
-        /// and an override on the view doesn't change it (measured 16 Oct).
-        /// With the device dark, the PDF and thumbnails had the dark theme's
-        /// colours on a light panel.
-        var pinnedAppearance: HighlightAppearance?
-
-        /// Just enough to coalesce a fast burst of keystrokes.
-        ///
-        /// This was 200ms, chosen before measuring, which was long enough that
-        /// a word stayed uncoloured while it was being typed.
-        ///
-        /// Colouring one block measures at a ~12.5ms median on an iPad Pro
-        /// 13-inch simulator — see HighlighterCostTests. An earlier note here
-        /// claimed 3.6–5.2ms; that is not reproducible, and since neither this
-        /// file nor HighlightSwift has changed since it was written, it was
-        /// most likely measured somewhere other than that test.
-        ///
-        /// The delay and the work do not compete for the same time. HighlightSwift's
-        /// `Highlight` is a non-isolated Sendable class, so awaiting it from the
-        /// main actor runs the JavaScript off-main; this delay only decides when
-        /// that work starts. They add: colour lands roughly 32ms after typing
-        /// stops, which is imperceptible. The one main-actor step is
-        /// DocumentStyler.applyColors at the end, and it is small — that is the
-        /// part to watch when the drawing layer starts competing for the main
-        /// actor.
-        static let highlightDelay = Duration.milliseconds(20)
-
-        /// What `highlightDelay` is measured on. Tests set one they move by
-        /// hand; the app keeps `ContinuousClock`, as `Task.sleep(for:)` uses.
-        var highlightClock: any Clock<Duration> = ContinuousClock()
+        /// The syntax colours: what is coloured, the pass in flight and the
+        /// appearance (`SyntaxColouring`). The members below forward to it.
+        let syntaxColouring = SyntaxColouring()
 
         init(text: Binding<String>) {
             self.text = text

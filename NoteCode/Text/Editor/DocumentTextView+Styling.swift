@@ -58,7 +58,7 @@ extension DocumentTextView.Coordinator {
     func invalidateStyling() {
         styleSession.invalidate()
         // Replacing the storage wipes the colours too.
-        highlightedBlocks = []
+        syntaxColouring.forget()
     }
 
 }
