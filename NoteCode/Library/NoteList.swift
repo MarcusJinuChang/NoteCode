@@ -508,7 +508,7 @@ struct NoteList: View {
                 break
             }
         }
-        try? modelContext.save()
+        Storage.save(modelContext, reason: "save the list's changes")
     }
 
     private func isDeleting(_ folder: Folder) -> Binding<Bool> {

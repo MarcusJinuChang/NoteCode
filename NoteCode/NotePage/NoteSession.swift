@@ -76,7 +76,7 @@ struct NoteInkLifecycle: ViewModifier {
                 inkSaver.flushBeforeSuspending { [modelContext] in
                     // The store autosaves on its own schedule, which may not
                     // come round again before the app is suspended or killed.
-                    try? modelContext.save()
+                    Storage.save(modelContext, reason: "save the open note before suspending")
                 }
             }
     }

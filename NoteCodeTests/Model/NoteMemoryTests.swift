@@ -44,7 +44,7 @@ struct NoteMemoryTests {
     @Test("The same ID gives the same key every time")
     func keyIsStable() throws {
         let page = try savedPage()
-        let id = try #require(page.settledID)
+        let id = try #require(page.settledID())
         let keys = Set((0..<200).compactMap { _ in NoteMemory.key(for: id) })
         #expect(keys.count == 1, "\(keys.count) different keys for one note")
     }
@@ -55,7 +55,7 @@ struct NoteMemoryTests {
         context.insert(page)
         #expect(NoteMemory.key(for: page.persistentModelID) == nil)
 
-        let id = try #require(page.settledID, "settledID saves a note that has no permanent ID yet")
+        let id = try #require(page.settledID(), "settledID() saves a note that has no permanent ID yet")
         #expect(!id.isTemporary)
         #expect(NoteMemory.key(for: id) != nil)
     }
@@ -79,8 +79,8 @@ struct NoteMemoryTests {
         let memory = NoteMemory(defaults: freshDefaults())
         let a = try savedPage("A")
         let b = try savedPage("B")
-        let idA = try #require(a.settledID)
-        let idB = try #require(b.settledID)
+        let idA = try #require(a.settledID())
+        let idB = try #require(b.settledID())
 
         #expect(memory.place(of: idA) == nil)
         memory.setPlace(.init(page: 2, of: 5), of: idA)
@@ -108,7 +108,7 @@ struct NoteMemoryTests {
         let defaults = freshDefaults()
         let memory = NoteMemory(defaults: defaults)
         let page = try savedPage()
-        let id = try #require(page.settledID)
+        let id = try #require(page.settledID())
         let key = try #require(NoteMemory.key(for: id))
 
         for pair in [[1], [1, 2, 3], [-1, 4], [0, 0]] {
@@ -123,8 +123,8 @@ struct NoteMemoryTests {
         let memory = NoteMemory(defaults: defaults)
         let kept = try savedPage("Kept")
         let gone = try savedPage("Gone")
-        let keptID = try #require(kept.settledID)
-        let goneID = try #require(gone.settledID)
+        let keptID = try #require(kept.settledID())
+        let goneID = try #require(gone.settledID())
         memory.setPlace(.init(page: 1, of: 3), of: keptID)
         memory.setPlace(.init(page: 2, of: 4), of: goneID)
         memory.setLastOpened(goneID)
@@ -140,7 +140,7 @@ struct NoteMemoryTests {
     func pruningWithFetchedIdentifiers() throws {
         let memory = NoteMemory(defaults: freshDefaults())
         let page = try savedPage()
-        let id = try #require(page.settledID)
+        let id = try #require(page.settledID())
         memory.setPlace(.init(page: 1, of: 3), of: id)
         memory.setLastOpened(id)
 

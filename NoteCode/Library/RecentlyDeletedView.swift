@@ -193,20 +193,20 @@ struct RecentlyDeletedPage: View {
     }
 
     private func restore(_ folder: Folder) {
-        withAnimation { try? Folder.restore([folder], in: modelContext) }
+        withAnimation { Storage.attempt("restore a folder") { try Folder.restore([folder], in: modelContext) } }
     }
 
     private func deleteNow(_ folder: Folder) {
-        withAnimation { try? Folder.deleteForGood([folder], from: modelContext) }
+        withAnimation { Storage.attempt("delete a folder for good") { try Folder.deleteForGood([folder], from: modelContext) } }
     }
 
     private func restore(_ page: Page) {
-        withAnimation { try? Page.restore([page], in: modelContext) }
+        withAnimation { Storage.attempt("restore a note") { try Page.restore([page], in: modelContext) } }
     }
 
     /// Hard-deletes through `Page.delete`, which reads nothing from the note.
     private func deleteNow(_ page: Page) {
-        withAnimation { try? Page.delete([page], from: modelContext) }
+        withAnimation { Storage.attempt("delete a note for good") { try Page.delete([page], from: modelContext) } }
     }
 
     private func deleteAll() {
@@ -215,8 +215,10 @@ struct RecentlyDeletedPage: View {
         withAnimation {
             // Folders first, with the notes that went with them, so no note is
             // deleted twice; then every note left.
-            try? Folder.deleteForGood(folders, from: modelContext)
-            try? Page.delete(pages.filter { $0.modelContext != nil && !$0.isDeleted }, from: modelContext)
+            Storage.attempt("delete folders for good") { try Folder.deleteForGood(folders, from: modelContext) }
+            Storage.attempt("delete notes for good") {
+                try Page.delete(pages.filter { $0.modelContext != nil && !$0.isDeleted }, from: modelContext)
+            }
         }
     }
 }

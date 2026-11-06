@@ -79,8 +79,8 @@ struct NoteThumbnailRulesTests {
     func cacheNames() throws {
         let a = try savedPage("A")
         let b = try savedPage("B")
-        let idA = try #require(a.settledID)
-        let idB = try #require(b.settledID)
+        let idA = try #require(a.settledID())
+        let idB = try #require(b.settledID())
         let date = Date(timeIntervalSince1970: 1_791_800_000.25)
 
         let name = try #require(NoteThumbnail.cacheName(for: idA, modifiedAt: date))
@@ -99,7 +99,7 @@ struct NoteThumbnailRulesTests {
     @Test("A line spacing is in the cache name, and none leaves the name as it was")
     func lineSpacingIsInTheName() throws {
         let page = try savedPage("A")
-        let id = try #require(page.settledID)
+        let id = try #require(page.settledID())
         let date = Date(timeIntervalSince1970: 1_791_800_000)
         let plain = try #require(NoteThumbnail.cacheName(for: id, modifiedAt: date))
         let spaced = try #require(NoteThumbnail.cacheName(for: id, modifiedAt: date, typography: NoteTypography(lineSpacing: 6)))
@@ -118,7 +118,7 @@ struct NoteThumbnailRulesTests {
     @Test("The cache name is a file name: nothing in it a path would treat as more")
     func cacheNameIsAFileName() throws {
         let page = try savedPage()
-        let id = try #require(page.settledID)
+        let id = try #require(page.settledID())
         let name = try #require(NoteThumbnail.cacheName(for: id, modifiedAt: .now))
         #expect(name.allSatisfy { $0.isHexDigit || $0 == "-" || $0 == "." || "png".contains($0) }, Comment(rawValue: name))
     }
@@ -283,7 +283,7 @@ struct NoteThumbnailPictureTests {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let page = try savedPage("Inked")
-        let id = try #require(page.settledID)
+        let id = try #require(page.settledID())
 
         let reads = LoaderLog()
         NoteInk.observeRead = { onMain in reads.record(onMain: onMain, id: id) }
@@ -314,7 +314,7 @@ struct NoteThumbnailPictureTests {
         context.insert(page)
         try context.save()
 
-        let id = try #require(page.settledID)
+        let id = try #require(page.settledID())
         let read = await Task.detached { [container] in NoteInk.read(container: container, id: id) }.value
         #expect(read == bytes)
 

@@ -349,7 +349,7 @@ struct HomeView: View {
             // The text's facts at once; "Ink" once the bytes have been read
             // off the main actor (F7).
             continueFacts = Self.facts(of: page, hasInk: false)
-            guard let container = page.modelContext?.container, let id = page.settledID,
+            guard let container = page.modelContext?.container, let id = page.settledID(),
                   !page.isDeleted, page.isLive
             else { return }
             let ink = await NoteInk.load(container, id)

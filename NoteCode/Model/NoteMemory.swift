@@ -128,7 +128,7 @@ extension NoteMemory {
     /// Notes `page` as the one opened last.
     @MainActor
     func rememberOpened(_ page: Page) {
-        if let id = page.settledID {
+        if let id = page.settledID() {
             setLastOpened(id)
         }
     }
@@ -141,9 +141,9 @@ extension Page {
     /// Saves only for that case, and only the context the note is in. The
     /// autosave would have done the same within seconds.
     @MainActor
-    var settledID: PersistentIdentifier? {
-        if persistentModelID.isTemporary {
-            try? modelContext?.save()
+    func settledID() -> PersistentIdentifier? {
+        if persistentModelID.isTemporary, let modelContext {
+            Storage.save(modelContext, reason: "save a new note before remembering it")
         }
         let id = persistentModelID
         return id.isTemporary ? nil : id

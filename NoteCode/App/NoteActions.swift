@@ -79,14 +79,14 @@ struct NoteActions {
             if reopening != nil { nav.columnVisibility = .all }
             // If saving fails, the change is still pending in the context,
             // and autosave tries again.
-            try? Page.moveToRecentlyDeleted(pages, from: context)
+            Storage.attempt("move notes to Recently Deleted") { try Page.moveToRecentlyDeleted(pages, from: context) }
         }
         guard !pages.isEmpty, let toasts else { return }
         toasts.show(
             pages.count == 1 ? "Moved to Recently Deleted" : "Moved \(pages.count) notes to Recently Deleted",
             actionTitle: "Undo"
         ) {
-            withAnimation { try? Page.restore(pages, in: context) }
+            withAnimation { Storage.attempt("restore notes") { try Page.restore(pages, in: context) } }
             if let reopening, nav.selection == nil {
                 nav.openedSearch = NoteSearch("")
                 nav.selection = reopening
@@ -106,13 +106,13 @@ struct NoteActions {
         }
         let context = context
         withAnimation {
-            try? Folder.delete(folder, deletion, from: context)
+            Storage.attempt("delete a folder") { try Folder.delete(folder, deletion, from: context) }
         }
         // Kept notes leave a folder that is gone for good, so there is nothing
         // to undo. Deleted ones went with the folder, and Undo brings both back.
         guard deletion == .withNotes, let toasts else { return }
         toasts.show("Moved “\(folder.name)” to Recently Deleted", actionTitle: "Undo") {
-            withAnimation { try? Folder.restore([folder], in: context) }
+            withAnimation { Storage.attempt("restore a folder") { try Folder.restore([folder], in: context) } }
         }
     }
 }
