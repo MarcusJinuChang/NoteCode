@@ -369,6 +369,36 @@ struct TextRewritingPolicyTests {
         settle()
         #expect(textView.autocorrectionType == .yes)
     }
+
+    // MARK: Dashes
+
+    @Test("A dash the keyboard makes at a line's start stays hyphens, so --- is a rule")
+    func dashAtLineStart() {
+        // Typing the second hyphen: the keyboard replaces "-" with an em dash.
+        let second = TextRewritingPolicy.hyphensKept(
+            replacing: NSRange(location: 0, length: 1), with: "\u{2014}", in: "-" as NSString)
+        #expect(second == TextEdit(
+            range: NSRange(location: 0, length: 1), replacement: "--", selection: NSRange(location: 2, length: 0)))
+        // After a newline, and the pair form ("--" becomes a dash).
+        let later = TextRewritingPolicy.hyphensKept(
+            replacing: NSRange(location: 4, length: 2), with: "\u{2013}", in: "abc\n--" as NSString)
+        #expect(later?.replacement == "---")
+        #expect(later?.selection == NSRange(location: 7, length: 0))
+        #expect(TextRewritingPolicy.hyphensKept(
+            replacing: NSRange(location: 2, length: 1), with: "\u{2014}", in: "  -" as NSString) != nil)
+    }
+
+    @Test("Mid-line dashes in prose are still made, and only dashes are kept")
+    func dashInProse() {
+        #expect(TextRewritingPolicy.hyphensKept(
+            replacing: NSRange(location: 4, length: 1), with: "\u{2014}", in: "word-" as NSString) == nil)
+        #expect(TextRewritingPolicy.hyphensKept(
+            replacing: NSRange(location: 5, length: 2), with: "\u{2014}", in: "word --" as NSString) == nil)
+        #expect(TextRewritingPolicy.hyphensKept(
+            replacing: NSRange(location: 0, length: 1), with: "x", in: "-" as NSString) == nil)
+        #expect(TextRewritingPolicy.hyphensKept(
+            replacing: NSRange(location: 0, length: 1), with: "\u{201C}", in: "\"" as NSString) == nil)
+    }
 }
 
 #endif
