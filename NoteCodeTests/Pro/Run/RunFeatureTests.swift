@@ -69,7 +69,7 @@ struct RunFeatureTests {
         let harness = RunHarness("```python\nprint(1)\n```\n\n```cpp\nint x;\n```\n", editor: Self.editor(runner: runner, isPro: true))
         let feature = try #require(harness.editor.feature(RunFeature.self))
         let source = (harness.textView.text ?? "").nativeUTF8
-        let second = try #require(CodeBlockAction.targets(in: source, blocks: DocumentParser.parse(source)).last)
+        let second = try #require(DocumentSnapshot(text: source).targets.last)
 
         harness.coordinator.run(second, from: harness.textView)
         await feature.session.task?.value

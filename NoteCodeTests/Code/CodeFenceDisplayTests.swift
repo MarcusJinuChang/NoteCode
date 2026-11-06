@@ -364,7 +364,7 @@ struct CodeFenceDisplayTests {
         #expect(harness.stored.hasPrefix("Prose before\n```python\nint value"), "stored: \(harness.stored.prefix(40))")
         #expect(harness.textView.text.hasPrefix("Prose before\n```python\n"))
         #expect(harness.languageButton?.configuration?.title == "Python")
-        let target = CodeBlockAction.targets(in: harness.textView.text, blocks: DocumentParser.parse(harness.textView.text))[0]
+        let target = DocumentSnapshot(text: harness.textView.text).targets[0]
         #expect(target.language == .python, "Run reads the language from the text")
 
         harness.textView.undoManager?.undo()

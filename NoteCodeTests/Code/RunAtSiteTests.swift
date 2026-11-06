@@ -52,7 +52,7 @@ final class RunHarness {
     /// The first code block, as Run is handed it.
     func firstBlock() throws -> CodeBlockTarget {
         let source = (textView.text ?? "").nativeUTF8
-        return try #require(CodeBlockAction.targets(in: source, blocks: DocumentParser.parse(source)).first)
+        return try #require(DocumentSnapshot(text: source).targets.first)
     }
 }
 

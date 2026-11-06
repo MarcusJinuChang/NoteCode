@@ -139,22 +139,6 @@ struct DocumentTextView: UIViewRepresentable {
         private(set) var rewritingPolicy = TextRewritingPolicy.initial
         private(set) var rewritesProse = TextRewritingPolicy.proseEnabledByDefault
 
-        /// Where the code blocks are, for the layout delegate, or `nil` once
-        /// the text has changed since they were worked out.
-        ///
-        /// TextKit asks the delegate about every paragraph it lays out, and
-        /// with page breaks as exclusion paths an edit lays out every
-        /// paragraph below it. Going through the string-compared cache each time
-        /// compared the whole note's text on every call, and converted each
-        /// block's range against a different copy of the string.
-        private var layoutCodeRanges: [CodeRange]?
-
-        /// Where each code block's newlines are, by block, worked out the
-        /// first time a line number asks after an edit. Forgotten with
-        /// `layoutCodeRanges`: both go on every edit of the characters, which
-        /// covers typing, paste and undo.
-        private var layoutNewlines: [Int: [Int]] = [:]
-
         /// Settings › Writing › Show Markdown, as `DocumentTextView` last had it.
         var showMarkdown = ShowMarkdown.whileEditing
 
@@ -185,10 +169,6 @@ struct DocumentTextView: UIViewRepresentable {
         /// a global: a PDF or a thumbnail made while another note is open
         /// has a coordinator of its own. Set through `setTypography`.
         private(set) var typography = NoteTypography.standard
-
-        /// The runs `MarkdownLayout` collapses, worked out once per edit for
-        /// the content storage delegate, which asks once per paragraph.
-        private var layoutMarkerRuns: [MarkdownLayout.Run]?
 
         /// Which blocks show their fences. See `CodeFenceDisplay.swift`.
         var fenceVisibility = FenceVisibility.away
@@ -313,7 +293,7 @@ struct DocumentTextView: UIViewRepresentable {
             hardwareKeyboardObservers.forEach(NotificationCenter.default.removeObserver)
         }
 
-        /// Forgets `layoutCodeRanges` whenever the text storage is edited.
+        /// Forgets the snapshot whenever the text storage is edited.
         func observeEdits(of textView: UITextView) {
             self.textView = textView as? DocumentUITextView
             if let documentView = self.textView {
@@ -333,9 +313,6 @@ struct DocumentTextView: UIViewRepresentable {
                   storage.editedMask.contains(.editedCharacters)
             else { return }
             currentSnapshot = nil
-            layoutCodeRanges = nil
-            layoutNewlines = [:]
-            layoutMarkerRuns = nil
             editCount += 1
         }
 
@@ -360,7 +337,6 @@ struct DocumentTextView: UIViewRepresentable {
             guard renders != rendersMarkdown else { return }
             rendersMarkdown = renders
             editor?.rendersMarkdown = renders
-            layoutMarkerRuns = nil
             textView.blankLineLayout?.markerRuns = renders ? { [weak self, weak textView] in
                 guard let self, let textView else { return [] }
                 return markerRuns(in: textView.textStorage)
@@ -402,19 +378,12 @@ struct DocumentTextView: UIViewRepresentable {
 
         /// The runs to collapse in `storage`, worked out once per edit.
         func markerRuns(in storage: NSTextStorage) -> [MarkdownLayout.Run] {
-            if let layoutMarkerRuns { return layoutMarkerRuns }
-            let snapshot = self.snapshot(of: storage.string)
-            let runs = MarkdownLayout.runs(for: snapshot.blocks, in: snapshot.source)
-            layoutMarkerRuns = runs
-            return runs
+            snapshot(of: storage.string).markerRuns
         }
 
         /// The code blocks' ranges in `storage`, worked out once per edit.
         func codeRanges(in storage: NSTextStorage) -> [CodeRange] {
-            if let layoutCodeRanges { return layoutCodeRanges }
-            let ranges = snapshot(of: storage.string).codeRanges
-            layoutCodeRanges = ranges
-            return ranges
+            snapshot(of: storage.string).codeRanges
         }
 
         /// Keeps the action bars beneath `ceiling` — see `CodeBlockOverlay.ceiling`.
@@ -1037,29 +1006,13 @@ struct DocumentTextView: UIViewRepresentable {
             // Each paragraph starts after a newline, so the newlines between
             // the block's start and this paragraph are the paragraphs before
             // it. The block's newlines are found once, then counted by search.
-            let newlines = newlines(ofBlock: index, range: ranges[index].range, in: storage)
+            let newlines = snapshot(of: storage.string).newlines(ofCodeBlock: index)
             var low = 0, high = newlines.count
             while low < high {
                 let mid = (low + high) / 2
                 if newlines[mid] < offset { low = mid + 1 } else { high = mid }
             }
             return low
-        }
-
-        /// The UTF-16 offsets of the newlines in a block, in order.
-        private func newlines(ofBlock index: Int, range: NSRange, in storage: NSTextStorage) -> [Int] {
-            if let found = layoutNewlines[index] { return found }
-            let text = storage.mutableString
-            var result: [Int] = []
-            var cursor = range.location
-            while cursor < NSMaxRange(range) {
-                let found = text.range(of: "\n", range: NSRange(location: cursor, length: NSMaxRange(range) - cursor))
-                guard found.location != NSNotFound else { break }
-                result.append(found.location)
-                cursor = NSMaxRange(found)
-            }
-            layoutNewlines[index] = result
-            return result
         }
     }
 

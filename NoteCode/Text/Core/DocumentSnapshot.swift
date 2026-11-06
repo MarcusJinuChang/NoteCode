@@ -108,4 +108,30 @@ nonisolated final class DocumentSnapshot {
         }
         return result
     }()
+
+    /// The runs `MarkdownLayout` collapses, for the content storage
+    /// delegate, which asks once per paragraph.
+    private(set) lazy var markerRuns: [MarkdownLayout.Run] =
+        MarkdownLayout.runs(for: blocks, in: source)
+
+    /// Where each code block's newlines are, by its index in `codeRanges`,
+    /// worked out the first time a line number asks.
+    private var newlineCache: [Int: [Int]] = [:]
+
+    /// `blocks` index of each entry of `codeRanges`.
+    private lazy var codeBlockSlots: [Int] = blocks.indices.filter { blocks[$0].codeBlock != nil }
+
+    /// The UTF-16 offsets of the newlines in the `index`th code block, in order.
+    func newlines(ofCodeBlock index: Int) -> [Int] {
+        if let found = newlineCache[index] { return found }
+        let slot = codeBlockSlots[index]
+        var offset = blockRanges[slot].location
+        var result: [Int] = []
+        for unit in source[blocks[slot].range].utf16 {
+            if unit == 10 { result.append(offset) }
+            offset += 1
+        }
+        newlineCache[index] = result
+        return result
+    }
 }

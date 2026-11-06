@@ -35,7 +35,7 @@ struct OutputBlockTests {
     @Test("An output target has Copy and no Run, says Output, and ticks Output")
     func target() throws {
         let source = Self.note
-        let targets = CodeBlockAction.targets(in: source, blocks: DocumentParser.parse(source))
+        let targets = DocumentSnapshot(text: source).targets
         #expect(targets.count == 2)
         #expect(targets[0].kind == .language(.cpp))
         #expect(targets[0].canRun)
@@ -52,7 +52,7 @@ struct OutputBlockTests {
     @Test("Kinds: plain is a bare fence, and a tag the app doesn't know is none of them")
     func kinds() throws {
         func kind(_ source: String) throws -> CodeBlockKind? {
-            try #require(CodeBlockAction.targets(in: source, blocks: DocumentParser.parse(source)).first).kind
+            try #require(DocumentSnapshot(text: source).targets.first).kind
         }
         #expect(try kind("```\nx\n```") == .plain)
         #expect(try kind("```ruby\nx\n```") == nil)
@@ -62,7 +62,7 @@ struct OutputBlockTests {
     @Test("SQL has Copy and no Run")
     func sql() throws {
         let source = "```sql\nSELECT 1;\n```"
-        let target = try #require(CodeBlockAction.targets(in: source, blocks: DocumentParser.parse(source)).first)
+        let target = try #require(DocumentSnapshot(text: source).targets.first)
         #expect(target.language == .sql)
         #expect(!target.canRun)
         #expect(!target.isOutput)
@@ -187,14 +187,14 @@ struct OutputBlockTests {
 
         // Python and output are the same length, so nothing about the block's
         // size tells the styler it changed.
-        let target = try #require(CodeBlockAction.targets(in: source, blocks: DocumentParser.parse(source)).first)
+        let target = try #require(DocumentSnapshot(text: source).targets.first)
         harness.coordinator.setKind(.output, of: target, in: harness.textView)
         try await harness.settle()
         #expect(outputFlags() == [true, true, true, true, true])
         let colour = harness.textView.textStorage.attribute(.foregroundColor, at: harness.offset(of: "print(2)"), effectiveRange: nil) as? UIColor
         #expect(colour == CodeOutputPanel.textColor)
 
-        let output = try #require(CodeBlockAction.targets(in: harness.textView.text, blocks: DocumentParser.parse(harness.textView.text)).first)
+        let output = try #require(DocumentSnapshot(text: harness.textView.text).targets.first)
         harness.coordinator.setKind(.language(.python), of: output, in: harness.textView)
         try await harness.settle()
         try await harness.settle()
@@ -222,7 +222,7 @@ struct OutputBlockTests {
         }
         #expect(colour("def f") != UIColor.label, "python colours def")
 
-        let target = try #require(CodeBlockAction.targets(in: source, blocks: DocumentParser.parse(source)).first)
+        let target = try #require(DocumentSnapshot(text: source).targets.first)
         harness.coordinator.setKind(.language(.sql), of: target, in: harness.textView)
         try await harness.settle()
         try await harness.settle()

@@ -4,7 +4,7 @@
 //
 //  The snapshot answers what the readers it will replace answer today:
 //  DocumentParser, DocumentStyler.layouts, DocumentCache.codeRanges and
-//  CodeBlockAction.targets.
+//  MarkdownLayout.runs; targets and newlines are checked against the text.
 //
 
 import Foundation
@@ -43,10 +43,32 @@ struct DocumentSnapshotTests {
         #expect(DocumentSnapshot(text: text).codeRanges == DocumentCache().codeRanges(for: text))
     }
 
-    @Test("The same targets as CodeBlockAction", arguments: notes)
-    func matchesTargets(_ text: String) {
-        let direct = CodeBlockAction.targets(in: text, blocks: DocumentParser.parse(text))
-        #expect(DocumentSnapshot(text: text).targets == direct)
+    @Test("The same marker runs as MarkdownLayout", arguments: notes)
+    func matchesMarkerRuns(_ text: String) {
+        #expect(DocumentSnapshot(text: text).markerRuns == MarkdownLayout.runs(for: DocumentParser.parse(text), in: text))
+    }
+
+    @Test("Targets cover the code ranges, and hold each block's own text", arguments: notes)
+    func targetsMatchCodeRanges(_ text: String) {
+        let snapshot = DocumentSnapshot(text: text)
+        #expect(snapshot.targets.map(\.range) == snapshot.codeRanges.map(\.range))
+        let ns = text as NSString
+        for target in snapshot.targets {
+            #expect(ns.substring(with: target.range).contains(target.code))
+        }
+    }
+
+    @Test("A code block's newlines are the UTF-16 offsets of its \\n", arguments: notes)
+    func newlinesMatchSearch(_ text: String) {
+        let snapshot = DocumentSnapshot(text: text)
+        let ns = text as NSString
+        for (index, code) in snapshot.codeRanges.enumerated() {
+            var expected: [Int] = []
+            for offset in code.range.location..<NSMaxRange(code.range) where ns.character(at: offset) == 10 {
+                expected.append(offset)
+            }
+            #expect(snapshot.newlines(ofCodeBlock: index) == expected)
+        }
     }
 
     @Test("A bridged string is converted once, on the way in")

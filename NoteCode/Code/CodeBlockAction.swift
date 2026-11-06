@@ -113,34 +113,4 @@ nonisolated enum CodeBlockAction {
         targets.first { NSLocationInRange(offset, $0.range) }
             ?? targets.last { offset == sourceLength && NSMaxRange($0.range) == sourceLength }
     }
-
-    /// Every code block in the document, in order, with UTF-16 ranges.
-    ///
-    /// One forward pass over *all* blocks, not just the code ones: a block's
-    /// offset is the sum of the lengths before it, so the prose in between has
-    /// to be measured even though it produces nothing.
-    static func targets(in source: String, blocks: [BlockNode]) -> [CodeBlockTarget] {
-        var targets: [CodeBlockTarget] = []
-        var offset = 0
-
-        for block in blocks {
-            let length = source[block.range].utf16.count
-
-            if let code = block.codeBlock {
-                targets.append(
-                    CodeBlockTarget(
-                        id: code.id,
-                        range: NSRange(location: offset, length: length),
-                        language: code.language,
-                        code: String(source[code.contentRange]),
-                        tag: code.infoString.split(separator: " ").first.map(String.init) ?? ""
-                    )
-                )
-            }
-
-            offset += length
-        }
-
-        return targets
-    }
 }

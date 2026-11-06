@@ -92,7 +92,7 @@ struct TextRowEditTests {
         let caret = (marked as NSString).range(of: "|")
         let text = marked.replacingOccurrences(of: "|", with: "")
         let source = text.nativeUTF8
-        let ranges = CodeBlockAction.targets(in: source, blocks: DocumentParser.parse(source)).map {
+        let ranges = DocumentSnapshot(text: source).targets.map {
             CodeRange(range: $0.range, isClosed: source.contains("\n```\n") || source.hasSuffix("\n```"), isOutput: $0.isOutput, language: $0.language, tag: $0.tag)
         }
         // CodeRange needs the parser's own closed flag; take it from the blocks.

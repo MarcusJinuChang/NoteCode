@@ -28,7 +28,7 @@ nonisolated enum ShowMarkdown: String, CaseIterable, Sendable {
 /// Which code blocks are being edited, and so which show their fences.
 ///
 /// Blocks are named by their place among the note's code blocks, in document
-/// order: the same index `CodeBlockOverlay` and `CodeBlockAction.targets` use.
+/// order: the same index `CodeBlockOverlay` and `DocumentSnapshot.targets` use.
 /// The state is drawn, never laid out: hiding a fence's glyphs leaves its
 /// line exactly as tall as it was, since collapsing it would move every line
 /// below it and leave ink over the wrong words (AGENTS.md, "Code-block
