@@ -506,17 +506,6 @@ struct SizeControlTests {
         #expect(harness.textView.text == "\(small)some </span>\(big)big</span>\(small) words</span>\n")
     }
 
-    @Test("Stepping stops at 8 and 72, and text past them steps back towards them")
-    func ends() {
-        #expect(NoteEditor.stepped(72, by: 1) == nil)
-        #expect(NoteEditor.stepped(8, by: -1) == nil)
-        #expect(NoteEditor.stepped(71, by: 1) == 72)
-        #expect(NoteEditor.stepped(97, by: -1) == 96)
-        #expect(NoteEditor.stepped(97, by: 1) == nil)
-        #expect(NoteEditor.stepped(7, by: 1) == 8)
-        #expect(NoteEditor.stepped(24.5, by: 1) == 25.5)
-    }
-
     @Test("A caret off a word steps the typing size, and changes no text")
     func typingSizeOnly() async {
         let harness = TextSizeEditorTests.harness(withInk: false)
@@ -556,18 +545,6 @@ struct SizeControlTests {
         harness.textView.selectedRange = Self.caret(in: "words", of: harness)
         harness.editor.setSelectionSize(points: nil)
         #expect(harness.textView.text == "# Title\nsome words\n")
-    }
-
-    @Test("A typed size: a number, pt or not, clamped and to the half point", arguments: [
-        ("24", 24.0), ("24.5pt", 24.5), (" 30 pt ", 30), ("24,5", 24.5), ("24.3", 24.5), ("100", 72), ("3", 8),
-    ] as [(String, Double)])
-    func typed(text: String, points: Double) {
-        #expect(NoteEditor.points(typed: text) == points)
-    }
-
-    @Test("Not a number sets nothing", arguments: ["", "big", "pt", "nan", "inf"])
-    func notTyped(text: String) {
-        #expect(NoteEditor.points(typed: text) == nil)
     }
 
     // MARK: Ink

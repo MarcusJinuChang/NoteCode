@@ -1,15 +1,14 @@
 //
-//  NoteEditor+SizeHelpers.swift
+//  TextSizeMath.swift
 //  NoteCode
 //
-//  The size control's arithmetic: pure, and on its way to Text/Core.
+//  The size control's arithmetic: stepping, clamping, a typed size, and where an offset lands after an edit.
 //
 
-#if canImport(UIKit)
 
 import Foundation
 
-extension NoteEditor {
+nonisolated enum TextSizeMath {
 
     /// `points` stepped a point at a time, or `nil` past the control's ends.
     /// Text already outside them (a large run in a note made larger) steps
@@ -52,4 +51,3 @@ extension NoteEditor {
     }
 }
 
-#endif

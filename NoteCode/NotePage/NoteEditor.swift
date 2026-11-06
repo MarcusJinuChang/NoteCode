@@ -940,7 +940,7 @@ final class NoteEditor {
         let reading = selectionTextSize
         guard reading.canChange else { return (false, false) }
         let current = reading.points ?? reading.startPoints
-        return (Self.stepped(current, by: 1) != nil, Self.stepped(current, by: -1) != nil)
+        return (TextSizeMath.stepped(current, by: 1) != nil, TextSizeMath.stepped(current, by: -1) != nil)
     }
 
     /// + and −: a point bigger or smaller, for the selection, the run at the
@@ -954,18 +954,18 @@ final class NoteEditor {
         // nothing is laid out again.
         if isTypingCaret(in: textView) {
             let shown = selectionTextSize
-            if let next = Self.stepped(shown.points ?? shown.startPoints, by: steps) {
+            if let next = TextSizeMath.stepped(shown.points ?? shown.startPoints, by: steps) {
                 setTypingStyle(typingStyle.sizing(next))
             }
             return
         }
         // Where the control stands now, if the text is one size.
         let shown = pendingSelectionSize.map(\.points) ?? reading.points
-        if let shown, Self.stepped(shown, by: steps) == nil { return }
+        if let shown, TextSizeMath.stepped(shown, by: steps) == nil { return }
         let total = (pendingSelectionSize?.steps ?? 0) + steps
         if pendingSelectionSize == nil { pendingTextLength = textView.textStorage.length }
         pendingSelectionSize = SizeRequest(
-            points: reading.points.flatMap { Self.stepped($0, by: total) ?? $0 },
+            points: reading.points.flatMap { TextSizeMath.stepped($0, by: total) ?? $0 },
             selection: pendingSelectionSize?.selection ?? textView.selectedRange,
             steps: total
         )
@@ -983,10 +983,10 @@ final class NoteEditor {
         guard let textView, mode == .text, !isTextLocked else { return }
         dropPendingSelectionSize()
         if isTypingCaret(in: textView) {
-            setTypingStyle(typingStyle.sizing(points.map { Self.clampedPoints($0) }))
+            setTypingStyle(typingStyle.sizing(points.map { TextSizeMath.clampedPoints($0) }))
             return
         }
-        requestSelectionSize(SizeRequest(points: points.map { Self.clampedPoints($0) }, selection: textView.selectedRange))
+        requestSelectionSize(SizeRequest(points: points.map { TextSizeMath.clampedPoints($0) }, selection: textView.selectedRange))
     }
 
     /// Custom…: asks for a size (`PageDetailView`'s alert).
@@ -1013,7 +1013,7 @@ final class NoteEditor {
     /// point. Anything that isn't a number sets nothing.
     func finishCustomSize(typed: String) {
         defer { customSizeSelection = nil }
-        guard let selection = customSizeSelection, let points = Self.points(typed: typed) else { return }
+        guard let selection = customSizeSelection, let points = TextSizeMath.points(typed: typed) else { return }
         if sizesTypedText {
             setTypingStyle(typingStyle.sizing(points))
             return
@@ -1085,8 +1085,8 @@ final class NoteEditor {
         let replaced = textView.textStorage.mutableString.substring(with: edit.range)
         perform { _, _ in edit }
         guard let kept = selection,
-              let start = Self.offset(kept.location, through: edit, replacing: replaced),
-              let end = Self.offset(NSMaxRange(kept), through: edit, replacing: replaced)
+              let start = TextSizeMath.offset(kept.location, through: edit, replacing: replaced),
+              let end = TextSizeMath.offset(NSMaxRange(kept), through: edit, replacing: replaced)
         else { return }
         textView.selectedRange = NSRange(location: start, length: end - start)
     }
