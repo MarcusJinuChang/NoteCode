@@ -1,5 +1,5 @@
 //
-//  NoteEditor+TypingStyle.swift
+//  TypingStyleController.swift
 //  NoteCode
 //
 //  The typing style: what the next text typed is drawn with, set by a button that has no word to act on.
@@ -8,27 +8,56 @@
 #if canImport(UIKit)
 
 import Observation
-import PaperKit
-import SwiftUI
 import UIKit
 
-extension NoteEditor {
+/// The typing style: what the next text typed will be drawn with, set by a
+/// button that has no word to act on, and the watching for that text.
+/// `NoteEditor` forwards `typingStyle` and the text view's three hooks to it.
+@Observable
+final class TypingStyleController {
 
-    // MARK: The typing style
+    @ObservationIgnored private unowned let editor: NoteEditor
+
+    init(editor: NoteEditor) {
+        self.editor = editor
+    }
+
+    /// What the next text typed will be drawn with, set by a button that has
+    /// no word to act on (`TypingStyle`, docs/archive/text-system-overhaul.md,
+    /// decision 5). Nothing is written until text is typed. Cleared by a
+    /// caret move, a mode switch, a locked note and the keyboard going away.
+    private(set) var typingStyle = TypingStyle.none
+
+    /// Where the typing style's text starts and what follows it, so what was
+    /// typed since can be told from any other edit without asking the keyboard
+    /// what it did (see `textDidChange`).
+    private struct TypingAnchor {
+        /// Where the text typed next starts.
+        var from: Int
+        /// The note's length less where the caret is: unchanged while text
+        /// is typed or replaced at the caret.
+        var suffix: Int
+        /// Where the caret was left, so a caret that is somewhere else has moved.
+        var caret: Int
+    }
+    @ObservationIgnored private var typingAnchor: TypingAnchor?
+    /// An edit began before the anchor (an autocorrect of the word behind the
+    /// caret): the next change re-anchors instead of styling.
+    @ObservationIgnored private var typingAnchorIsStale = false
 
     /// Whether a press with the selection as it is sets the typing style: a
     /// caret that isn't inside a word (`MarkdownFormatting.caretTarget`).
     func isTypingCaret(in textView: UITextView) -> Bool {
         let selection = textView.selectedRange
         return selection.length == 0 && MarkdownFormatting.caretTarget(
-            at: selection.location, in: textView.textStorage.mutableString, codeRanges: codeRanges
+            at: selection.location, in: textView.textStorage.mutableString, codeRanges: editor.codeRanges
         ) == .typing
     }
 
     /// Sets the typing style, with the keyboard up for it as a formatting
     /// button brings it, and starts watching for the text typed.
-    func setTypingStyle(_ style: TypingStyle) {
-        guard let textView else { return }
+    func set(_ style: TypingStyle) {
+        guard let textView = editor.textView else { return }
         if !textView.isFirstResponder { textView.becomeFirstResponder() }
         typingStyle = style
         let caret = textView.selectedRange.location
@@ -37,7 +66,7 @@ extension NoteEditor {
     }
 
     /// A caret move, a mode switch, a locked note, a keyboard going away.
-    func clearTypingStyle() {
+    func clear() {
         if !typingStyle.isEmpty { typingStyle = .none }
         typingAnchor = nil
         typingAnchorIsStale = false
@@ -48,8 +77,8 @@ extension NoteEditor {
     /// keyboard reports a jamo inserted where it replaces one): an edit that
     /// starts in front of the typing style's place is an autocorrect or
     /// something else, never the text typed there.
-    func typingTextWillChange(range: NSRange) {
-        guard !editGuard.isActive(.writingTypedText), let anchor = typingAnchor, range.location < anchor.from else { return }
+    func textWillChange(range: NSRange) {
+        guard !editor.editGuard.isActive(.writingTypedText), let anchor = typingAnchor, range.location < anchor.from else { return }
         typingAnchorIsStale = true
     }
 
@@ -70,15 +99,15 @@ extension NoteEditor {
     /// keyboard's text until it commits it, and the commit is where the style
     /// goes on. `isTyping` is false for the app's own edits (a heading, a
     /// list's Return, an undo), which only move the place.
-    func typingTextDidChange(in textView: UITextView, isTyping: Bool) {
-        guard var anchor = typingAnchor, !typingStyle.isEmpty, !editGuard.isActive(.writingTypedText), mode == .text else { return }
+    func textDidChange(in textView: UITextView, isTyping: Bool) {
+        guard var anchor = typingAnchor, !typingStyle.isEmpty, !editor.editGuard.isActive(.writingTypedText), editor.mode == .text else { return }
         let selection = textView.selectedRange
         // The caret moves as the composition does; it hasn't gone anywhere.
         guard textView.markedTextRange == nil else {
             typingAnchor?.caret = selection.location
             return
         }
-        guard selection.length == 0 else { return clearTypingStyle() }
+        guard selection.length == 0 else { return clear() }
 
         let storage = textView.textStorage
         let end = storage.length - anchor.suffix
@@ -98,19 +127,19 @@ extension NoteEditor {
         let text = storage.mutableString
         // A new line ends it, as a caret move does; a long paste is left as it is.
         guard text.rangeOfCharacter(from: .newlines, options: [], range: run).location == NSNotFound else {
-            return clearTypingStyle()
+            return clear()
         }
         guard run.length <= 2_000,
               let edit = MarkdownFormatting.typed(
-                  typingStyle, run: run, in: text, blockSizes: blockSizes, codeRanges: codeRanges
+                  typingStyle, run: run, in: text, blockSizes: editor.typographyController.blockSizes, codeRanges: editor.codeRanges
               ),
               let start = textView.position(from: textView.beginningOfDocument, offset: edit.range.location),
               let finish = textView.position(from: start, offset: edit.range.length),
               let range = textView.textRange(from: start, to: finish)
         else { return }
 
-        editGuard.perform(as: .writingTypedText) {
-            editGuard.perform(as: .formatting) {
+        editor.editGuard.perform(as: .writingTypedText) {
+            editor.editGuard.perform(as: .formatting) {
                 textView.replace(range, withText: edit.replacement)
             }
             textView.selectedRange = edit.selection
@@ -118,20 +147,20 @@ extension NoteEditor {
         typingAnchor = TypingAnchor(
             from: edit.selection.location, suffix: storage.length - edit.selection.location, caret: edit.selection.location
         )
-        undoRouter.refresh()
+        editor.undoRouter.refresh()
     }
 
     /// The selection changed. A caret that went somewhere the typing didn't
     /// take it has moved, and the typing style goes. A change that came with
     /// an edit is typing (or the keyboard's composition) moving it.
-    func typingSelectionDidChange(afterEdit: Bool) {
-        guard let anchor = typingAnchor, !editGuard.isActive(.writingTypedText), !afterEdit, let textView else { return }
+    func selectionDidChange(afterEdit: Bool) {
+        guard let anchor = typingAnchor, !editor.editGuard.isActive(.writingTypedText), !afterEdit, let textView = editor.textView else { return }
         let selection = textView.selectedRange
         // Within a composition the keyboard moves the caret as it likes.
         if textView.markedTextRange != nil {
             typingAnchor?.caret = selection.location
         } else if selection.length != 0 || selection.location != anchor.caret {
-            clearTypingStyle()
+            clear()
         }
     }
 }
