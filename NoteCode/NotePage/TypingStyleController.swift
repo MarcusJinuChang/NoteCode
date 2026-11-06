@@ -133,9 +133,7 @@ final class TypingStyleController {
               let edit = MarkdownFormatting.typed(
                   typingStyle, run: run, in: text, blockSizes: editor.typographyController.blockSizes, codeRanges: editor.codeRanges
               ),
-              let start = textView.position(from: textView.beginningOfDocument, offset: edit.range.location),
-              let finish = textView.position(from: start, offset: edit.range.length),
-              let range = textView.textRange(from: start, to: finish)
+              let range = textView.textRange(for: edit.range)
         else { return }
 
         editor.editGuard.perform(as: .writingTypedText) {

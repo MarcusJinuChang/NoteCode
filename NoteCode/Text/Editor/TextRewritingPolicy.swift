@@ -138,7 +138,7 @@ nonisolated enum TextRewritingPolicy: Equatable, Sendable {
         var index = range.location
         while index > 0 {
             let before = source.character(at: index - 1)
-            if before == 0x0A { break }
+            if before == UTF16Unit.newline { break }
             guard before == 0x20 || before == 0x09 else { return nil }
             index -= 1
         }

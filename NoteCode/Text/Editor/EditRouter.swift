@@ -107,10 +107,7 @@ final class EditRouter {
     /// An edit of the coordinator's own, through `replace(_:withText:)`
     /// like typing: undoable, restyled, written back to the page.
     func apply(_ edit: TextEdit, to textView: UITextView, editor: NoteEditor?) {
-        guard let start = textView.position(from: textView.beginningOfDocument, offset: edit.range.location),
-              let end = textView.position(from: start, offset: edit.range.length),
-              let range = textView.textRange(from: start, to: end)
-        else { return }
+        guard let range = textView.textRange(for: edit.range) else { return }
         // A Return the app makes (a list's next item) ends the typing style
         // as one the keyboard types does.
         if edit.replacement.contains("\n") { editor?.clearTypingStyle() }

@@ -135,7 +135,7 @@ enum MarkdownLayout {
         let end = NSMaxRange(layout.range)
         while location < end {
             var lineEnd = location
-            while lineEnd < end, text.character(at: lineEnd) != 0x0A { lineEnd += 1 }
+            while lineEnd < end, text.character(at: lineEnd) != UTF16Unit.newline { lineEnd += 1 }
             let length = lineEnd - location
             if length > 0 {
                 let range = NSRange(location: location, length: length)

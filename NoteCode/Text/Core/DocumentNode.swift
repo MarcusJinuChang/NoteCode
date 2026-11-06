@@ -123,13 +123,23 @@ nonisolated struct CodeBlock: Equatable, Sendable {
     /// Whether this is an output block: what a program printed, kept beside
     /// the code that printed it. Not a language, so it has no `language`.
     var isOutput: Bool {
-        CodeBlockKind.isOutputTag(infoString.split(separator: " ").first)
+        CodeBlockKind.isOutputTag(tag)
+    }
+
+    /// The first word of the info string, as typed; `nil` for a bare fence.
+    var tag: Substring? {
+        CodeBlock.tag(of: infoString)
+    }
+
+    /// The first space-separated word of an info string.
+    static func tag(of infoString: String) -> Substring? {
+        infoString.split(separator: " ").first
     }
 
     /// Whether the fence names anything at all, known or not. A bare fence is
     /// plain text, and nothing is ever coloured in one.
     var hasLanguageTag: Bool {
-        infoString.split(separator: " ").first != nil
+        tag != nil
     }
 }
 

@@ -49,10 +49,7 @@ final class DocumentUITextView: UITextView {
     /// mode without laying anything out again.
     func highlightSearchMatches(_ ranges: [NSRange], current: NSRange) {
         for range in ranges {
-            guard let start = position(from: beginningOfDocument, offset: range.location),
-                  let end = position(from: start, offset: range.length),
-                  let match = textRange(from: start, to: end)
-            else { continue }
+            guard let match = textRange(for: range) else { continue }
             decorate(foundTextRange: match, document: nil, usingStyle: range == current ? .highlighted : .found)
             showsSearchMatches = true
         }
@@ -172,7 +169,7 @@ final class DocumentUITextView: UITextView {
     /// as typing there would take them.
     private func caretAttributes(at offset: Int) -> [NSAttributedString.Key: Any] {
         let text = textStorage.string as NSString
-        if offset > 0, offset <= text.length, text.character(at: offset - 1) != 0x0A {
+        if offset > 0, offset <= text.length, text.character(at: offset - 1) != UTF16Unit.newline {
             return textStorage.attributes(at: offset - 1, effectiveRange: nil)
         }
         if offset < text.length {

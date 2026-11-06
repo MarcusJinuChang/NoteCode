@@ -37,7 +37,7 @@ final class SyntaxColouring {
 
         nonisolated init(block: CodeBlock) {
             id = block.id
-            language = block.infoString.split(separator: " ").first.map { $0.lowercased() } ?? ""
+            language = block.tag.map { $0.lowercased() } ?? ""
         }
     }
 
@@ -119,7 +119,7 @@ final class SyntaxColouring {
             // Output isn't a language: nothing in it is coloured, and a
             // pass over it would only reset its text to `.label`.
             guard let code = node.codeBlock, !code.isOutput,
-                  let tag = code.infoString.split(separator: " ").first,
+                  let tag = code.tag,
                   !colouredBlocks.contains(HighlightKey(block: code))
             else { return nil }
             return (

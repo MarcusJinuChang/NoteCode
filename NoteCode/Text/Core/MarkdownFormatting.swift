@@ -487,7 +487,7 @@ nonisolated enum MarkdownFormatting {
 
     // MARK: Helpers
 
-    static let newline = unichar(0x0A)
+    static let newline = UTF16Unit.newline
 
     static func isBlank(_ line: String) -> Bool {
         line.allSatisfy { $0 == " " || $0 == "\t" }

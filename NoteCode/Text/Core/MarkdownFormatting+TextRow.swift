@@ -79,7 +79,7 @@ nonisolated extension MarkdownFormatting {
     /// with the caret in it. `nil` when the caret isn't in a closed block: an
     /// unclosed block runs to the end of the note, with no place after it.
     static func insertOutputBlock(afterBlockAt caret: Int, in text: NSString, codeRanges: [CodeRange]) -> TextEdit? {
-        guard let block = codeRanges.first(where: { $0.contains(NSRange(location: caret, length: 0)) }),
+        guard let block = codeRanges.block(atCaret: caret),
               block.isClosed
         else { return nil }
 

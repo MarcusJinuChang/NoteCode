@@ -171,7 +171,7 @@ nonisolated extension MarkdownFormatting {
     /// spaces at either end of each part.
     static func lineParts(of selection: NSRange, in text: NSString, codeRanges: [CodeRange], trimmingSpaces: Bool) -> [LinePart] {
         lines(touching: selection, in: text).compactMap { line in
-            guard !codeRanges.contains(where: { $0.contains(NSRange(location: line.location, length: 0)) }),
+            guard !codeRanges.hasCode(atCaret: line.location),
                   let styled = StyledLine(text.substring(with: line))
             else { return nil }
             let start = max(selection.location, line.location) - line.location

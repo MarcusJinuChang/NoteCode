@@ -152,9 +152,7 @@ extension DocumentTextView.Coordinator {
         let line = text.lineRange(for: NSRange(location: target.range.location, length: 0))
 
         guard let edit = FenceTag.retag(line: text.substring(with: line), to: kind),
-              let start = textView.position(from: textView.beginningOfDocument, offset: line.location + edit.range.location),
-              let end = textView.position(from: start, offset: edit.range.length),
-              let range = textView.textRange(from: start, to: end)
+              let range = textView.textRange(for: NSRange(location: line.location + edit.range.location, length: edit.range.length))
         else { return }
 
         // The replacement leaves the caret at its end, inside the fence, which

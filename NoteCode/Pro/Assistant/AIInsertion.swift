@@ -28,7 +28,7 @@ nonisolated enum AIInsertion {
         guard !answer.isEmpty else { return nil }
 
         let at = min(max(anchor, 0), text.length)
-        let newline = unichar(UInt8(ascii: "\n"))
+        let newline = UTF16Unit.newline
         let lead = at == 0 ? "" : (text.character(at: at - 1) == newline ? "\n" : "\n\n")
         let trail = at < text.length && text.character(at: at) != newline ? "\n" : ""
 
@@ -39,8 +39,7 @@ nonisolated enum AIInsertion {
                 .map { $0.isEmpty ? ">" : "> \($0)" }
                 .joined(separator: "\n") + "\n"
         case .output:
-            let fence = String(repeating: "`", count: max(3, longestBacktickRun(in: answer) + 1))
-            body = "\(fence)\(CodeBlockKind.outputTag)\n\(answer)\n\(fence)\n"
+            body = CodeFence.wrapping(answer, tag: CodeBlockKind.outputTag) + "\n"
         }
 
         let replacement = lead + body + trail
@@ -60,14 +59,5 @@ nonisolated enum AIInsertion {
         }
         while lines.last?.isEmpty == true { lines.removeLast() }
         return lines.joined(separator: "\n")
-    }
-
-    private static func longestBacktickRun(in text: String) -> Int {
-        var longest = 0, run = 0
-        for character in text {
-            run = character == "`" ? run + 1 : 0
-            longest = max(longest, run)
-        }
-        return longest
     }
 }

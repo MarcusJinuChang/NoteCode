@@ -557,7 +557,7 @@ enum DocumentStyler {
         var first = true
         while location < end {
             var lineEnd = location
-            while lineEnd < end, text.character(at: lineEnd) != 0x0A { lineEnd += 1 }
+            while lineEnd < end, text.character(at: lineEnd) != UTF16Unit.newline { lineEnd += 1 }
             let range = NSRange(location: location, length: min(lineEnd + 1, end) - location)
             let style = NSMutableParagraphStyle()
             style.minimumLineHeight = first ? height : DisplayFormula.sourceLineHeight
@@ -791,7 +791,7 @@ enum DocumentStyler {
         guard caret > 0, caret - 1 < storage.length else { return nil }
 
         // A colour shouldn't carry onto a new line.
-        guard storage.mutableString.character(at: caret - 1) != 0x0A else { return nil }
+        guard storage.mutableString.character(at: caret - 1) != UTF16Unit.newline else { return nil }
 
         // Only a coloured run: the dimmed or hidden fence line, and plain
         // text, carry no mark.
