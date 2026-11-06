@@ -246,6 +246,54 @@ At 2X1 it was 16, not the brief's 14: the brief's table predates counting
 (⌘R's `editor?.runBlockAtCaret?()`) and `AppSettings.swift` (where
 `AppInfo.runService` is declared).
 
+## 6. Release QA 4A (1.2.0)
+
+Taken at `main` (6 Nov 2026, after 2W), iPad Pro 13-inch (M5) simulator copy,
+with two other lanes running on the same Mac (load average about 100).
+
+| Check | Result |
+|---|---|
+| `check.sh --full` | Unit: 2,047 tests, 2,046 passed and **1 failed** (`TextSizeCostTests/firstFrame`, a crash in the test's own set-up, fixed in this PR; it passes alone after the fix). UI: 16 tests, 12 passed, 4 skipped, 0 failed. Warnings 2 (the ratchet's 2). Seam 0. macOS build fails as expected (ad SDKs have no macOS slice), not counted |
+| `build-open-source.sh` | ok in 517 s; 1,864 tests, 1,863 passed, 0 failed (the Fast plan runs one fewer) |
+| `perf.sh --compare` | See below |
+
+**The failure.** `TextSizeCostTests.firstFrame` replaced the text of a page opened
+by `ReopenTests.open`, which does not call `observeEdits(of:)`. Since 2T1c (6 Nov)
+the style session drops its snapshot only when the storage's edit notification
+reaches it, so the restyle indexed the new 7,505-character note with the
+23,369-character snapshot of the note it had opened and `NSMutableAttributedString`
+threw an out-of-range exception. The test now calls `observeEdits(of:)` first. No app code changed.
+
+**Perf.** Two runs, both with the Mac under heavy load from the other lanes
+(load average 86 to 104), so the rows that came out worse are not trusted:
+`parseCost`, a pure CPU parse that nothing has touched, read 3.0 ms and 5.5 ms
+in the two runs. Run 2 against this file (ms; base in parentheses):
+
+| Test | Run 1 | Run 2 | Base |
+|---|---|---|---|
+| `CodeFenceCostTests/caretMoveCost.into` | 0.4 | 0.5 | 1.8 |
+| `CodeFenceCostTests/caretMoveCost.out` | 0.5 | 0.5 | 1.9 |
+| `CodeFenceCostTests/caretMoveCost.keystroke` | 41.6 | 40.7 | 42.0 |
+| `LineNumbersTests/longBlockCost` | 1.6 | 1.4 | 4.9 |
+| `LineNumbersTests/keystrokeCost.on` / `.off` | 38.1 / 38.7 | 44.8 / 47.8 | 34.1 / 34.7 |
+| `MarkdownLayoutCostTests/typingCost.legacy` / `.rendered` | 42.6 / 42.1 | 44.0 / 45.8 | 39.4 |
+| `NotePDFTests/printingCost` | 1,098.7 | 1,506.9 | 873.7 |
+| `PageViewTests/openingCost.open` / `.switch` | 204.3 / 380.9 | 194.8 / 376.3 | 147.5 / 319.5 |
+| `TextSizeCostTests/firstFrame` | 111.5 | 108.6 | 92.0 |
+| `StylingPerformanceTests/keystrokeCost` | 0.6 | 0.6 | 0.6 |
+| `StylingPerformanceTests/fullPassCost` | 6.4 | 6.6 | 6.2 |
+
+- **Gains that survive the load:** the caret-move costs into and out of a code
+  block fell by about 75% (1.8 and 1.9 ms to 0.5 ms) and a long code block by
+  about 70% (4.9 to 1.4 ms) in both runs.
+- **Not judged:** the rows over 10% worse (line-number keystrokes, typing cost,
+  PDF printing, opening and switching, first frame) moved by different amounts
+  between the two runs and the untouched `parseCost` moved by 83%. They need a
+  re-run on a quiet Mac before the release; nothing in the code explains them.
+- **New rows with no base yet:** `PageViewTests/exclusionPathsAreTheCost.with`
+  98.8 to 111.1 ms, `.without` 0.8 ms and `PageViewTests/typingCostLongNote`
+  96.6 to 98.4 ms (F5).
+
 ## Findings (recorded, not fixed)
 
 1. **A StoreKit test hung for 11.5 hours.** In the first unit run,

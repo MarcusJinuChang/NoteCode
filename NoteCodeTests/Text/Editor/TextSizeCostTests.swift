@@ -45,6 +45,10 @@ struct TextSizeCostTests {
     @Test("A size change on a 250-line note reaches its first frame within budget")
     func firstFrame() async throws {
         let opened = await ReopenTests.open(resumingAtPage: nil, layout: PageLayout())
+        // `ReopenTests.open` does not watch the storage, so the style session
+        // would keep the snapshot of the note it opened and the restyle below
+        // would index the new text with the old note's ranges.
+        opened.coordinator.observeEdits(of: opened.page.textView)
         opened.page.textView.text = Self.note
         opened.coordinator.invalidateStyling()
         opened.coordinator.restyle(opened.page.textView)
