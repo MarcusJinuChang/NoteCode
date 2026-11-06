@@ -89,21 +89,14 @@ extension DocumentTextView.Coordinator {
     ///   `restyle` passes false and repositions through its own `update`.
     func refreshFenceVisibility(in textView: UITextView, repositioning: Bool = true) {
         let ranges = codeRanges(in: textView.textStorage)
-        let wanted = FenceVisibility.at(
+        guard let (wanted, changed) = fenceController.updateFences(
             selection: textView.selectedRange,
-            in: ranges,
+            ranges: ranges,
             mode: showMarkdown,
             isInk: editor?.mode == .ink
-        )
-        guard wanted != fenceVisibility else { return }
+        ) else { return }
 
-        let old = fenceVisibility
-        fenceVisibility = wanted
         overlay?.fenceVisibility = wanted
-
-        let changed: Set<Int> = wanted.showsEveryFence == old.showsEveryFence
-            ? old.editing.symmetricDifference(wanted.editing)
-            : Set(ranges.indices)
         redrawFences(ofBlocks: changed, ranges: ranges, in: textView)
         if repositioning {
             overlay?.reposition()

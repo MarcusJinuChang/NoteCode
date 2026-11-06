@@ -30,12 +30,7 @@ extension DocumentTextView.Coordinator {
                 isInk: editor?.mode == .ink
             )
             : .hidden
-        guard wanted != headingVisibility else { return }
-
-        let old = headingVisibility
-        headingVisibility = wanted
-        let everyHeading = wanted.showsEvery != old.showsEvery
-        let changed = old.editing.symmetricDifference(wanted.editing)
+        guard let (everyHeading, changed) = fenceController.updateHeadings(wanted) else { return }
         redrawHeadings(offsets: changed, all: everyHeading, in: textView)
     }
 
