@@ -12,78 +12,34 @@ import UIKit
 
 extension DocumentTextView.Coordinator {
 
-    /// Gives prose autocorrect and smart punctuation, and code neither,
-    /// by where the caret is.
-    ///
-    /// Only on crossing from one to the other: reloading the keyboard
-    /// redraws its suggestion bar, and this runs on every keystroke.
-    func applyRewritingPolicy(to textView: UITextView, source: String, blocks: [BlockNode]) {
-        // Mid-composition (Korean, Japanese, Chinese), a keyboard reload
-        // could disturb the character being composed. The first caret move
-        // after it's committed catches up.
-        guard textView.markedTextRange == nil else { return }
+    /// The keyboard traits the text view has now: prose or code.
+    var rewritingPolicy: TextRewritingPolicy { keyboard.rewritingPolicy }
+    var rewritesProse: Bool { keyboard.rewritesProse }
 
-        let policy = TextRewritingPolicy.at(
-            textView.selectedRange.location, in: source, blocks: blocks, rewritesProse: rewritesProse
-        )
-        guard policy != rewritingPolicy else {
-            // The caret is in the same kind of text, but the row might
-            // not have been put there yet: the first tap into a note
-            // starts out as code and crosses nothing.
-            refreshCodeKeys(in: textView, reloading: true)
-            return
-        }
-        rewritingPolicy = policy
-        // The row is chosen before the one reload, so crossing from prose
-        // to code changes the traits and the row in a single redraw.
-        _ = placeCodeKeys(in: textView)
-        policy.apply(to: textView, reloadingInputViews: textView.isFirstResponder)
+    /// Settings › Code › Code Keys.
+    var codeKeysEnabled: Bool { keyboard.codeKeysEnabled }
+
+    /// Whether the row belongs on the keyboard right now.
+    var wantsCodeKeys: Bool { keyboard.wantsCodeKeys }
+
+    func applyRewritingPolicy(to textView: UITextView, source: String, blocks: [BlockNode]) {
+        keyboard.applyRewritingPolicy(to: textView, source: source, blocks: blocks)
     }
 
     /// Settings › Writing › Autocorrect changed: prose takes the new
     /// traits now, in the keyboard already up.
     func setRewritesProse(_ enabled: Bool, in textView: UITextView) {
-        guard enabled != rewritesProse else { return }
-        rewritesProse = enabled
+        guard keyboard.setRewritesProse(enabled) else { return }
         let snapshot = self.snapshot(of: textView)
         applyRewritingPolicy(to: textView, source: snapshot.source, blocks: snapshot.blocks)
     }
 
-    // MARK: The code-keys row
-
     func setCodeKeys(_ enabled: Bool, in textView: UITextView) {
-        guard enabled != codeKeysEnabled else { return }
-        codeKeysEnabled = enabled
-        refreshCodeKeys(in: textView, reloading: true)
+        keyboard.setCodeKeys(enabled, in: textView)
     }
 
-    /// Whether the row belongs on the keyboard right now.
-    var wantsCodeKeys: Bool {
-        CodeKeys.isShown(
-            enabled: codeKeysEnabled,
-            policy: rewritingPolicy,
-            hardwareKeyboard: HardwareKeyboard.isConnected(),
-            isEditable: textView?.isEditable ?? false
-        )
-    }
-
-    /// Puts the row on the text view, or takes it off. Whether the
-    /// accessory changed.
-    @discardableResult
-    func placeCodeKeys(in textView: UITextView) -> Bool {
-        let wanted: UIView? = wantsCodeKeys ? codeKeysRow : nil
-        guard textView.inputAccessoryView !== wanted else { return false }
-        textView.inputAccessoryView = wanted
-        return true
-    }
-
-    /// `placeCodeKeys`, then the keyboard is redrawn if the row came or
-    /// went while it is up.
     func refreshCodeKeys(in textView: UITextView, reloading: Bool) {
-        guard placeCodeKeys(in: textView), reloading, textView.isFirstResponder,
-              textView.markedTextRange == nil
-        else { return }
-        textView.reloadInputViews()
+        keyboard.refreshCodeKeys(in: textView, reloading: reloading)
     }
 
     /// A tap on the row.

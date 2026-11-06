@@ -138,9 +138,8 @@ struct DocumentTextView: UIViewRepresentable {
         /// can see where Run went without leaving the app.
         var openURL: (URL) -> Void = { UIApplication.shared.open($0) }
 
-        /// The keyboard traits the text view has now: prose or code.
-        var rewritingPolicy = TextRewritingPolicy.initial
-        var rewritesProse = TextRewritingPolicy.proseEnabledByDefault
+        /// The keyboard traits and the code-keys row (`KeyboardPolicyController`).
+        let keyboard = KeyboardPolicyController()
 
         /// Settings › Writing › Show Markdown, as `DocumentTextView` last had it.
         var showMarkdown: ShowMarkdown {
@@ -158,15 +157,6 @@ struct DocumentTextView: UIViewRepresentable {
         /// Settings › Code › Indent Width.
         var indentWidth = CodeIndent.defaultWidth
 
-        /// Settings › Code › Code Keys, and the row it turns on.
-        var codeKeysEnabled = CodeKeys.enabledByDefault
-        lazy var codeKeysRow: CodeKeysRow = {
-            let row = CodeKeysRow()
-            row.onKey = { [weak self] key in self?.perform(key) }
-            return row
-        }()
-        private var hardwareKeyboardObservers: [NSObjectProtocol] = []
-
         /// Settings › Code › Line Numbers.
         private(set) var showsLineNumbers = LineNumbers.enabledByDefault
 
@@ -179,12 +169,16 @@ struct DocumentTextView: UIViewRepresentable {
         /// has a coordinator of its own. Set through `setTypography`.
         var typography: NoteTypography { styleSession.typography }
 
+        /// Which blocks show their fences and which headings their hashes
+        /// (`FenceDisplayController`).
+        let fenceController = FenceDisplayController()
+
         /// Which blocks show their fences. See `CodeFenceDisplay.swift`.
-        var fenceVisibility = FenceVisibility.away
+        var fenceVisibility: FenceVisibility { fenceController.fenceVisibility }
 
         /// Which headings draw their hashes in the margin. See
         /// `HeadingMarkerDisplay.swift`.
-        var headingVisibility = HeadingMarkerVisibility.hidden
+        var headingVisibility: HeadingMarkerVisibility { fenceController.headingVisibility }
 
         /// How many times the text's characters have been edited, so a
         /// selection change can tell typing from an arrow key.
@@ -203,7 +197,9 @@ struct DocumentTextView: UIViewRepresentable {
 
         /// The text view this coordinator serves, for the parts of the layout
         /// delegate that need its geometry.
-        weak var textView: DocumentUITextView?
+        weak var textView: DocumentUITextView? {
+            didSet { keyboard.textView = textView }
+        }
 
         /// The parts of the selection currently painted over code panels, so
         /// the next selection change can take them back off. See
@@ -217,16 +213,7 @@ struct DocumentTextView: UIViewRepresentable {
         init(text: Binding<String>) {
             self.text = text
             super.init()
-            // A keyboard attached or taken away changes whether the row is
-            // wanted, with the caret where it was.
-            hardwareKeyboardObservers = HardwareKeyboard.observe { [weak self] in
-                guard let self, let textView else { return }
-                refreshCodeKeys(in: textView, reloading: true)
-            }
-        }
-
-        deinit {
-            hardwareKeyboardObservers.forEach(NotificationCenter.default.removeObserver)
+            keyboard.onKey = { [weak self] key in self?.perform(key) }
         }
 
         /// Forgets the snapshot whenever the text storage is edited.
