@@ -168,7 +168,7 @@ struct DocumentTextView: UIViewRepresentable {
         /// The size the note is styled in. A value the coordinator owns, not
         /// a global: a PDF or a thumbnail made while another note is open
         /// has a coordinator of its own. Set through `setTypography`.
-        private(set) var typography = NoteTypography.standard
+        var typography = NoteTypography.standard
 
         /// Which blocks show their fences. See `CodeFenceDisplay.swift`.
         var fenceVisibility = FenceVisibility.away
@@ -209,7 +209,7 @@ struct DocumentTextView: UIViewRepresentable {
 
         /// What the document looked like at the last styling pass, so only the
         /// blocks that actually changed get restyled.
-        private var styleSignatures: [DocumentStyler.BlockSignature] = []
+        var styleSignatures: [DocumentStyler.BlockSignature] = []
 
         private let highlighter: SyntaxHighlighter = HighlightSwiftHighlighter()
         private var highlightTask: Task<Void, Never>?
@@ -221,7 +221,7 @@ struct DocumentTextView: UIViewRepresentable {
         /// Blocks already coloured, keyed by content. A block whose code hasn't
         /// changed keeps the colours already in the text storage, so only the
         /// block being edited needs re-highlighting.
-        private var highlightedBlocks: Set<HighlightKey> = []
+        var highlightedBlocks: Set<HighlightKey> = []
 
         /// A block as it was coloured: its code and the language it was
         /// coloured as. The tag is part of it because a retag changes neither
@@ -353,34 +353,6 @@ struct DocumentTextView: UIViewRepresentable {
             }
         }
 
-        /// Sets the note's text size, restyling the whole note in it.
-        ///
-        /// Restyled from scratch (`invalidateStyling`): a block's signature
-        /// says nothing about its font. The styler writes only where the
-        /// result differs, so this is one edit of the storage's attributes and
-        /// one layout. `UITextView.font` is deliberately not set: that
-        /// replaces every run's font with one, which the restyle would then
-        /// undo with a second layout.
-        func setTypography(_ new: NoteTypography, in textView: UITextView) {
-            guard new != typography else { return }
-            typography = new
-            invalidateStyling()
-            if textView.textStorage.length > 0 {
-                restyle(textView)
-            } else {
-                let snapshot = self.snapshot(of: textView)
-                DocumentStyler.applyTypingAttributes(
-                    to: textView, source: snapshot.source, blocks: snapshot.blocks,
-                    rendered: rendersMarkdown, typography: typography
-                )
-            }
-        }
-
-        /// The runs to collapse in `storage`, worked out once per edit.
-        func markerRuns(in storage: NSTextStorage) -> [MarkdownLayout.Run] {
-            snapshot(of: storage.string).markerRuns
-        }
-
         /// The code blocks' ranges in `storage`, worked out once per edit.
         func codeRanges(in storage: NSTextStorage) -> [CodeRange] {
             snapshot(of: storage.string).codeRanges
@@ -437,39 +409,6 @@ struct DocumentTextView: UIViewRepresentable {
         func target(atCaret caret: Int, in textView: UITextView) -> CodeBlockTarget? {
             let targets = snapshot(of: textView).targets
             return CodeBlockAction.target(atCaret: caret, in: targets, sourceLength: textView.textStorage.length)
-        }
-
-        /// Re-parses and re-applies styling. Everything goes through the shared
-        /// cache, so an edit parses the document exactly once no matter how many
-        /// delegate callbacks it triggers.
-        func restyle(_ textView: UITextView) {
-            // Read the text exactly once. Every range below indexes into this
-            // instance, and mixing instances is ruinously slow — see the note
-            // on DocumentStyler.applyStyling(to:source:blocks:previousSignatures:).
-            let snapshot = self.snapshot(of: textView)
-            let source = snapshot.source
-            let blocks = snapshot.blocks
-
-            styleSignatures = DocumentStyler.applyStyling(
-                to: textView,
-                snapshot: snapshot,
-                previousSignatures: styleSignatures,
-                rendered: rendersMarkdown,
-                typography: typography,
-                markers: markerDimming
-            )
-            DocumentStyler.applyTypingAttributes(
-                to: textView, source: source, blocks: blocks, rendered: rendersMarkdown, typography: typography
-            )
-            // Before the overlay places its buttons: an edit can add a block or
-            // move the one the caret is in.
-            refreshFenceVisibility(in: textView, repositioning: false)
-            refreshHeadingMarkers(in: textView)
-            refreshCaretFormatting(in: textView)
-            let targets = snapshot.targets
-            overlay?.update(targets: targets)
-            editor?.blocksDidChange(targets)
-            scheduleHighlighting(for: textView, source: source, blocks: blocks)
         }
 
         /// Kicks off syntax colouring after a pause in typing.
@@ -568,14 +507,6 @@ struct DocumentTextView: UIViewRepresentable {
                 let snapshot = self.snapshot(of: textView)
                 scheduleHighlighting(for: textView, source: snapshot.source, blocks: snapshot.blocks)
             }
-        }
-
-        /// Forgets what's on screen, forcing the next restyle to do everything.
-        /// Needed whenever the storage is replaced wholesale.
-        func invalidateStyling() {
-            styleSignatures = []
-            // Replacing the storage wipes the colours too.
-            highlightedBlocks = []
         }
 
         func textViewDidChange(_ textView: UITextView) {
