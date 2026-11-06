@@ -93,7 +93,13 @@ nonisolated struct HighlightSwiftHighlighter: SyntaxHighlighter {
             let range = NSRange(run.range, in: highlighted)
             return ColorRun(
                 range: NSRange(location: range.location + offset, length: range.length),
-                color: color
+                color: color,
+                // HighlightSwift drops the fonts, so the theme sends weight
+                // and italic as an underline and a strikethrough
+                // (SyntaxTheme.decoration). Only those two flags are kept:
+                // size and face are the editor's.
+                bold: run.uiKit.underlineStyle != nil,
+                italic: run.uiKit.strikethroughStyle != nil
             )
         }
     }

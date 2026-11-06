@@ -150,7 +150,9 @@ final class SyntaxColouring {
                 painted += runs.map { run in
                     ColorRun(
                         range: NSRange(location: job.offset + run.range.location, length: run.range.length),
-                        color: run.color
+                        color: run.color,
+                        bold: run.bold,
+                        italic: run.italic
                     )
                 }
             }

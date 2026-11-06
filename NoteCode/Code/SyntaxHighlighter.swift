@@ -27,6 +27,11 @@ nonisolated enum HighlightAppearance: Equatable {
 nonisolated struct ColorRun: Equatable {
     var range: NSRange
     var color: UIColor
+    /// The theme's weight and italic for this token. Drawn in the code
+    /// font's own size (`DocumentStyler.syntaxFont`), so they never change a
+    /// line's height.
+    var bold = false
+    var italic = false
 }
 
 /// Anything that can colour a snippet of code.
