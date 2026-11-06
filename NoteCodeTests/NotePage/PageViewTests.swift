@@ -1478,10 +1478,10 @@ struct PageViewTests {
 
     @Test("The part of the note on screen stays within the note")
     func visiblePartClamps() {
-        let inside = PageView.visiblePart(ofNoteHeight: 3000, width: 816, scrolledTo: 1000, viewHeight: 800)
-        let bouncedAbove = PageView.visiblePart(ofNoteHeight: 3000, width: 816, scrolledTo: -60, viewHeight: 800)
-        let bouncedBelow = PageView.visiblePart(ofNoteHeight: 3000, width: 816, scrolledTo: 2400, viewHeight: 800)
-        let shortNote = PageView.visiblePart(ofNoteHeight: 500, width: 816, scrolledTo: 0, viewHeight: 800)
+        let inside = PageBands.visiblePart(ofNoteHeight: 3000, width: 816, scrolledTo: 1000, viewHeight: 800)
+        let bouncedAbove = PageBands.visiblePart(ofNoteHeight: 3000, width: 816, scrolledTo: -60, viewHeight: 800)
+        let bouncedBelow = PageBands.visiblePart(ofNoteHeight: 3000, width: 816, scrolledTo: 2400, viewHeight: 800)
+        let shortNote = PageBands.visiblePart(ofNoteHeight: 500, width: 816, scrolledTo: 0, viewHeight: 800)
 
         #expect(inside == CGRect(x: 0, y: 1000, width: 816, height: 800))
         #expect(bouncedAbove.minY == 0)

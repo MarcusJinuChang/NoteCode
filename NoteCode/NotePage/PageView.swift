@@ -26,7 +26,7 @@ import UIKit
 /// every mode paginates identically. The bands make typing cost more, because
 /// TextKit lays out everything below an edit once any exclusion path exists —
 /// see docs/archive/phase-drawing-layer.md for the numbers.
-final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, PageScrollIndicatorHost, PageZoomHost, PageKeyboardInsetHost {
+final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, PageScrollIndicatorHost, PageZoomHost, PageKeyboardInsetHost, PageBandsHost, PageReadingHost {
 
     let textView: DocumentUITextView
 
@@ -68,7 +68,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
     var pageLayout = PageLayout() {
         didSet {
             guard pageLayout != oldValue else { return }
-            applyPageLayout(replacing: oldValue)
+            bands.applyPageLayout(replacing: oldValue)
         }
     }
 
@@ -81,34 +81,58 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
     /// width re-centres a page fitted to its text column.
     private var fittedWidth: CGFloat = 0
 
-    /// A search result's matches, waiting for the note's first layout: the
-    /// first to scroll to, and all of them to highlight.
-    private var pendingReveal: (first: NSRange, all: [NSRange])?
-
-    /// The page to open the note at, waiting for its first layout.
-    private var pendingRestore: Int?
-    private var restoreScheduled = false
-
     /// Told which page the reader is on whenever that changes, or the page
     /// count does: the device remembers it for next time. Held back until the
     /// note has been scrolled to where it is opening (`restore`), so opening
     /// at page 4 doesn't first report page 1.
     var onReadingPlaceChanged: ((NoteMemory.Place) -> Void)?
-    private var lastReportedPlace: NoteMemory.Place?
 
     /// Told whenever the note scrolls, with the page then at the top: the
     /// page badge shows while this keeps arriving and fades once it stops.
     /// Unlike the reading place this fires on every move, not only on a new
     /// page, since a scroll within a page still keeps the badge up.
     var onScrolled: ((NoteMemory.Place) -> Void)?
-    private var lastScrolledOffset: CGFloat = 0
+
+    /// Where the note opens, search and the outline scroll to, and the reading
+    /// place and scroll are reported from (`PageReading`).
+    private lazy var reading = PageReading(host: self)
+
+    /// The page at the top of the view, and how many pages the note has.
+    var readingPlace: NoteMemory.Place { reading.readingPlace }
+
+    /// Opens the note at the top of page `index` (counted from 0) once it has
+    /// laid out. A search's match wins if both are asked for.
+    func restore(toPage index: Int) { reading.restore(toPage: index) }
+
+    /// Shows a search result once the note is laid out: scrolled so the
+    /// first match sits near the top, and every match highlighted.
+    func reveal(_ first: NSRange, highlighting all: [NSRange]) {
+        reading.reveal(first, highlighting: all)
+    }
+
+    /// Scrolls so the line holding `character` is the first the reader sees.
+    func scroll(toLineAt character: Int) { reading.scroll(toLineAt: character) }
+
+    /// The character that starts the first line reaching below the top of
+    /// the view. Internal for `DebugStateReport`.
+    func topLineCharacter() -> Int? { reading.topLineCharacter() }
+
+    /// The top of the line holding `character`, in note coordinates.
+    func lineTop(atCharacter character: Int) -> CGFloat? { reading.lineTop(atCharacter: character) }
+
+    /// A vertical scroll offset kept within the note.
+    func clampedOffset(_ y: CGFloat) -> CGFloat { reading.clampedOffset(y) }
 
     /// The scale the page is drawn at right now.
     private(set) var displayScale: CGFloat = 1
 
+    /// The pages: the layout's margins and bands, and the page count
+    /// (`PageBands`).
+    private lazy var bands = PageBands(host: self)
+
     /// How many pages the text and ink fill. Worked out whenever TextKit sets
-    /// the text's height — see `noteHeight(forTextHeight:)`.
-    private(set) var pageCount = 1
+    /// the text's height — see `PageBands.noteHeight(forTextHeight:)`.
+    var pageCount: Int { bands.pageCount }
 
     /// The fewest pages the note has (`Page.minimumPageCount`): Add Page
     /// raises it, and so does ink reaching the last page in seamless.
@@ -128,9 +152,6 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
     /// Whether a stroke the reader ends in the last page's foot adds a page
     /// (`InkPageGrowth`). Seamless keeps a blank page below ink regardless.
     var addsPagesWhileDrawing = InkPageGrowth.defaultEnabled
-
-    /// How many pages the text currently has bands for.
-    private var bandedPageCount = 0
 
     /// The note's ink, in print layout's coordinates: where each stroke sits
     /// on its sheet, which is also where it prints.
@@ -230,7 +251,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
 
         // A note is always whole pages tall.
         textView.contentHeightAdjustment = { [weak self] height in
-            self?.noteHeight(forTextHeight: height) ?? height
+            self?.bands.noteHeight(forTextHeight: height) ?? height
         }
 
         decorations.isUserInteractionEnabled = false
@@ -251,7 +272,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
 
         zoomControl.install()
 
-        applyPageLayout(replacing: nil)
+        bands.applyPageLayout(replacing: nil)
 
         textView.addLayoutObserver { [weak self] in
             self?.textViewDidLayout()
@@ -417,7 +438,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
     ///
     /// The page has no border and square corners (16 Oct, roadmap step 5): it
     /// fills its window, and the colours alone say where it ends.
-    private func paintPage() {
+    func paintPage() {
         let continuous = pageLayout.mode != .print
 
         // The page against its surround, in every mode. The view itself is
@@ -436,7 +457,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
     }
 
     /// Sets the text container to the pages' text width.
-    private func pinLineWidth() {
+    func pinLineWidth() {
         let width = pageLayout.textWidth
         if textView.textContainer.size.width != width {
             textView.textContainer.size = CGSize(width: width, height: .greatestFiniteMagnitude)
@@ -449,163 +470,11 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
 #if DEBUG
         defer { DebugSession.shared.pageDidLayout(self) }
 #endif
-        updatePageFurniture()
+        bands.updatePageFurniture()
         if !zoomControl.isPinching {
             matchRenderingScale()
         }
-        if let reveal = pendingReveal, textView.bounds.height > 0 {
-            pendingReveal = nil
-            // After this layout pass rather than inside it.
-            DispatchQueue.main.async { [weak self] in self?.show(reveal) }
-        }
-        if let index = pendingRestore, !restoreScheduled, pendingReveal == nil, textView.bounds.height > 0 {
-            restoreScheduled = true
-            DispatchQueue.main.async { [weak self] in self?.finishRestore(toPage: index) }
-        }
-        reportReadingPlace()
-        reportScroll()
-    }
-
-    /// Tells `onScrolled` the note has moved. Not while it is opening at a
-    /// place, which is the app positioning the note rather than the reader.
-    private func reportScroll() {
-        let offset = textView.contentOffset.y
-        defer { lastScrolledOffset = offset }
-        guard let onScrolled, abs(offset - lastScrolledOffset) > 0.5,
-              pendingRestore == nil, pendingReveal == nil, textView.bounds.height > 0
-        else { return }
-        let place = readingPlace
-        // After this layout pass: the callback changes SwiftUI state, and a
-        // pass can be inside a SwiftUI update.
-        DispatchQueue.main.async { onScrolled(place) }
-    }
-
-    // MARK: Reopening where the reader left off
-
-    /// Opens the note at the top of page `index` (counted from 0) once it has
-    /// laid out, the way `reveal` waits for it. A search's match wins if
-    /// both are asked for.
-    func restore(toPage index: Int) {
-        pendingRestore = index > 0 ? index : nil
-    }
-
-    private func finishRestore(toPage index: Int) {
-        let layout = pageLayout
-        // Lay the text out down to the page the way scrolling there by hand
-        // would, so the page count is the note's rather than an estimate from
-        // the little that is laid out, and the page's first line is placed
-        // below every break above it. Not the whole note: what's below can
-        // wait for the reader to get there.
-        textView.textLayoutManager?.ensureLayout(for: CGRect(
-            x: 0,
-            y: 0,
-            width: layout.textWidth,
-            height: layout.scrollTop(forPage: index) + textView.bounds.height
-        ))
-        textView.setNeedsLayout()
-        textView.layoutIfNeeded()
-        // A note shortened since lands on its last page.
-        let landing = min(index, max(pageCount - 1, 0))
-        textView.contentOffset.y = clampedOffset(layout.scrollTop(forPage: landing))
-
-        pendingRestore = nil
-        restoreScheduled = false
-        reportReadingPlace()
-    }
-
-    /// The page at the top of the view, and how many pages the note has.
-    ///
-    /// By the top edge, a point inside it: exactly on a page's scroll-top the
-    /// edge is the middle of a band, and rounding there could name the page
-    /// before.
-    var readingPlace: NoteMemory.Place {
-        let index = pageLayout.pageIndex(atY: textView.contentOffset.y + 1)
-        return NoteMemory.Place(page: min(index, max(pageCount - 1, 0)), of: max(pageCount, 1))
-    }
-
-    private func reportReadingPlace() {
-        guard let onReadingPlaceChanged, pendingRestore == nil, pendingReveal == nil,
-              textView.bounds.height > 0
-        else { return }
-        let place = readingPlace
-        guard place != lastReportedPlace else { return }
-        lastReportedPlace = place
-        onReadingPlaceChanged(place)
-    }
-
-    // MARK: Search
-
-    /// Shows a search result once the note is laid out: scrolled so the
-    /// first match sits near the top, and every match highlighted until the
-    /// text changes.
-    func reveal(_ first: NSRange, highlighting all: [NSRange]) {
-        pendingReveal = (first, all)
-    }
-
-    /// Lays the text out down to `character`, the way scrolling there by hand
-    /// would, so its line is placed below every page break above it. Not the
-    /// whole note: what's below can wait for the reader to get there.
-    /// Whether there was anywhere to lay out to.
-    @discardableResult
-    private func layOut(downTo character: Int) -> Bool {
-        guard let manager = textView.textLayoutManager,
-              let content = manager.textContentManager,
-              let target = content.location(content.documentRange.location, offsetBy: character),
-              let above = NSTextRange(location: content.documentRange.location, end: target)
-        else { return false }
-        manager.ensureLayout(for: above)
-        textView.setNeedsLayout()
-        textView.layoutIfNeeded()
-        return true
-    }
-
-    private func show(_ reveal: (first: NSRange, all: [NSRange])) {
-        guard layOut(downTo: reveal.first.location) else { return }
-
-        if let top = lineTop(atCharacter: reveal.first.location) {
-            // A quarter of the way down, so the lines leading up to the match
-            // show too.
-            textView.contentOffset.y = clampedOffset(top - textView.bounds.height / 4)
-        }
-        textView.highlightSearchMatches(reveal.all, current: reveal.first)
-    }
-
-    // MARK: Outline
-
-    /// Scrolls so the line holding `character` is the first the reader sees:
-    /// the outline's tap, which goes where a search result does (lay out
-    /// down to it, then scroll) but puts the line at the top rather than a
-    /// quarter of the way down. A page's first line shows that page from its
-    /// top edge, the rule a mode switch keeps; and a line too near the end
-    /// to reach the top lands as far up as the note scrolls.
-    func scroll(toLineAt character: Int) {
-        guard layOut(downTo: character) else { return }
-        settleOffset(onLineAt: character)
-    }
-
-    /// Puts the offset where `character`'s line starts the view, set again
-    /// while it moves: the page count, and so the bands, can still change as
-    /// the text settles, which shifts everything below them.
-    private func settleOffset(onLineAt character: Int) {
-        for _ in 0..<4 {
-            guard let top = lineTop(atCharacter: character) else { return }
-            let index = pageLayout.pageIndex(atY: top)
-            let startsPage = top - pageLayout.bodyTop(ofPage: index) < 1
-            let target = clampedOffset(startsPage ? pageLayout.scrollTop(forPage: index) : pixelCeiling(top))
-            if abs(textView.contentOffset.y - target) < 0.5 { return }
-            textView.contentOffset.y = target
-            textView.layoutIfNeeded()
-        }
-    }
-
-    /// `y` rounded up to a whole pixel. A scroll offset snaps to the screen's
-    /// pixels, and one that snaps down from a line's top leaves the line above
-    /// showing by a fraction of a point, which is then the first line the
-    /// reader sees (a size change landed one line early, and a test of the
-    /// line at the top caught it).
-    private func pixelCeiling(_ y: CGFloat) -> CGFloat {
-        let scale = max(textView.traitCollection.displayScale, 1)
-        return (y * scale).rounded(.up) / scale
+        reading.textViewDidLayout()
     }
 
     // MARK: Re-wrapping
@@ -622,7 +491,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
     /// the old layout's viewport and the lines on screen sit a stale
     /// break's worth off.
     func reflow(_ change: () -> Void) {
-        let anchor = topLineCharacter()
+        let anchor = reading.topLineCharacter()
         change()
 
         setNeedsLayout()
@@ -637,244 +506,24 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
             textView.contentOffset.y = clampedOffset(0)
             return
         }
-        layOut(downTo: anchor)
-        settleOffset(onLineAt: anchor)
+        reading.layOut(downTo: anchor)
+        reading.settleOffset(onLineAt: anchor)
     }
 
     // MARK: Pages
 
-    /// Puts a layout's margins, bands and decorations in place.
-    ///
-    /// - Parameter old: the layout being replaced, or `nil` when first set.
-    private func applyPageLayout(replacing old: PageLayout?) {
-        // Where the reader is, taken before anything moves. Within one
-        // orientation every mode paginates the same, so this converts by
-        // page. A new orientation re-wraps the text and no position converts,
-        // so there the line at the top is kept instead.
-        let offset = textView.contentOffset.y
-        let anchor = old.map { $0.orientation != pageLayout.orientation } == true ? topLineCharacter() : nil
-        let oldTextBottom = textView.textContentHeight - textView.textContainerInset.bottom
-
-        if old != nil {
-            inkPipeline.show()
-        }
-
-        // The bottom inset is the space after the last page's body. The note's
-        // height is rounded to whole pages separately, in the content height,
-        // so this never has to be worked out from the text.
-        textView.textContainerInset = UIEdgeInsets(
-            top: pageLayout.firstBodyTop,
-            left: PageLayout.margin,
-            bottom: pageLayout.trailingSpace,
-            right: PageLayout.margin
-        )
-        pinLineWidth()
-
-        // The page count, before the bands that depend on it.
-        //
-        // The text's height is still the old layout's until TextKit lays it
-        // out again, and read against the new layout it gave the wrong count:
-        // switching a nine-page note from print layout to seamless counted
-        // eleven pages, then nine, ten, nine, as the text reflowed. Every
-        // change reassigned the bands, which relays out the whole note, and
-        // TextKit shifted the scroll offset each time — the reader landed a
-        // line and a half into the page. Within one orientation every mode
-        // puts the same lines on the same pages, so the old text bottom
-        // converts exactly, and the count is right the first time.
-        let newLayout = pageLayout
-        textView.reapplyContentHeightAdjustment(converting: { [textView] height in
-            guard let old, let bottom = old.convert(y: oldTextBottom, to: newLayout) else { return height }
-            return bottom + textView.textContainerInset.bottom
-        })
-        applyBands()
-        paintPage()
-
-        guard old != nil else { return }
-
-        // Re-anchor TextKit at the top of the note before going back to the
-        // reader's place.
-        //
-        // TextKit 2 lays text out relative to what the viewport showed last.
-        // After the bands change under a viewport deep in a note, it kept that
-        // anchor: every line on screen sat 167pt below its true position —
-        // exactly print layout's 168pt break less seamless's 1pt, one stale
-        // break's worth — and lines ran across seamless's page breaks. The
-        // reader saw the previous page's last lines where the page began.
-        // Invalidating the layout, a full ensureLayout, and relaying out the
-        // viewport all left it there; only scrolling to the top and back
-        // cleared it (ZZ probe, 13 Sep). At the top of a note nothing is above
-        // the viewport to be stale, so the jump back lays out fresh. It all
-        // happens before the next frame is drawn, so nothing flickers.
-        textView.contentOffset.y = 0
-
-        // The text reflows against new bands, so lay it out before restoring
-        // the reader's place in it.
-        setNeedsLayout()
-        layoutIfNeeded()
-        textView.layoutIfNeeded()
-
-        let target: CGFloat
-        if let old, old.orientation == pageLayout.orientation {
-            let index = old.pageIndex(atY: offset)
-            let intoBody = offset - old.bodyTop(ofPage: index)
-            // At or above a page's first line — in its margin, or the break
-            // before it — means the page itself: show it from its top edge,
-            // and the note from its very top.
-            target = intoBody <= 0.5
-                ? pageLayout.scrollTop(forPage: index)
-                : pageLayout.bodyTop(ofPage: index) + min(intoBody, pageLayout.bodyHeight)
-        } else if let anchor, let top = lineTop(atCharacter: anchor) {
-            // A page's first line means the page itself, the same rule as a
-            // mode switch — and the note's first line means its very top.
-            // Keeping the line itself at the top instead opened every note
-            // with landscape pages 36pt down, its top margin out of view:
-            // PageView starts with default portrait pages, so taking the
-            // note's own on opening runs through here.
-            let index = pageLayout.pageIndex(atY: top)
-            let startsPage = top - pageLayout.bodyTop(ofPage: index) < 1
-            target = startsPage ? pageLayout.scrollTop(forPage: index) : top
-        } else {
-            textView.contentOffset.y = clampedOffset(textView.contentOffset.y)
-            return
-        }
-
-        // Within one orientation the page count is right from the start, so
-        // nothing reassigns the bands after this and the first set sticks.
-        // Across orientations the text re-wraps and the count can still move
-        // while it settles, which relays out the note and shifts the offset,
-        // so set it again if a pass moved it.
-        for _ in 0..<3 {
-            let clamped = clampedOffset(target)
-            if abs(textView.contentOffset.y - clamped) < 0.5 { break }
-            textView.contentOffset.y = clamped
-            textView.layoutIfNeeded()
-        }
-    }
-
-    /// A vertical scroll offset kept within the note.
-    private func clampedOffset(_ y: CGFloat) -> CGFloat {
-        min(max(y, 0), max(textView.contentSize.height - textView.bounds.height, 0))
-    }
-
-    /// The character that starts the first line reaching below the top of
-    /// the view — the line the reader is looking at.
-    ///
-    /// With the top edge in a margin or a page break, that's the next page's
-    /// first line, which is what someone scrolled to a sheet's top is reading.
-    /// Internal rather than private for `DebugStateReport`.
-    func topLineCharacter() -> Int? {
-        guard let manager = textView.textLayoutManager,
-              let content = manager.textContentManager
-        else { return nil }
-
-        let edge = textView.contentOffset.y - textView.textContainerInset.top
-        let documentStart = content.documentRange.location
-        let from = manager.textViewportLayoutController.viewportRange?.location ?? documentStart
-
-        var found: Int?
-        manager.enumerateTextLayoutFragments(from: from, options: [.ensuresLayout]) { fragment in
-            let frame = fragment.layoutFragmentFrame
-            guard let line = fragment.textLineFragments.first(where: { frame.minY + $0.typographicBounds.maxY > edge }) else {
-                return true
-            }
-            found = content.offset(from: documentStart, to: fragment.rangeInElement.location) + line.characterRange.location
-            return false
-        }
-        return found
-    }
-
-    /// The top of the line holding `character`, in note coordinates.
-    func lineTop(atCharacter character: Int) -> CGFloat? {
-        guard let manager = textView.textLayoutManager,
-              let content = manager.textContentManager,
-              let location = content.location(content.documentRange.location, offsetBy: character),
-              let fragment = manager.textLayoutFragment(for: location)
-        else { return nil }
-
-        let within = character - content.offset(from: content.documentRange.location, to: fragment.rangeInElement.location)
-        let line = fragment.textLineFragments.first { NSLocationInRange(within, $0.characterRange) }
-            ?? fragment.textLineFragments.first
-        guard let line else { return nil }
-        return fragment.layoutFragmentFrame.minY + line.typographicBounds.minY + textView.textContainerInset.top
-    }
-
-    /// Sets the bands text flows around, one after each page.
-    private func applyBands() {
-        bandedPageCount = pageCount
-        textView.textContainer.exclusionPaths = pageLayout
-            .exclusionBands(pageCount: pageCount, containerTop: textView.textContainerInset.top)
-            .map { UIBezierPath(rect: $0) }
-    }
-
-    /// The note's height for text TextKit says is `height` tall: enough whole
-    /// pages for the text and the ink.
-    ///
-    /// Idempotent. Fed its own answer back — as happens if anything sets the
-    /// content size from the content size — the text's bottom lands at the end
-    /// of the last page's body, which gives the same page count again.
-    private func noteHeight(forTextHeight height: CGFloat) -> CGFloat {
-        let textBottom = height - textView.textContainerInset.bottom
-        pageCount = pageLayout.pageCount(textBottom: textBottom, inkBottom: inkPipeline.bottom, minimum: minimumPageCount)
-        return pageLayout.noteHeight(pageCount: pageCount)
-    }
-
     /// One more page at the end of the note, for ink or text to go on.
     func addPage() {
-        raiseMinimum(to: pageCount + 1)
-    }
-
-    /// Seamless has no page ends to see, so a note keeps a blank page below
-    /// its ink: when ink reaches the last page, there is one more. Compressed
-    /// and print layout show their pages, and have Add Page.
-    private func keepPageBelowInk() {
-        guard pageLayout.mode == .seamless, let inkBottom = inkPipeline.bottom,
-              pageLayout.pageIndex(atY: inkBottom) >= pageCount - 1
-        else { return }
-        raiseMinimum(to: pageCount + 1)
-    }
-
-    private func raiseMinimum(to count: Int) {
-        guard count > minimumPageCount else { return }
-        minimumPageCount = count
-        onMinimumPageCountChanged?(count)
-    }
-
-    /// Brings the bands, canvas and decorations up to the page count.
-    ///
-    /// A line pushed past the last page's band makes one more page; its band
-    /// only affects text below it, so this converges. Reassigning exclusion
-    /// paths relays out the text, so only when the count has changed.
-    private func updatePageFurniture() {
-        if bandedPageCount != pageCount {
-            applyBands()
-        }
-
-        let noteHeight = pageLayout.noteHeight(pageCount: pageCount)
-        canvas.noteSize = CGSize(width: pageLayout.pageSize.width, height: noteHeight)
-        let visible = Self.visiblePart(
-            ofNoteHeight: noteHeight,
-            width: pageLayout.pageSize.width,
-            scrolledTo: textView.contentOffset.y,
-            viewHeight: textView.bounds.height
-        )
-        canvas.cover(visible)
-        selectionOverlay.cover(visible)
-        selection.regions = pageLayout.inkRegions(pageCount: pageCount)
-        decorations.update(layout: pageLayout, pageCount: pageCount, height: noteHeight)
-        covers.update(layout: pageLayout, pageCount: pageCount, height: noteHeight)
-    }
-
-    /// The part of the note on screen, which is all the canvas covers.
-    ///
-    /// Kept within the note, so a bounce past either end doesn't carry the
-    /// canvas off it: the ink there has nothing to draw anyway.
-    static func visiblePart(ofNoteHeight noteHeight: CGFloat, width: CGFloat, scrolledTo offset: CGFloat, viewHeight: CGFloat) -> CGRect {
-        let height = min(max(viewHeight, 0), noteHeight)
-        let top = min(max(offset, 0), noteHeight - height)
-        return CGRect(x: 0, y: top, width: width, height: height)
+        bands.addPage()
     }
 
     // MARK: Ink
+
+    var inkBottom: CGFloat? { inkPipeline.bottom }
+
+    func showInk() {
+        inkPipeline.show()
+    }
 
     /// Replaces the note's ink.
     ///
@@ -931,24 +580,24 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
     }
 
     func inkWasTakenIn(drawnEnds: [CGPoint]) {
-        keepPageBelowInk()
+        bands.keepPageBelowInk()
         growPageForStroke(endingAt: drawnEnds)
     }
 
     /// A stroke the reader just drew that ends in the last page's foot adds a
-    /// page, as Add Page does (`raiseMinimum`), so they can go on writing.
+    /// page, as Add Page does (`PageBands.raiseMinimum`), so they can go on writing.
     ///
     /// Only strokes drawn now count (`InkCapture.Result.drawnEnds`): not ink
     /// that was loaded, moved by the lasso or shown again for a mode switch.
     /// It runs after the stroke has been taken in and told onward, and the
     /// page it adds is the note's minimum, not ink: nothing here calls
     /// `onInkChanged`, so growing never saves ink of its own. Seamless adds
-    /// its page from `keepPageBelowInk` as soon as ink reaches the last page.
+    /// its page from `PageBands.keepPageBelowInk` as soon as ink reaches the last page.
     private func growPageForStroke(endingAt ends: [CGPoint]) {
         guard addsPagesWhileDrawing, pageLayout.mode != .seamless else { return }
         let last = pageCount
         guard ends.contains(where: { pageLayout.endsInGrowthBand(y: $0.y, pageCount: last) }) else { return }
-        raiseMinimum(to: last + 1)
+        bands.raiseMinimum(to: last + 1)
     }
 
     // MARK: Zoom
