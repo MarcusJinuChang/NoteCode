@@ -86,8 +86,7 @@ struct StylingSnapshotTests {
     }
 
     private var golden: URL {
-        URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-            .appendingPathComponent("Snapshots/styling.txt")
+        TestPaths.repoRoot.appendingPathComponent("NoteCodeTests/Text/Editor/Snapshots/styling.txt")
     }
 
     @Test("Styling every block kind matches the snapshot taken before the split")
