@@ -41,10 +41,15 @@ final class ToastCenter {
     private(set) var current: Toast?
 
     private let duration: Duration
+    private let clock: any Clock<Duration>
 
-    /// - Parameter duration: how long a toast stays. Tests pass a short one.
-    init(duration: Duration = ToastCenter.defaultDuration) {
+    /// - Parameters:
+    ///   - duration: how long a toast stays. Tests pass a short one.
+    ///   - clock: what the stay is measured on. Tests pass one they move by
+    ///     hand; the app uses `ContinuousClock`, as `Task.sleep(for:)` does.
+    init(duration: Duration = ToastCenter.defaultDuration, clock: any Clock<Duration> = ContinuousClock()) {
         self.duration = duration
+        self.clock = clock
     }
 
     private var dismissal: Task<Void, Never>?
@@ -61,11 +66,17 @@ final class ToastCenter {
         ).post()
 
         dismissal?.cancel()
-        dismissal = Task { [weak self, duration] in
-            try? await Task.sleep(for: duration)
+        dismissal = Task { [weak self, duration, clock] in
+            try? await clock.sleep(for: duration)
             guard !Task.isCancelled, self?.current?.id == toast.id else { return }
             self?.current = nil
         }
+    }
+
+    /// Returns once the toast showing now has had its stay, or was taken
+    /// away sooner. For tests.
+    func settled() async {
+        await dismissal?.value
     }
 
     /// Takes the toast away now, as pressing its button does.

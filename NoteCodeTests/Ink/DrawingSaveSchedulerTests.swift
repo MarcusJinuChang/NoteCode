@@ -23,10 +23,13 @@ struct DrawingSaveSchedulerTests {
         private let waits: [Double]
         /// Calls, counted from 0, that throw.
         private let failing: Set<Int>
+        /// What the waits are measured on; a test moves it by hand.
+        let clock: ManualClock
 
-        init(waits: [Double] = [], failing: Set<Int> = []) {
+        init(waits: [Double] = [], failing: Set<Int> = [], clock: ManualClock = ManualClock()) {
             self.waits = waits
             self.failing = failing
+            self.clock = clock
         }
 
         struct Failure: Error {}
@@ -35,7 +38,7 @@ struct DrawingSaveSchedulerTests {
             let call = calls
             calls += 1
             if call < waits.count {
-                try? await Task.sleep(for: .seconds(waits[call]))
+                try? await clock.sleep(for: .seconds(waits[call]))
             }
             if failing.contains(call) { throw Failure() }
             return Self.bytes(strokes: markup.subelements.count)
@@ -66,23 +69,14 @@ struct DrawingSaveSchedulerTests {
         }
     }
 
-    private static func saver(for page: Page, delay: Duration = .milliseconds(50), encoder: Encoder) -> DrawingSaveScheduler {
-        DrawingSaveScheduler(page: page, delay: delay, encode: { try await encoder.encode($0) })
+    private static func saver(
+        for page: Page, delay: Duration = .milliseconds(50), encoder: Encoder, clock: any Clock<Duration> = ManualClock()
+    ) -> DrawingSaveScheduler {
+        DrawingSaveScheduler(page: page, delay: delay, clock: clock, encode: { try await encoder.encode($0) })
     }
 
     private static func ink(strokes: Int) -> PaperMarkup {
         TestInk.markup(strokesAt: (0..<strokes).map { CGFloat(100 + $0 * 40) })
-    }
-
-    /// Waits for `condition`, up to `timeout`.
-    private static func eventually(_ timeout: Duration = .seconds(3), _ condition: () -> Bool) async -> Bool {
-        let clock = ContinuousClock()
-        let end = clock.now + timeout
-        while clock.now < end {
-            if condition() { return true }
-            try? await Task.sleep(for: .milliseconds(10))
-        }
-        return condition()
     }
 
     // MARK: When
@@ -92,13 +86,18 @@ struct DrawingSaveSchedulerTests {
         let store = try Store()
         let page = store.insert()
         let encoder = Encoder()
-        let saver = Self.saver(for: page, delay: .milliseconds(200), encoder: encoder)
+        let clock = ManualClock()
+        let saver = Self.saver(for: page, delay: .milliseconds(200), encoder: encoder, clock: clock)
 
         saver.inkDidChange(Self.ink(strokes: 1))
+        await clock.untilSleeping()
+        clock.advance(by: .milliseconds(199))
         #expect(page.drawingData.isEmpty)
         #expect(saver.isWaiting)
 
-        #expect(await Self.eventually { page.drawingData == Encoder.bytes(strokes: 1) })
+        clock.advance(by: .milliseconds(1))
+        await saver.settled()
+        #expect(page.drawingData == Encoder.bytes(strokes: 1))
         #expect(!saver.isWaiting)
     }
 
@@ -107,13 +106,17 @@ struct DrawingSaveSchedulerTests {
         let store = try Store()
         let page = store.insert()
         let encoder = Encoder()
-        let saver = Self.saver(for: page, encoder: encoder)
+        let clock = ManualClock()
+        let saver = Self.saver(for: page, encoder: encoder, clock: clock)
 
         for count in 1...5 {
             saver.inkDidChange(Self.ink(strokes: count))
         }
 
-        #expect(await Self.eventually { page.drawingData == Encoder.bytes(strokes: 5) })
+        await clock.untilSleeping()
+        clock.advance(by: .milliseconds(50))
+        await saver.settled()
+        #expect(page.drawingData == Encoder.bytes(strokes: 5))
         #expect(await encoder.calls == 1)
     }
 
@@ -141,10 +144,14 @@ struct DrawingSaveSchedulerTests {
 
         saver.inkDidChange(Self.ink(strokes: 1))
         let first = Task { await saver.flush() }
-        try await Task.sleep(for: .milliseconds(100))
+        await encoder.clock.untilSleeping()
 
         saver.inkDidChange(Self.ink(strokes: 2))
-        await saver.flush()
+        // The newer flush may queue behind the slow save, so it can't be
+        // awaited before the slow encode is let finish.
+        let second = Task { await saver.flush() }
+        encoder.clock.advance(by: .seconds(1))
+        await second.value
         await first.value
 
         #expect(page.drawingData == Encoder.bytes(strokes: 2))
@@ -242,12 +249,13 @@ struct DrawingSaveSchedulerTests {
         let saver = Self.saver(for: page, delay: .seconds(60), encoder: encoder)
         saver.inkDidChange(Self.ink(strokes: 1))
         let saving = Task { await saver.flush() }
-        try await Task.sleep(for: .milliseconds(50))
+        await encoder.clock.untilSleeping()
 
         context.delete(page)
         if deletionSaved {
             try context.save()
         }
+        encoder.clock.advance(by: .seconds(1))
         await saving.value
         // The store autosaves after the write lands, in the app.
         try context.save()

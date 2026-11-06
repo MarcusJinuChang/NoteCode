@@ -103,7 +103,7 @@ struct CaretAnywhereTests {
         harness.coordinator.extendNote(toReach: CGPoint(x: 200, y: bottom + 4.5 * lineHeight), in: harness.textView)
         #expect(harness.textView.textStorage.length > "Intro\nPara".count)
 
-        try await Task.sleep(for: .milliseconds(50))
+        await harness.nextTap()
         harness.textView.undoManager?.undo()
         #expect(harness.textView.textStorage.string == "Intro\nPara")
     }
