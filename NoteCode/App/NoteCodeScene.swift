@@ -62,6 +62,7 @@ struct NoteCodeScene: Scene {
                         .modelContainer(container)))
                     .environment(\.appExtensions, extensions)
                     .modifier(AppearanceModifier())
+                    .providesLayoutClass()
 #if DEBUG
                     .modifier(DebugRoot(extensions: extensions))
 #endif

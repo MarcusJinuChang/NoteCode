@@ -74,13 +74,13 @@ struct HomeView: View {
     /// An iPhone, a folded Duo, or a column too narrow for the iPad layout
     /// (`HomeLayout`): cards are smaller and the grids have two columns.
 #if os(iOS)
-    @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.layoutClass) private var layoutClass
     private var isCompact: Bool {
-        HomeLayout.isCompact(compactSizeClass: sizeClass == .compact, width: homeSize.width)
+        HomeLayout.isCompact(compactSizeClass: layoutClass.isCompact, width: homeSize.width)
     }
     /// A stack (`ContentView.compactStack`): the list is pushed over Home,
     /// not beside it. A narrow regular width still has it beside.
-    private var listIsAScreenAway: Bool { sizeClass == .compact }
+    private var listIsAScreenAway: Bool { layoutClass.isCompact }
 #else
     private var isCompact: Bool { false }
     private var listIsAScreenAway: Bool { false }

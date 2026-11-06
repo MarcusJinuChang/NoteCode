@@ -564,8 +564,8 @@ struct RunPanelHost: View {
     @State private var showsRunPaywall = false
 
 #if os(iOS)
-    @Environment(\.horizontalSizeClass) private var sizeClass
-    private var isCompact: Bool { sizeClass == .compact }
+    @Environment(\.layoutClass) private var layoutClass
+    private var isCompact: Bool { layoutClass.isCompact }
 #else
     private var isCompact: Bool { false }
 #endif

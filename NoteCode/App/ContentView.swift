@@ -17,6 +17,9 @@ struct ContentView: View {
     /// one on first save — a new note would close itself a moment after
     /// opening.
     @State private var nav = NoteNavigation()
+    private var actions: NoteActions {
+        NoteActions(navigation: nav, context: modelContext, toasts: toasts)
+    }
     private var selection: Page? {
         get { nav.selection }
         nonmutating set { nav.selection = newValue }
@@ -40,8 +43,8 @@ struct ContentView: View {
     }
 
 #if os(iOS)
-    @Environment(\.horizontalSizeClass) private var sizeClass
-    private var isCompact: Bool { sizeClass == .compact }
+    @Environment(\.layoutClass) private var layoutClass
+    private var isCompact: Bool { layoutClass.isCompact }
 #else
     private var isCompact: Bool { false }
 #endif
@@ -117,19 +120,17 @@ struct ContentView: View {
     /// What the launch delay and the rating prompt's wait are measured on.
     @Environment(\.debounceClock) private var debounceClock
 
-#if DEBUG
-    /// True when a debug launch argument opened a note, in a store of its own
-    /// (or `-debug-keep-defaults` says the saved state is not this launch's).
-    private let opensDebugNote: Bool
-#else
-    /// Only debug launch arguments open a note of their own.
-    private var opensDebugNote: Bool { false }
-#endif
+    /// What the launch does once (`LaunchCoordinator`).
+    private let launch: LaunchCoordinator
 
     /// - Parameter openedPage: a note to open straight away, with the list
     ///   hidden. Only debug launch arguments pass one.
     init(storageIsEphemeral: Bool = false, openedPage: Page? = nil) {
         self.storageIsEphemeral = storageIsEphemeral
+        // True when a debug launch argument opened a note, in a store of its
+        // own (or `-debug-keep-defaults` says the saved state is not this
+        // launch's). Only debug launch arguments open a note of their own.
+        var opensDebugNote = false
 #if DEBUG && canImport(UIKit)
         // `-debug-keep-defaults` is a run over a device's own notes: nothing
         // here may prune, claim or make what belongs to the real store.
@@ -137,6 +138,7 @@ struct ContentView: View {
 #elseif DEBUG
         opensDebugNote = openedPage != nil
 #endif
+        launch = LaunchCoordinator(storageIsEphemeral: storageIsEphemeral, opensDebugNote: opensDebugNote)
         // The list is away for the first layout and comes in right after it
         // (`SidebarPlan.launchDelay`), on Home, or over a note when storage
         // failed and the warning is the list's.
@@ -196,15 +198,15 @@ struct ContentView: View {
         ))
         .task {
             try? await debounceClock.sleep(for: SidebarPlan.launchDelay)
-            if SidebarPlan.showsList(noteOpen: selection != nil, storageFailed: storageIsEphemeral) {
+            if launch.showsList(noteOpen: selection != nil) {
                 columnVisibility = .all
             }
             syncOpenNoteClaim()
             claimWelcomeScreenOnFirstLaunch()
             launchSettled = true
-            makeWelcomeNoteOnFirstLaunch()
-            purgeExpiredNotes()
-            pruneNoteMemory()
+            launch.makeWelcomeNoteOnFirstLaunch(in: modelContext, extensions: extensions)
+            launch.purgeExpiredNotes(in: modelContext)
+            launch.pruneNoteMemory(in: modelContext)
         }
         .onChange(of: selection) { closed, _ in
             if selection != newPage { newPage = nil }
@@ -325,7 +327,7 @@ struct ContentView: View {
             PageDetailView(
                 page: page,
                 revealing: openedSearch,
-                onDelete: { delete(page) },
+                onDelete: { actions.moveToRecentlyDeleted([page], reopening: page) },
                 onGoHome: houseButtonAction,
                 onToggleList: isCompact ? nil : { toggleNoteList() },
                 onShowSettings: { showsSettings = true },
@@ -455,12 +457,12 @@ struct ContentView: View {
     /// its title ready to rename, through `Page.create` like every other way
     /// of making one.
     private func newNote() {
-        nav.newNote(orientation: newNoteOrientation, context: modelContext)
+        actions.newNote(orientation: newNoteOrientation)
     }
 
     /// A note from a template, made and opened the way ⌘N makes one.
     private func newNote(from template: NoteTemplate) {
-        nav.newNote(from: template, orientation: newNoteOrientation, context: modelContext)
+        actions.newNote(from: template, orientation: newNoteOrientation)
     }
 
     /// Opens a note from Home. Not from a search: Home has none, so the note
@@ -529,13 +531,8 @@ struct ContentView: View {
     }
 
     /// Raises the title screen on a first launch, once.
-    ///
-    /// Not when the on-disk store failed or a debug launch opened a note of its
-    /// own, for the reason `makeWelcomeNoteOnFirstLaunch` gives, and the turn
-    /// isn't spent then.
     private func claimWelcomeScreenOnFirstLaunch() {
-        guard !storageIsEphemeral, !opensDebugNote else { return }
-        if WelcomeScreen.claimFirstLaunch() {
+        if launch.claimsTitleScreen() {
             withAnimation { showsWelcomeScreen = true }
         }
     }
@@ -546,14 +543,6 @@ struct ContentView: View {
 
     private func dismissWelcomeScreen() {
         withAnimation { showsWelcomeScreen = false }
-    }
-
-    /// Forgets the places of notes that are gone, once a launch.
-    private func pruneNoteMemory() {
-        guard !storageIsEphemeral, !opensDebugNote,
-              let ids = try? modelContext.fetchIdentifiers(FetchDescriptor<Page>())
-        else { return }
-        NoteMemory().prune(keeping: Set(ids))
     }
 
     /// A note closed back to Home: the one moment the app asks for a rating,
@@ -580,18 +569,6 @@ struct ContentView: View {
         }
     }
 
-    /// Gives a first launch its tour. Left in the list rather than opened:
-    /// the list is where a new reader should see that there's a list.
-    ///
-    /// Not when the on-disk store failed: the note would live in memory for
-    /// one session, and the flag would say a first launch had happened. And
-    /// not under a debug launch that opened a note of its own, whose store is
-    /// in memory and meant to hold exactly that note.
-    private func makeWelcomeNoteOnFirstLaunch() {
-        guard !storageIsEphemeral, !opensDebugNote else { return }
-        WelcomeNote.makeOnFirstLaunch(in: modelContext, runLines: extensions.runLines)
-    }
-
     /// How far above the page's bottom edge a toast sits: clear of the hotbar
     /// when it is docked there.
     private var pageToastInset: CGFloat {
@@ -602,42 +579,6 @@ struct ContentView: View {
 #else
         16
 #endif
-    }
-
-    /// Deletes notes past their 30 days in Recently Deleted, once a launch.
-    ///
-    /// After the Welcome note's check, not before: a store whose only notes
-    /// were deleted has been used, and the Welcome note's check counts them.
-    private func purgeExpiredNotes() {
-        _ = try? Page.purgeExpired(in: modelContext)
-    }
-
-    /// Closes the open note and moves it to Recently Deleted.
-    ///
-    /// The note closes first, and the page that shows it with it. The list
-    /// comes back, since the page it slid away for is gone and its ☰ with it.
-    /// Nothing asks: the toast's Undo puts the note back and, if the reader
-    /// hasn't opened another since, reopens it.
-    private func delete(_ page: Page) {
-        nav.delete(page, context: modelContext, toasts: toasts)
-    }
-}
-
-/// Shown in place of the editor when another window has the note open, so
-/// two editors never write one note (`OpenNoteRegistry`).
-struct OpenElsewhereView: View {
-    var title: String
-    var onGoHome: () -> Void
-
-    var body: some View {
-        ContentUnavailableView {
-            Label { Text("Open in Another Window") } icon: { EmptyStateMark() }
-        } description: {
-            Text("\u{201C}\(title)\u{201D} is open in another window. Close it there to edit it here, or open a different note.")
-        } actions: {
-            Button("Go Home", action: onGoHome)
-        }
-        .accessibilityIdentifier("openElsewhere")
     }
 }
 

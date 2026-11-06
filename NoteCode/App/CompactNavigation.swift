@@ -85,12 +85,12 @@ struct OpensOnTapInCompactWidth: ViewModifier {
     var open: () -> Void
 
 #if os(iOS)
-    @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.layoutClass) private var layoutClass
 #endif
 
     func body(content: Content) -> some View {
 #if os(iOS)
-        if sizeClass == .compact {
+        if layoutClass.isCompact {
             content
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(.rect)

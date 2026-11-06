@@ -86,7 +86,7 @@ struct NoteNavigationFlowTests {
     @Test("A note made while Home is up is unfiled and opens")
     func createFromHome() {
         let nav = NoteNavigation()
-        let page = nav.newNote(orientation: .default, context: context)
+        let page = NoteActions(navigation: nav, context: context, toasts: nil).newNote(orientation: .default)
         #expect(page.folder == nil)
         #expect(nav.selection === page)
         #expect(page.isLive)
@@ -95,8 +95,8 @@ struct NoteNavigationFlowTests {
     @Test("Making a second note moves the new-note mark to it and opens it")
     func createTwice() {
         let nav = NoteNavigation()
-        let first = nav.newNote(orientation: .default, context: context)
-        let second = nav.newNote(orientation: .default, context: context)
+        let first = NoteActions(navigation: nav, context: context, toasts: nil).newNote(orientation: .default)
+        let second = NoteActions(navigation: nav, context: context, toasts: nil).newNote(orientation: .default)
         #expect(first !== second)
         #expect(nav.newPage === second)
         #expect(nav.selection === second)
@@ -110,7 +110,7 @@ struct NoteNavigationFlowTests {
         let nav = NoteNavigation(selection: open)
         try Page.moveToRecentlyDeleted([open], from: context)
 
-        let page = nav.newNote(orientation: .default, context: context)
+        let page = NoteActions(navigation: nav, context: context, toasts: nil).newNote(orientation: .default)
         #expect(page.folder == nil)
     }
 
@@ -118,7 +118,7 @@ struct NoteNavigationFlowTests {
     func createFromTemplate() {
         let nav = NoteNavigation()
         nav.openedSearch = NoteSearch("heap")
-        let page = nav.newNote(from: .lecture, orientation: .default, context: context)
+        let page = NoteActions(navigation: nav, context: context, toasts: nil).newNote(from: .lecture, orientation: .default)
         #expect(nav.newPage === page)
         #expect(nav.openedSearch == NoteSearch(""))
         #expect(nav.selection === page)
@@ -127,7 +127,7 @@ struct NoteNavigationFlowTests {
     @Test("Making a note does not touch the stack or the columns; the views do that")
     func createLeavesLayoutAlone() {
         let nav = NoteNavigation(columnVisibility: .detailOnly, compactPath: [.list])
-        nav.newNote(orientation: .default, context: context)
+        NoteActions(navigation: nav, context: context, toasts: nil).newNote(orientation: .default)
         #expect(nav.compactPath == [.list])
         #expect(nav.columnVisibility == .detailOnly)
     }
@@ -141,7 +141,7 @@ struct NoteNavigationFlowTests {
         try context.save()
         let nav = NoteNavigation(selection: page)
 
-        nav.delete(page, context: context, toasts: toasts)
+        NoteActions(navigation: nav, context: context, toasts: toasts).moveToRecentlyDeleted([page], reopening: page)
 
         #expect(!page.isLive)
         #expect(!context.hasChanges, "moveToRecentlyDeleted saves at once")
@@ -154,7 +154,7 @@ struct NoteNavigationFlowTests {
         let toasts = ToastCenter()
         let page = note("Open")
         let nav = NoteNavigation(selection: page)
-        nav.delete(page, context: context, toasts: toasts)
+        NoteActions(navigation: nav, context: context, toasts: toasts).moveToRecentlyDeleted([page], reopening: page)
         nav.openedSearch = NoteSearch("stale")
 
         toasts.performAction()
@@ -169,7 +169,7 @@ struct NoteNavigationFlowTests {
         let toasts = ToastCenter()
         let page = note("Open")
         let nav = NoteNavigation(selection: page, compactPath: [.note])
-        nav.delete(page, context: context, toasts: toasts)
+        NoteActions(navigation: nav, context: context, toasts: toasts).moveToRecentlyDeleted([page], reopening: page)
         toasts.performAction()
         #expect(nav.compactPath == [.list])
         #expect(nav.selection === page)
@@ -181,7 +181,7 @@ struct NoteNavigationFlowTests {
         let open = note("Open")
         let other = note("Other")
         let nav = NoteNavigation(selection: open)
-        nav.delete(other, context: context, toasts: toasts)
+        NoteActions(navigation: nav, context: context, toasts: toasts).moveToRecentlyDeleted([other], reopening: other)
         #expect(nav.selection == nil)
         #expect(open.isLive)
     }
@@ -192,7 +192,7 @@ struct NoteNavigationFlowTests {
     func deleteOneFromList() {
         let toasts = ToastCenter()
         let page = note("A")
-        NoteNavigation().deletePages([page], context: context, toasts: toasts)
+        NoteActions(navigation: NoteNavigation(), context: context, toasts: toasts).moveToRecentlyDeleted([page])
         #expect(toasts.current?.message == "Moved to Recently Deleted")
         #expect(toasts.current?.action?.title == "Undo")
     }
@@ -203,7 +203,7 @@ struct NoteNavigationFlowTests {
         let open = note("Open")
         let other = note("Other")
         let nav = NoteNavigation(selection: open)
-        nav.deletePages([other], context: context, toasts: toasts)
+        NoteActions(navigation: nav, context: context, toasts: toasts).moveToRecentlyDeleted([other])
         toasts.performAction()
         #expect(other.isLive)
         #expect(nav.selection === open)
@@ -214,7 +214,7 @@ struct NoteNavigationFlowTests {
         let toasts = ToastCenter()
         let open = note("Open")
         let nav = NoteNavigation(selection: open)
-        nav.deletePages([open], context: context, toasts: toasts)
+        NoteActions(navigation: nav, context: context, toasts: toasts).moveToRecentlyDeleted([open])
         #expect(nav.selection == nil)
         toasts.performAction()
         #expect(open.isLive)
@@ -227,7 +227,7 @@ struct NoteNavigationFlowTests {
         let page = note("A")
         try context.save()
         let nav = NoteNavigation(selection: page, columnVisibility: .detailOnly, compactPath: [.list, .note])
-        nav.deletePages([page], context: context, toasts: toasts)
+        NoteActions(navigation: nav, context: context, toasts: toasts).moveToRecentlyDeleted([page])
         #expect(!context.hasChanges)
         #expect(nav.compactPath == [.list, .note], "the view's onChange pops the stack")
         #expect(nav.columnVisibility == .detailOnly)
@@ -236,7 +236,7 @@ struct NoteNavigationFlowTests {
     @Test("Without a toast centre the list still deletes, and says nothing")
     func listDeleteWithoutToasts() {
         let page = note("A")
-        NoteNavigation().deletePages([page], context: context, toasts: nil)
+        NoteActions(navigation: NoteNavigation(), context: context, toasts: nil).moveToRecentlyDeleted([page])
         #expect(!page.isLive)
     }
 
@@ -246,7 +246,7 @@ struct NoteNavigationFlowTests {
         let page = note("A")
         let long = Date(timeIntervalSince1970: 1_000)
         page.deletedAt = long
-        NoteNavigation().deletePages([page], context: context, toasts: toasts)
+        NoteActions(navigation: NoteNavigation(), context: context, toasts: toasts).moveToRecentlyDeleted([page])
         #expect(page.deletedAt == long)
     }
 
@@ -259,8 +259,8 @@ struct NoteNavigationFlowTests {
         let second = note("Second")
         let nav = NoteNavigation()
 
-        nav.deletePages([first], context: context, toasts: toasts)
-        nav.deletePages([second], context: context, toasts: toasts)
+        NoteActions(navigation: nav, context: context, toasts: toasts).moveToRecentlyDeleted([first])
+        NoteActions(navigation: nav, context: context, toasts: toasts).moveToRecentlyDeleted([second])
         toasts.performAction()
 
         #expect(second.isLive)
@@ -276,11 +276,11 @@ struct NoteNavigationFlowTests {
         let fromList = note("FromList")
 
         let noteNav = NoteNavigation(selection: fromNote)
-        noteNav.delete(fromNote, context: context, toasts: toasts)
+        NoteActions(navigation: noteNav, context: context, toasts: toasts).moveToRecentlyDeleted([fromNote], reopening: fromNote)
         toasts.performAction()
 
         let listNav = NoteNavigation(selection: fromList)
-        listNav.deletePages([fromList], context: context, toasts: toasts)
+        NoteActions(navigation: listNav, context: context, toasts: toasts).moveToRecentlyDeleted([fromList])
         toasts.performAction()
 
         #expect(noteNav.selection === fromNote)
@@ -297,7 +297,7 @@ struct NoteNavigationFlowTests {
         let inside = note("Inside", in: folder)
         let nav = NoteNavigation(selection: inside)
 
-        nav.delete(folder, .keepingNotes, context: context, toasts: toasts)
+        NoteActions(navigation: nav, context: context, toasts: toasts).delete(folder, .keepingNotes)
 
         #expect(nav.selection === inside)
         #expect(inside.isLive)
@@ -313,7 +313,7 @@ struct NoteNavigationFlowTests {
         let inside = note("Inside", in: folder)
         let nav = NoteNavigation(selection: inside)
 
-        nav.delete(folder, .withNotes, context: context, toasts: toasts)
+        NoteActions(navigation: nav, context: context, toasts: toasts).delete(folder, .withNotes)
         #expect(!inside.isLive)
         toasts.performAction()
 

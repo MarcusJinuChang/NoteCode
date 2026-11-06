@@ -75,8 +75,8 @@ struct PageDetailView: View {
     /// In a compact width the bar is at the bottom whatever this device
     /// stored, and can't be moved; the stored edge is the iPad's, and comes
     /// back when the width does (a Duo unfolded).
-    @Environment(\.horizontalSizeClass) private var sizeClass
-    private var isCompact: Bool { sizeClass == .compact }
+    @Environment(\.layoutClass) private var layoutClass
+    private var isCompact: Bool { layoutClass.isCompact }
 
     /// Where the bar is: the stored edge, or the bottom in a compact width,
     /// and never across a Duo's fold while it is partly folded
