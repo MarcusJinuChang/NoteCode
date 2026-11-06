@@ -134,7 +134,7 @@ struct NoteEditorTests {
         // does with it as the keyboard goes: the arrows still leave it be.
         let textUndo = try #require(harness.textView.undoManager)
         textUndo.registerUndo(withTarget: harness.textView) { _ in }
-        harness.editor.refreshUndoState()
+        harness.editor.undoRouter.refresh()
         #expect(!harness.editor.canUndo)
         harness.editor.undo()
         #expect(harness.textView.text == "a **word** b")
@@ -142,7 +142,7 @@ struct NoteEditorTests {
         // The lock is on text only: ink's own stack still works.
         harness.editor.setMode(.ink)
         harness.canvas.undoManager?.registerUndo(withTarget: harness.canvas) { _ in }
-        harness.editor.refreshUndoState()
+        harness.editor.undoRouter.refresh()
         #expect(harness.editor.canUndo)
 
         harness.editor.setMode(.text)
@@ -178,7 +178,7 @@ struct NoteEditorTests {
         #expect(!harness.editor.canUndo)
 
         harness.canvas.undoManager?.registerUndo(withTarget: harness.canvas) { _ in }
-        harness.editor.refreshUndoState()
+        harness.editor.undoRouter.refresh()
         #expect(harness.editor.canUndo)
 
         harness.editor.setMode(.text)
@@ -190,7 +190,7 @@ struct NoteEditorTests {
         let harness = Self.harness("a word b")
         harness.editor.setMode(.ink)
         harness.canvas.undoManager?.registerUndo(withTarget: harness.canvas) { _ in }
-        harness.editor.refreshUndoState()
+        harness.editor.undoRouter.refresh()
         #expect(harness.editor.canUndo)
 
         harness.canvas.forgetUndo()

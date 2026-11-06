@@ -23,7 +23,7 @@ extension DocumentTextView.Coordinator {
         (textView as? DocumentUITextView)?.clearSearchHighlights()
         restyle(textView)
         text.wrappedValue = textView.text
-        editor?.refreshUndoState()
+        editor?.undoRouter.refresh()
     }
 
     /// Turns away the keyboard's rewrites of code behind the caret

@@ -20,161 +20,67 @@ import UIKit
 @Observable
 final class NoteEditor {
 
-    private(set) var mode: EditorMode = .text
+    // MARK: The mode and the ink tool in hand (EditorModeState)
+
+    @ObservationIgnored private(set) var modeState: EditorModeState!
+
+    var mode: EditorMode { modeState.mode }
 
     /// Called after the mode changes. The text view's code blocks show or
     /// hide their fences with it (`DocumentTextView.Coordinator`), and no
     /// edit or selection change tells them.
-    ///
-    /// Not observed state: it is the text view's hook, and hooking it up
-    /// must not make the hotbar re-render.
-    @ObservationIgnored var modeDidChange: (() -> Void)?
+    var modeDidChange: (() -> Void)? {
+        get { modeState.modeDidChange }
+        set { modeState.modeDidChange = newValue }
+    }
 
     /// What the pen, highlighter, eraser and Select tool are set to, and
-    /// Finger Draws, kept for the device (`InkToolStore`). The editor holds
-    /// only the tool in hand.
-    let inkTools: InkToolStore
-
-    /// The tool in hand. Not stored: a note opens on the pen.
-    private var toolKind = InkToolKind.pen {
-        didSet {
-            guard toolKind != oldValue else { return }
-            previousInkKind = oldValue
-            toolDidChange()
-            // The selection is the canvas controller's, not the tool's, so it
-            // outlived the lasso (reported 21 Oct). Only *leaving* the lasso
-            // clears it: `insertIntoInk` selects what it inserted and then
-            // switches to the lasso, and that must keep the selection.
-            if oldValue == .lasso, toolKind != .lasso {
-                canvas?.clearPaperKitSelection()
-                page?.selection.clear()
-            }
-        }
-    }
+    /// Finger Draws, kept for the device (`InkToolStore`).
+    var inkTools: InkToolStore { modeState.inkTools }
 
     /// What ink mode draws with: the tool in hand, and the store's settings.
-    /// Kept here rather than in the hotbar so the canvas can take it as it
-    /// changes.
     var inkTool: InkToolState {
-        get {
-            InkToolState(
-                kind: toolKind, pen: inkTools.pen, highlighter: inkTools.highlighter,
-                eraser: inkTools.eraser, selectionKind: inkTools.selectionKind
-            )
-        }
-        set {
-            inkTools.pen = newValue.pen
-            inkTools.highlighter = newValue.highlighter
-            inkTools.eraser = newValue.eraser
-            inkTools.selectionKind = newValue.selectionKind
-            toolKind = newValue.kind
-        }
-    }
-
-    /// The canvas takes the tool, and the Select tool its shape.
-    private func toolDidChange() {
-        canvas?.tool = inkTool.pencilKitTool
-        page?.selection.kind = inkTools.selectionKind
-        applySelecting()
-    }
-
-    /// The store changed under this note: from its own hotbar, or from
-    /// Settings.
-    private func storeDidChange(_ change: InkToolStore.Change) {
-        switch change {
-        case .tool:
-            toolDidChange()
-        case .fingerDraws:
-            canvas?.allowsFingerDrawing = !isPencilOnly
-            applySelecting()
-            applyScrolling()
-        case .returnsToPreviousTool, .palette:
-            break
-        }
+        get { modeState.inkTool }
+        set { modeState.inkTool = newValue }
     }
 
     /// The Select tool's selection, once the page exists.
-    var selection: InkSelection? { page?.selection }
+    var selection: InkSelection? { modeState.selection }
 
-    /// Gives touches to the Select tool's overlay while it is the tool in ink
-    /// mode, and to the canvas otherwise.
-    private func applySelecting() {
-        let selecting = mode == .ink && inkTool.kind == .lasso
-        // PaperKit gets no touches while the Select tool has the page, except
-        // for one object the reader chose to Edit.
-        let editing = page?.selection.isEditingInPaperKit ?? false
-        canvas?.suspendsPaperKitInput = selecting
-        page?.setSelecting(selecting && !editing, allowsFingers: !isPencilOnly)
-    }
+    /// The tool in use before the current one.
+    var previousInkKind: InkToolKind { modeState.previousInkKind }
 
-    /// The tool in use before the current one, for the Pencil's double tap
-    /// and squeeze to switch back to.
-    private(set) var previousInkKind = InkToolKind.pen
-
-    /// Swaps between the current tool and the eraser: the Pencil's double
-    /// tap, as the system sets it up out of the box.
-    func toggleEraser() {
-        if inkTool.kind == .eraser {
-            inkTool.kind = previousInkKind == .eraser ? .pen : previousInkKind
-        } else {
-            inkTool.kind = .eraser
-        }
-    }
-
-    /// Swaps between the current tool and the one before it.
-    func switchToPreviousTool() {
-        inkTool.kind = previousInkKind
-    }
-
-    /// The Pencil's double tap or squeeze while the text has the page: goes to
-    /// ink mode so the gesture has something to act on, then does what the
-    /// reader set it to. Nothing when the setting is off or a shortcut the
-    /// system runs itself, since switching mode for a gesture that then does
-    /// nothing would only surprise. Whether the mode changed.
+    func toggleEraser() { modeState.toggleEraser() }
+    func switchToPreviousTool() { modeState.switchToPreviousTool() }
     @discardableResult
-    func enterInkForPencil(_ response: PencilResponse) -> Bool {
-        guard mode == .text, response != .nothing else { return false }
-        setMode(.ink)
-        return true
-    }
-
-    /// Picks a tool from the keyboard (P, H, E, L). Ink mode only: in text
-    /// mode these are letters.
-    func selectTool(_ kind: InkToolKind) {
-        guard mode == .ink else { return }
-        inkTool.kind = kind
-    }
-
-    /// `[` and `]`: the selected tool one width thinner or thicker.
-    func stepWidth(by direction: Int) {
-        guard mode == .ink else { return }
-        inkTool.stepWidth(by: direction)
-    }
-
-    /// ⇧⌘D, and the same switch as the hotbar's text and draw buttons.
-    func toggleMode() {
-        setMode(mode == .text ? .ink : .text)
-    }
+    func enterInkForPencil(_ response: PencilResponse) -> Bool { modeState.enterInkForPencil(response) }
+    func selectTool(_ kind: InkToolKind) { modeState.selectTool(kind) }
+    func stepWidth(by direction: Int) { modeState.stepWidth(by: direction) }
+    func toggleMode() { modeState.toggleMode() }
+    func setMode(_ newMode: EditorMode) { modeState.setMode(newMode) }
+    func selectionEnded() { modeState.selectionEnded() }
 
     /// Whether only the Pencil draws.
-    ///
-    /// Off by default. The page already has a hard toggle between typing and
-    /// drawing, so a finger in ink mode means to draw; there is no need to
-    /// make people reach for the Pencil to leave a mark. On, a finger scrolls
-    /// and selects instead — what you want with the Pencil in hand and a palm
-    /// resting on the page. After the first change it is whatever the reader
-    /// last chose on this device (`fingerDrawsKey`).
     var isPencilOnly: Bool {
-        get { !inkTools.fingerDraws }
-        set { inkTools.fingerDraws = !newValue }
+        get { modeState.isPencilOnly }
+        set { modeState.isPencilOnly = newValue }
     }
 
     /// The same switch as `isPencilOnly`, said the way the hotbar's hand
     /// button says it: on, a finger draws.
     var fingerDraws: Bool {
-        get { !isPencilOnly }
-        set { isPencilOnly = !newValue }
+        get { modeState.fingerDraws }
+        set { modeState.fingerDraws = newValue }
     }
+
+    /// Whether the selection ending sends the reader back to their tool.
+    var returnsToPreviousTool: Bool {
+        get { modeState.returnsToPreviousTool }
+        set { modeState.returnsToPreviousTool = newValue }
+    }
+
+    func applySelecting() { modeState.applySelecting() }
+    func applyScrolling() { modeState.applyScrolling() }
 
     /// Whether the text options row is out on a phone, where it waits to be
     /// asked for (`Hotbar.showsTextRow`). Ignored in a regular width.
@@ -190,58 +96,33 @@ final class NoteEditor {
     /// unless chosen.
     static let returnToPreviousToolKey = SettingKeys.Drawing.returnToPreviousTool.name
 
-    /// Whether the selection ending sends the reader back to their tool.
-    /// Per device (`InkToolStore`).
-    var returnsToPreviousTool: Bool {
-        get { inkTools.returnsToPreviousTool }
-        set { inkTools.returnsToPreviousTool = newValue }
-    }
-
-    /// The Select tool's selection ended because the reader let go of it:
-    /// Delete, or a tap on empty space. Never a tool or mode switch (they
-    /// chose a tool) and never a move, recolour or duplicate (they often
-    /// do two in a row). Goes back to the tool before Select, if asked to.
-    func selectionEnded() {
-        guard returnsToPreviousTool, mode == .ink, inkTool.kind == .lasso, previousInkKind != .lasso else { return }
-        inkTool.kind = previousInkKind
-    }
-
     /// Whether the note's text is locked (`Page.isTextLocked`), so text mode
     /// reads rather than edits: no keyboard, no formatting, no undo. The page
     /// holds the setting; this is the copy the text view and the hotbar
     /// follow, set by `setTextLocked(_:)`.
     private(set) var isTextLocked = false
 
-    private(set) var canUndo = false
-    private(set) var canRedo = false
+    var canUndo: Bool { undoRouter.canUndo }
+    var canRedo: Bool { undoRouter.canRedo }
+
+    /// Undo and redo (`UndoRouter`): which stack, and whether either has a step.
+    @ObservationIgnored private(set) var undoRouter: UndoRouter!
 
     /// The flags that say an edit is the app's own, so the delegate doesn't
     /// take it for the keyboard's: a formatting button's edit, the typing
     /// style's text being written. The text view's coordinator shares them.
     @ObservationIgnored let editGuard = EditGuard()
 
-    /// What the next text typed will be drawn with, set by a button that has
-    /// no word to act on (`TypingStyle`, docs/archive/text-system-overhaul.md,
-    /// decision 5). Nothing is written until text is typed. Cleared by a
-    /// caret move, a mode switch, a locked note and the keyboard going away.
-    private(set) var typingStyle = TypingStyle.none
+    /// Typing style (`TypingStyleController`): what the next text typed will be
+    /// drawn with, set by a button that has no word to act on.
+    @ObservationIgnored private(set) var typing: TypingStyleController!
+    var typingStyle: TypingStyle { typing.typingStyle }
 
-    /// Where the typing style's text starts and what follows it, so what was
-    /// typed since can be told from any other edit without asking the keyboard
-    /// what it did (see `typingTextDidChange`).
-    private struct TypingAnchor {
-        /// Where the text typed next starts.
-        var from: Int
-        /// The note's length less where the caret is: unchanged while text
-        /// is typed or replaced at the caret.
-        var suffix: Int
-        /// Where the caret was left, so a caret that is somewhere else has moved.
-        var caret: Int
-    }
-    @ObservationIgnored private var typingAnchor: TypingAnchor?
-    /// An edit began before the anchor (an autocorrect of the word behind the
-    /// caret): the next change re-anchors instead of styling.
-    @ObservationIgnored private var typingAnchorIsStale = false
+    /// A caret move, a mode switch, a locked note, a keyboard going away.
+    func clearTypingStyle() { typing.clear() }
+    func typingTextWillChange(range: NSRange) { typing.textWillChange(range: range) }
+    func typingTextDidChange(in textView: UITextView, isTyping: Bool) { typing.textDidChange(in: textView, isTyping: isTyping) }
+    func typingSelectionDidChange(afterEdit: Bool) { typing.selectionDidChange(afterEdit: afterEdit) }
 
     /// Where the last code language is kept. Replaceable so a test doesn't
     /// write the device's own.
@@ -274,10 +155,18 @@ final class NoteEditor {
     ///   it unless the note is opened for the reader (`NoteSession`), so an
     ///   editor made in a test reaches no real settings.
     init(features: [EditorFeatureFactory] = [], inkTools: InkToolStore = InkToolStore()) {
-        self.inkTools = inkTools
-        inkTools.listen(self) { editor, change in editor.storeDidChange(change) }
+        modeState = EditorModeState(editor: self, inkTools: inkTools)
+        undoRouter = UndoRouter(editor: self)
+        typographyController = NoteTypographyController(editor: self)
+        typing = TypingStyleController(editor: self)
+        selectionSize = SelectionSizeController(editor: self)
         install(features)
     }
+
+    func undo() { undoRouter.undo() }
+    func redo() { undoRouter.redo() }
+    func undoFromKeyboard() { undoRouter.undoFromKeyboard() }
+    func redoFromKeyboard() { undoRouter.redoFromKeyboard() }
 
     /// Makes the features, once: a page that is handed its editor's features
     /// after the editor was made (`PageDetailView`) calls this on appearing.
@@ -317,9 +206,8 @@ final class NoteEditor {
     @ObservationIgnored var onBlockCopied: (() -> Void)?
 
     @ObservationIgnored private(set) weak var textView: UITextView?
-    @ObservationIgnored private weak var canvas: DrawingCanvas?
-    @ObservationIgnored private weak var page: PageView?
-    @ObservationIgnored private var savedSession: TextSession?
+    @ObservationIgnored weak var canvas: DrawingCanvas?
+    @ObservationIgnored weak var page: PageView?
 
     /// How many pages the open note runs to, for its info. Read when asked
     /// rather than observed: the count changes as the note is typed, and
@@ -455,7 +343,7 @@ final class NoteEditor {
         canvas?.tool = inkTool.pencilKitTool
         canvas?.allowsFingerDrawing = !isPencilOnly
         canvas?.onUndoDidChange = { [weak self] in
-            self?.refreshUndoState()
+            self?.undoRouter.refresh()
             // Undo can bring back or remove what is selected.
             self?.page?.selection.refresh()
         }
@@ -471,24 +359,10 @@ final class NoteEditor {
         page?.selection.onEditingChange = { [weak self] in self?.applySelecting() }
         page?.selection.onEnded = { [weak self] in self?.selectionEnded() }
         page?.selection.recolourText = { [weak self] ranges, hex in self?.recolourText(ranges, to: hex) }
-        savedSession = mode.apply(to: textView, canvas: canvas, saved: nil, textLocked: isTextLocked)
+        modeState.attachViews(textView, canvas: canvas)
         applySelecting()
         applyScrolling()
-        refreshUndoState()
-    }
-
-    func setMode(_ newMode: EditorMode) {
-        guard newMode != mode else { return }
-        mode = newMode
-        clearTypingStyle()
-        if let textView {
-            savedSession = newMode.apply(to: textView, canvas: canvas, saved: savedSession, textLocked: isTextLocked)
-        }
-        applyScrolling()
-        if newMode != .ink { page?.selection.clear() }
-        applySelecting()
-        refreshUndoState()
-        modeDidChange?()
+        undoRouter.refresh()
     }
 
     /// Locks or unlocks the note's text.
@@ -502,23 +376,8 @@ final class NoteEditor {
         guard locked != isTextLocked else { return }
         isTextLocked = locked
         if locked { clearTypingStyle() }
-        if let textView {
-            savedSession = mode.apply(to: textView, canvas: canvas, saved: savedSession, textLocked: locked)
-        }
-        refreshUndoState()
-    }
-
-    /// Hands the page's pans whatever the mode and the Pencil lock leave them.
-    ///
-    /// Through the page when there is one: it picks between this rule and
-    /// one finger as each touch lands, by whether the canvas takes it.
-    private func applyScrolling() {
-        let scrolling = mode.scrolling(fingerDraws: !isPencilOnly)
-        if let page {
-            page.scrolling = scrolling
-        } else if let textView {
-            scrolling.apply(to: textView.panGestureRecognizer)
-        }
+        modeState.textLockDidChange(locked)
+        undoRouter.refresh()
     }
 
     // MARK: Find
@@ -539,7 +398,7 @@ final class NoteEditor {
     /// word, is an edit; a caret anywhere else in prose sets the typing style
     /// (`TypingStyle`) and writes nothing.
     func toggle(_ style: MarkdownFormatting.InlineStyle) {
-        if let textView, mode == .text, !isTextLocked, isTypingCaret(in: textView) {
+        if let textView, mode == .text, !isTextLocked, typing.isTypingCaret(in: textView) {
             let shown = formattingShown
             let lit = switch style {
             case .bold:          shown.bold
@@ -548,7 +407,7 @@ final class NoteEditor {
             case .underline:     shown.underline
             case .code:          shown.code
             }
-            setTypingStyle(typingStyle.toggled(style, shown: lit))
+            typing.set(typing.typingStyle.toggled(style, shown: lit))
             return
         }
         perform { [textTarget] text, selection in
@@ -607,16 +466,13 @@ final class NoteEditor {
     /// the selection moves away from it: the reader saw the number change.
     func setCaretFormatting(_ formatting: MarkdownFormatting.CaretFormatting) {
         if caretFormatting != formatting { caretFormatting = formatting }
-        if let pending = pendingSelectionSize, let textView, textView.selectedRange != pending.selection {
-            selectionSizeTask?.cancel()
-            settleSelectionSize(keeping: textView.selectedRange)
-        }
+        selectionSize.selectionDidMove()
     }
 
     /// What the bar shows at the caret: the text's own formatting with the
     /// typing style on top, so Bold lit means the next text typed is bold.
     var formattingShown: MarkdownFormatting.CaretFormatting {
-        typingStyle.shown(over: caretFormatting)
+        typing.typingStyle.shown(over: caretFormatting)
     }
 
     /// Starts a code block, and remembers its language for
@@ -674,128 +530,7 @@ final class NoteEditor {
             textView.replace(range, withText: edit.replacement)
         }
         textView.selectedRange = edit.selection
-        refreshUndoState()
-    }
-
-    // MARK: The typing style
-
-    /// Whether a press with the selection as it is sets the typing style: a
-    /// caret that isn't inside a word (`MarkdownFormatting.caretTarget`).
-    private func isTypingCaret(in textView: UITextView) -> Bool {
-        let selection = textView.selectedRange
-        return selection.length == 0 && MarkdownFormatting.caretTarget(
-            at: selection.location, in: textView.textStorage.mutableString, codeRanges: codeRanges
-        ) == .typing
-    }
-
-    /// Sets the typing style, with the keyboard up for it as a formatting
-    /// button brings it, and starts watching for the text typed.
-    private func setTypingStyle(_ style: TypingStyle) {
-        guard let textView else { return }
-        if !textView.isFirstResponder { textView.becomeFirstResponder() }
-        typingStyle = style
-        let caret = textView.selectedRange.location
-        typingAnchor = style.isEmpty ? nil : TypingAnchor(from: caret, suffix: textView.textStorage.length - caret, caret: caret)
-        typingAnchorIsStale = false
-    }
-
-    /// A caret move, a mode switch, a locked note, a keyboard going away.
-    func clearTypingStyle() {
-        if !typingStyle.isEmpty { typingStyle = .none }
-        typingAnchor = nil
-        typingAnchorIsStale = false
-    }
-
-    /// The text view is about to change `range`. Only a hint, since what the
-    /// keyboard says it is doing isn't always what it does (the iPad's Korean
-    /// keyboard reports a jamo inserted where it replaces one): an edit that
-    /// starts in front of the typing style's place is an autocorrect or
-    /// something else, never the text typed there.
-    func typingTextWillChange(range: NSRange) {
-        guard !editGuard.isActive(.writingTypedText), let anchor = typingAnchor, range.location < anchor.from else { return }
-        typingAnchorIsStale = true
-    }
-
-    /// The text changed. If it is text just typed where the typing style
-    /// was set, the same text is written again with the style on, in the same
-    /// turn of the run loop and so the same undo step as the typing.
-    ///
-    /// Written after the fact, from here, and never in `shouldChangeTextIn`:
-    /// that is told what the keyboard thinks it is doing, which for Korean
-    /// on the iPad is a jamo inserted at the caret where the text view really
-    /// replaces the one before it, with no marked text. What is typed is
-    /// found from the note's length instead. `suffix`, the length less the
-    /// caret's place, doesn't change while text is typed or replaced at the
-    /// caret, so the caret's place now says where the typed text ends,
-    /// whatever the keyboard did to get there.
-    ///
-    /// Not while a composition is open (`markedTextRange`): that is the
-    /// keyboard's text until it commits it, and the commit is where the style
-    /// goes on. `isTyping` is false for the app's own edits (a heading, a
-    /// list's Return, an undo), which only move the place.
-    func typingTextDidChange(in textView: UITextView, isTyping: Bool) {
-        guard var anchor = typingAnchor, !typingStyle.isEmpty, !editGuard.isActive(.writingTypedText), mode == .text else { return }
-        let selection = textView.selectedRange
-        // The caret moves as the composition does; it hasn't gone anywhere.
-        guard textView.markedTextRange == nil else {
-            typingAnchor?.caret = selection.location
-            return
-        }
-        guard selection.length == 0 else { return clearTypingStyle() }
-
-        let storage = textView.textStorage
-        let end = storage.length - anchor.suffix
-        defer { if typingAnchor != nil { typingAnchor?.caret = textView.selectedRange.location } }
-
-        guard isTyping, !typingAnchorIsStale, end == selection.location, end >= anchor.from else {
-            // Something else changed the text: start again from the caret.
-            typingAnchorIsStale = false
-            typingAnchor = TypingAnchor(from: selection.location, suffix: storage.length - selection.location, caret: selection.location)
-            return
-        }
-        guard end > anchor.from else { return }
-
-        let run = NSRange(location: anchor.from, length: end - anchor.from)
-        anchor.from = end
-        typingAnchor = anchor
-        let text = storage.mutableString
-        // A new line ends it, as a caret move does; a long paste is left as it is.
-        guard text.rangeOfCharacter(from: .newlines, options: [], range: run).location == NSNotFound else {
-            return clearTypingStyle()
-        }
-        guard run.length <= 2_000,
-              let edit = MarkdownFormatting.typed(
-                  typingStyle, run: run, in: text, blockSizes: blockSizes, codeRanges: codeRanges
-              ),
-              let start = textView.position(from: textView.beginningOfDocument, offset: edit.range.location),
-              let finish = textView.position(from: start, offset: edit.range.length),
-              let range = textView.textRange(from: start, to: finish)
-        else { return }
-
-        editGuard.perform(as: .writingTypedText) {
-            editGuard.perform(as: .formatting) {
-                textView.replace(range, withText: edit.replacement)
-            }
-            textView.selectedRange = edit.selection
-        }
-        typingAnchor = TypingAnchor(
-            from: edit.selection.location, suffix: storage.length - edit.selection.location, caret: edit.selection.location
-        )
-        refreshUndoState()
-    }
-
-    /// The selection changed. A caret that went somewhere the typing didn't
-    /// take it has moved, and the typing style goes. A change that came with
-    /// an edit is typing (or the keyboard's composition) moving it.
-    func typingSelectionDidChange(afterEdit: Bool) {
-        guard let anchor = typingAnchor, !editGuard.isActive(.writingTypedText), !afterEdit, let textView else { return }
-        let selection = textView.selectedRange
-        // Within a composition the keyboard moves the caret as it likes.
-        if textView.markedTextRange != nil {
-            typingAnchor?.caret = selection.location
-        } else if selection.length != 0 || selection.location != anchor.caret {
-            clearTypingStyle()
-        }
+        undoRouter.refresh()
     }
 
     // MARK: The text options row
@@ -808,14 +543,14 @@ final class NoteEditor {
     func indent(outdent: Bool) {
         guard mode == .text, !isTextLocked else { return }
         textTarget?.indentAtCaret(outdent: outdent)
-        refreshUndoState()
+        undoRouter.refresh()
     }
 
     /// The language menu's pick for the block the caret is in.
     func setCodeBlockKind(_ kind: CodeBlockKind) {
         guard mode == .text, !isTextLocked else { return }
         textTarget?.retagBlockAtCaret(kind)
-        refreshUndoState()
+        undoRouter.refresh()
     }
 
     /// + Output: an empty output block under the code block the caret is in.
@@ -831,8 +566,8 @@ final class NoteEditor {
     /// at the caret or the word there; `nil` takes colour off.
     func setColour(_ hex: Int?) {
         guard mode == .text, !isTextLocked, let textView else { return }
-        if isTypingCaret(in: textView) {
-            setTypingStyle(typingStyle.colouring(hex))
+        if typing.isTypingCaret(in: textView) {
+            typing.set(typing.typingStyle.colouring(hex))
             return
         }
         perform { [textTarget] text, selection in
@@ -847,7 +582,7 @@ final class NoteEditor {
     /// lines an edit rewrites can't move a range not yet done.
     func recolourText(_ ranges: [NSRange], to hex: Int?) {
         guard !isTextLocked, let textView else { return }
-        defer { refreshUndoState() }
+        defer { undoRouter.refresh() }
         editGuard.perform(as: .formatting) {
             for range in ranges.sorted(by: { $0.location > $1.location }) {
                 let text = textView.text ?? ""
@@ -865,8 +600,8 @@ final class NoteEditor {
     /// takes the highlight off.
     func setHighlight(_ colour: HighlightColour?) {
         guard mode == .text, !isTextLocked, let textView else { return }
-        if isTypingCaret(in: textView) {
-            setTypingStyle(typingStyle.highlighting(colour))
+        if typing.isTypingCaret(in: textView) {
+            typing.set(typing.typingStyle.highlighting(colour))
             return
         }
         perform { [textTarget] text, selection in
@@ -874,273 +609,26 @@ final class NoteEditor {
         }
     }
 
-    // MARK: The size of the text at the caret
+    // MARK: The size at the caret (SelectionSizeController)
 
-    /// What the size control reads: the text at the caret, or the
-    /// selection, in points.
-    struct SelectionTextSize: Equatable {
-        /// The size, or `nil` for a selection of text in several sizes.
-        var points: Double?
-        /// The size of the text at the selection's start: where + and −
-        /// start from on a selection of several.
-        var startPoints: Double
-        /// The size the text there has with no size of its own: what
-        /// Default sets.
-        var ownPoints: Double
-        /// Whether there is anything to size: text mode, unlocked, not in
-        /// code, and not a caret on no word and in no run.
-        var canChange: Bool
-    }
+    @ObservationIgnored private(set) var selectionSize: SelectionSizeController!
 
-    /// A size for the selection in points (`nil`: the text's own), with the
-    /// selection it was asked for: kept through the stepper's pause and the
-    /// ink question, since the alert takes the keyboard and the text view's
-    /// selection isn't something to read back afterwards.
-    struct SizeRequest: Equatable {
-        /// The size, `nil` for the text's own; for + and −, the size the
-        /// text comes to, or `nil` for text in several sizes.
-        var points: Double?
-        var selection: NSRange
-        /// For + and −: how many points each character moves from its own
-        /// size, so text in several sizes keeps them apart. `nil` for a size
-        /// picked or typed, which `points` says.
-        var steps: Int? = nil
-    }
+    typealias SelectionTextSize = SelectionSizeController.SelectionTextSize
+    typealias SizeRequest = SelectionSizeController.SizeRequest
 
-    /// The stepper's latest tap, which the text catches up to once the taps
-    /// stop (`settleDelay`), so a run of taps re-wraps the note once.
-    private(set) var pendingSelectionSize: SizeRequest?
-    @ObservationIgnored private var selectionSizeTask: Task<Void, Never>?
-    /// The note's length when the pending tap was first made. Text typed
-    /// since has moved what its selection points at, so it is dropped.
-    @ObservationIgnored private var pendingTextLength = 0
-
-    /// The selection Custom… sizes, kept while the size is asked for. `nil`
-    /// unless the alert is up.
-    private(set) var customSizeSelection: NSRange?
+    var pendingSelectionSize: SizeRequest? { selectionSize.pendingSelectionSize }
+    var customSizeSelection: NSRange? { selectionSize.customSizeSelection }
 
     /// What the size control shows: the tap or the answer in flight, or the
     /// text as it is.
-    var selectionTextSize: SelectionTextSize {
-        var reading = textSize(reading: caretFormatting)
-        if let request = pendingSelectionSize {
-            reading.points = request.steps == nil ? request.points ?? reading.ownPoints : request.points
-        } else {
-            switch typingStyle.points {
-            case .set(let points)?: reading.points = points
-            case .clear?:           reading.points = reading.ownPoints
-            case nil:               break
-            }
-        }
-        return reading
-    }
+    var selectionTextSize: SelectionTextSize { selectionSize.selectionTextSize }
+    var canStepSelectionSize: (bigger: Bool, smaller: Bool) { selectionSize.canStepSelectionSize }
 
-    /// + and −, and ⌘+ and ⌘−. Off at the control's ends, 8 and 72 points.
-    var canStepSelectionSize: (bigger: Bool, smaller: Bool) {
-        let reading = selectionTextSize
-        guard reading.canChange else { return (false, false) }
-        let current = reading.points ?? reading.startPoints
-        return (Self.stepped(current, by: 1) != nil, Self.stepped(current, by: -1) != nil)
-    }
-
-    /// + and −: a point bigger or smaller, for the selection, the run at the
-    /// caret or the word there. Text in several sizes moves a point each,
-    /// keeping them apart; each stops at the control's ends.
-    func stepSelectionSize(by steps: Int) {
-        guard let textView else { return }
-        let reading = textSize(reading: currentFormatting(of: textView))
-        guard mode == .text, !isTextLocked, reading.canChange else { return }
-        // No word to resize: the next text typed gets the size, at once, since
-        // nothing is laid out again.
-        if isTypingCaret(in: textView) {
-            let shown = selectionTextSize
-            if let next = Self.stepped(shown.points ?? shown.startPoints, by: steps) {
-                setTypingStyle(typingStyle.sizing(next))
-            }
-            return
-        }
-        // Where the control stands now, if the text is one size.
-        let shown = pendingSelectionSize.map(\.points) ?? reading.points
-        if let shown, Self.stepped(shown, by: steps) == nil { return }
-        let total = (pendingSelectionSize?.steps ?? 0) + steps
-        if pendingSelectionSize == nil { pendingTextLength = textView.textStorage.length }
-        pendingSelectionSize = SizeRequest(
-            points: reading.points.flatMap { Self.stepped($0, by: total) ?? $0 },
-            selection: pendingSelectionSize?.selection ?? textView.selectedRange,
-            steps: total
-        )
-        selectionSizeTask?.cancel()
-        selectionSizeTask = Task { [weak self, settleDelay, settleClock] in
-            try? await settleClock.sleep(for: settleDelay)
-            guard !Task.isCancelled else { return }
-            self?.settleSelectionSize()
-        }
-    }
-
-    /// A size picked from the list, or `nil` for Default: at once, since a
-    /// pick isn't one of a run of taps.
-    func setSelectionSize(points: Double?) {
-        guard let textView, mode == .text, !isTextLocked else { return }
-        dropPendingSelectionSize()
-        if isTypingCaret(in: textView) {
-            setTypingStyle(typingStyle.sizing(points.map { Self.clampedPoints($0) }))
-            return
-        }
-        requestSelectionSize(SizeRequest(points: points.map { Self.clampedPoints($0) }, selection: textView.selectedRange))
-    }
-
-    /// Custom…: asks for a size (`PageDetailView`'s alert).
-    func beginCustomSize() {
-        guard let textView, mode == .text, !isTextLocked,
-              textSize(reading: currentFormatting(of: textView)).canChange
-        else { return }
-        dropPendingSelectionSize()
-        customSizeSelection = textView.selectedRange
-    }
-
-    /// Whether the size control would set the typing style: no word to resize.
-    /// Nothing is laid out again then, so there is no ink question.
-    private var sizesTypedText: Bool {
-        guard let textView else { return false }
-        return isTypingCaret(in: textView)
-    }
-
-    func cancelCustomSize() {
-        customSizeSelection = nil
-    }
-
-    /// The alert's Set: the typed size, clamped to 8 to 72 and to the half
-    /// point. Anything that isn't a number sets nothing.
-    func finishCustomSize(typed: String) {
-        defer { customSizeSelection = nil }
-        guard let selection = customSizeSelection, let points = Self.points(typed: typed) else { return }
-        if sizesTypedText {
-            setTypingStyle(typingStyle.sizing(points))
-            return
-        }
-        applySelectionSize(SizeRequest(points: points, selection: selection))
-    }
-
-    /// `points` stepped a point at a time, or `nil` past the control's ends.
-    /// Text already outside them (a large run in a note made larger) steps
-    /// back towards them, never further out.
-    nonisolated static func stepped(_ points: Double, by steps: Int) -> Double? {
-        SpanSize.stepped(points, by: steps)
-    }
-
-    /// A size the control can set: 8 to 72, to the half point.
-    nonisolated static func clampedPoints(_ points: Double) -> Double {
-        (min(max(points, SpanSize.points.lowerBound), SpanSize.points.upperBound) * 2).rounded() / 2
-    }
-
-    /// A typed size: a number, with "pt" or without, and a comma for a
-    /// decimal point as some keyboards type it.
-    nonisolated static func points(typed: String) -> Double? {
-        var text = typed.trimmingCharacters(in: .whitespaces).lowercased()
-        if text.hasSuffix("pt") { text.removeLast(2) }
-        text = text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
-        guard let value = Double(text), value.isFinite else { return nil }
-        return clampedPoints(value)
-    }
-
-    /// The caret's formatting read from the text view itself, for an action:
-    /// `caretFormatting` is what the coordinator last reported, for the bar.
-    private func currentFormatting(of textView: UITextView) -> MarkdownFormatting.CaretFormatting {
-        MarkdownFormatting.formatting(at: textView.selectedRange, in: textView.textStorage.mutableString, codeRanges: textTarget?.codeRanges ?? [])
-    }
-
-    /// `formatting`'s sizes in points, in the note's fonts as laid out.
-    private func textSize(reading formatting: MarkdownFormatting.CaretFormatting) -> SelectionTextSize {
-        let typography = self.typography
-        if case .code = formatting.block {
-            let code = Double(typography.code.pointSize)
-            return SelectionTextSize(points: code, startPoints: code, ownPoints: code, canChange: false)
-        }
-        let sizes = blockSizes
-        let points = formatting.sizes.map { SpanSize.points($0.size, against: sizes.size(forHeadingLevel: $0.headingLevel)) }
-        let own = formatting.sizes.first.map { sizes.size(forHeadingLevel: $0.headingLevel) } ?? sizes.body
-        let start = points.first ?? own
-        return SelectionTextSize(
-            points: Set(points).count > 1 ? nil : start,
-            startPoints: start,
-            ownPoints: own,
-            canChange: mode == .text && !isTextLocked && formatting.canResize
-        )
-    }
-
-    /// The note's block sizes as laid out, kept per text size: they come from
-    /// the system's fonts, and the bar asks on every caret move.
-    private var blockSizes: MarkdownFormatting.BlockSizes {
-        if let cached = blockSizesCache, cached.bodySize == appliedTextSize { return cached.sizes }
-        let sizes = typography.blockSizes
-        blockSizesCache = (appliedTextSize, sizes)
-        return sizes
-    }
-    @ObservationIgnored private var blockSizesCache: (bodySize: Int, sizes: MarkdownFormatting.BlockSizes)?
-
-    /// The pending tap goes on. `keeping` is where the reader has just put
-    /// the caret, which stays there rather than going back to the text sized.
-    private func settleSelectionSize(keeping selection: NSRange? = nil) {
-        selectionSizeTask = nil
-        guard let request = pendingSelectionSize else { return }
-        pendingSelectionSize = nil
-        guard textView?.textStorage.length == pendingTextLength else { return }
-        requestSelectionSize(request, keeping: selection)
-    }
-
-    private func dropPendingSelectionSize() {
-        selectionSizeTask?.cancel()
-        selectionSizeTask = nil
-        pendingSelectionSize = nil
-    }
-
-    private func requestSelectionSize(_ request: SizeRequest, keeping selection: NSRange? = nil) {
-        guard let textView, sizeEdit(for: request, in: textView.textStorage.mutableString) != nil else { return }
-        applySelectionSize(request, keeping: selection)
-    }
-
-    /// Sizes the text. The caret ends on what was sized, unless `keeping`
-    /// says where else it was just put: there, moved past the tags if they
-    /// went in before it.
-    private func applySelectionSize(_ request: SizeRequest, keeping selection: NSRange? = nil) {
-        guard let textView, let edit = sizeEdit(for: request, in: textView.textStorage.mutableString) else { return }
-        let replaced = textView.textStorage.mutableString.substring(with: edit.range)
-        perform { _, _ in edit }
-        guard let kept = selection,
-              let start = Self.offset(kept.location, through: edit, replacing: replaced),
-              let end = Self.offset(NSMaxRange(kept), through: edit, replacing: replaced)
-        else { return }
-        textView.selectedRange = NSRange(location: start, length: end - start)
-    }
-
-    /// Where `offset` in the text before `edit` is after it, if it lies in
-    /// what the edit left as it was: the start of the lines it rewrote, up
-    /// to the first change, or their end, from the last. `nil` in between.
-    nonisolated static func offset(_ offset: Int, through edit: TextEdit, replacing old: String) -> Int? {
-        let old = Array(old.utf16)
-        let new = Array(edit.replacement.utf16)
-        if offset <= edit.range.location { return offset }
-        if offset >= NSMaxRange(edit.range) { return offset + new.count - old.count }
-        var prefix = 0
-        while prefix < min(old.count, new.count), old[prefix] == new[prefix] { prefix += 1 }
-        var suffix = 0
-        while suffix < min(old.count, new.count) - prefix, old[old.count - 1 - suffix] == new[new.count - 1 - suffix] { suffix += 1 }
-        let local = offset - edit.range.location
-        if local <= prefix { return offset }
-        if local >= old.count - suffix { return offset + new.count - old.count }
-        return nil
-    }
-
-    private func sizeEdit(for request: SizeRequest, in text: NSString) -> TextEdit? {
-        if let steps = request.steps {
-            return MarkdownFormatting.size(
-                steppedBy: steps, blockSizes: blockSizes, selection: request.selection, in: text, codeRanges: codeRanges
-            )
-        }
-        return MarkdownFormatting.size(
-            points: request.points, blockSizes: blockSizes, selection: request.selection, in: text, codeRanges: codeRanges
-        )
-    }
+    func stepSelectionSize(by steps: Int) { selectionSize.stepSelectionSize(by: steps) }
+    func setSelectionSize(points: Double?) { selectionSize.setSelectionSize(points: points) }
+    func beginCustomSize() { selectionSize.beginCustomSize() }
+    func cancelCustomSize() { selectionSize.cancelCustomSize() }
+    func finishCustomSize(typed: String) { selectionSize.finishCustomSize(typed: typed) }
 
     /// What Link will wrap, kept while the address is asked for: the alert
     /// takes the keyboard, and with it the text view's selection is not
@@ -1175,116 +663,48 @@ final class NoteEditor {
         }
     }
 
-    // MARK: The note's text size
-
-    /// The note's own body size as ••• › Text Size shows it: the reader's
-    /// latest pick, which the note catches up to after `settleDelay` and,
-    /// for a note with ink, a yes. Every size in the note is against it.
-    private(set) var textSize = NoteTypography.defaultSize
-
-    /// The size the note is laid out in now, from `Page.textSize`.
-    private(set) var appliedTextSize = NoteTypography.defaultSize
-
-    /// The note's typography as it is now, for a PDF made of it.
-    var typography: NoteTypography { NoteTypography(bodySize: appliedTextSize, lineSpacing: appliedLineSpacing) }
-
-    /// Writes the size into the note (`Page.textSize`). Set by the page.
-    /// Not an edit: the page leaves `modifiedAt` and the undo stack alone.
-    @ObservationIgnored var commitTextSize: ((Int?) -> Void)?
-
     /// How long a size waits after a tap or a pick before the text re-flows,
     /// so a run of the size control's taps lays the note out once.
     @ObservationIgnored var settleDelay = Duration.milliseconds(120)
+
     /// What `settleDelay` is measured on. Tests set one they move by hand;
     /// the app keeps `ContinuousClock`, as `Task.sleep(for:)` uses.
     @ObservationIgnored var settleClock: any Clock<Duration> = ContinuousClock()
-    @ObservationIgnored private var settleTask: Task<Void, Never>?
+
+    // MARK: The note's typography (NoteTypographyController)
+
+    @ObservationIgnored private(set) var typographyController: NoteTypographyController!
+
+    var textSize: Int { typographyController.textSize }
+    var appliedTextSize: Int { typographyController.appliedTextSize }
+    var lineSpacing: Int { typographyController.lineSpacing }
+    var appliedLineSpacing: Int { typographyController.appliedLineSpacing }
+
+    /// The note's typography as it is now, for a PDF made of it.
+    var typography: NoteTypography { typographyController.typography }
+
+    /// Writes the size into the note (`Page.textSize`). Set by the page.
+    var commitTextSize: ((Int?) -> Void)? {
+        get { typographyController.commitTextSize }
+        set { typographyController.commitTextSize = newValue }
+    }
+
+    /// Writes the spacing into the note (`Page.lineSpacing`). Not an edit.
+    var commitLineSpacing: ((Int?) -> Void)? {
+        get { typographyController.commitLineSpacing }
+        set { typographyController.commitLineSpacing = newValue }
+    }
+
+    func syncTextSize(to stored: Int?) { typographyController.syncTextSize(to: stored) }
+    func setTextSize(_ size: Int) { typographyController.setTextSize(size) }
+    func syncLineSpacing(to stored: Int?) { typographyController.syncLineSpacing(to: stored) }
+    func setLineSpacing(_ points: Int) { typographyController.setLineSpacing(points) }
 
     /// Returns once the sizes waiting for `settleDelay`, the note's and the
     /// selection's, have been applied, or were dropped. For tests.
     func sizeSettled() async {
-        await settleTask?.value
-        await selectionSizeTask?.value
-    }
-
-    /// Follows the note's stored size (`Page.textSize`), as the page opens
-    /// and whenever something else changes it. A tap in flight wins until it
-    /// settles.
-    func syncTextSize(to stored: Int?) {
-        let size = NoteTypography(bodySize: stored).bodySize
-        appliedTextSize = size
-        if settleTask == nil, textSize != size { textSize = size }
-    }
-
-    /// A size picked from ••• › Text Size. Text mode only, and not for a
-    /// locked note, whose text is read and not changed.
-    func setTextSize(_ size: Int) {
-        guard mode == .text, !isTextLocked else { return }
-        let size = NoteTypography(bodySize: size).bodySize
-        guard size != textSize else { return }
-        textSize = size
-        settleTask?.cancel()
-        settleTask = Task { [weak self, settleDelay, settleClock] in
-            try? await settleClock.sleep(for: settleDelay)
-            guard !Task.isCancelled else { return }
-            self?.settleTextSize()
-        }
-    }
-
-    private func settleTextSize() {
-        settleTask = nil
-        guard textSize != appliedTextSize else { return }
-        applyTextSize(textSize)
-    }
-
-    /// Lays the note out in `size`, as one undo step: undo goes back to the
-    /// size it had, and redo to this one.
-    private func applyTextSize(_ size: Int) {
-        let before = appliedTextSize
-        commitTextSize?(NoteTypography(bodySize: size).storedSize)
-        appliedTextSize = size
-        textSize = size
-        textView?.undoManager?.registerUndo(withTarget: self) { $0.applyTextSize(before) }
-        textView?.undoManager?.setActionName("Text Size")
-    }
-
-    // MARK: The note's line spacing
-
-    /// The points of line spacing the note is laid out with, from
-    /// `Page.lineSpacing`, and as the text row's menu shows them. A pick is
-    /// one action, so it applies at once (no `settleDelay`); a note with ink
-    /// asks first, once each time it is opened, with the text size's answer.
-    private(set) var lineSpacing = 0
-    private(set) var appliedLineSpacing = 0
-
-    /// Writes the spacing into the note (`Page.lineSpacing`). Not an edit.
-    @ObservationIgnored var commitLineSpacing: ((Int?) -> Void)?
-
-    /// Follows the note's stored spacing, as the page opens and whenever
-    /// something else changes it.
-    func syncLineSpacing(to stored: Int?) {
-        let spacing = NoteTypography(lineSpacing: stored).lineSpacing
-        appliedLineSpacing = spacing
-        lineSpacing = spacing
-    }
-
-    /// A spacing picked from the text row. Text mode only, and not for a
-    /// locked note.
-    func setLineSpacing(_ points: Int) {
-        guard mode == .text, !isTextLocked else { return }
-        let spacing = NoteTypography(lineSpacing: points).lineSpacing
-        guard spacing != appliedLineSpacing else { return }
-        applyLineSpacing(spacing)
-    }
-
-    /// Lays the note out with `spacing`, as one undo step.
-    private func applyLineSpacing(_ spacing: Int) {
-        let before = appliedLineSpacing
-        commitLineSpacing?(NoteTypography(lineSpacing: spacing).storedLineSpacing)
-        appliedLineSpacing = spacing
-        lineSpacing = spacing
-        textView?.undoManager?.registerUndo(withTarget: self) { $0.applyLineSpacing(before) }
-        textView?.undoManager?.setActionName("Line Spacing")
+        await typographyController.settleTask?.value
+        await selectionSize.selectionSizeTask?.value
     }
 
     // MARK: Outline
@@ -1307,89 +727,6 @@ final class NoteEditor {
     /// chips scroll to a block's opening fence.
     func scroll(toLineAt location: Int) {
         page?.scroll(toLineAt: location)
-    }
-
-    // MARK: Undo
-
-    /// The undo stack of whichever layer is taking input.
-    ///
-    /// Two stacks, not one. Left alone they would be one: the canvas's
-    /// `undoManager` walks the responder chain into the text view's. Ink and
-    /// text are separate kinds of edit, and undoing a stroke by accident while
-    /// typing is worse than an arrow that only undoes what the current mode
-    /// did, so `DrawingCanvas` vends its own and this picks between them.
-    ///
-    /// None while the text is locked: undoing typing would change locked
-    /// text. Ink keeps its stack, since the lock leaves ink alone.
-    private var activeUndoManager: UndoManager? {
-        switch mode {
-        case .text: isTextLocked ? nil : textView?.undoManager
-        case .ink:  canvas?.undoManager
-        }
-    }
-
-    func undo() {
-        activeUndoManager?.undo()
-        refreshUndoState()
-    }
-
-    func redo() {
-        activeUndoManager?.redo()
-        refreshUndoState()
-    }
-
-    /// ⌘Z and ⇧⌘Z, from the menu bar.
-    ///
-    /// The note's own stacks, unless some other text field has the keyboard
-    /// (the title being renamed, the list's search): undoing there is for
-    /// that field, and the note's typing isn't what was asked for. The
-    /// system's Undo command reaches only a first responder that has an undo
-    /// manager, and in ink mode nothing on the page is first responder, so
-    /// the menu would otherwise be dead exactly when ink has the page.
-    func undoFromKeyboard() {
-        if let other = otherTextInputUndoManager { other.undo() } else { undo() }
-    }
-
-    func redoFromKeyboard() {
-        if let other = otherTextInputUndoManager { other.redo() } else { redo() }
-    }
-
-    private var otherTextInputUndoManager: UndoManager? {
-        guard let responder = UIResponder.currentFirstResponder,
-              responder is UITextInput, responder !== textView
-        else { return nil }
-        return responder.undoManager
-    }
-
-    /// Re-reads whether undo and redo have anything to do.
-    ///
-    /// Assigns only on a real change. This runs on every keystroke, and an
-    /// observable property invalidates its readers on any assignment, equal
-    /// value or not — the whole hotbar would re-render per character.
-    func refreshUndoState() {
-        let undo = activeUndoManager?.canUndo ?? false
-        let redo = activeUndoManager?.canRedo ?? false
-        if canUndo != undo { canUndo = undo }
-        if canRedo != redo { canRedo = redo }
-    }
-}
-
-extension UIResponder {
-    private weak static var found: UIResponder?
-
-    /// The responder holding the keyboard, if any.
-    ///
-    /// UIKit has no public accessor. Sending an action to no one in
-    /// particular walks the responder chain from the first responder, and the
-    /// first one to answer is it.
-    static var currentFirstResponder: UIResponder? {
-        found = nil
-        UIApplication.shared.sendAction(#selector(UIResponder.noteCodeReportFirstResponder), to: nil, from: nil, for: nil)
-        return found
-    }
-
-    @objc fileprivate func noteCodeReportFirstResponder() {
-        Self.found = self
     }
 }
 

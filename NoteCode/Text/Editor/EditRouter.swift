@@ -118,7 +118,7 @@ final class EditRouter {
             textView.replace(range, withText: edit.replacement)
         }
         textView.selectedRange = edit.selection
-        editor?.refreshUndoState()
+        editor?.undoRouter.refresh()
     }
 
     /// The edit a keystroke should make instead of its own, or `nil` to
