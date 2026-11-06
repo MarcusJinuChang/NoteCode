@@ -11,13 +11,13 @@ import UIKit
 #endif
 
 struct GeneralSettings: View {
-    @AppStorage(AppAppearance.defaultsKey) private var appearance = AppAppearance.default
-    @AppStorage(AccentPalette.defaultsKey) private var accent = ""
+    @AppStorage(SettingKeys.General.appearance) private var appearance
+    @AppStorage(SettingKeys.General.accent) private var accent
 #if canImport(UIKit)
-    @AppStorage(HotbarDock.defaultsKey) private var dock = HotbarDock.default
-    @AppStorage(SnapHaptic.defaultsKey) private var hapticOnSnap = SnapHaptic.isOnByDefault
+    @AppStorage(SettingKeys.General.hotbarDock) private var dock
+    @AppStorage(SettingKeys.General.hapticOnSnap) private var hapticOnSnap
     @Environment(\.hotbarCanMove) private var hotbarCanMove
-    @AppStorage(IconStyle.defaultsKey) private var iconStyle = IconStyle()
+    @AppStorage(SettingKeys.General.iconStyle) private var iconStyle
 #endif
 
     var body: some View {

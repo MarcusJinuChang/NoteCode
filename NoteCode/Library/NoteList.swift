@@ -70,7 +70,7 @@ struct NoteList: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.appExtensions) private var extensions
-    @AppStorage(AccentPalette.defaultsKey) private var accent = ""
+    @AppStorage(SettingKeys.General.accent) private var accent
     @Environment(ToastCenter.self) private var toasts: ToastCenter?
     // Every note, deleted ones included: the sections and search leave out
     // what is in Recently Deleted (`Page.live`), and the foot counts it.
@@ -79,16 +79,16 @@ struct NoteList: View {
 
     /// How notes are ordered. Per device, like the view mode: it's how this
     /// reader likes to look at the list, and changes nothing in a note.
-    @AppStorage(NoteSort.defaultsKey) private var sort: NoteSort = .default
+    @AppStorage(SettingKeys.Notes.sort) private var sort
 
     /// Which way up the "+" button's tap makes a note's pages
     /// (Settings › Notes › New Notes).
-    @AppStorage(NewNotes.defaultsKey) private var newNoteOrientation = PageOrientation.default
+    @AppStorage(SettingKeys.Notes.newNoteOrientation) private var newNoteOrientation
 
     /// Whether a note made here is opened (Settings › Notes › Open Note After
     /// Creating).
-    @AppStorage(NewNotes.opensAfterCreatingKey)
-    private var opensNewNote = NewNotes.opensAfterCreatingByDefault
+    @AppStorage(SettingKeys.Notes.opensAfterCreating)
+    private var opensNewNote
 
     /// Folders the reader has closed. Folders start open, so a new folder's
     /// notes are never hidden behind a row nobody has tapped yet.

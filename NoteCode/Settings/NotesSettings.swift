@@ -10,10 +10,10 @@ import SwiftUI
 struct NotesSettings: View {
     var onExportFinished: (Int) -> Void
 
-    @AppStorage(NewNotes.defaultsKey) private var newNotes = PageOrientation.default
-    @AppStorage(NewNotes.opensAfterCreatingKey) private var opensAfterCreating = NewNotes.opensAfterCreatingByDefault
-    @AppStorage(PageViewMode.defaultsKey) private var viewMode = PageViewMode.default
-    @AppStorage(NoteSort.defaultsKey) private var sort = NoteSort.default
+    @AppStorage(SettingKeys.Notes.newNoteOrientation) private var newNotes
+    @AppStorage(SettingKeys.Notes.opensAfterCreating) private var opensAfterCreating
+    @AppStorage(SettingKeys.Notes.viewMode) private var viewMode
+    @AppStorage(SettingKeys.Notes.sort) private var sort
 
     var body: some View {
         Form {

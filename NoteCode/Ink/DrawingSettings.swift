@@ -12,13 +12,13 @@ import SwiftUI
 import UIKit
 
 struct DrawingSettings: View {
-    @AppStorage(NoteEditor.fingerDrawsKey) private var fingerDraws = true
-    @AppStorage(NoteEditor.returnToPreviousToolKey) private var returnsToPreviousTool = false
-    @AppStorage(EraserSettings.defaultsKey) private var eraser = EraserSettings()
-    @AppStorage(InkPageGrowth.defaultsKey) private var addsPages = InkPageGrowth.defaultEnabled
-    @AppStorage(InkPalette.defaultsKey) private var pen = InkPalette.standard
-    @AppStorage(InkPalette.highlighterDefaultsKey) private var highlighter = InkPalette.standardHighlighter
-    @AppStorage(InkPaletteSet.defaultsKey) private var chosenSet = ""
+    @AppStorage(SettingKeys.Drawing.fingerDraws) private var fingerDraws
+    @AppStorage(SettingKeys.Drawing.returnToPreviousTool) private var returnsToPreviousTool
+    @AppStorage(SettingKeys.Drawing.eraser) private var eraser
+    @AppStorage(SettingKeys.Drawing.addPagesWhileDrawing) private var addsPages
+    @AppStorage(SettingKeys.Drawing.penPalette) private var pen
+    @AppStorage(SettingKeys.Drawing.highlighterPalette) private var highlighter
+    @AppStorage(SettingKeys.Drawing.paletteSet) private var chosenSet
     @State private var confirmsReset = false
     /// The set the reader picked, until they have said yes to losing their
     /// own colours.
@@ -178,7 +178,7 @@ private struct PaletteSettings: View {
 }
 
 private struct EraserSettingsPage: View {
-    @AppStorage(EraserSettings.defaultsKey) private var eraser = EraserSettings()
+    @AppStorage(SettingKeys.Drawing.eraser) private var eraser
 
     var body: some View {
         Form {

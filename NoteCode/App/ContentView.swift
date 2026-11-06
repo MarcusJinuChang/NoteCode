@@ -71,7 +71,7 @@ struct ContentView: View {
 
     /// Which way up ⌘N makes a note's pages (Settings › Notes › New Notes),
     /// as the + button's tap does.
-    @AppStorage(NewNotes.defaultsKey) private var newNoteOrientation = PageOrientation.default
+    @AppStorage(SettingKeys.Notes.newNoteOrientation) private var newNoteOrientation
 
     /// Whether Export All's sheet and the Files picker for Import are showing.
     @State private var showsExportAll = false
@@ -92,7 +92,7 @@ struct ContentView: View {
 
 #if canImport(UIKit)
     /// Where the hotbar is docked, so a toast on the page sits clear of it.
-    @AppStorage(HotbarDock.defaultsKey) private var dock: HotbarDock = .default
+    @AppStorage(SettingKeys.General.hotbarDock) private var dock
 #endif
 
     @Environment(\.modelContext) private var modelContext
