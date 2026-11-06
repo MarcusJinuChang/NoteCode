@@ -93,7 +93,7 @@ struct RunAtSiteTests {
         let block = try harness.firstBlock()
         harness.textView.selectedRange = NSRange(location: block.range.location + 8, length: 0)
 
-        harness.editor.runBlockAtCaret?()
+        harness.editor.runBlockAtCaret()
 
         #expect(harness.opened == [CodeDestination.request(for: block.code, language: .cpp).url])
     }

@@ -147,12 +147,12 @@ struct KeyboardAndMenuTests {
 
         UIPasteboard.general.string = "before"
         try await harness.caret(at: harness.offset(of: "Prose before"))
-        harness.editor.copyBlockAtCaret?()
+        harness.editor.copyBlockAtCaret()
         #expect(UIPasteboard.general.string == "before")
         #expect(taps.count == 0)
 
         try await harness.caret(at: harness.offset(of: "int other"))
-        harness.editor.copyBlockAtCaret?()
+        harness.editor.copyBlockAtCaret()
         #expect(UIPasteboard.general.string == "int value = query(gap);\nint other = 2;\n")
         #expect(taps.count == 1)
     }
@@ -164,7 +164,7 @@ struct KeyboardAndMenuTests {
         harness.editor.setMode(.ink)
 
         UIPasteboard.general.string = "before"
-        harness.editor.copyBlockAtCaret?()
+        harness.editor.copyBlockAtCaret()
         #expect(UIPasteboard.general.string == "before")
     }
 
@@ -203,11 +203,11 @@ struct KeyboardAndMenuTests {
 
         // Prose has no block, so the key copies nothing and says nothing.
         try await harness.caret(at: harness.offset(of: "Prose before"))
-        harness.editor.copyBlockAtCaret?()
+        harness.editor.copyBlockAtCaret()
         #expect(told == 1)
 
         try await harness.caret(at: harness.offset(of: "int other"))
-        harness.editor.copyBlockAtCaret?()
+        harness.editor.copyBlockAtCaret()
         #expect(told == 2)
     }
 

@@ -247,20 +247,20 @@ final class NoteEditor {
     /// write the device's own.
     @ObservationIgnored var defaults = UserDefaults.standard
 
-    /// Run or copy the code block the caret is in, if it's in one. The text
-    /// view's coordinator sets these: it owns the blocks. Run asks the
-    /// features first, then opens a compiler site (`Coordinator.run`).
-    @ObservationIgnored var runBlockAtCaret: (() -> Void)?
-
-    /// Opens the formula editor for a new formula, inline or display; Done
-    /// inserts it. The coordinator sets it (`FormulaEditor`).
-    @ObservationIgnored var presentNewFormula: ((_ display: Bool) -> Void)?
-    @ObservationIgnored var copyBlockAtCaret: (() -> Void)?
+    /// The text view's coordinator: Run, Copy, indent and the new formula
+    /// act on the text it owns, so the editor asks it (`TextCommandTarget`).
+    /// Weak, since the text view's coordinator outlives neither the editor's
+    /// page nor, in a test, its harness.
+    @ObservationIgnored weak var textTarget: TextCommandTarget?
 
     /// The code block the caret is in, in text mode; `nil` elsewhere. The
-    /// text view's coordinator sets this, as it does `runBlockAtCaret`: the
     /// options row's feature actions act on it.
-    @ObservationIgnored var codeBlockAtCaret: (() -> CodeBlockTarget?)?
+    var codeBlockAtCaret: CodeBlockTarget? { textTarget?.codeBlockAtCaret() }
+
+    /// ⌘R and ⇧⌘C: run or copy the code block the caret is in, if it's in
+    /// one. Run asks the features first, then opens a compiler site.
+    func runBlockAtCaret() { textTarget?.runBlockAtCaret() }
+    func copyBlockAtCaret() { textTarget?.copyBlockAtCaret() }
 
     /// What the edition adds to this editor (`EditorFeature`), in the order
     /// their actions are shown. Empty for `NoteEditor()`.
@@ -463,7 +463,7 @@ final class NoteEditor {
         page?.selection.textPiecesFor = { [weak self] shape in
             guard let self, !self.isTextLocked, let textView = self.textView else { return [] }
             // Code is never coloured, so it is never selected as text.
-            let code = self.codeRanges?() ?? []
+            let code = self.codeRanges
             return TextRegion.pieces(for: shape, lines: TextRegion.visibleLines(in: textView)).filter { piece in
                 !code.contains { NSIntersectionRange($0.range, piece.range).length > 0 }
             }
@@ -551,8 +551,8 @@ final class NoteEditor {
             setTypingStyle(typingStyle.toggled(style, shown: lit))
             return
         }
-        perform { [codeRanges] text, selection in
-            MarkdownFormatting.toggle(style, in: text, selection: selection, codeRanges: codeRanges?() ?? [])
+        perform { [textTarget] text, selection in
+            MarkdownFormatting.toggle(style, in: text, selection: selection, codeRanges: textTarget?.codeRanges ?? [])
         }
     }
 
@@ -572,13 +572,13 @@ final class NoteEditor {
     /// Style ▾ › Inline Formula and Display Formula.
     func insertFormula(display: Bool) {
         guard mode == .text, !isTextLocked else { return }
-        presentNewFormula?(display)
+        textTarget?.presentNewFormula(display: display)
     }
 
     /// A horizontal rule below the caret's line.
     func insertRule() {
-        perform { [codeRanges] text, selection in
-            MarkdownFormatting.insertRule(in: text, selection: selection, codeRanges: codeRanges?() ?? [])
+        perform { [textTarget] text, selection in
+            MarkdownFormatting.insertRule(in: text, selection: selection, codeRanges: textTarget?.codeRanges ?? [])
         }
     }
 
@@ -684,7 +684,7 @@ final class NoteEditor {
     private func isTypingCaret(in textView: UITextView) -> Bool {
         let selection = textView.selectedRange
         return selection.length == 0 && MarkdownFormatting.caretTarget(
-            at: selection.location, in: textView.textStorage.mutableString, codeRanges: codeRanges?() ?? []
+            at: selection.location, in: textView.textStorage.mutableString, codeRanges: codeRanges
         ) == .typing
     }
 
@@ -765,7 +765,7 @@ final class NoteEditor {
         }
         guard run.length <= 2_000,
               let edit = MarkdownFormatting.typed(
-                  typingStyle, run: run, in: text, blockSizes: blockSizes, codeRanges: codeRanges?() ?? []
+                  typingStyle, run: run, in: text, blockSizes: blockSizes, codeRanges: codeRanges
               ),
               let start = textView.position(from: textView.beginningOfDocument, offset: edit.range.location),
               let finish = textView.position(from: start, offset: edit.range.length),
@@ -801,36 +801,28 @@ final class NoteEditor {
     // MARK: The text options row
 
     /// The code blocks, for the edits that need to know where one is. The
-    /// text view's coordinator sets it: it owns the parse.
-    @ObservationIgnored var codeRanges: (() -> [CodeRange])?
-
-    /// Indents or outdents the list item or code lines at the caret, as Tab
-    /// and ⇧Tab do. Set by the coordinator, which owns both rules.
-    @ObservationIgnored var indentAtCaret: ((_ outdent: Bool) -> Void)?
-
-    /// Points the code block at the caret at another language, as its
-    /// language button does.
-    @ObservationIgnored var retagBlockAtCaret: ((CodeBlockKind) -> Void)?
+    /// text view's coordinator owns the parse.
+    var codeRanges: [CodeRange] { textTarget?.codeRanges ?? [] }
 
     /// ⇥ and ⇤. Text mode, unlocked.
     func indent(outdent: Bool) {
         guard mode == .text, !isTextLocked else { return }
-        indentAtCaret?(outdent)
+        textTarget?.indentAtCaret(outdent: outdent)
         refreshUndoState()
     }
 
     /// The language menu's pick for the block the caret is in.
     func setCodeBlockKind(_ kind: CodeBlockKind) {
         guard mode == .text, !isTextLocked else { return }
-        retagBlockAtCaret?(kind)
+        textTarget?.retagBlockAtCaret(kind)
         refreshUndoState()
     }
 
     /// + Output: an empty output block under the code block the caret is in.
     func addOutputBlock() {
-        perform { [codeRanges] text, selection in
+        perform { [textTarget] text, selection in
             MarkdownFormatting.insertOutputBlock(
-                afterBlockAt: selection.location, in: text as NSString, codeRanges: codeRanges?() ?? []
+                afterBlockAt: selection.location, in: text as NSString, codeRanges: codeRanges
             )
         }
     }
@@ -843,8 +835,8 @@ final class NoteEditor {
             setTypingStyle(typingStyle.colouring(hex))
             return
         }
-        perform { [codeRanges] text, selection in
-            MarkdownFormatting.colour(hex, selection: selection, in: text as NSString, codeRanges: codeRanges?() ?? [])
+        perform { [textTarget] text, selection in
+            MarkdownFormatting.colour(hex, selection: selection, in: text as NSString, codeRanges: textTarget?.codeRanges ?? [])
         }
     }
 
@@ -859,7 +851,7 @@ final class NoteEditor {
         editGuard.perform(as: .formatting) {
             for range in ranges.sorted(by: { $0.location > $1.location }) {
                 let text = textView.text ?? ""
-                guard let edit = MarkdownFormatting.colour(hex, selection: range, in: text as NSString, codeRanges: codeRanges?() ?? []),
+                guard let edit = MarkdownFormatting.colour(hex, selection: range, in: text as NSString, codeRanges: textTarget?.codeRanges ?? []),
                       let start = textView.position(from: textView.beginningOfDocument, offset: edit.range.location),
                       let end = textView.position(from: start, offset: edit.range.length),
                       let textRange = textView.textRange(from: start, to: end)
@@ -877,8 +869,8 @@ final class NoteEditor {
             setTypingStyle(typingStyle.highlighting(colour))
             return
         }
-        perform { [codeRanges] text, selection in
-            MarkdownFormatting.highlight(colour, selection: selection, in: text as NSString, codeRanges: codeRanges?() ?? [])
+        perform { [textTarget] text, selection in
+            MarkdownFormatting.highlight(colour, selection: selection, in: text as NSString, codeRanges: textTarget?.codeRanges ?? [])
         }
     }
 
@@ -1054,7 +1046,7 @@ final class NoteEditor {
     /// The caret's formatting read from the text view itself, for an action:
     /// `caretFormatting` is what the coordinator last reported, for the bar.
     private func currentFormatting(of textView: UITextView) -> MarkdownFormatting.CaretFormatting {
-        MarkdownFormatting.formatting(at: textView.selectedRange, in: textView.textStorage.mutableString, codeRanges: codeRanges?() ?? [])
+        MarkdownFormatting.formatting(at: textView.selectedRange, in: textView.textStorage.mutableString, codeRanges: textTarget?.codeRanges ?? [])
     }
 
     /// `formatting`'s sizes in points, in the note's fonts as laid out.
@@ -1142,11 +1134,11 @@ final class NoteEditor {
     private func sizeEdit(for request: SizeRequest, in text: NSString) -> TextEdit? {
         if let steps = request.steps {
             return MarkdownFormatting.size(
-                steppedBy: steps, blockSizes: blockSizes, selection: request.selection, in: text, codeRanges: codeRanges?() ?? []
+                steppedBy: steps, blockSizes: blockSizes, selection: request.selection, in: text, codeRanges: codeRanges
             )
         }
         return MarkdownFormatting.size(
-            points: request.points, blockSizes: blockSizes, selection: request.selection, in: text, codeRanges: codeRanges?() ?? []
+            points: request.points, blockSizes: blockSizes, selection: request.selection, in: text, codeRanges: codeRanges
         )
     }
 
@@ -1163,7 +1155,7 @@ final class NoteEditor {
               let target = MarkdownFormatting.linkTarget(
                   in: textView.textStorage.mutableString,
                   selection: textView.selectedRange,
-                  codeRanges: codeRanges?() ?? []
+                  codeRanges: codeRanges
               )
         else { return }
         linkTarget = target

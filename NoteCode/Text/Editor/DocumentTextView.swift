@@ -134,9 +134,16 @@ struct DocumentTextView: UIViewRepresentable {
         /// The run and copy buttons floating over each code block.
         var overlay: CodeBlockOverlay?
 
+        /// What can be done to a code block: copy, run, the menu, indent
+        /// (`CodeBlockCommands`).
+        let codeBlocks = CodeBlockCommands()
+
         /// Opens a compiler site's link (`openAtSite`). Replaceable so a test
         /// can see where Run went without leaving the app.
-        var openURL: (URL) -> Void = { UIApplication.shared.open($0) }
+        var openURL: (URL) -> Void {
+            get { codeBlocks.openURL }
+            set { codeBlocks.openURL = newValue }
+        }
 
         /// The keyboard traits and the code-keys row (`KeyboardPolicyController`).
         let keyboard = KeyboardPolicyController()

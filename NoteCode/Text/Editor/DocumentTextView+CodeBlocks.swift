@@ -12,18 +12,14 @@ import UIKit
 
 extension DocumentTextView.Coordinator {
 
-    /// Puts a block's code on the pasteboard, with a light tap. One path
-    /// for the button, the edit menu and ⇧⌘C.
+    /// Puts a block's code on the pasteboard (`CodeBlockCommands.copy`).
     func copy(_ target: CodeBlockTarget) {
-        UIPasteboard.general.string = target.code
-        Haptics.copyBlock()
-        editor?.onBlockCopied?()
+        codeBlocks.copy(target, told: editor)
     }
 
     /// The code block the caret is in, for the edit menu and ⌘R and ⇧⌘C.
     func target(atCaret caret: Int, in textView: UITextView) -> CodeBlockTarget? {
-        let targets = snapshot(of: textView).targets
-        return CodeBlockAction.target(atCaret: caret, in: targets, sourceLength: textView.textStorage.length)
+        codeBlocks.target(atCaret: caret, in: snapshot(of: textView), sourceLength: textView.textStorage.length)
     }
 
     /// ⇧Tab, and whether it has anything to do.
@@ -36,25 +32,51 @@ extension DocumentTextView.Coordinator {
         textView.isEditable && indentEdit(outdent: true, in: textView) != nil
     }
 
-    /// One level in or out at the caret: the code lines' rule in a code
-    /// block, the list item's elsewhere. Tab, ⇧Tab and the text options
+    /// One level in or out at the caret. Tab, ⇧Tab and the text options
     /// row's ⇥ and ⇤ all ask here.
     func indentEdit(outdent: Bool, in textView: UITextView) -> TextEdit? {
-        if let edit = CodeIndent.indentEdit(
-            in: textView.textStorage.mutableString,
-            selection: textView.selectedRange,
-            outdent: outdent,
-            codeRanges: codeRanges(in: textView.textStorage),
-            width: indentWidth
-        ) {
-            return edit
-        }
-        return MarkdownFormatting.indent(
-            in: textView.textStorage.mutableString,
-            selection: textView.selectedRange,
-            outdent: outdent,
-            codeRanges: codeRanges(in: textView.textStorage)
+        codeBlocks.indentEdit(
+            outdent: outdent, in: textView, codeRanges: codeRanges(in: textView.textStorage), width: indentWidth
         )
+    }
+}
+
+// MARK: - What the editor asks of the text view
+
+extension DocumentTextView.Coordinator: TextCommandTarget {
+
+    var codeRanges: [CodeRange] {
+        textView.map { codeRanges(in: $0.textStorage) } ?? []
+    }
+
+    func codeBlockAtCaret() -> CodeBlockTarget? {
+        guard let textView, editor?.mode == .text else { return nil }
+        return target(atCaret: textView.selectedRange.location, in: textView)
+    }
+
+    func runBlockAtCaret() {
+        guard let textView, let target = codeBlockAtCaret() else { return }
+        run(target, from: textView)
+    }
+
+    func copyBlockAtCaret() {
+        guard let target = codeBlockAtCaret() else { return }
+        copy(target)
+    }
+
+    func indentAtCaret(outdent: Bool) {
+        guard let textView, textView.isEditable, let edit = indentEdit(outdent: outdent, in: textView) else { return }
+        apply(edit, to: textView)
+    }
+
+    func retagBlockAtCaret(_ kind: CodeBlockKind) {
+        guard let textView, let target = codeBlockAtCaret() else { return }
+        setKind(kind, of: target, in: textView)
+    }
+
+    func presentNewFormula(display: Bool) {
+        guard let textView else { return }
+        presentNewFormulaEditor(display: display, in: textView)
     }
 }
 

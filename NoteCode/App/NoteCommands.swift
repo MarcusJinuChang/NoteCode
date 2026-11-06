@@ -244,9 +244,9 @@ struct NoteCommands: Commands {
             Divider()
 
             Group {
-                Button(NoteShortcut.runBlock.title) { editor?.runBlockAtCaret?() }
+                Button(NoteShortcut.runBlock.title) { editor?.runBlockAtCaret() }
                     .keyboardShortcut(.runBlock)
-                Button(NoteShortcut.copyBlock.title) { editor?.copyBlockAtCaret?() }
+                Button(NoteShortcut.copyBlock.title) { editor?.copyBlockAtCaret() }
                     .keyboardShortcut(.copyBlock)
             }
             .disabled(editor?.mode != .text)
