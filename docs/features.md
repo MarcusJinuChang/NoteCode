@@ -148,9 +148,9 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Feature | How it works | Status | Detail |
 |---|---|---|---|
 | Share | Menu with a primary action; PDF and Markdown; the sheet points at the button; the PDF's title and file name are the note's title (its first line if blank) | built | `notes-in-and-out-and-one-editor-per-note.md` |
-| PDF | Laid out afresh, text a line at a time, ink as a picture | built | `pages.md` |
+| PDF | Laid out afresh, text a line at a time, ink as a picture. Trailing pages with no text and no ink (margin ink counts) are left out, so pages added automatically while writing near the end do not print; blank pages between content stay, and an empty note prints one page. The note and its page count are untouched | built | `pages.md` |
 | Print | System print of the PDF | built | `keyboard-edit-menu-…md` |
-| Export All and Import | A folder of Markdown files and back; each note's PDF, if any, titled with the note's shown title, as its file name is | built; unchecked on the iPad | `notes-in-and-out-…md` |
+| Export All and Import | A folder of Markdown files and back; each note's PDF, if any, titled with the note's shown title, as its file name is, and without trailing blank pages (as PDF above) | built; unchecked on the iPad | `notes-in-and-out-…md` |
 | Several windows | One editor per note; Open in Another Window | built | `notes-in-and-out-…md` |
 
 ## 8. Settings
