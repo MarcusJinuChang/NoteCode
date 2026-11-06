@@ -1559,6 +1559,61 @@ struct PageViewTests {
         #expect(median < 0.1, "keystroke near the top took \(median)s")
     }
 
+    /// F5. The median of nine one-character edits near the top of a note, as
+    /// `typingCost` takes it.
+    private func keystrokeMedian(in textView: UITextView) -> TimeInterval {
+        var times: [TimeInterval] = []
+        for index in 0..<9 {
+            let position = textView.position(from: textView.beginningOfDocument, offset: 120 + index)!
+            let start = Date()
+            textView.replace(textView.textRange(from: position, to: position)!, withText: "z")
+            textView.layoutIfNeeded()
+            times.append(Date().timeIntervalSince(start))
+        }
+        return times.sorted()[4]
+    }
+
+    /// The same keystroke on a 40-page note, with every page break below the
+    /// edit an exclusion path. About 92-100ms (simulator, 6 Nov), against
+    /// 15-18ms on 250 lines: the cost grows with the note.
+    @Test("Typing near the top of a 40-page note stays within budget", .tags(.perf))
+    func typingCostLongNote() {
+        let harness = PageHarness(text: StylingPerformanceTests.document(lines: 1500))
+        #expect(harness.page.pageCount >= 40)
+
+        let median = keystrokeMedian(in: harness.page.textView)
+        reportPerf("PageViewTests/typingCostLongNote", seconds: median)
+        #expect(median < 0.25, "keystroke near the top of a 40-page note took \(median)s")
+    }
+
+    /// F5's finding: the cost is the exclusion paths themselves. The same text
+    /// in the same configured view costs 1ms a keystroke without them and
+    /// about 100ms with them, because TextKit 2 lays out everything below an
+    /// edit once line positions depend on where they fall. `PageView` puts the
+    /// paths back on its next layout, so this uses a view of its own.
+    @Test("The cost of a keystroke on a 40-page note is the exclusion paths", .tags(.perf))
+    func exclusionPathsAreTheCost() {
+        let harness = PageHarness(text: StylingPerformanceTests.document(lines: 1500))
+        let bands = harness.page.textView.textContainer.exclusionPaths
+        #expect(bands.count >= 40)
+
+        let plain = DocumentTextView.makeConfiguredTextView()
+        plain.frame = CGRect(x: 0, y: 0, width: 700, height: 900)
+        harness.window.addSubview(plain)
+        plain.text = StylingPerformanceTests.document(lines: 1500)
+        plain.layoutIfNeeded()
+        let without = keystrokeMedian(in: plain)
+
+        plain.textContainer.exclusionPaths = bands
+        plain.layoutIfNeeded()
+        let with = keystrokeMedian(in: plain)
+        plain.removeFromSuperview()
+
+        reportPerf("PageViewTests/exclusionPathsAreTheCost.without", seconds: without)
+        reportPerf("PageViewTests/exclusionPathsAreTheCost.with", seconds: with)
+        #expect(with > without * 5, "with \(with)s, without \(without)s")
+    }
+
     // MARK: The note window (W2)
 
     @Test("The note never scrolls above its top, whatever sets the offset")
