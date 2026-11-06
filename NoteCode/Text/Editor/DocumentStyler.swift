@@ -169,9 +169,8 @@ enum DocumentStyler {
     /// Re-styles the whole document from scratch, for tests, which have no
     /// cache of their own. Returns the blocks it parsed.
     ///
-    /// The editor goes through the `source:blocks:previousSignatures:`
-    /// variant, which parses once per edit and restyles only the blocks
-    /// that changed.
+    /// The editor goes through the `snapshot:previousSignatures:` variant,
+    /// which parses once per edit and restyles only the blocks that changed.
     @discardableResult
     static func applyStyling(
         to textView: UITextView,
@@ -179,13 +178,12 @@ enum DocumentStyler {
         typography: NoteTypography = .standard,
         markers: MarkerDimming = .standard
     ) -> [BlockNode] {
-        let source = (textView.text ?? "").nativeUTF8
-        let blocks = DocumentParser.parse(source)
+        let snapshot = DocumentSnapshot(text: textView.text ?? "")
         applyStyling(
-            to: textView, source: source, blocks: blocks, previousSignatures: [], rendered: rendered,
+            to: textView, snapshot: snapshot, previousSignatures: [], rendered: rendered,
             typography: typography, markers: markers
         )
-        return blocks
+        return snapshot.blocks
     }
     #endif
 
@@ -194,17 +192,16 @@ enum DocumentStyler {
     ///   to restyle everything.
     /// - Returns: signatures to hand back on the next call.
     @discardableResult
-    /// - Parameter source: the exact string `blocks` were parsed from.
-    ///
-    ///   It must be the same String *instance*, not merely an equal one.
-    ///   `UITextView.text` hands back a freshly bridged NSString-backed String
-    ///   on every access, and using `String.Index` values across instances with
-    ///   different backing storage forces index reconciliation on each use —
-    ///   which turned a single restyle of a 500-line note into 600ms.
+    /// - Parameter snapshot: the text as this edit left it, with its parse and
+    ///   layouts. Its `source` is the one String instance every index below
+    ///   belongs to. `UITextView.text` hands back a freshly bridged
+    ///   NSString-backed String on every access, and using `String.Index`
+    ///   values across instances with different backing storage forces index
+    ///   reconciliation on each use, which turned a single restyle of a
+    ///   500-line note into 600ms.
     static func applyStyling(
         to textView: UITextView,
-        source: String,
-        blocks: [BlockNode],
+        snapshot: DocumentSnapshot,
         previousSignatures: [BlockSignature] = [],
         rendered: Bool = false,
         typography: NoteTypography = .standard,
@@ -216,7 +213,8 @@ enum DocumentStyler {
         guard textView.markedTextRange == nil else { return previousSignatures }
 
         let storage = textView.textStorage
-        let layouts = layouts(for: blocks, in: source)
+        let source = snapshot.source
+        let layouts = snapshot.layouts
         let signatures = layouts.map(\.signature)
 
         guard let changed = changedIndices(from: previousSignatures, to: signatures) else {

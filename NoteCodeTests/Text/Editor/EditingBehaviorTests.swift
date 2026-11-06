@@ -150,8 +150,9 @@ struct CaretBoundaryTests {
     private func typingFont(caretAt offset: Int, in source: String = CaretBoundaryTests.source) -> UIFont? {
         let textView = DocumentTextView.makeConfiguredTextView()
         textView.text = source
-        let blocks = DocumentParser.parse(source)
-        DocumentStyler.applyStyling(to: textView, source: textView.text, blocks: blocks)
+        let snapshot = DocumentSnapshot(text: source)
+        let blocks = snapshot.blocks
+        DocumentStyler.applyStyling(to: textView, snapshot: snapshot)
 
         textView.selectedRange = NSRange(location: offset, length: 0)
         DocumentStyler.applyTypingAttributes(to: textView, source: textView.text, blocks: blocks)
