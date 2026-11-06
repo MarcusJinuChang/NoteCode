@@ -11,6 +11,7 @@ protocol PageReadingHost: AnyObject {
     var pageCount: Int { get }
     var onReadingPlaceChanged: ((NoteMemory.Place) -> Void)? { get }
     var onScrolled: ((NoteMemory.Place) -> Void)? { get }
+    func paginate()
 }
 
 /// Where the note is read from (docs/refactor/2P-page.md, 2P2b): opening at
@@ -91,6 +92,9 @@ final class PageReading {
             width: layout.textWidth,
             height: layout.scrollTop(forPage: index) + textView.bounds.height
         ))
+        // And the breaks down to it, or the page would be found where the
+        // text lay before they pushed anything.
+        host.paginate()
         textView.setNeedsLayout()
         textView.layoutIfNeeded()
         // A note shortened since lands on its last page.
@@ -143,6 +147,7 @@ final class PageReading {
               let above = NSTextRange(location: content.documentRange.location, end: target)
         else { return false }
         manager.ensureLayout(for: above)
+        host.paginate()
         textView.setNeedsLayout()
         textView.layoutIfNeeded()
         return true

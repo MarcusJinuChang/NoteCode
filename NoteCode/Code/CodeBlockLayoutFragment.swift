@@ -427,6 +427,18 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
 
     // MARK: Drawing
 
+    /// How far the paragraph was pushed down to start a page, and how much of
+    /// that is the break itself. Both nil for a paragraph that wasn't.
+    private var pagePush: CGFloat? { pageAttribute(.pagePush) }
+    private var pageGap: CGFloat? { pageAttribute(.pageGap) }
+
+    private func pageAttribute(_ key: NSAttributedString.Key) -> CGFloat? {
+        guard let paragraph = textElement as? NSTextParagraph, paragraph.attributedString.length > 0,
+              let value = paragraph.attributedString.attribute(key, at: 0, effectiveRange: nil) as? Double
+        else { return nil }
+        return CGFloat(value)
+    }
+
     /// The stretches this fragment's panel covers, in container coordinates,
     /// from where TextKit laid out its lines.
     var laidOutPanelRuns: [PanelRun] {
@@ -441,8 +453,13 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
         let lines = textLines.map { line in
             (frame.minY + line.typographicBounds.minY)...(frame.minY + line.typographicBounds.maxY)
         }
-        let breaks = (textLayoutManager?.textContainer?.exclusionPaths ?? [])
+        var breaks = (textLayoutManager?.textContainer?.exclusionPaths ?? [])
             .map { $0.bounds.minY...$0.bounds.maxY }
+        // A paragraph pushed to the next page (`PagePaginator`) has the break
+        // above its first line: the last `gap` points of the push.
+        if let push = pagePush, let gap = pageGap, push >= gap, gap > 0 {
+            breaks.append((frame.minY + push - gap)...(frame.minY + push))
+        }
 
         return Self.panelRuns(frame: frame, lines: lines, breaks: breaks, position: position)
     }

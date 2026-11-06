@@ -316,14 +316,19 @@ struct DebugReportTests {
         layOut(page)
         #expect(DebugStateReport(page: page, event: "test", sequence: 1, problems: []).visibleLinesAcrossBreaks == 0)
 
-        // Move every line 30pt down without moving the pages, which is what
-        // the stale-layout bug did: each sheet's last line now reaches into
-        // the break below it. Less than a line, so the page count — and with
-        // it where PageView puts the breaks — can't change underneath.
-        let pagesBefore = page.pageCount
-        page.textView.textContainerInset.top += 30
+        // Lay the note out again with none of the pushes that keep paragraphs
+        // off the breaks, and tell the paginator it has nothing to do: every
+        // sheet's last paragraph now reaches into the break below it, which is
+        // what the stale-layout bug did.
+        let table = try #require(page.textView.blankLineLayout?.pushes)
+        let storage = page.textView.textStorage
+        table.reset()
+        table.layout = page.pageLayout
+        table.through = Int.max
+        table.isApplying = true
+        storage.edited(.editedAttributes, range: NSRange(location: 0, length: storage.length), changeInLength: 0)
+        table.isApplying = false
         page.textView.layoutIfNeeded()
-        try #require(page.pageCount == pagesBefore, "the shift added a page, so the breaks moved with the text")
 
         #expect(DebugStateReport(page: page, event: "test", sequence: 2, problems: []).visibleLinesAcrossBreaks > 0)
         withExtendedLifetime(window) {}

@@ -316,6 +316,9 @@ final class PrintedNote {
     /// for the editor, so code blocks get their panels and colours.
     private let coordinator: DocumentTextView.Coordinator
 
+    /// Keeps each paragraph on one page.
+    private lazy var paginator = PagePaginator(textView: textView)
+
     init(
         text: String,
         orientation: PageOrientation,
@@ -360,32 +363,25 @@ final class PrintedNote {
     /// Sets the page breaks and lays the whole note out, returning how many
     /// pages it fills.
     ///
-    /// Breaks are set for at least as many pages as the text needs: a break
-    /// below the last line pushes nothing, and a missing one lets text run
-    /// on past where a page should end. Starting from the open note's count,
-    /// one pass is usually enough.
+    /// A break is the paragraph below it pushed to the next page
+    /// (`PagePaginator`), worked out for the whole note here rather than as
+    /// far as a reader has scrolled. Pushing one paragraph moves those below
+    /// it, so a pass can change more; it settles in a few.
     ///
     /// - Parameter inkBottom: the lowest ink, in print coordinates. Ink can
     ///   reach past the text and make more pages.
+    /// - Parameter hint: unused since breaks stopped being exclusion paths,
+    ///   one per page, which had to be set for as many pages as the text
+    ///   needed. Kept so the callers read as they did.
     func paginate(inkBottom: CGFloat?, startingAt hint: Int, minimum: Int = 1) -> Int {
         guard let manager = textView.textLayoutManager else { return 1 }
 
-        var banded = max(hint, 1)
-        var count = banded
-        // Each pass adds breaks only where the last one found text running
-        // past them, so this converges in two or three passes from a count
-        // of one; the limit is a guard, not an expectation.
-        for _ in 0..<10 {
-            textView.textContainer.exclusionPaths = layout
-                .exclusionBands(pageCount: banded, containerTop: textView.textContainerInset.top)
-                .map { UIBezierPath(rect: $0) }
+        manager.ensureLayout(for: manager.documentRange)
+        for _ in 0..<(PagePaginator.passLimit + 2) {
+            guard paginator.paginate(layout: layout) else { break }
             manager.ensureLayout(for: manager.documentRange)
-
-            count = layout.pageCount(textBottom: textBottom(), inkBottom: inkBottom, minimum: minimum)
-            if count <= banded { break }
-            banded = count
         }
-        return count
+        return layout.pageCount(textBottom: textBottom(), inkBottom: inkBottom, minimum: minimum)
     }
 
     /// The bottom of the last line, in note coordinates.

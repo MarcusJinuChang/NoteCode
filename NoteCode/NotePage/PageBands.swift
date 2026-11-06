@@ -37,8 +37,8 @@ final class PageBands {
     /// Worked out whenever TextKit sets the text's height (`noteHeight`).
     private(set) var pageCount = 1
 
-    /// How many pages the text currently has bands for.
-    private var bandedPageCount = 0
+    /// Keeps each paragraph on one page (`PagePaginator`).
+    private lazy var paginator = PagePaginator(textView: host.textView)
 
     init(host: PageBandsHost) {
         self.host = host
@@ -90,7 +90,7 @@ final class PageBands {
             guard let old, let bottom = old.convert(y: oldTextBottom, to: newLayout) else { return height }
             return bottom + textView.textContainerInset.bottom
         })
-        applyBands()
+        restartPagination()
         host.paintPage()
 
         guard old != nil else { return }
@@ -155,12 +155,39 @@ final class PageBands {
         }
     }
 
-    /// Sets the bands text flows around, one after each page.
-    func applyBands() {
-        bandedPageCount = pageCount
-        textView.textContainer.exclusionPaths = pageLayout
-            .exclusionBands(pageCount: pageCount, containerTop: textView.textContainerInset.top)
-            .map { UIBezierPath(rect: $0) }
+    /// Starts the page breaks again, for a new layout: every paragraph is
+    /// laid out afresh and the pushes worked out for it as it is reached.
+    ///
+    /// A page break is the paragraph below it pushed down (`PagePaginator`),
+    /// and a new layout moves them all, so none carries over.
+    func restartPagination() {
+        let storage = textView.textStorage
+        if let table = textView.blankLineLayout?.pushes {
+            table.reset()
+            if storage.length > 0 {
+                // Regenerates every paragraph the text view has laid out,
+                // without the pushes it had.
+                table.isApplying = true
+                storage.edited(.editedAttributes, range: NSRange(location: 0, length: storage.length), changeInLength: 0)
+                table.isApplying = false
+            }
+        }
+        if !textView.textContainer.exclusionPaths.isEmpty {
+            textView.textContainer.exclusionPaths = []
+        }
+    }
+
+    /// Puts every page break in place: passes over the note until none moves a
+    /// paragraph. Also what the layout pass does, and what anything that has
+    /// to know where lines are before the next pass calls (opening at a page,
+    /// a search result).
+    func paginate() {
+        var changed = false
+        for _ in 0..<(PagePaginator.passLimit + 2) {
+            guard paginator.paginate(layout: pageLayout) else { break }
+            changed = true
+        }
+        if changed { textView.setNeedsLayout() }
     }
 
     /// The note's height for text TextKit says is `height` tall: enough whole
@@ -170,10 +197,46 @@ final class PageBands {
     /// content size from the content size — the text's bottom lands at the end
     /// of the last page's body, which gives the same page count again.
     func noteHeight(forTextHeight height: CGFloat) -> CGFloat {
+        let height = settledTextHeight() ?? height
         let textBottom = height - textView.textContainerInset.bottom
         pageCount = pageLayout.pageCount(textBottom: textBottom, inkBottom: host.inkBottom, minimum: host.minimumPageCount)
         return pageLayout.noteHeight(pageCount: pageCount)
     }
+
+    /// The text's height with every page break in place, when an edit has left
+    /// some unchecked; `nil` when none is, and TextKit's own height stands.
+    ///
+    /// UIKit sets the height as the text changes, before any layout pass, and
+    /// after an edit that invalidated much of the note (the syntax colours
+    /// arriving, a paste) TextKit's height for what it hasn't laid out again
+    /// leaves out the pushes. A 10-page note read 9 pages for a moment, and
+    /// UIKit pulled the reader's offset up to fit, 400pt, and back. So the
+    /// breaks are worked out here, which lays the invalidated paragraphs out,
+    /// and the height is the laid-out note's. It costs what the pass that
+    /// would have run next costs, and is not run for the paragraph being typed
+    /// in beyond that.
+    private func settledTextHeight() -> CGFloat? {
+        guard !isSettling,
+              let table = textView.blankLineLayout?.pushes, table.through != Int.max,
+              let manager = textView.textLayoutManager
+        else { return nil }
+        isSettling = true
+        defer { isSettling = false }
+
+        var moved = false
+        for _ in 0..<(PagePaginator.passLimit + 2) {
+            guard paginator.paginate(layout: pageLayout) else { break }
+            moved = true
+        }
+        manager.ensureLayout(for: manager.documentRange)
+        if moved { textView.setNeedsLayout() }
+        let inset = textView.textContainerInset
+        return manager.usageBoundsForTextContainer.maxY + inset.top + inset.bottom
+    }
+
+    /// Whether `settledTextHeight` is running, since it edits the storage and
+    /// UIKit answers with another height.
+    private var isSettling = false
 
     /// One more page at the end of the note, for ink or text to go on.
     func addPage() {
@@ -196,15 +259,12 @@ final class PageBands {
         host.onMinimumPageCountChanged?(count)
     }
 
-    /// Brings the bands, canvas and decorations up to the page count.
+    /// Brings the page breaks, canvas and decorations up to the page count.
     ///
-    /// A line pushed past the last page's band makes one more page; its band
-    /// only affects text below it, so this converges. Reassigning exclusion
-    /// paths relays out the text, so only when the count has changed.
+    /// A paragraph pushed to a new page makes one more page; the push only
+    /// affects text below it, so this converges.
     func updatePageFurniture() {
-        if bandedPageCount != pageCount {
-            applyBands()
-        }
+        paginate()
 
         let noteHeight = pageLayout.noteHeight(pageCount: pageCount)
         host.canvas.noteSize = CGSize(width: pageLayout.pageSize.width, height: noteHeight)

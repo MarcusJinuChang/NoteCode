@@ -117,6 +117,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 |---|---|---|---|
 | Letter pages | US Letter, 96 units per inch; portrait or landscape per note | built | `pages.md`, `page-geometry-orientation-and-zoom.md` |
 | View modes | Seamless, compressed (dashed breaks), print layout (separate sheets) | built | `pages.md` |
+| Page breaks | A paragraph that would cross a page's end starts the next page whole (paragraph spacing, not exclusion paths), the same page in every mode; a paragraph taller than a page is broken by line. A keystroke near the top of a 40-page note costs about what it does unpaged (F5) | built; moves breaks against 1.1.0, where single lines were pushed; typing feel on the iPad unchecked | `pages.md` |
 | Zoom | Pinch to zoom; zoom does not re-wrap text | built | `page-geometry-orientation-and-zoom.md` |
 | Add Page | Appends a page | built | `pages.md` |
 | The page fills the window | The hotbar floats over the page or takes a strip at a side | built, with a 10pt edge buffer (feedback #1) | `the-page-fills-the-window.md` |

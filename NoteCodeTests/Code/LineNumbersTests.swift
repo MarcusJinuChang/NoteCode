@@ -157,6 +157,11 @@ struct LineNumbersTests {
         for index in 0..<5 {
             // An edit forgets what was worked out, so each pass starts cold.
             try await edit(harness, at: 12 + index, with: "z")
+            // Laid out first: this times the numbering. The layout of what an
+            // edit invalidated used to be done by the edit (page breaks were
+            // exclusion paths, which lay out everything below it); now it is
+            // done by whatever looks, and 1,000 lines of it were counted here.
+            harness.textView.textLayoutManager?.ensureLayout(for: harness.textView.textLayoutManager!.documentRange)
             let start = Date()
             let all = numbers(in: harness)
             times.append(Date().timeIntervalSince(start))

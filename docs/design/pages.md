@@ -8,13 +8,74 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   when it's made; the view mode is a per-device preference (`@AppStorage`),
   chosen from the View section of the header's ••• menu.
 - **One pagination, three presentations.** Every page holds a body of the same
-  height in every mode, and text flows around a band between one body and the
-  next — two margins and a 24pt gap in print layout, a 24pt strip with a dashed
-  line in compressed, 1pt in seamless. The bands are the text container's
-  exclusion paths. A line that would cross a break is pushed to the next page
-  in every mode, so seamless shows up to a line's extra space at each break.
-  Because a line's page and its place on the page never depend on the mode,
-  neither does ink's.
+  height in every mode, and a gap sits between one body and the next — two
+  margins and a 24pt gap in print layout, a 24pt strip with a dashed line in
+  compressed, 1pt in seamless. A paragraph that would end below its page's body
+  starts the next page whole, in every mode (see "Page breaks are pushed
+  paragraphs"), so seamless shows up to a paragraph's extra space at each
+  break. Because a paragraph's page and its place on the page never depend on
+  the mode, neither does ink's.
+- **Page breaks are pushed paragraphs, not exclusion paths** (F5, 6 Nov).
+  The breaks used to be the text container's exclusion paths, which push single
+  lines; they made TextKit 2 lay out everything below an edit (see "Cost").
+  Now `PagePaginator` walks the laid-out paragraphs from the first one not
+  known to be right, with a running position of its own (each paragraph's
+  natural height is TextKit's, its place the end of the one above plus any
+  push), and where a paragraph would end below the body it gives it a push:
+  `PageBreakRule` says how far, to the next body's top. The push is paragraph
+  spacing on the copy of the paragraph TextKit lays out
+  (`BlankLineLayout`, the content storage's delegate; `PagePushTable` keeps the
+  pushes by paragraph start and shifts them with edits), never in the note's
+  text or styles. Only a paragraph whose push changed is laid out again, with
+  `NSTextStorage.edited(.editedAttributes…)` over its range (probe: that
+  regenerates the paragraph, the push lands at the top of its fragment's frame,
+  and the fragments below move with it). Typing changes no push unless a line
+  wraps differently, so a keystroke costs what it does without pages.
+  - **Where it runs.** After every layout pass of the text view, from the first
+    paragraph not known to be right (the one an edit touched; the top for a new
+    layout, which also forgets every push) to the end of the note, repeating
+    until no push moves. It goes to the end, not as far as the reader has
+    scrolled, because the page count is the note's height and TextKit estimates
+    what it has not laid out: worked out from part of a 10-page note it read 11,
+    9 and 10 pages in turn while the note settled, and the place it opened at
+    moved with it (`ReopenTests`). The walk reads frames of paragraphs already
+    laid out, because an edit invalidates only its own paragraph; what used to
+    cost was typesetting them again. Measured: about 4.3ms for the walk on 40
+    pages, a keystroke at the top about 8 times an unpaged one, about 0.11ms
+    per page, and 22ms at 198 pages. Opening a note still lays out the whole
+    note, as the paths did.
+    Opening at a page and a search result call it before they read a line's
+    place (`PageView.paginate()`).
+  - **The height UIKit sets between edits and layout** (`PageBands.settledTextHeight`).
+    UIKit sets the content height as text changes, before a layout pass, and
+    after an edit that invalidates much of the note (the syntax colours
+    arriving over a whole note's range, a paste) TextKit's height for what it
+    hasn't laid out again leaves the pushes out: a 10-page note read 9 pages
+    for a moment and UIKit pulled the reader's offset up 400pt to fit, and
+    back. So when the paginator has unchecked paragraphs the height is worked
+    out there: it paginates, which lays them out, and answers with the laid-out
+    note's height (`usageBoundsForTextContainer`). A layout pass also paginates
+    first (`DocumentUITextView.addWillLayoutObserver`), so UIKit's own layout
+    reads a complete one. `ReopenTests` "The first place reported is the page
+    it opened at" is what failed without it.
+  - **A paragraph taller than a page's body** can't start a page and fit it, so
+    it stays where it is and its lines are pushed one at a time, the old way:
+    exclusion paths for the breaks it crosses, and only those
+    (`PageBreakRule.linePlacement` works out which, from the lines' heights).
+    A note with one pays the old cost on every keystroke, since the container
+    has paths again. Code lines are paragraphs of their own, so a code block
+    taller than a page is not this case; one long paragraph of prose is.
+  - **Breaks moved against 1.1.0** (a product decision, approved for F5). A
+    paragraph used to be split by a break, its later lines pushed; now it moves
+    whole, so a page can end earlier by up to a paragraph and the next begins
+    with it. Ink is anchored to its page and its distance down it, never to
+    words, so a stroke beside a split paragraph's lower lines stays where it
+    was and the lines are now a page on. Nothing else moves: a page's body, the
+    page count rule and `minimumPageCount` are as they were.
+  - **Code panels.** A pushed code line's fragment frame begins above the
+    break, as a pushed line's always did, so `laidOutPanelRuns` finds the break
+    in the fragment's `pageGap` attribute (the last `gap` points of the push) as
+    well as in the container's paths.
 - **Ink lives in print coordinates** (`PageView.ink`), which is also where it
   prints. The canvas shows it converted to the current mode, and every mode
   change converts from the stored ink, never back from the canvas: a stroke in
@@ -255,6 +316,9 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   anyway, so a pushing container doesn't help. Blank lines ran through the
   breaks — print layout's band holds about seven, seamless's none — and text
   after a blank run paginated differently by mode, which ink can't survive.
+  Since F5 a break is paragraph spacing, which an empty paragraph may not
+  honour either, and a paragraph taller than a page still uses paths, so the
+  swap stays.
   The content storage's delegate swaps each "\n" paragraph for "\u{200B}", the
   same length, for layout only; the note keeps its newlines. The cost is on
   taps: UIKit snaps a tap's caret to a word boundary, and a run of zero-width
@@ -330,16 +394,19 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   scratch, never the scroll offset against page geometry — that comparison
   passed the whole time the bug was on screen.
 - **Cost.** Once any exclusion path exists, TextKit 2 lays out everything below
-  an edit. A keystroke near the top of a note, measured on the simulator: 100
-  lines 2.8ms → 13.7ms, 250 lines 5.5ms → 33.8ms, 500 lines 9.7ms → 66ms.
-  `PageViewTests.typingCost` bounds it. So anything that edits the text
-  storage after a keystroke costs another full layout below the caret —
-  including setting attributes that are already there, which is why the
-  styler compares before it writes (25 Sep). That one layout is about half
-  of what a keystroke costs now. Long notes did stutter on the iPad; the
-  alternative is pushing paragraphs with paragraph spacing, computed lazily
-  — whole paragraphs rather than lines, and it has to coexist with the
-  styler's own paragraph styles.
+  an edit. Measured on the simulator before F5: a keystroke near the top of a
+  note, 100 lines 2.8ms → 13.7ms, 250 lines 5.5ms → 33.8ms, 500 lines 9.7ms →
+  66ms, and 40 pages (1,500 lines) 98ms against 1ms for the same text with no
+  paths (`PageViewTests.typingCostLongNote` and `exclusionPathsAreTheCost`).
+  The time is CoreText typesetting every paragraph below the edit, so nothing of
+  ours was the cause; clearing the paths loses the breaks, and an
+  `NSTextContainer` subclass pushing lines in `lineFragmentRect(forProposedRect:)`
+  (74ms) was laid out again below the edit as well. Pushing paragraphs with
+  paragraph spacing, as above, removed the paths: see the numbers in
+  "Page breaks are pushed paragraphs". It still holds that anything which edits
+  the text storage after a keystroke costs a layout of what the edit
+  invalidates — including setting attributes that are already there, which is
+  why the styler compares before it writes (25 Sep).
   - **Held Return and Backspace needing two presses** (21 Oct, a report from
     1.0). Not reproducible through code: twelve contexts (prose, heading,
     after bold, code, after a brace, unclosed code, blank-line runs, and

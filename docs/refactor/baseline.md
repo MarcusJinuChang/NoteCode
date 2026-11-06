@@ -191,6 +191,40 @@ rows stay the reference for `--compare`. One perf test throws
 `NSRangeException` ("NSMutableRLEArray replaceObjectsInRange … Out of
 bounds"); it does so on `main` before this change too.
 
+### F5: page breaks as pushed paragraphs (6 Nov, `main` ff578da)
+
+`scripts/perf.sh --compare` of this branch against `main` just before, ms,
+same simulator, run back to back with other lanes on the machine. The
+`PERF` lines the new budget is:
+
+```
+PERF PageViewTests/typingCostLongNote 0.0051
+PERF PageViewTests/exclusionPathsAreTheCost.paged 0.0050
+PERF PageViewTests/exclusionPathsAreTheCost.with 0.1007
+PERF PageViewTests/exclusionPathsAreTheCost.without 0.0008
+```
+
+| Test | before | after |
+|---|---|---|
+| `PageViewTests/typingCostLongNote` (a keystroke near the top of 40 pages) | 98.2 | 5.1 |
+| `exclusionPathsAreTheCost.with` (the same text with the breaks as paths) | 106.0 | 100.7 |
+| `exclusionPathsAreTheCost.without` (no paths) | 0.8 | 0.8 |
+| `CodeFenceCostTests/caretMoveCost.keystroke` | 70.0 | 9.4 |
+| `LineNumbersTests/keystrokeCost.on` / `.off` | 52 | 7.6 / 7.3 |
+| `MarkdownLayoutCostTests/typingCost.rendered` / `.legacy` | 46 / 48 | 9.0 / 8.3 |
+| `NotePDFTests/printingCost` | 1177 | 1064 |
+| `PageViewTests/openingCost.open` / `.switch` | 212 / 437 | 187 / 360 |
+| `LineNumbersTests/longBlockCost` | 2.1 | 1.4 (the block laid out first, see below) |
+
+Every keystroke test that types in a paged note fell about tenfold: they all
+paid for the exclusion paths. Nothing is more than 10% worse. Two tests
+assumed the note was laid out to its end, which the exclusion paths did on
+every edit: `longBlockCost` timed numbering 1,000 lines the edit had already
+laid out, and `CodeFenceCostTests` › "A caret move into a block lays nothing
+out" counted the fragments its first look at the tail made. Each now lays the
+note out first. `TextSizeCostTests` still throws `NSRangeException` (above),
+which ends the perf run there, as on `main`.
+
 ## 4. Warnings
 
 Taken at `main` 8767927.
