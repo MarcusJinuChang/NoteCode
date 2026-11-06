@@ -2,6 +2,24 @@
 
 Newest first. One entry each: what was decided, why, and where the detail is.
 
+## 7 Nov 2026: page breaks push whole paragraphs; existing ink may drift
+
+Question (F5, PR 226): typing near the top of a long paged note cost about
+100ms a keystroke, because page breaks were exclusion paths. Pushing whole
+paragraphs past a break with paragraph spacing takes it to about 5ms, but a
+paragraph that used to split at a break now starts the next page, so text
+in an existing note moves down while its ink stays. The shift adds up down
+the note: modelled at about 32pt by page 2, 170pt by page 10 and 340pt by
+page 20 for 1–3 line paragraphs, more for longer ones; code and lists
+barely move.
+
+Decided (Marcus): merge and accept the drift. 1.1.0 had been live about a
+day, so few notes have ink beside paragraphs that cross a break; keeping
+the old layout for them would need a new schema version and the slow path
+back. Say so in the release notes.
+
+Detail: [design/pages.md](design/pages.md).
+
 ## 7 Nov 2026: in print layout, ink stays clipped to each sheet's body
 
 Question (found by T10's `inkAcrossPageBreak` snapshot): a stroke that
