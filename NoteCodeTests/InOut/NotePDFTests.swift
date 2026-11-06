@@ -22,10 +22,12 @@ struct NotePDFTests {
         ink: PaperMarkup? = nil,
         orientation: PageOrientation = .portrait,
         pageCount: Int = 1,
+        minimumPages: Int = 1,
         rendersMarkdown: Bool = false
     ) async throws -> PDFDocument {
         let data = await NotePDF.render(NotePDF.Note(
-            title: title, text: text, ink: ink, orientation: orientation, pageCount: pageCount, rendersMarkdown: rendersMarkdown
+            title: title, text: text, ink: ink, orientation: orientation, pageCount: pageCount,
+            minimumPages: minimumPages, rendersMarkdown: rendersMarkdown
         ))
         return try #require(PDFDocument(data: data))
     }
@@ -98,6 +100,47 @@ struct NotePDFTests {
         let fromTwenty = try await Self.pdf(text, pageCount: 20)
         #expect(fromOne.pageCount > 3)
         #expect(fromTwenty.pageCount == fromOne.pageCount)
+    }
+
+    // MARK: Trailing blank pages
+
+    @Test("Pages added automatically after the last text or ink are left out")
+    func trailingBlankPagesLeftOut() async throws {
+        let layout = PageLayout(orientation: .portrait, mode: .print)
+        let ink = TestInk.markup(strokesAt: [layout.sheet(ofPage: 1).minY + 300])
+        let pdf = try await Self.pdf("Text on page 1", ink: ink, minimumPages: 5)
+        #expect(pdf.pageCount == 2)
+    }
+
+    @Test("A note with nothing on it prints one page, however many it was given")
+    func emptyNoteOnePage() async throws {
+        #expect(try await Self.pdf("", minimumPages: 5).pageCount == 1)
+        #expect(try await Self.pdf("\n\n  \n", minimumPages: 3).pageCount == 1)
+    }
+
+    @Test("Ink alone on page 3 keeps pages 1 to 3")
+    func inkOnlyOnPageThree() async throws {
+        let layout = PageLayout(orientation: .portrait, mode: .print)
+        let ink = TestInk.markup(strokesAt: [layout.sheet(ofPage: 2).minY + 300])
+        #expect(try await Self.pdf("", ink: ink, minimumPages: 5).pageCount == 3)
+    }
+
+    @Test("Ink in a page's margin counts as content")
+    func marginInkCounts() async throws {
+        let layout = PageLayout(orientation: .portrait, mode: .print)
+        let ink = TestInk.markup(strokesAt: [layout.sheet(ofPage: 2).minY + 20])
+        #expect(try await Self.pdf("Text", ink: ink, minimumPages: 5).pageCount == 3)
+    }
+
+    @Test("A blank page between two with content stays")
+    func interiorBlankPageStays() async throws {
+        let layout = PageLayout(orientation: .portrait, mode: .print)
+        // Text on page 1, nothing on page 2, ink on page 3.
+        let ink = TestInk.markup(strokesAt: [layout.sheet(ofPage: 2).minY + 300])
+        let pdf = try await Self.pdf("Text on page 1", ink: ink, minimumPages: 4)
+        #expect(pdf.pageCount == 3)
+        let middle = (pdf.page(at: 1)?.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        #expect(middle.isEmpty)
     }
 
     @Test("The PDF carries the note's title")
