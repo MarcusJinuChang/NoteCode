@@ -43,8 +43,10 @@ enum NotePDF {
         /// laying out with the right number of page breaks the first time
         /// saves laying the whole note out again.
         var pageCount = 1
-        /// The pages the note was given (`Page.minimumPageCount`): blank
-        /// ones print, as they show.
+        /// The pages the note was given (`Page.minimumPageCount`). Laid out
+        /// with them, but trailing pages with no text and no ink are left
+        /// out of the PDF (see `render`): they exist only because pages were
+        /// added as the reader wrote near the end.
         var minimumPages = 1
         /// Whether the note's Markdown markers take no room.
         var rendersMarkdown = false
@@ -80,7 +82,15 @@ enum NotePDF {
     /// Letter at 72 points to the inch.
     static let pointsPerPagePoint: CGFloat = 72 / PageLayout.unitsPerInch
 
-    /// One PDF page per page of the note.
+    /// One PDF page per page of the note, up to the last one with text or ink.
+    ///
+    /// **Trailing blank pages are left out.** Pages are added automatically
+    /// while a reader writes or draws near the end, which grows
+    /// `Page.minimumPageCount`, so a note can run to pages nothing is on. A
+    /// blank page between two with content stays, since a reader may have
+    /// left the room on purpose. A note with nothing on it prints one page.
+    /// Ink counts wherever it is on the sheet, margins included. Only the
+    /// PDF is trimmed; the note and its page count are untouched.
     static func render(_ note: Note) async -> Data {
         let printed = await PrintedNote(
             text: note.text,
@@ -110,8 +120,11 @@ enum NotePDF {
         else { return Data() }
 
         let paragraphs = printed.paragraphsByPage(pageCount: pageCount)
-        let inkBySheet = ink.map { sheetsInk($0, layout: layout, pageCount: pageCount) }
-        for index in 0..<pageCount {
+        // One walk of the ink: overflow pieces count as ink on their page for
+        // deciding which pages to keep, and are dropped before drawing.
+        let inkBySheet = ink.map { sheetsInk($0, layout: layout, pageCount: pageCount, includingOverflow: true) }
+        let printedPages = lastPageWithContent(paragraphs: paragraphs, ink: inkBySheet) + 1
+        for index in 0..<printedPages {
             let sheet = layout.sheet(ofPage: index)
             context.beginPDFPage(nil)
             context.saveGState()
@@ -120,7 +133,7 @@ enum NotePDF {
             context.scaleBy(x: scale, y: -scale)
 
             printed.draw(paragraphs[index], onSheet: sheet, in: context)
-            if let elements = inkBySheet?[index], !elements.isEmpty {
+            if let elements = inkBySheet?[index].filter({ !InkPages.isOverflow($0) }), !elements.isEmpty {
                 await drawInk(elements, onSheet: sheet, in: context)
             }
 
@@ -131,14 +144,35 @@ enum NotePDF {
         return data as Data
     }
 
+    /// The index of the last page that has text or ink, or 0 if none has.
+    /// Text counts when a line on the page holds anything but whitespace.
+    static func lastPageWithContent(paragraphs: [[PrintedNote.Paragraph]], ink: [[any Markup]]?) -> Int {
+        for index in stride(from: paragraphs.count - 1, to: 0, by: -1) {
+            if let ink, index < ink.count, !ink[index].isEmpty { return index }
+            let hasText = paragraphs[index].contains { paragraph in
+                paragraph.lines.contains { line in
+                    let string = line.attributedString.string as NSString
+                    let range = NSIntersectionRange(line.characterRange, NSRange(location: 0, length: string.length))
+                    return string.substring(with: range).contains { !$0.isWhitespace }
+                }
+            }
+            if hasText { return index }
+        }
+        return 0
+    }
+
     /// Each sheet's ink: the elements whose frame reaches it, from one walk
     /// of the note's ink. Overflow doesn't print, as print layout doesn't
     /// show it: a stroke drawn across a page break stops at the edge of the
     /// page it was started on.
-    static func sheetsInk(_ ink: PaperMarkup, layout: PageLayout, pageCount: Int) -> [[any Markup]] {
+    ///
+    /// - Parameter includingOverflow: also files the overflow pieces, which
+    ///   don't print but are ink on the page they reach: that is what keeps
+    ///   a page from being left out as blank.
+    static func sheetsInk(_ ink: PaperMarkup, layout: PageLayout, pageCount: Int, includingOverflow: Bool = false) -> [[any Markup]] {
         var sheets = Array(repeating: [any Markup](), count: pageCount)
         guard pageCount > 0 else { return sheets }
-        for element in ink.subelements where !InkPages.isOverflow(element) {
+        for element in ink.subelements where includingOverflow || !InkPages.isOverflow(element) {
             let frame = element.renderFrame
             let first = min(layout.pageIndex(atY: frame.minY), pageCount - 1)
             let last = min(layout.pageIndex(atY: frame.maxY), pageCount - 1)
