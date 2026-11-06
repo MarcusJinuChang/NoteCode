@@ -280,6 +280,7 @@ final class NoteEditor {
         self.inkTools = inkTools
         inkTools.listen(self) { editor, change in editor.storeDidChange(change) }
         undoRouter = UndoRouter(editor: self)
+        typographyController = NoteTypographyController(editor: self)
         install(features)
     }
 
@@ -1055,15 +1056,7 @@ final class NoteEditor {
         )
     }
 
-    /// The note's block sizes as laid out, kept per text size: they come from
-    /// the system's fonts, and the bar asks on every caret move.
-    private var blockSizes: MarkdownFormatting.BlockSizes {
-        if let cached = blockSizesCache, cached.bodySize == appliedTextSize { return cached.sizes }
-        let sizes = typography.blockSizes
-        blockSizesCache = (appliedTextSize, sizes)
-        return sizes
-    }
-    @ObservationIgnored private var blockSizesCache: (bodySize: Int, sizes: MarkdownFormatting.BlockSizes)?
+    private var blockSizes: MarkdownFormatting.BlockSizes { typographyController.blockSizes }
 
     /// The pending tap goes on. `keeping` is where the reader has just put
     /// the caret, which stays there rather than going back to the text sized.
@@ -1145,20 +1138,6 @@ final class NoteEditor {
         }
     }
 
-    /// The note's own body size as ••• › Text Size shows it: the reader's
-    /// latest pick, which the note catches up to after `settleDelay` and,
-    /// for a note with ink, a yes. Every size in the note is against it.
-    var textSize = NoteTypography.defaultSize
-
-    /// The size the note is laid out in now, from `Page.textSize`.
-    var appliedTextSize = NoteTypography.defaultSize
-
-    /// Writes the size into the note (`Page.textSize`). Set by the page.
-    /// Not an edit: the page leaves `modifiedAt` and the undo stack alone.
-    @ObservationIgnored var commitTextSize: ((Int?) -> Void)?
-
-    @ObservationIgnored var settleTask: Task<Void, Never>?
-
     /// How long a size waits after a tap or a pick before the text re-flows,
     /// so a run of the size control's taps lays the note out once.
     @ObservationIgnored var settleDelay = Duration.milliseconds(120)
@@ -1167,16 +1146,41 @@ final class NoteEditor {
     /// the app keeps `ContinuousClock`, as `Task.sleep(for:)` uses.
     @ObservationIgnored var settleClock: any Clock<Duration> = ContinuousClock()
 
-    /// The points of line spacing the note is laid out with, from
-    /// `Page.lineSpacing`, and as the text row's menu shows them. A pick is
-    /// one action, so it applies at once (no `settleDelay`); a note with ink
-    /// asks first, once each time it is opened, with the text size's answer.
-    var lineSpacing = 0
+    // MARK: The note's typography (NoteTypographyController)
 
-    var appliedLineSpacing = 0
+    @ObservationIgnored private(set) var typographyController: NoteTypographyController!
+
+    var textSize: Int { typographyController.textSize }
+    var appliedTextSize: Int { typographyController.appliedTextSize }
+    var lineSpacing: Int { typographyController.lineSpacing }
+    var appliedLineSpacing: Int { typographyController.appliedLineSpacing }
+
+    /// The note's typography as it is now, for a PDF made of it.
+    var typography: NoteTypography { typographyController.typography }
+
+    /// Writes the size into the note (`Page.textSize`). Set by the page.
+    var commitTextSize: ((Int?) -> Void)? {
+        get { typographyController.commitTextSize }
+        set { typographyController.commitTextSize = newValue }
+    }
 
     /// Writes the spacing into the note (`Page.lineSpacing`). Not an edit.
-    @ObservationIgnored var commitLineSpacing: ((Int?) -> Void)?
+    var commitLineSpacing: ((Int?) -> Void)? {
+        get { typographyController.commitLineSpacing }
+        set { typographyController.commitLineSpacing = newValue }
+    }
+
+    func syncTextSize(to stored: Int?) { typographyController.syncTextSize(to: stored) }
+    func setTextSize(_ size: Int) { typographyController.setTextSize(size) }
+    func syncLineSpacing(to stored: Int?) { typographyController.syncLineSpacing(to: stored) }
+    func setLineSpacing(_ points: Int) { typographyController.setLineSpacing(points) }
+
+    /// Returns once the sizes waiting for `settleDelay`, the note's and the
+    /// selection's, have been applied, or were dropped. For tests.
+    func sizeSettled() async {
+        await typographyController.settleTask?.value
+        await selectionSizeTask?.value
+    }
 
     // MARK: Outline
 
