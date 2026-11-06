@@ -117,7 +117,9 @@ enum DocumentStyler {
     ///
     /// Keyed by the size too: a marker is wider in a larger body, and notes
     /// of different sizes are styled in one process.
-    private static var markerWidths: [String: CGFloat] = [:]
+    /// Bounded at 500 (it was not): a key is the marker's text and the size, and
+    /// indentation is part of the text, so it could grow with what is typed.
+    private static let markerWidths = BoundedCache<String, CGFloat>(limit: 500)
 
     static func listParagraphStyle(
         for block: BlockNode,
@@ -157,10 +159,9 @@ enum DocumentStyler {
 
     private static func width(ofMarker marker: String, typography: NoteTypography) -> CGFloat {
         let key = "\(typography.bodySize)|\(marker)"
-        if let cached = markerWidths[key] { return cached }
-        let width = (marker as NSString).size(withAttributes: [.font: typography.prose]).width
-        markerWidths[key] = width
-        return width
+        return markerWidths.value(for: key) {
+            (marker as NSString).size(withAttributes: [.font: typography.prose]).width
+        }!
     }
 
     // MARK: Applying
@@ -733,18 +734,14 @@ private extension UIFont {
 
 /// The dynamic colours coloured runs are drawn in, one per hex.
 private final class TextColourCache: @unchecked Sendable {
-    private var colours: [Int: UIColor] = [:]
-    private let lock = NSLock()
+    private let colours = BoundedCache<Int, UIColor>(limit: 2_000)
 
     func colour(hex: Int) -> UIColor {
-        lock.lock()
-        defer { lock.unlock() }
-        if let colour = colours[hex] { return colour }
-        let colour = UIColor { traits in
-            AccentPalette.uiColor(AccentPalette.textHex(for: hex, isDark: traits.userInterfaceStyle == .dark))
-        }
-        colours[hex] = colour
-        return colour
+        colours.value(for: hex) {
+            UIColor { traits in
+                AccentPalette.uiColor(AccentPalette.textHex(for: hex, isDark: traits.userInterfaceStyle == .dark))
+            }
+        }!
     }
 }
 

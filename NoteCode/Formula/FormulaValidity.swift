@@ -37,7 +37,7 @@ nonisolated enum FormulaValidity: Equatable, Sendable {
     /// source, so a note of two hundred formulas asks SwiftMath once each
     /// however often it is laid out or styled.
     static func check(_ source: String) -> FormulaValidity {
-        if let cached = cache.value(for: source) { return cached }
+        if let cached = cache[source] { return cached }
         let answer = compute(source)
         cache.set(answer, for: source)
         return answer
@@ -64,32 +64,10 @@ nonisolated enum FormulaValidity: Equatable, Sendable {
 
     /// Bounded, so a long session of typing doesn't grow it for ever: past the
     /// limit it starts over (every answer is cheap to recompute).
-    private final class Cache: @unchecked Sendable {
-        private let lock = NSLock()
-        private var answers: [String: FormulaValidity] = [:]
-        private let limit = 2_000
-
-        func value(for key: String) -> FormulaValidity? {
-            lock.lock(); defer { lock.unlock() }
-            return answers[key]
-        }
-
-        func set(_ value: FormulaValidity, for key: String) {
-            lock.lock(); defer { lock.unlock() }
-            if answers.count >= limit { answers.removeAll(keepingCapacity: true) }
-            answers[key] = value
-        }
-
-        func clear() {
-            lock.lock(); defer { lock.unlock() }
-            answers.removeAll()
-        }
-    }
-
-    private static let cache = Cache()
+    private static let cache = BoundedCache<String, FormulaValidity>(limit: 2_000)
 
     #if DEBUG
     /// For tests.
-    static func clearCache() { cache.clear() }
+    static func clearCache() { cache.removeAll() }
     #endif
 }
