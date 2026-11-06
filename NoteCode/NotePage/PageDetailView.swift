@@ -13,7 +13,9 @@ import SwiftUI
 /// menu (rename, pin, move, lock, info, delete), then share and •••. It was a custom view with a
 /// large-title field under a row of icons; the navigation bar's own editable
 /// title does the same job and is where iPad people expect to rename a
-/// document.
+/// document. The items are `NoteHeader`, the ••• menu `NoteMoreMenu`, the
+/// Pencil's gestures `PencilGestureRouter` and the page badge
+/// `PageBadgeModel`.
 ///
 /// The iOS page is DocumentTextView (TextKit 2). macOS keeps a plain
 /// TextEditor and has no hotbar.
@@ -48,14 +50,14 @@ struct PageDetailView: View {
     @Query private var folders: [Folder]
 
 #if canImport(UIKit)
-    @State var editor = NoteEditor()
+    /// The note's editor and ink saver, made when first read rather than on
+    /// every `init` (`NoteSession`).
+    @State private var session: NoteSession
+    private var editor: NoteEditor { session.editor }
     /// The edition's editor features, installed in `editor` as the page
     /// appears: `@State` is made before the environment can be read.
     @Environment(\.appExtensions) private var extensions
     @Environment(ToastCenter.self) private var toasts: ToastCenter?
-
-    /// Saves this note's ink. One per open note, like the editor.
-    @State private var inkSaver: DrawingSaveScheduler
 
     /// The page the note was last read at on this device, read once as the
     /// note opens: the page then writes its own place back as it is read.
@@ -63,11 +65,9 @@ struct PageDetailView: View {
 
     /// The window's width, for the features' top-bar item and side panel
     /// (`EditorPageLayout`).
-    @State var windowWidth: CGFloat = 0
+    @State private var windowWidth: CGFloat = 0
 
-    @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.displayScale) private var screenScale
-    /// What the badge's hold is measured on (`badgeHold`).
+    /// What the badge's hold is measured on (`PageBadgeModel.hold`).
     @Environment(\.debounceClock) private var debounceClock
 
     let settings = NoteViewSettings()
@@ -75,12 +75,8 @@ struct PageDetailView: View {
     /// In a compact width the bar is at the bottom whatever this device
     /// stored, and can't be moved; the stored edge is the iPad's, and comes
     /// back when the width does (a Duo unfolded).
-#if os(iOS)
     @Environment(\.horizontalSizeClass) private var sizeClass
-    var isCompact: Bool { sizeClass == .compact }
-#else
-    private var isCompact: Bool { false }
-#endif
+    private var isCompact: Bool { sizeClass == .compact }
 
     /// Where the bar is: the stored edge, or the bottom in a compact width,
     /// and never across a Duo's fold while it is partly folded
@@ -97,35 +93,19 @@ struct PageDetailView: View {
     /// (`FoldReader`). None on any device but a Duo, nor on a Duo flat open.
     @State private var folds: [CGRect] = []
 
-    /// Counts the bar's drops; each one is a snap for the haptic to follow.
-    @State private var snaps = 0
-
     /// The page area the hotbar docks within, for working out where a drag lands.
     @State private var pageSize: CGSize = .zero
 
-    /// What the reader has set the Pencil's double tap and squeeze to do,
-    /// in Settings.
-    @Environment(\.preferredPencilDoubleTapAction) private var doubleTapAction
-    @Environment(\.preferredPencilSqueezeAction) private var squeezeAction
-
-    /// Whether the ink tools are showing beside the Pencil, and where.
-    @State private var showsInkTools = false
-    @State private var inkToolsAnchor = UnitPoint.center
+    /// The Pencil's gestures and the bar's drops.
+    @State private var pencil = PencilGestureRouter()
 
     /// The header's outline popover (also ⌃⌘O).
     @State private var showsOutline = false
 
-    /// The page badge: where the reader is while the note scrolls, which
-    /// shows until a second after the scrolling stops.
-    @State private var badge: NoteMemory.Place?
-    @State private var badgeVisible = false
-    @State private var badgeTimer: Task<Void, Never>?
-
-    /// What the Link alert's field holds.
-    @State private var linkAddress = ""
-
-    /// What Custom… has typed so far.
-    @State private var customSize = ""
+    /// The page badge: where the reader is while the note scrolls.
+    @State private var badge = PageBadgeModel()
+#else
+    private var isCompact: Bool { false }
 #endif
 
     @State private var showsInfo = false
@@ -151,9 +131,9 @@ struct PageDetailView: View {
         self.onShowSettings = onShowSettings
         self.startsRenaming = startsRenaming
 #if canImport(UIKit)
-        // Cheap: the ink is read when the page is made, not here. SwiftUI
-        // builds this view far more often than it keeps a new state.
-        _inkSaver = State(initialValue: DrawingSaveScheduler(page: page))
+        // Cheap: SwiftUI builds this view far more often than it keeps a new
+        // state, so the editor and the ink saver wait in `NoteSession`.
+        _session = State(initialValue: NoteSession(page: page))
         _resumingAtPage = State(initialValue: Self.lastReadPage(of: page))
 #endif
     }
@@ -164,7 +144,7 @@ struct PageDetailView: View {
                 RenameOnAppear()
             }
 #if canImport(UIKit)
-            if let problem = inkSaver.problem {
+            if let problem = session.inkSaver.problem {
                 Label(problem, systemImage: "exclamationmark.triangle.fill")
                     .font(.footnote)
                     .foregroundStyle(.orange)
@@ -191,7 +171,7 @@ struct PageDetailView: View {
                 onDelete: onDelete
             )
         }
-        .toolbar { headerItems }
+        .toolbar { header }
 #if os(iOS)
         // The top bar on the bar material, not the system's glass.
         .toolbarBackground(BarMaterial.fill, for: .navigationBar)
@@ -231,37 +211,7 @@ struct PageDetailView: View {
             editor.commitLineSpacing = { [weak page = self.page] spacing in page?.lineSpacing = spacing }
             editor.onBlockCopied = { [toasts] in toasts?.show("Copied") }
         }
-        // Custom… in the size control's list.
-        .alert("Text Size", isPresented: Binding(
-            get: { editor.customSizeSelection != nil },
-            set: { _ in }
-        )) {
-            TextField("Points", text: $customSize)
-                .keyboardType(.decimalPad)
-            Button("Cancel", role: .cancel) { editor.cancelCustomSize() }
-            Button("Set") { editor.finishCustomSize(typed: customSize) }
-        } message: {
-            Text("8 to 72 points.")
-        }
-        .onChange(of: editor.customSizeSelection != nil) { _, asking in
-            if asking { customSize = editor.selectionTextSize.points.map(SpanSize.label(points:)) ?? "" }
-        }
-        .alert("Add Link", isPresented: Binding(
-            get: { editor.linkTarget != nil },
-            set: { _ in }
-        )) {
-            TextField("Address", text: $linkAddress)
-                .keyboardType(.URL)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-            Button("Cancel", role: .cancel) { editor.cancelLink() }
-            Button("Add") { editor.finishLink(address: linkAddress) }
-        } message: {
-            Text("Where the link goes.")
-        }
-        .onChange(of: editor.linkTarget != nil) { _, asking in
-            if asking { linkAddress = "" }
-        }
+        .modifier(NoteEditorAlerts(editor: editor))
         // Before the text view exists as well as after: the editor keeps
         // the setting and applies it when the page attaches.
         .onChange(of: page.isTextLocked, initial: true) { _, locked in
@@ -276,158 +226,32 @@ struct PageDetailView: View {
             },
             showOutline: { showsOutline = true }
         ))
-        // Ink drawn just before leaving would otherwise wait out the pause
-        // after the page is gone.
-        .onDisappear { [inkSaver] in
-            // Strokes are taken into the ink off the main thread, and the
-            // last few may still be on their way.
-            editor.commitInk()
-            Task { await inkSaver.flush() }
-        }
-        // Not only on reaching the background. Swiping the app away in the
-        // switcher goes from inactive straight to terminated.
-        .onChange(of: scenePhase) { _, phase in
-            guard phase != .active else { return }
-            editor.commitInk()
-            inkSaver.flushBeforeSuspending { [modelContext] in
-                // The store autosaves on its own schedule, which may not come
-                // round again before the app is suspended or killed.
-                try? modelContext.save()
-            }
-        }
+        .modifier(NoteInkLifecycle(editor: editor, inkSaver: session.inkSaver))
 #endif
     }
 
     // MARK: Header
 
-    /// Home beside the sidebar button; Share and ••• on the right, in the label colour, not the accent,
-    /// which belongs to the tools and the page. The sidebar button on the
-    /// left is the system's: it opens the list over the page, and in a
-    /// compact width the back button takes its place.
-    @ToolbarContentBuilder
-    private var headerItems: some ToolbarContent {
-        // The title is the system's, so it can't carry the lock after it;
-        // the lock sits beside the buttons instead, only while it's locked.
-        if page.isTextLocked {
-            ToolbarItem(placement: .primaryAction) {
-                Image(systemName: "lock.fill")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .accessibilityLabel("Text Locked")
-            }
-        }
-
-        // Beside the sidebar button, at the top left. The house goes where
-        // the list's Home row was: the list is no longer where Home lives.
-        if let onToggleList {
-            ToolbarItem(placement: homePlacement) {
-                NoteWindowControl(onToggleList: onToggleList, onGoHome: onGoHome)
-            }
-            .sharedBackgroundVisibility(.hidden)
-        }
-
+    /// The navigation bar's items (`NoteHeader`).
+    private var header: NoteHeader {
 #if canImport(UIKit)
-        featureTopBarItem
-
-        ToolbarItem(placement: .primaryAction) {
-            NoteShareButton(editor: editor, title: page.displayTitle, fallbackText: page.content)
-                .tint(.primary)
-        }
-        .sharedBackgroundVisibility(.hidden)
-#endif
-
-        ToolbarItem(placement: .primaryAction) {
-            moreMenu
-                .tint(.primary)
-        }
-        .sharedBackgroundVisibility(.hidden)
-    }
-
-    /// The top left. `.topBarLeading` is iOS's only; the Mac's leading
-    /// place in a window's toolbar is `.navigation`.
-    private var homePlacement: ToolbarItemPlacement {
-#if os(iOS)
-        .topBarLeading
+        NoteHeader(
+            page: page, onToggleList: onToggleList, onGoHome: onGoHome, more: moreMenu,
+            editor: editor, layout: featureLayout
+        )
 #else
-        .navigation
+        NoteHeader(page: page, onToggleList: onToggleList, onGoHome: onGoHome, more: moreMenu)
 #endif
     }
 
-    /// •••: how pages are shown, where code runs, the outline and find.
-    /// About this note only; the app's settings are the list's and Home's.
-    private var moreMenu: some View {
-        Menu {
+    private var moreMenu: NoteMoreMenu {
 #if canImport(UIKit)
-            Section("View") {
-                Picker("View", selection: settings.$viewMode) {
-                    ForEach(PageViewMode.allCases, id: \.self) { mode in
-                        Label(mode.title, systemImage: mode.systemImage).tag(mode)
-                    }
-                }
-                .pickerStyle(.inline)
-            }
-#endif
-
-#if canImport(UIKit)
-            // Seamless adds its own pages as ink reaches the end.
-            if settings.viewMode != .seamless {
-                Button("Add Page", systemImage: "plus.rectangle.on.rectangle") {
-                    editor.addPage()
-                }
-            }
-
-            // The note's own size, which every size in it is against. The
-            // size control in the text row is the selection's.
-            Menu {
-                Picker("Text Size", selection: Binding(
-                    get: { editor.textSize },
-                    set: { editor.setTextSize($0) }
-                )) {
-                    ForEach(NoteTypography.sizes.reversed(), id: \.self) { size in
-                        Text(size == NoteTypography.defaultSize ? "\(size) · Default" : "\(size)").tag(size)
-                    }
-                }
-                .pickerStyle(.inline)
-            } label: {
-                Label("Text Size", systemImage: "textformat.size")
-            }
-            .disabled(editor.mode != .text || page.isTextLocked)
-
-            Button("Outline", systemImage: "list.bullet.indent") { showsOutline = true }
-
-            Button("Find in Note", systemImage: "magnifyingglass") {
-                editor.showFind()
-            }
-            // The text view answers ⌘F itself while it's typing; this is the
-            // same shortcut for when it isn't, and listed in the ⌘ overlay.
-            .keyboardShortcut(.find)
-
-            // What the edition adds (`EditorFeature`): Summarise Note.
-            ForEach(editor.actions(for: .note(title: page.displayTitle), in: .noteMenu)) { action in
-                Button(action.title, systemImage: action.symbol) { action.perform() }
-                    .disabled(!action.isAvailable)
-            }
-#endif
-
-            if let onShowSettings {
-                Divider()
-                Button("Settings", systemImage: "gearshape", action: onShowSettings)
-                    .accessibilityIdentifier("noteMenuSettings")
-            }
-        } label: {
-            Label("More", systemImage: "ellipsis")
-        }
-        .accessibilityIdentifier("noteMenu")
-#if canImport(UIKit)
-        // A popover off the ••• button, since one hung off a menu's items goes
-        // when an item is chosen. ⌃⌘O raises the same binding.
-        .popover(isPresented: $showsOutline) {
-            let outline = editor.outline()
-            NoteOutlineView(entries: outline.entries, current: outline.current) { entry in
-                showsOutline = false
-                editor.scroll(toHeading: entry)
-            }
-        }
+        NoteMoreMenu(
+            page: page, onShowSettings: onShowSettings,
+            editor: editor, viewMode: settings.$viewMode, showsOutline: $showsOutline
+        )
+#else
+        NoteMoreMenu(page: page, onShowSettings: onShowSettings)
 #endif
     }
 
@@ -443,99 +267,52 @@ struct PageDetailView: View {
     // MARK: Page
 
 #if canImport(UIKit)
-    var content: some View {
-        ZStack {
-            DocumentTextView(
-                text: $page.content,
-                editor: editor,
-                pageConfiguration: PageConfiguration(
-                    pageLayout: PageLayout(orientation: page.orientation, mode: settings.viewMode),
-                    keyboardClearance: keyboardClearance,
-                    restingClearance: CanvasGeometry.restingClearance(dock: dock, footprint: Hotbar.footprint),
-                    areaInsets: UIEdgeInsets(
-                        top: pageInsets.top, left: pageInsets.leading,
-                        bottom: pageInsets.bottom, right: pageInsets.trailing
-                    ),
-                    // The hotbar's own snap, so the two move as one.
-                    areaAnimation: .snappy,
-                    inkSaver: inkSaver,
-                    revealing: revealing,
-                    resumingAtPage: resumingAtPage,
-                    onReadingPlaceChanged: { [weak page] place in
-                        // A note made moments ago has no permanent ID until it is
-                        // saved; `settledID` saves it, as the autosave would.
-                        if let page, let id = page.settledID {
-                            NoteMemory().setPlace(place, of: id)
-                        }
-                    },
-                    minimumPageCount: page.minimumPageCount,
-                    onMinimumPageCountChanged: { [weak page] count in
-                        if let page, count > page.minimumPageCount { page.minimumPageCount = count }
-                    },
-                    addsPagesWhileDrawing: settings.addsPagesWhileDrawing,
-                    onScrolled: noteScrolled
-                ),
-                editorSettings: EditorSettings(
-                    showMarkdown: settings.showMarkdown,
-                    markerDimming: MarkerDimming(
-                        headings: settings.headingMarkers, bullets: settings.bulletMarkers, checkboxes: settings.checkboxMarkers, fences: settings.fenceMarkers
-                    ),
-                    rendersMarkdown: true,
-                    codeSettings: CodeEditorSettings(indentWidth: settings.indentWidth, codeKeys: settings.codeKeys, lineNumbers: settings.lineNumbers),
-                    rewritesProse: settings.rewritesProse
-                ),
-                typography: NoteTypography(bodySize: page.textSize, lineSpacing: page.lineSpacing)
-            )
-            // Square and unbordered: the page fills its area. Nothing clips
-            // it here: the page view is a scroll view, which keeps a page
-            // zoomed wider than its area off the hotbar's space by itself,
-            // and lets go while the page slides after the hotbar.
-            .padding(pageInsets)
-            // The keyboard covers the page; it doesn't resize it. Shrinking
-            // the page's area re-fit the page to a shorter space and moved
-            // the text under the reader. The hotbar, a sibling, keeps the
-            // keyboard's safe area and rides above it. `PageView` insets the
-            // text so the caret stays clear of the keyboard.
-            .ignoresSafeArea(.keyboard)
+    /// What the features are told about the page's room.
+    private var featureLayout: EditorPageLayout {
+        EditorPageLayout(isCompact: isCompact, windowWidth: windowWidth)
+    }
 
-            PageBadge(place: badge, isVisible: badgeVisible)
+    /// The note, with each feature's panel docked at its right. A panel
+    /// narrows the page's area and nothing else: the page's zoom and place
+    /// are its own.
+    private var sidePanelLayout: some View {
+        HStack(spacing: 0) {
+            content
+            ForEach(editor.features.indices, id: \.self) { index in
+                editor.features[index].sidePanel(in: featureLayout)
+            }
+        }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { windowWidth = $0 }
+    }
+
+    private var content: some View {
+        ZStack {
+            NotePageView(
+                page: page, editor: editor, settings: settings, inkSaver: session.inkSaver,
+                dock: dock, insets: pageInsets, keyboardClearance: keyboardClearance,
+                revealing: revealing, resumingAtPage: resumingAtPage,
+                onScrolled: { [badge, debounceClock] place in
+                    badge.noteScrolled(to: place, clock: debounceClock)
+                }
+            )
+
+            PageBadge(place: badge.place, isVisible: badge.isVisible)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .padding(.top, Self.badgeInset)
 
             Hotbar(
                 editor: editor,
                 dock: Binding(get: { dock }, set: { dock = $0 }),
-                onDrop: drop,
+                onDrop: { drag in pencil.drop(drag, in: pageSize) { dock = $0 } },
                 textRowHidden: sheetCoversPage,
                 isMovable: !isCompact,
                 maxRowLength: maxRowLength
             )
                 .padding(Hotbar.margin)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: dock.alignment)
-                .sensoryFeedback(.alignment, trigger: snaps) { _, _ in settings.hapticOnSnap }
+                .sensoryFeedback(.alignment, trigger: pencil.snaps) { _, _ in settings.hapticOnSnap }
         }
-        // The surround, behind the hotbar's reserved strips and the margins
-        // around the page view too: what isn't the page is the surround, not
-        // the window's own colour.
-        //
-        // A view that ignores every safe area, keyboard included, not
-        // `.background(Color)`: that form ignores the container's safe areas
-        // but not the keyboard's. This stack keeps the keyboard's, for the
-        // hotbar, so it shrinks as the keyboard rises, and the surround rode
-        // up with its bottom edge, the window's white showing around and
-        // under the translucent keyboard (simulator, 9 October).
-        .background {
-            Color(PageView.surroundColor)
-                .ignoresSafeArea()
-        }
-        // The hairline between the top bar and the note area (W2). The page
-        // never scrolls under the bar, so the system draws none.
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(Color(.separator))
-                .frame(height: 1 / screenScale)
-                .allowsHitTesting(false)
-        }
+        .modifier(NotePageSurround())
         .background {
             FoldReader { found in
                 if folds != found { folds = found }
@@ -543,17 +320,7 @@ struct PageDetailView: View {
         }
         .coordinateSpace(.named(Hotbar.coordinateSpace))
         .onGeometryChange(for: CGSize.self) { $0.size } action: { pageSize = $0 }
-        .onPencilDoubleTap { tap in
-            respond(to: PencilResponse(doubleTapAction), at: tap.hoverPose?.anchor)
-        }
-        .onPencilSqueeze { phase in
-            // On letting go: a squeeze held and released is one request.
-            guard case .ended(let squeeze) = phase else { return }
-            respond(to: PencilResponse(squeezeAction), at: squeeze.hoverPose?.anchor)
-        }
-        .popover(isPresented: $showsInkTools, attachmentAnchor: .point(inkToolsAnchor)) {
-            InkToolPopover(editor: editor)
-        }
+        .modifier(PencilGestures(router: pencil, editor: editor, dock: dock))
         // What each ink tool is set to carries over from note to note.
         .modifier(InkToolPersistence(editor: editor))
     }
@@ -589,28 +356,6 @@ struct PageDetailView: View {
         )
     }
 
-    /// The page badge comes in quickly, so it answers the scroll that showed it.
-    private static let badgeFadeIn: TimeInterval = 0.15
-    /// How long the badge stays after the last movement.
-    private static let badgeHold: Duration = .seconds(1)
-    /// It goes more slowly than it came.
-    private static let badgeFadeOut: TimeInterval = 0.3
-
-    /// The note scrolled: the badge shows the page, and goes a second after
-    /// the last movement.
-    private func noteScrolled(to place: NoteMemory.Place) {
-        if badge != place { badge = place }
-        if !badgeVisible {
-            withAnimation(.easeOut(duration: Self.badgeFadeIn)) { badgeVisible = true }
-        }
-        badgeTimer?.cancel()
-        badgeTimer = Task { [debounceClock] in
-            try? await debounceClock.sleep(for: Self.badgeHold)
-            guard !Task.isCancelled else { return }
-            withAnimation(.easeOut(duration: Self.badgeFadeOut)) { badgeVisible = false }
-        }
-    }
-
     /// The page this note was left at, from the device's memory. Nothing for a
     /// note that has none, or one never saved, which has no place yet.
     private static func lastReadPage(of page: Page) -> Int? {
@@ -618,45 +363,6 @@ struct PageDetailView: View {
               let place = NoteMemory().place(of: page.persistentModelID)
         else { return nil }
         return place.page
-    }
-
-    /// Does what the reader has set a Pencil gesture to do, in ink mode.
-    ///
-    /// - Parameter anchor: where the Pencil is hovering over the page, if it
-    ///   is — where the ink tools show. Without it, they show by the hotbar.
-    private func respond(to response: PencilResponse, at anchor: UnitPoint?) {
-        // From text mode the gesture first switches to ink, then acts.
-        editor.enterInkForPencil(response)
-        guard editor.mode == .ink else { return }
-        switch response {
-        case .toggleEraser:
-            editor.toggleEraser()
-        case .switchToPreviousTool:
-            editor.switchToPreviousTool()
-        case .showInkTools:
-            if showsInkTools {
-                showsInkTools = false
-            } else {
-                inkToolsAnchor = anchor ?? dock.inkToolsAnchor
-                showsInkTools = true
-            }
-        case .nothing:
-            break
-        }
-    }
-
-    /// Snaps the bar to whichever edge it was let go nearest.
-    ///
-    /// Uses the predicted end rather than where the finger stopped, so a flick
-    /// toward an edge goes there without having to be dragged all the way.
-    private func drop(_ drag: DragGesture.Value) {
-        let landing = HotbarDock.nearest(to: drag.predictedEndLocation, in: pageSize)
-        // The bar's drag offset springs back on its own as the gesture ends,
-        // with the same animation, so the two read as one movement.
-        withAnimation(.snappy) {
-            dock = landing
-        }
-        snaps += 1
     }
 
     /// The area the page is drawn in: all of the window, less the strip a bar
@@ -685,26 +391,7 @@ extension PageDetailView {
     /// a test switching modes and reading where the page sits.
     init(page: Page, editor: NoteEditor) {
         self.init(page: page)
-        _editor = State(initialValue: editor)
+        _session = State(initialValue: NoteSession(page: page, editor: editor))
     }
 }
 #endif
-
-private extension HotbarDock {
-    var alignment: Alignment {
-        switch self {
-        case .left:   .leading
-        case .bottom: .bottom
-        case .right:  .trailing
-        }
-    }
-
-    /// Where the ink tools show when the Pencil isn't hovering: by the bar.
-    var inkToolsAnchor: UnitPoint {
-        switch self {
-        case .left:   .leading
-        case .bottom: .bottom
-        case .right:  .trailing
-        }
-    }
-}
