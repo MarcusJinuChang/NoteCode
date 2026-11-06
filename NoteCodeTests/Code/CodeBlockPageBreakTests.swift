@@ -58,8 +58,8 @@ struct CodeBlockPageBreakTests {
                 page.textView.setNeedsLayout()
                 page.textView.layoutIfNeeded()
             }
-            // The breaks are paragraphs pushed down, worked out as far as the
-            // reader has scrolled; these tests look past that.
+            // The breaks are paragraphs pushed down; work them out now rather
+            // than at the next layout pass.
             page.paginate()
         }
 

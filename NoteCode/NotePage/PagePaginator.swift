@@ -26,9 +26,12 @@ import UIKit
 /// out, so a count worked out from part of the note moved as the reader
 /// scrolled (a 10-page note read 11, 9, 10 pages while it settled, and the
 /// place it opened at moved with it). Reading the frames of paragraphs that
-/// are already laid out costs about a millisecond for 40 pages, measured, since
-/// an edit does not invalidate them. What was expensive was typesetting them
-/// again, which exclusion paths made TextKit do on every keystroke.
+/// are already laid out is cheap, since an edit does not invalidate them:
+/// about 4.3ms for the walk on 40 pages, so a keystroke at the top costs about
+/// 8 times an unpaged one, about 0.11ms per page, and 22ms at 198 pages.
+/// What was expensive was typesetting them again, which exclusion paths made
+/// TextKit do on every keystroke. Opening a note still lays out the whole
+/// note, as the paths did.
 ///
 /// **A paragraph taller than a page** keeps its place, and its page breaks
 /// are exclusion paths on the container, set only for those paragraphs. A

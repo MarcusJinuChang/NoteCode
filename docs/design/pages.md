@@ -39,8 +39,11 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
     what it has not laid out: worked out from part of a 10-page note it read 11,
     9 and 10 pages in turn while the note settled, and the place it opened at
     moved with it (`ReopenTests`). The walk reads frames of paragraphs already
-    laid out, about 1.3ms for 40 pages (probe), because an edit invalidates only
-    its own paragraph; what used to cost was typesetting them again.
+    laid out, because an edit invalidates only its own paragraph; what used to
+    cost was typesetting them again. Measured: about 4.3ms for the walk on 40
+    pages, a keystroke at the top about 8 times an unpaged one, about 0.11ms
+    per page, and 22ms at 198 pages. Opening a note still lays out the whole
+    note, as the paths did.
     Opening at a page and a search result call it before they read a line's
     place (`PageView.paginate()`).
   - **The height UIKit sets between edits and layout** (`PageBands.settledTextHeight`).

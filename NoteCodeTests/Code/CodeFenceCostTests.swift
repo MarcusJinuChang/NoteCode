@@ -103,10 +103,13 @@ struct CodeFenceCostTests {
         try await harness.settle()
         try await harness.caret(at: 120)
         // The note laid out to its end, as it always was while page breaks were
-        // exclusion paths. Now a note is laid out as far as it has been read,
-        // and counting the fragments the first look at the tail makes would
-        // blame the caret for them.
-        _ = Self.fragmentIDs(textView)
+        // exclusion paths. An edit no longer lays out what is below it, and
+        // counting the fragments a first look at the tail makes would blame
+        // the caret for them. `fragmentIDs` enumerates without forcing layout,
+        // so this does it.
+        if let manager = textView.textLayoutManager {
+            manager.ensureLayout(for: manager.documentRange)
+        }
         let storageEdits = StorageEditCounter(textView.textStorage)
 
         let counter = FragmentCounter(forwardingTo: harness.coordinator)
