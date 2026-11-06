@@ -206,9 +206,9 @@ extension DocumentTextView.Coordinator {
             selection.length += delta
         }
 
-        isRetagging = true
-        textView.replace(range, withText: edit.replacement)
-        isRetagging = false
+        editGuard.perform(as: .retagging) {
+            textView.replace(range, withText: edit.replacement)
+        }
         textView.selectedRange = selection
     }
 }
