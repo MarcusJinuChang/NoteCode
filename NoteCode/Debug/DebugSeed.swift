@@ -244,7 +244,7 @@ enum DebugLaunch {
         } catch {
             session.record("couldn't save the sample notes: \(error.localizedDescription)")
         }
-        if let id = hash.settledID {
+        if let id = hash.settledID() {
             let memory = NoteMemory(defaults: defaults)
             memory.setLastOpened(id)
             memory.setPlace(NoteMemory.Place(page: 2, of: 5), of: id)

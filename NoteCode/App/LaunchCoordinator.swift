@@ -59,6 +59,6 @@ struct LaunchCoordinator {
     /// After the Welcome note's check, not before: a store whose only notes
     /// were deleted has been used, and the Welcome note's check counts them.
     func purgeExpiredNotes(in context: ModelContext) {
-        _ = try? Page.purgeExpired(in: context)
+        Storage.attempt("purge expired notes") { try Page.purgeExpired(in: context) }
     }
 }

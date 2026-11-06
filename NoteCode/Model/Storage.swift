@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 import SwiftData
 
 /// The outcome of trying to open the page store.
@@ -79,6 +80,59 @@ enum Storage {
         case .persistent:                 nil
         case .ephemeral(_, let reason):   reason
         case .unavailable(let reason):    reason
+        }
+    }
+}
+
+// MARK: - Saving
+
+/// Something that saves: a `ModelContext`, or a stand-in that fails, in tests.
+protocol Savable {
+    func save() throws
+}
+
+extension ModelContext: Savable {}
+
+extension Storage {
+    private static let logger = Logger(subsystem: "com.marcus.NoteCode", category: "storage")
+
+    /// The default `report` of the calls below: writes the failure to the log.
+    static func logFailure(_ reason: String, _ error: any Error) {
+        logger.error("Could not \(reason, privacy: .public): \(error.localizedDescription, privacy: .public)")
+    }
+
+    /// Saves `context`, and logs a failure instead of throwing it.
+    ///
+    /// For the places that used to say `try? context.save()`. Behaviour is the
+    /// same: the change stays pending in the context, and autosave tries again.
+    /// What is new is that the failure is no longer lost.
+    ///
+    /// - Parameter reason: what was being saved, in words that complete "Could
+    ///   not ...", such as "save the open note".
+    /// - Returns: whether it saved.
+    @discardableResult
+    static func save(
+        _ context: some Savable,
+        reason: String,
+        report: (_ reason: String, _ error: any Error) -> Void = Storage.logFailure
+    ) -> Bool {
+        attempt(reason, report: report) { try context.save() }
+    }
+
+    /// Runs a change that saves (`Page.delete`, `Folder.restore` and the rest)
+    /// and logs a failure instead of throwing it. See `save(_:reason:)`.
+    @discardableResult
+    static func attempt(
+        _ reason: String,
+        report: (_ reason: String, _ error: any Error) -> Void = Storage.logFailure,
+        _ change: () throws -> Void
+    ) -> Bool {
+        do {
+            try change()
+            return true
+        } catch {
+            report(reason, error)
+            return false
         }
     }
 }

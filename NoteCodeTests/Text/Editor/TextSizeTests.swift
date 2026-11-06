@@ -500,7 +500,7 @@ struct TextSizePaperTests {
         let page = Page(title: "A", content: "x")
         context.insert(page)
         try context.save()
-        let id = try #require(page.settledID)
+        let id = try #require(page.settledID())
         let date = Date(timeIntervalSince1970: 1_791_800_000)
 
         let plain = try #require(NoteThumbnail.cacheName(for: id, modifiedAt: date))

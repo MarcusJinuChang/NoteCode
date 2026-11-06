@@ -84,7 +84,7 @@ v3 phase 2 (12 Oct, `docs/archive/ui-design-v3-implementation.md`).
     place at each launch. `HomeSections` compares `key(for:)`; `prune` builds a
     set of keys.
   - **A new note's ID is temporary until the context saves it**, and a key
-    made from one never matches again. `Page.settledID` saves first, then
+    made from one never matches again. `Page.settledID()` saves first, then
     answers; `key(for:)` refuses a temporary ID.
   - Pruned once a launch, with every note's ID (deleted ones too).
 - **Reopening at the last page.** `PageDetailView` reads the note's place once

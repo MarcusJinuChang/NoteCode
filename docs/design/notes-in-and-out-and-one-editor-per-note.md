@@ -87,7 +87,7 @@ v3 phase 7 (14 Oct, `docs/archive/ui-design-v3-implementation.md`). The pure par
   - **Keys, not notes**: a claim is a `NoteMemory.key(for:)` string, which two
     contexts' copies of one note share (`keysAreSharedAcrossContexts`) where
     the objects don't compare. A new note's temporary ID has no key, so it's
-    saved first (`settledID`), as `NoteMemory` does.
+    saved first (`settledID()`), as `NoteMemory` does.
   - **A claim names its window weakly.** A discarded scene never says so, so a
     claim whose token has gone doesn't count (`windowGone`), and the token's
     `deinit` asks the registry to sweep so a window waiting on the note sees

@@ -149,9 +149,13 @@ enum ListDrop {
     static func perform(_ action: ListDropAction, among folders: [Folder], in context: ModelContext? = nil) {
         switch action {
         case let .deleteNote(page):
-            if let context { try? Page.moveToRecentlyDeleted([page], from: context) }
+            if let context {
+                Storage.attempt("move a note to Recently Deleted") { try Page.moveToRecentlyDeleted([page], from: context) }
+            }
         case let .deleteFolder(folder):
-            if let context { try? Folder.delete(folder, .withNotes, from: context) }
+            if let context {
+                Storage.attempt("delete a folder") { try Folder.delete(folder, .withNotes, from: context) }
+            }
         case let .fileNote(page, folder):
             page.folder = folder
         case let .moveFolder(folder, parent, index):

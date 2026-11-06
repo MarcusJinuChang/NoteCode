@@ -76,4 +76,56 @@ struct StorageTests {
         let titles = try relaunched.fetch(FetchDescriptor<Page>()).map(\.title)
         #expect(titles == ["Kept"])
     }
+
+    // MARK: - Saving
+
+    private struct DiskFull: Error {}
+
+    private struct FailingContext: Savable {
+        func save() throws { throw DiskFull() }
+    }
+
+    @Test("A failed save is reported with its reason, and doesn't throw")
+    func failedSaveIsLogged() {
+        var reported: [(String, any Error)] = []
+
+        let saved = Storage.save(FailingContext(), reason: "save the test") { reason, error in
+            reported.append((reason, error))
+        }
+
+        #expect(saved == false)
+        #expect(reported.count == 1)
+        #expect(reported.first?.0 == "save the test")
+        #expect(reported.first?.1 is DiskFull)
+    }
+
+    @Test("A failed change is reported too, for the calls that save inside")
+    func failedAttemptIsLogged() {
+        var reasons: [String] = []
+
+        let done = Storage.attempt("delete the test", report: { reason, _ in reasons.append(reason) }) {
+            throw DiskFull()
+        }
+
+        #expect(done == false)
+        #expect(reasons == ["delete the test"])
+    }
+
+    @Test("The default report logs and doesn't throw")
+    func defaultReportDoesNotThrow() {
+        #expect(Storage.save(FailingContext(), reason: "save the test") == false)
+    }
+
+    @Test("A save that works reports nothing and keeps the change")
+    func goodSaveReportsNothing() throws {
+        let context = ModelContext(try inMemoryContainer())
+        context.insert(Page(title: "Saved"))
+        var reported = false
+
+        let saved = Storage.save(context, reason: "save the test") { _, _ in reported = true }
+
+        #expect(saved)
+        #expect(reported == false)
+        #expect(context.hasChanges == false)
+    }
 }

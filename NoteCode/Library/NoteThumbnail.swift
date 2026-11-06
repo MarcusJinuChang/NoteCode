@@ -290,7 +290,7 @@ final class ThumbnailStore {
         // The note can go while a request waits. Reading the ink of a note
         // whose deletion has been saved traps (AGENTS.md).
         guard let container = page.modelContext?.container, !page.isDeleted, page.isLive,
-              let id = page.settledID, Self.name(for: page) == name
+              let id = page.settledID(), Self.name(for: page) == name
         else { return nil }
 
         // The ink is read off the main actor (F7), through a context of its
@@ -319,7 +319,7 @@ final class ThumbnailStore {
 
     private static func name(for page: Page) -> String? {
         guard page.modelContext != nil, !page.isDeleted,
-              let id = page.settledID
+              let id = page.settledID()
         else { return nil }
         return NoteThumbnail.cacheName(
             for: id,

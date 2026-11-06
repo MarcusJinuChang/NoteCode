@@ -41,8 +41,8 @@ struct NotePageView: View {
                 resumingAtPage: resumingAtPage,
                 onReadingPlaceChanged: { [weak page] place in
                     // A note made moments ago has no permanent ID until it is
-                    // saved; `settledID` saves it, as the autosave would.
-                    if let page, let id = page.settledID {
+                    // saved; `settledID()` saves it, as the autosave would.
+                    if let page, let id = page.settledID() {
                         NoteMemory().setPlace(place, of: id)
                     }
                 },

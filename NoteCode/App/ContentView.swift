@@ -395,7 +395,7 @@ struct ContentView: View {
     /// Keeps this window's claim in step with its selection: gives up the
     /// note it left, takes the one it opened if no other window has it.
     private func syncOpenNoteClaim() {
-        let key = selection?.settledID.flatMap(NoteMemory.key(for:))
+        let key = selection?.settledID().flatMap(NoteMemory.key(for:))
         if let claimedKey, claimedKey != key {
             openNotes.release(claimedKey, by: window)
             self.claimedKey = nil
