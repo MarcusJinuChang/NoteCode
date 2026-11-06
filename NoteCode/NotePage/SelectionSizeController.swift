@@ -1,5 +1,5 @@
 //
-//  NoteEditor+SelectionSize.swift
+//  SelectionSizeController.swift
 //  NoteCode
 //
 //  The size of the text at the caret: what the size control reads, and the stepper's taps that wait to settle.
@@ -8,13 +8,43 @@
 #if canImport(UIKit)
 
 import Observation
-import PaperKit
-import SwiftUI
 import UIKit
 
-extension NoteEditor {
+/// The size control for the selection: what it reads, and the stepper's taps
+/// that wait to settle (`NoteEditor.settleDelay`) before the text is
+/// re-wrapped. `NoteEditor` forwards its hotbar-facing members to it.
+@Observable
+final class SelectionSizeController {
+
+    @ObservationIgnored private unowned let editor: NoteEditor
+
+    init(editor: NoteEditor) {
+        self.editor = editor
+    }
 
     // MARK: The size of the text at the caret
+
+    /// The stepper's latest tap, which the text catches up to once the taps
+    /// stop (`settleDelay`), so a run of taps re-wraps the note once.
+    private(set) var pendingSelectionSize: SizeRequest?
+    @ObservationIgnored private(set) var selectionSizeTask: Task<Void, Never>?
+    /// The note's length when the pending tap was first made. Text typed
+    /// since has moved what its selection points at, so it is dropped.
+    @ObservationIgnored private var pendingTextLength = 0
+
+    /// The selection Custom… sizes, kept while the size is asked for. `nil`
+    /// unless the alert is up.
+    private(set) var customSizeSelection: NSRange?
+
+    /// The caret or selection moved. A stepper tap still waiting for the taps
+    /// to stop goes on at once if the selection moves away from it: the
+    /// reader saw the number change.
+    func selectionDidMove() {
+        if let pending = pendingSelectionSize, let textView = editor.textView, textView.selectedRange != pending.selection {
+            selectionSizeTask?.cancel()
+            settleSelectionSize(keeping: textView.selectedRange)
+        }
+    }
 
     /// What the size control reads: the text at the caret, or the
     /// selection, in points.
@@ -50,11 +80,11 @@ extension NoteEditor {
     /// What the size control shows: the tap or the answer in flight, or the
     /// text as it is.
     var selectionTextSize: SelectionTextSize {
-        var reading = textSize(reading: caretFormatting)
+        var reading = textSize(reading: editor.caretFormatting)
         if let request = pendingSelectionSize {
             reading.points = request.steps == nil ? request.points ?? reading.ownPoints : request.points
         } else {
-            switch typing.typingStyle.points {
+            switch editor.typing.typingStyle.points {
             case .set(let points)?: reading.points = points
             case .clear?:           reading.points = reading.ownPoints
             case nil:               break
@@ -75,15 +105,15 @@ extension NoteEditor {
     /// caret or the word there. Text in several sizes moves a point each,
     /// keeping them apart; each stops at the control's ends.
     func stepSelectionSize(by steps: Int) {
-        guard let textView else { return }
+        guard let textView = editor.textView else { return }
         let reading = textSize(reading: currentFormatting(of: textView))
-        guard mode == .text, !isTextLocked, reading.canChange else { return }
+        guard editor.mode == .text, !editor.isTextLocked, reading.canChange else { return }
         // No word to resize: the next text typed gets the size, at once, since
         // nothing is laid out again.
-        if typing.isTypingCaret(in: textView) {
+        if editor.typing.isTypingCaret(in: textView) {
             let shown = selectionTextSize
             if let next = TextSizeMath.stepped(shown.points ?? shown.startPoints, by: steps) {
-                typing.set(typing.typingStyle.sizing(next))
+                editor.typing.set(editor.typing.typingStyle.sizing(next))
             }
             return
         }
@@ -98,7 +128,7 @@ extension NoteEditor {
             steps: total
         )
         selectionSizeTask?.cancel()
-        selectionSizeTask = Task { [weak self, settleDelay, settleClock] in
+        selectionSizeTask = Task { [weak self, settleDelay = editor.settleDelay, settleClock = editor.settleClock] in
             try? await settleClock.sleep(for: settleDelay)
             guard !Task.isCancelled else { return }
             self?.settleSelectionSize()
@@ -108,10 +138,10 @@ extension NoteEditor {
     /// A size picked from the list, or `nil` for Default: at once, since a
     /// pick isn't one of a run of taps.
     func setSelectionSize(points: Double?) {
-        guard let textView, mode == .text, !isTextLocked else { return }
+        guard let textView = editor.textView, editor.mode == .text, !editor.isTextLocked else { return }
         dropPendingSelectionSize()
-        if typing.isTypingCaret(in: textView) {
-            typing.set(typing.typingStyle.sizing(points.map { TextSizeMath.clampedPoints($0) }))
+        if editor.typing.isTypingCaret(in: textView) {
+            editor.typing.set(editor.typing.typingStyle.sizing(points.map { TextSizeMath.clampedPoints($0) }))
             return
         }
         requestSelectionSize(SizeRequest(points: points.map { TextSizeMath.clampedPoints($0) }, selection: textView.selectedRange))
@@ -119,7 +149,7 @@ extension NoteEditor {
 
     /// Custom…: asks for a size (`PageDetailView`'s alert).
     func beginCustomSize() {
-        guard let textView, mode == .text, !isTextLocked,
+        guard let textView = editor.textView, editor.mode == .text, !editor.isTextLocked,
               textSize(reading: currentFormatting(of: textView)).canChange
         else { return }
         dropPendingSelectionSize()
@@ -129,8 +159,8 @@ extension NoteEditor {
     /// Whether the size control would set the typing style: no word to resize.
     /// Nothing is laid out again then, so there is no ink question.
     private var sizesTypedText: Bool {
-        guard let textView else { return false }
-        return typing.isTypingCaret(in: textView)
+        guard let textView = editor.textView else { return false }
+        return editor.typing.isTypingCaret(in: textView)
     }
 
     func cancelCustomSize() {
@@ -143,7 +173,7 @@ extension NoteEditor {
         defer { customSizeSelection = nil }
         guard let selection = customSizeSelection, let points = TextSizeMath.points(typed: typed) else { return }
         if sizesTypedText {
-            typing.set(typing.typingStyle.sizing(points))
+            editor.typing.set(editor.typing.typingStyle.sizing(points))
             return
         }
         applySelectionSize(SizeRequest(points: points, selection: selection))
@@ -152,12 +182,12 @@ extension NoteEditor {
     /// The caret's formatting read from the text view itself, for an action:
     /// `caretFormatting` is what the coordinator last reported, for the bar.
     private func currentFormatting(of textView: UITextView) -> MarkdownFormatting.CaretFormatting {
-        MarkdownFormatting.formatting(at: textView.selectedRange, in: textView.textStorage.mutableString, codeRanges: textTarget?.codeRanges ?? [])
+        MarkdownFormatting.formatting(at: textView.selectedRange, in: textView.textStorage.mutableString, codeRanges: editor.codeRanges)
     }
 
     /// `formatting`'s sizes in points, in the note's fonts as laid out.
     private func textSize(reading formatting: MarkdownFormatting.CaretFormatting) -> SelectionTextSize {
-        let typography = self.typography
+        let typography = editor.typography
         if case .code = formatting.block {
             let code = Double(typography.code.pointSize)
             return SelectionTextSize(points: code, startPoints: code, ownPoints: code, canChange: false)
@@ -170,11 +200,11 @@ extension NoteEditor {
             points: Set(points).count > 1 ? nil : start,
             startPoints: start,
             ownPoints: own,
-            canChange: mode == .text && !isTextLocked && formatting.canResize
+            canChange: editor.mode == .text && !editor.isTextLocked && formatting.canResize
         )
     }
 
-    private var blockSizes: MarkdownFormatting.BlockSizes { typographyController.blockSizes }
+    private var blockSizes: MarkdownFormatting.BlockSizes { editor.typographyController.blockSizes }
 
     /// The pending tap goes on. `keeping` is where the reader has just put
     /// the caret, which stays there rather than going back to the text sized.
@@ -182,7 +212,7 @@ extension NoteEditor {
         selectionSizeTask = nil
         guard let request = pendingSelectionSize else { return }
         pendingSelectionSize = nil
-        guard textView?.textStorage.length == pendingTextLength else { return }
+        guard editor.textView?.textStorage.length == pendingTextLength else { return }
         requestSelectionSize(request, keeping: selection)
     }
 
@@ -193,7 +223,7 @@ extension NoteEditor {
     }
 
     private func requestSelectionSize(_ request: SizeRequest, keeping selection: NSRange? = nil) {
-        guard let textView, sizeEdit(for: request, in: textView.textStorage.mutableString) != nil else { return }
+        guard let textView = editor.textView, sizeEdit(for: request, in: textView.textStorage.mutableString) != nil else { return }
         applySelectionSize(request, keeping: selection)
     }
 
@@ -201,9 +231,9 @@ extension NoteEditor {
     /// says where else it was just put: there, moved past the tags if they
     /// went in before it.
     private func applySelectionSize(_ request: SizeRequest, keeping selection: NSRange? = nil) {
-        guard let textView, let edit = sizeEdit(for: request, in: textView.textStorage.mutableString) else { return }
+        guard let textView = editor.textView, let edit = sizeEdit(for: request, in: textView.textStorage.mutableString) else { return }
         let replaced = textView.textStorage.mutableString.substring(with: edit.range)
-        perform { _, _ in edit }
+        editor.perform { _, _ in edit }
         guard let kept = selection,
               let start = TextSizeMath.offset(kept.location, through: edit, replacing: replaced),
               let end = TextSizeMath.offset(NSMaxRange(kept), through: edit, replacing: replaced)
@@ -215,11 +245,11 @@ extension NoteEditor {
     private func sizeEdit(for request: SizeRequest, in text: NSString) -> TextEdit? {
         if let steps = request.steps {
             return MarkdownFormatting.size(
-                steppedBy: steps, blockSizes: blockSizes, selection: request.selection, in: text, codeRanges: codeRanges
+                steppedBy: steps, blockSizes: blockSizes, selection: request.selection, in: text, codeRanges: editor.codeRanges
             )
         }
         return MarkdownFormatting.size(
-            points: request.points, blockSizes: blockSizes, selection: request.selection, in: text, codeRanges: codeRanges
+            points: request.points, blockSizes: blockSizes, selection: request.selection, in: text, codeRanges: editor.codeRanges
         )
     }
 }

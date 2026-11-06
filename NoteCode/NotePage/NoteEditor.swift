@@ -270,6 +270,7 @@ final class NoteEditor {
         undoRouter = UndoRouter(editor: self)
         typographyController = NoteTypographyController(editor: self)
         typing = TypingStyleController(editor: self)
+        selectionSize = SelectionSizeController(editor: self)
         install(features)
     }
 
@@ -606,10 +607,7 @@ final class NoteEditor {
     /// the selection moves away from it: the reader saw the number change.
     func setCaretFormatting(_ formatting: MarkdownFormatting.CaretFormatting) {
         if caretFormatting != formatting { caretFormatting = formatting }
-        if let pending = pendingSelectionSize, let textView, textView.selectedRange != pending.selection {
-            selectionSizeTask?.cancel()
-            settleSelectionSize(keeping: textView.selectedRange)
-        }
+        selectionSize.selectionDidMove()
     }
 
     /// What the bar shows at the caret: the text's own formatting with the
@@ -752,19 +750,26 @@ final class NoteEditor {
         }
     }
 
-    /// The stepper's latest tap, which the text catches up to once the taps
-    /// stop (`settleDelay`), so a run of taps re-wraps the note once.
-    var pendingSelectionSize: SizeRequest?
+    // MARK: The size at the caret (SelectionSizeController)
 
-    @ObservationIgnored var selectionSizeTask: Task<Void, Never>?
+    @ObservationIgnored private(set) var selectionSize: SelectionSizeController!
 
-    /// The note's length when the pending tap was first made. Text typed
-    /// since has moved what its selection points at, so it is dropped.
-    @ObservationIgnored var pendingTextLength = 0
+    typealias SelectionTextSize = SelectionSizeController.SelectionTextSize
+    typealias SizeRequest = SelectionSizeController.SizeRequest
 
-    /// The selection Custom… sizes, kept while the size is asked for. `nil`
-    /// unless the alert is up.
-    var customSizeSelection: NSRange?
+    var pendingSelectionSize: SizeRequest? { selectionSize.pendingSelectionSize }
+    var customSizeSelection: NSRange? { selectionSize.customSizeSelection }
+
+    /// What the size control shows: the tap or the answer in flight, or the
+    /// text as it is.
+    var selectionTextSize: SelectionTextSize { selectionSize.selectionTextSize }
+    var canStepSelectionSize: (bigger: Bool, smaller: Bool) { selectionSize.canStepSelectionSize }
+
+    func stepSelectionSize(by steps: Int) { selectionSize.stepSelectionSize(by: steps) }
+    func setSelectionSize(points: Double?) { selectionSize.setSelectionSize(points: points) }
+    func beginCustomSize() { selectionSize.beginCustomSize() }
+    func cancelCustomSize() { selectionSize.cancelCustomSize() }
+    func finishCustomSize(typed: String) { selectionSize.finishCustomSize(typed: typed) }
 
     /// What Link will wrap, kept while the address is asked for: the alert
     /// takes the keyboard, and with it the text view's selection is not
@@ -840,7 +845,7 @@ final class NoteEditor {
     /// selection's, have been applied, or were dropped. For tests.
     func sizeSettled() async {
         await typographyController.settleTask?.value
-        await selectionSizeTask?.value
+        await selectionSize.selectionSizeTask?.value
     }
 
     // MARK: Outline
