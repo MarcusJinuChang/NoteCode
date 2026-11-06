@@ -26,7 +26,7 @@ import UIKit
 /// every mode paginates identically. The bands make typing cost more, because
 /// TextKit lays out everything below an edit once any exclusion path exists —
 /// see docs/archive/phase-drawing-layer.md for the numbers.
-final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost {
+final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, PageScrollIndicatorHost {
 
     let textView: DocumentUITextView
 
@@ -51,9 +51,8 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost {
     static let pageColor = UIColor.systemBackground
     static let surroundColor = UIColor.secondarySystemBackground
 
-    private let indicator = UIView()
-    private var offsetObservation: NSKeyValueObservation?
-    private var fadeTask: Task<Void, Never>?
+    /// The note's scroll indicator, at this view's edge.
+    private lazy var scrollIndicator = PageScrollIndicator(host: self)
     private var lastPanTranslation = CGPoint.zero
     private let sidewaysFling = SidewaysFling()
     /// The page's edge: a hairline and a soft shadow behind the text view
@@ -210,7 +209,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost {
         alwaysBounceVertical = false
         showsVerticalScrollIndicator = false
         // The text view is what scrolls, and its own indicator sits inside the
-        // page sheet. The note's indicator is `indicator` below, at the
+        // page sheet. The note's indicator is `scrollIndicator`, at the
         // window's edge.
         textView.showsVerticalScrollIndicator = false
         addSubview(pageEdge)
@@ -1175,13 +1174,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost {
         isScrollEnabled = false
         panGestureRecognizer.isEnabled = false
 
-        indicator.isUserInteractionEnabled = false
-        indicator.alpha = 0
-        addSubview(indicator)
-        textView.addLayoutObserver { [weak self] in self?.updateIndicator() }
-        offsetObservation = textView.observe(\.contentOffset) { [weak self] _, _ in
-            self?.indicatorMoved()
-        }
+        scrollIndicator.install()
     }
 
     @objc private func textViewPanChanged(_ pan: UIPanGestureRecognizer) {
@@ -1213,71 +1206,6 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost {
         guard next != contentOffset.x else { return false }
         contentOffset.x = next
         return true
-    }
-
-    // MARK: The scroll indicator
-
-    /// A capsule at this view's right edge, so it runs at the window's edge,
-    /// not the page's. It shows while the note moves and fades after.
-    static let indicatorWidth: CGFloat = 3
-    static let indicatorInset: CGFloat = 3
-    static let indicatorMinimumLength: CGFloat = 36
-
-    /// Where the indicator sits in this view, or nil when the note fits.
-    /// `offset` and `content` are in page points; `scale` turns them to
-    /// screen points.
-    static func indicatorFrame(
-        offset: CGFloat, content: CGFloat, area: CGSize, scale: CGFloat, sideways: CGFloat
-    ) -> CGRect? {
-        let total = content * scale
-        guard total > area.height + 0.5 else { return nil }
-        let length = max(area.height * area.height / total, indicatorMinimumLength)
-        let travel = area.height - length
-        let progress = min(max(offset * scale / (total - area.height), 0), 1)
-        return CGRect(
-            x: sideways + area.width - indicatorWidth - indicatorInset,
-            y: progress * travel,
-            width: indicatorWidth,
-            height: length
-        )
-    }
-
-    private func updateIndicator() {
-        indicator.backgroundColor = UIColor.label.withAlphaComponent(0.35)
-        indicator.layer.cornerRadius = Self.indicatorWidth / 2
-        // Not the keyboard's inset: the bar rides above it and the note
-        // scrolls under, so the indicator runs the whole window.
-        guard let frame = Self.indicatorFrame(
-            offset: textView.contentOffset.y + textView.contentInset.top,
-            content: textView.contentSize.height,
-            area: bounds.size,
-            scale: displayScale,
-            sideways: contentOffset.x
-        ) else {
-            indicator.isHidden = true
-            return
-        }
-        indicator.isHidden = false
-        indicator.frame = frame.offsetBy(dx: 0, dy: contentOffset.y)
-        bringSubviewToFront(indicator)
-    }
-
-    /// How long the indicator stays after it last moved, then how long it
-    /// takes to fade.
-    private static let indicatorHold: Duration = .seconds(0.8)
-    private static let indicatorFadeOut: TimeInterval = 0.3
-
-    private func indicatorMoved() {
-        updateIndicator()
-        guard !indicator.isHidden else { return }
-        fadeTask?.cancel()
-        indicator.layer.removeAllAnimations()
-        indicator.alpha = 1
-        fadeTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: Self.indicatorHold)
-            guard !Task.isCancelled, let self else { return }
-            UIView.animate(withDuration: Self.indicatorFadeOut) { self.indicator.alpha = 0 }
-        }
     }
 
     private func setPanning(enabled: Bool) {

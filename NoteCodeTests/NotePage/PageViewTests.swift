@@ -1599,15 +1599,15 @@ struct PageViewTests {
     @Test("The indicator runs at the window's edge and tracks the offset")
     func indicatorFrame() throws {
         let area = CGSize(width: 880, height: 1000)
-        let top = try #require(PageView.indicatorFrame(offset: 0, content: 4000, area: area, scale: 1, sideways: 0))
-        let bottom = try #require(PageView.indicatorFrame(offset: 3000, content: 4000, area: area, scale: 1, sideways: 0))
+        let top = try #require(PageScrollIndicator.frame(offset: 0, content: 4000, area: area, scale: 1, sideways: 0))
+        let bottom = try #require(PageScrollIndicator.frame(offset: 3000, content: 4000, area: area, scale: 1, sideways: 0))
         #expect(top.maxX < area.width)
         #expect(top.maxX > area.width - 10)
         #expect(top.minY == 0)
         #expect(abs(bottom.maxY - area.height) < 0.5)
-        #expect(PageView.indicatorFrame(offset: 0, content: 900, area: area, scale: 1, sideways: 0) == nil)
+        #expect(PageScrollIndicator.frame(offset: 0, content: 900, area: area, scale: 1, sideways: 0) == nil)
         // Panned sideways, it stays at the right edge of what is shown.
-        let panned = try #require(PageView.indicatorFrame(offset: 0, content: 4000, area: area, scale: 1, sideways: 120))
+        let panned = try #require(PageScrollIndicator.frame(offset: 0, content: 4000, area: area, scale: 1, sideways: 120))
         #expect(panned.minX == top.minX + 120)
     }
 
