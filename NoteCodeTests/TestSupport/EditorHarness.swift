@@ -74,6 +74,8 @@ final class EditorHarness {
             coordinator = makeCoordinator()
             coordinator.editor = editor
             textView.delegate = coordinator
+            // The coordinator drops its snapshot of the text when the storage is edited.
+            coordinator.observeEdits(of: textView)
             textView.text = stored
         case .full:
             coordinator = makeCoordinator()

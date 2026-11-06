@@ -116,7 +116,17 @@ struct DocumentTextView: UIViewRepresentable {
     final class Coordinator: NSObject, UITextViewDelegate {
         var text: Binding<String>
         var editor: NoteEditor?
-        let documentCache = DocumentCache()
+
+        /// The note as the last edit left it, made the first time anything
+        /// asks after an edit and dropped by the next one
+        /// (`textStorageDidProcessEditing`). Every reader goes through
+        /// `snapshot(of:)`, so an edit converts the text and parses it once,
+        /// however many callbacks it triggers.
+        private var currentSnapshot: DocumentSnapshot?
+
+        /// How many snapshots were made. Exists so a test can see that a
+        /// layout, or a caret move, made none.
+        private(set) var snapshotCount = 0
 
         /// The run and copy buttons floating over each code block.
         var overlay: CodeBlockOverlay?
@@ -134,7 +144,7 @@ struct DocumentTextView: UIViewRepresentable {
         ///
         /// TextKit asks the delegate about every paragraph it lays out, and
         /// with page breaks as exclusion paths an edit lays out every
-        /// paragraph below it. Going through `documentCache` each time
+        /// paragraph below it. Going through the string-compared cache each time
         /// compared the whole note's text on every call, and converted each
         /// block's range against a different copy of the string.
         private var layoutCodeRanges: [CodeRange]?
@@ -322,10 +332,25 @@ struct DocumentTextView: UIViewRepresentable {
             guard let storage = notification.object as? NSTextStorage,
                   storage.editedMask.contains(.editedCharacters)
             else { return }
+            currentSnapshot = nil
             layoutCodeRanges = nil
             layoutNewlines = [:]
             layoutMarkerRuns = nil
             editCount += 1
+        }
+
+        /// The note as it stands, made once per edit. `text` is read, and
+        /// converted with `nativeUTF8`, only when no snapshot is held.
+        func snapshot(of text: @autoclosure () -> String) -> DocumentSnapshot {
+            if let currentSnapshot { return currentSnapshot }
+            let snapshot = DocumentSnapshot(text: text(), editCount: editCount)
+            currentSnapshot = snapshot
+            snapshotCount += 1
+            return snapshot
+        }
+
+        func snapshot(of textView: UITextView) -> DocumentSnapshot {
+            snapshot(of: textView.text ?? "")
         }
 
         /// Turns the collapsed layout on or off, laying the whole note out
@@ -367,9 +392,9 @@ struct DocumentTextView: UIViewRepresentable {
             if textView.textStorage.length > 0 {
                 restyle(textView)
             } else {
-                let source = (textView.text ?? "").nativeUTF8
+                let snapshot = self.snapshot(of: textView)
                 DocumentStyler.applyTypingAttributes(
-                    to: textView, source: source, blocks: documentCache.blocks(for: source),
+                    to: textView, source: snapshot.source, blocks: snapshot.blocks,
                     rendered: rendersMarkdown, typography: typography
                 )
             }
@@ -378,8 +403,8 @@ struct DocumentTextView: UIViewRepresentable {
         /// The runs to collapse in `storage`, worked out once per edit.
         func markerRuns(in storage: NSTextStorage) -> [MarkdownLayout.Run] {
             if let layoutMarkerRuns { return layoutMarkerRuns }
-            let source = storage.string.nativeUTF8
-            let runs = MarkdownLayout.runs(for: documentCache.blocks(for: source), in: source)
+            let snapshot = self.snapshot(of: storage.string)
+            let runs = MarkdownLayout.runs(for: snapshot.blocks, in: snapshot.source)
             layoutMarkerRuns = runs
             return runs
         }
@@ -387,7 +412,7 @@ struct DocumentTextView: UIViewRepresentable {
         /// The code blocks' ranges in `storage`, worked out once per edit.
         func codeRanges(in storage: NSTextStorage) -> [CodeRange] {
             if let layoutCodeRanges { return layoutCodeRanges }
-            let ranges = documentCache.codeRanges(for: storage.string.nativeUTF8)
+            let ranges = snapshot(of: storage.string).codeRanges
             layoutCodeRanges = ranges
             return ranges
         }
@@ -441,8 +466,7 @@ struct DocumentTextView: UIViewRepresentable {
 
         /// The code block the caret is in, for the edit menu and ⌘R and ⇧⌘C.
         func target(atCaret caret: Int, in textView: UITextView) -> CodeBlockTarget? {
-            let source = (textView.text ?? "").nativeUTF8
-            let targets = CodeBlockAction.targets(in: source, blocks: documentCache.blocks(for: source))
+            let targets = snapshot(of: textView).targets
             return CodeBlockAction.target(atCaret: caret, in: targets, sourceLength: textView.textStorage.length)
         }
 
@@ -453,7 +477,7 @@ struct DocumentTextView: UIViewRepresentable {
             // Read the text exactly once. Every range below indexes into this
             // instance, and mixing instances is ruinously slow — see the note
             // on DocumentStyler.applyStyling(to:source:blocks:previousSignatures:).
-            let snapshot = documentCache.snapshot(for: (textView.text ?? "").nativeUTF8)
+            let snapshot = self.snapshot(of: textView)
             let source = snapshot.source
             let blocks = snapshot.blocks
 
@@ -473,7 +497,7 @@ struct DocumentTextView: UIViewRepresentable {
             refreshFenceVisibility(in: textView, repositioning: false)
             refreshHeadingMarkers(in: textView)
             refreshCaretFormatting(in: textView)
-            let targets = CodeBlockAction.targets(in: source, blocks: blocks)
+            let targets = snapshot.targets
             overlay?.update(targets: targets)
             editor?.blocksDidChange(targets)
             scheduleHighlighting(for: textView, source: source, blocks: blocks)
@@ -572,8 +596,8 @@ struct DocumentTextView: UIViewRepresentable {
         func observeAppearance(of textView: UITextView) {
             textView.registerForTraitChanges([UITraitUserInterfaceStyle.self]) { [weak self] (textView: UITextView, _) in
                 guard let self else { return }
-                let source = (textView.text ?? "").nativeUTF8
-                scheduleHighlighting(for: textView, source: source, blocks: documentCache.blocks(for: source))
+                let snapshot = self.snapshot(of: textView)
+                scheduleHighlighting(for: textView, source: snapshot.source, blocks: snapshot.blocks)
             }
         }
 
@@ -615,8 +639,9 @@ struct DocumentTextView: UIViewRepresentable {
             // character should look like, even though no text changed. This
             // fires on every keystroke too, so it reads through the cache
             // rather than re-parsing.
-            let source = (textView.text ?? "").nativeUTF8
-            let blocks = documentCache.blocks(for: source)
+            let snapshot = self.snapshot(of: textView)
+            let source = snapshot.source
+            let blocks = snapshot.blocks
             DocumentStyler.applyTypingAttributes(
                 to: textView, source: source, blocks: blocks, rendered: rendersMarkdown, typography: typography
             )
@@ -650,8 +675,8 @@ struct DocumentTextView: UIViewRepresentable {
             guard rendersMarkdown else { return [] }
             let storage = textView.textStorage
             guard storage.mutableString.range(of: "$").location != NSNotFound else { return [] }
-            let source = storage.string.nativeUTF8
-            return FormulaEditing.spans(in: documentCache.blocks(for: source), source: source, touching: window)
+            let snapshot = self.snapshot(of: storage.string)
+            return FormulaEditing.spans(in: snapshot.blocks, source: snapshot.source, touching: window)
         }
 
         /// Moves a collapsed caret off the inside of a hidden marker.
@@ -830,8 +855,8 @@ struct DocumentTextView: UIViewRepresentable {
         /// starting code traits and a new note's first letter wasn't
         /// capitalised (measured 3 Oct).
         func textViewShouldBeginEditing(_ textView: UITextView) -> Bool {
-            let source = (textView.text ?? "").nativeUTF8
-            applyRewritingPolicy(to: textView, source: source, blocks: documentCache.blocks(for: source))
+            let snapshot = self.snapshot(of: textView)
+            applyRewritingPolicy(to: textView, source: snapshot.source, blocks: snapshot.blocks)
             return true
         }
 
@@ -874,9 +899,9 @@ struct DocumentTextView: UIViewRepresentable {
                   !isApplyingMarkerEdit, undoManager?.isUndoing != true, undoManager?.isRedoing != true
             else { return true }
 
-            let source = (textView.text ?? "").nativeUTF8
+            let snapshot = self.snapshot(of: textView)
             return !TextRewritingPolicy.rewriteChangesCode(
-                range, with: text, in: source, blocks: documentCache.blocks(for: source)
+                range, with: text, in: snapshot.source, blocks: snapshot.blocks
             )
         }
 
@@ -913,8 +938,8 @@ struct DocumentTextView: UIViewRepresentable {
         func setRewritesProse(_ enabled: Bool, in textView: UITextView) {
             guard enabled != rewritesProse else { return }
             rewritesProse = enabled
-            let source = (textView.text ?? "").nativeUTF8
-            applyRewritingPolicy(to: textView, source: source, blocks: documentCache.blocks(for: source))
+            let snapshot = self.snapshot(of: textView)
+            applyRewritingPolicy(to: textView, source: snapshot.source, blocks: snapshot.blocks)
         }
 
         // MARK: The code-keys row

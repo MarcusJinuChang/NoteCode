@@ -60,10 +60,9 @@ extension DocumentTextView.Coordinator {
               let contentManager = layoutManager.textContentManager
         else { return }
 
-        let source = (textView.text ?? "").nativeUTF8
         let wanted = CodeSelectionHighlight.ranges(
             selection: textView.selectedRange,
-            in: documentCache.codeRanges(for: source)
+            in: snapshot(of: textView).codeRanges
         )
         guard wanted != paintedCodeSelection else { return }
 

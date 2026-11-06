@@ -670,7 +670,7 @@ struct MarkdownLayoutCostTests {
         let text = StylingPerformanceTests.document(lines: 300)
         let harness = MarkdownLayoutTests.fresh(text)
         harness.layOut()
-        let parses = harness.coordinator.documentCache.parseCount
+        let parses = harness.coordinator.snapshotCount
         // Making every paragraph again, as an attribute edit over the whole
         // note does, asks the delegate about each one.
         let storage = harness.textView.textStorage
@@ -678,7 +678,19 @@ struct MarkdownLayoutCostTests {
         let manager = harness.textView.textLayoutManager!
         manager.ensureLayout(for: manager.documentRange)
         harness.layOut()
-        #expect(harness.coordinator.documentCache.parseCount == parses, "a layout parsed the note again")
+        #expect(harness.coordinator.snapshotCount == parses, "a layout parsed the note again")
+    }
+
+    @Test("An edit makes one snapshot, and it is the new text, not the last one")
+    func oneSnapshotPerEdit() {
+        let harness = MarkdownLayoutTests.fresh(StylingPerformanceTests.document(lines: 50))
+        harness.layOut()
+        let before = harness.coordinator.snapshotCount
+        harness.textView.textStorage.replaceCharacters(in: NSRange(location: 0, length: 0), with: "x")
+        harness.layOut()
+        let snapshot = harness.coordinator.snapshot(of: harness.textView)
+        #expect(snapshot.source == (harness.textView.text ?? ""))
+        #expect(harness.coordinator.snapshotCount == before + 1)
     }
 }
 
