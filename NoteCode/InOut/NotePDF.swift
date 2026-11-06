@@ -55,6 +55,27 @@ enum NotePDF {
         var typography = NoteTypography.standard
     }
 
+    /// What the reader's settings change about the paper. One value, so the
+    /// note's PDF and Export All's cannot read them differently.
+    struct Settings: Equatable {
+        /// Whether the note's Markdown markers take no room, as on screen.
+        var rendersMarkdown: Bool
+        /// Whether code is numbered in the margin (Settings › Code).
+        var lineNumbers: Bool
+
+        /// Read from the stored settings through the key table
+        /// (`SettingKeys`), for a PDF made with no page open. There is no
+        /// text view to ask whether markers are hidden, so that is passed:
+        /// Export All lays them out at zero width, as an open note does.
+        static func stored(rendersMarkdown: Bool = true, in store: UserDefaults = .standard) -> Settings {
+            let key = SettingKeys.Code.lineNumbers
+            return Settings(
+                rendersMarkdown: rendersMarkdown,
+                lineNumbers: store.object(forKey: key.name) as? Bool ?? key.defaultValue
+            )
+        }
+    }
+
     /// PDF points per page point. A page 816 wide prints 612 wide: US
     /// Letter at 72 points to the inch.
     static let pointsPerPagePoint: CGFloat = 72 / PageLayout.unitsPerInch
@@ -477,6 +498,47 @@ final class PrintedNote {
         UIGraphicsPopContext()
 
         context.restoreGState()
+    }
+}
+
+extension NotePDF.Note {
+    /// A note to draw, with the settings applied. The one place the paper is
+    /// assembled from a note's parts: the open note's PDF passes what is on
+    /// screen now, Export All a stored page's.
+    init(
+        title: String,
+        text: String,
+        ink: PaperMarkup?,
+        orientation: PageOrientation,
+        pageCount: Int = 1,
+        minimumPages: Int = 1,
+        typography: NoteTypography,
+        settings: NotePDF.Settings
+    ) {
+        self.init(
+            title: title,
+            text: text,
+            ink: ink,
+            orientation: orientation,
+            pageCount: pageCount,
+            minimumPages: minimumPages,
+            rendersMarkdown: settings.rendersMarkdown,
+            lineNumbers: settings.lineNumbers,
+            typography: typography
+        )
+    }
+
+    /// A stored note, as Export All draws it.
+    init(page: Page, ink: PaperMarkup, settings: NotePDF.Settings) {
+        self.init(
+            title: page.displayTitle,
+            text: page.content,
+            ink: ink,
+            orientation: page.orientation,
+            minimumPages: page.minimumPageCount,
+            typography: page.typography,
+            settings: settings
+        )
     }
 }
 

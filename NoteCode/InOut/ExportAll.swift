@@ -222,18 +222,7 @@ extension NoteExportJob {
         guard case .ink(let markup) = DrawingCodec.decode(page.drawingData),
               !markup.subelements.isEmpty
         else { return nil }
-        let numbered = UserDefaults.standard.object(forKey: LineNumbers.defaultsKey) as? Bool
-            ?? LineNumbers.enabledByDefault
-        let data = await NotePDF.render(NotePDF.Note(
-            title: page.displayTitle,
-            text: page.content,
-            ink: markup,
-            orientation: page.orientation,
-            minimumPages: page.minimumPageCount,
-            rendersMarkdown: true,
-            lineNumbers: numbered,
-            typography: page.typography
-        ))
+        let data = await NotePDF.render(NotePDF.Note(page: page, ink: markup, settings: .stored()))
         return data.isEmpty ? nil : data
     }
 }

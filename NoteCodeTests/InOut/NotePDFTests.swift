@@ -399,6 +399,24 @@ struct NotePDFTests {
         #expect(try Data(contentsOf: second) == Data("second".utf8))
         try? FileManager.default.removeItem(at: second)
     }
+
+    @Test("Export All reads Line Numbers from the key table, and its Note carries the page")
+    func storedSettings() throws {
+        let suite = "NotePDFTests.\(UUID().uuidString)"
+        let store = try #require(UserDefaults(suiteName: suite))
+        defer { store.removePersistentDomain(forName: suite) }
+
+        #expect(NotePDF.Settings.stored(in: store) == NotePDF.Settings(rendersMarkdown: true, lineNumbers: SettingKeys.Code.lineNumbers.defaultValue))
+        store.set(true, forKey: SettingKeys.Code.lineNumbers.name)
+        #expect(NotePDF.Settings.stored(in: store).lineNumbers)
+
+        let page = Page(title: "T", content: "hello")
+        page.textSize = 19
+        let note = NotePDF.Note(page: page, ink: PaperMarkup(bounds: CGRect(x: 0, y: 0, width: 816, height: 1056)), settings: .stored(in: store))
+        #expect(note.rendersMarkdown && note.lineNumbers)
+        #expect(note.text == "hello")
+        #expect(note.typography == page.typography)
+    }
 }
 
 /// Pixels to check a drawing by, in points from the top left.
