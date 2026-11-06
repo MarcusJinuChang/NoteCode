@@ -264,69 +264,19 @@ enum DocumentStyler {
         for layout in touched {
             switch layout.block.kind {
             case .code(let code):
-                let output = code.isOutput
-                styled.setAttributes(output ? outputAttributes(typography) : codeAttributes(typography), range: layout.range)
-                // The fence lines are markers like any other, so they recede
-                // too — the code inside is what should carry the eye. On an
-                // output block's dark panel the usual marker grey would sink
-                // into it, so they take the panel's own label colour.
-                for marker in layout.blockMarkers {
-                    styled.addAttribute(.foregroundColor, value: markers.fenceColour(isOutput: output), range: marker)
-                }
-                // The fences last, so nothing else's style can land on them.
-                applyCodeLineIndents(to: styled, code: layout.contentRange, typography: typography)
-                applyFenceRoom(to: styled, block: layout.range, isClosed: code.isClosed, font: typography.code)
-
+                styleCode(layout, code: code, typography: typography, markers: markers, to: styled)
             case .paragraph:
-                apply(layout.inlines, over: typography.prose, to: styled)
-                dimUndrawableFormulas(in: layout, source: source, to: styled)
-
+                styleParagraph(layout, source: source, typography: typography, to: styled)
             case .listItem(_, let marker, _):
-                styled.addAttribute(
-                    .paragraphStyle,
-                    value: listParagraphStyle(for: layout.block, in: source, rendered: rendered, typography: typography),
-                    range: layout.range
-                )
-                apply(layout.inlines, over: typography.prose, to: styled)
-                dimUndrawableFormulas(in: layout, source: source, to: styled)
-                for range in layout.blockMarkers {
-                    styled.addAttribute(.foregroundColor, value: markers.bulletColour, range: range)
-                }
-                // A ticked item is done: struck through, and quieter.
-                if marker == .checkbox(checked: true), layout.contentRange.length > 0 {
-                    let content = trimmingNewline(layout.contentRange, in: source, of: layout)
-                    styled.addAttribute(.foregroundColor, value: UIColor.secondaryLabel, range: content)
-                    styled.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: content)
-                }
-
+                styleListItem(layout, marker: marker, source: source, rendered: rendered, typography: typography, markers: markers, to: styled)
             case .heading(let level, _):
-                styled.setAttributes(headingAttributes(level: level, typography: typography), range: layout.range)
-                apply(layout.inlines, over: typography.heading(level: level), to: styled)
-                dimUndrawableFormulas(in: layout, source: source, to: styled)
-                for marker in layout.blockMarkers {
-                    styled.addAttribute(.foregroundColor, value: markers.headingTextColour, range: marker)
-                }
-
+                styleHeading(layout, level: level, source: source, typography: typography, markers: markers, to: styled)
             case .blockQuote(let depth, _):
-                // Indented past its bar, which its fragment draws. Whole
-                // paragraphs, as a list item's style is: the storage makes a
-                // paragraph's characters share its first one's.
-                styled.addAttribute(.paragraphStyle, value: ProseBlockMetrics.quoteParagraphStyle(depth: depth, typography: typography), range: layout.range)
-                apply(layout.inlines, over: typography.prose, to: styled)
-                dimUndrawableFormulas(in: layout, source: source, to: styled)
-                for marker in layout.blockMarkers {
-                    styled.addAttribute(.foregroundColor, value: markerColor, range: marker)
-                }
-
+                styleBlockQuote(layout, depth: depth, source: source, typography: typography, to: styled)
             case .math(let math):
                 styleDisplayFormula(layout, math: math, source: source, typography: typography, to: styled)
-
             case .rule:
-                // An ordinary line of text with its dashes hidden; its
-                // fragment draws the line through it.
-                for marker in layout.blockMarkers {
-                    styled.addAttribute(.foregroundColor, value: markerColor, range: marker)
-                }
+                styleRule(layout, to: styled)
             }
         }
 
@@ -350,6 +300,90 @@ enum DocumentStyler {
         storage.endEditing()
 
         return signatures
+    }
+
+    // MARK: One function per block kind
+
+    private static func styleCode(
+        _ layout: BlockLayout, code: CodeBlock, typography: NoteTypography, markers: MarkerDimming,
+        to styled: NSMutableAttributedString
+    ) {
+        let output = code.isOutput
+        styled.setAttributes(output ? outputAttributes(typography) : codeAttributes(typography), range: layout.range)
+        // The fence lines are markers like any other, so they recede
+        // too — the code inside is what should carry the eye. On an
+        // output block's dark panel the usual marker grey would sink
+        // into it, so they take the panel's own label colour.
+        for marker in layout.blockMarkers {
+            styled.addAttribute(.foregroundColor, value: markers.fenceColour(isOutput: output), range: marker)
+        }
+        // The fences last, so nothing else's style can land on them.
+        applyCodeLineIndents(to: styled, code: layout.contentRange, typography: typography)
+        applyFenceRoom(to: styled, block: layout.range, isClosed: code.isClosed, font: typography.code)
+    }
+
+    private static func styleParagraph(
+        _ layout: BlockLayout, source: String, typography: NoteTypography, to styled: NSMutableAttributedString
+    ) {
+        apply(layout.inlines, over: typography.prose, to: styled)
+        dimUndrawableFormulas(in: layout, source: source, to: styled)
+    }
+
+    private static func styleListItem(
+        _ layout: BlockLayout, marker: ListMarker, source: String, rendered: Bool,
+        typography: NoteTypography, markers: MarkerDimming, to styled: NSMutableAttributedString
+    ) {
+        styled.addAttribute(
+            .paragraphStyle,
+            value: listParagraphStyle(for: layout.block, in: source, rendered: rendered, typography: typography),
+            range: layout.range
+        )
+        apply(layout.inlines, over: typography.prose, to: styled)
+        dimUndrawableFormulas(in: layout, source: source, to: styled)
+        for range in layout.blockMarkers {
+            styled.addAttribute(.foregroundColor, value: markers.bulletColour, range: range)
+        }
+        // A ticked item is done: struck through, and quieter.
+        if marker == .checkbox(checked: true), layout.contentRange.length > 0 {
+            let content = trimmingNewline(layout.contentRange, in: source, of: layout)
+            styled.addAttribute(.foregroundColor, value: UIColor.secondaryLabel, range: content)
+            styled.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: content)
+        }
+    }
+
+    private static func styleHeading(
+        _ layout: BlockLayout, level: Int, source: String, typography: NoteTypography,
+        markers: MarkerDimming, to styled: NSMutableAttributedString
+    ) {
+        styled.setAttributes(headingAttributes(level: level, typography: typography), range: layout.range)
+        apply(layout.inlines, over: typography.heading(level: level), to: styled)
+        dimUndrawableFormulas(in: layout, source: source, to: styled)
+        for marker in layout.blockMarkers {
+            styled.addAttribute(.foregroundColor, value: markers.headingTextColour, range: marker)
+        }
+    }
+
+    private static func styleBlockQuote(
+        _ layout: BlockLayout, depth: Int, source: String, typography: NoteTypography,
+        to styled: NSMutableAttributedString
+    ) {
+        // Indented past its bar, which its fragment draws. Whole
+        // paragraphs, as a list item's style is: the storage makes a
+        // paragraph's characters share its first one's.
+        styled.addAttribute(.paragraphStyle, value: ProseBlockMetrics.quoteParagraphStyle(depth: depth, typography: typography), range: layout.range)
+        apply(layout.inlines, over: typography.prose, to: styled)
+        dimUndrawableFormulas(in: layout, source: source, to: styled)
+        for marker in layout.blockMarkers {
+            styled.addAttribute(.foregroundColor, value: markerColor, range: marker)
+        }
+    }
+
+    private static func styleRule(_ layout: BlockLayout, to styled: NSMutableAttributedString) {
+        // An ordinary line of text with its dashes hidden; its
+        // fragment draws the line through it.
+        for marker in layout.blockMarkers {
+            styled.addAttribute(.foregroundColor, value: markerColor, range: marker)
+        }
     }
 
     /// Gives a code block's fence lines their room: the opening fence the gap

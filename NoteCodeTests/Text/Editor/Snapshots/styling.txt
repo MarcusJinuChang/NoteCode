@@ -1,0 +1,964 @@
+rendered=false
+[0,2] # 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle0"; font-weight: bold; font-style: normal; font-size: 34.00pt
+[2,12] Heading one\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle0"; font-weight: bold; font-style: normal; font-size: 34.00pt
+[14,3] ## 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[17,8] Heading 
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[25,2] **
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[27,3] two
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[30,2] **
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[32,6]  with 
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[38,1] `
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[39,4] code
+    NSBackgroundColor = colour light(0.471,0.471,0.502,0.160) dark(0.471,0.471,0.502,0.320)
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 28.00pt
+[43,1] `
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[44,1] \n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[45,11] Prose with 
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[56,1] *
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[57,8] emphasis
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleItalicBody"; font-weight: normal; font-style: italic; font-size: 17.00pt
+[65,1] *
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[66,2] , 
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[68,2] **
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[70,4] bold
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedBody"; font-weight: bold; font-style: normal; font-size: 17.00pt
+[74,2] **
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[76,2] , 
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[78,2] ~~
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[80,4] gone
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSStrikethrough = 1
+[84,2] ~~
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[86,19] , ==marked== and a 
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[105,1] [
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[106,4] link
+    NSColor = colour light(0.722,0.349,0.000,1.000) dark(1.000,0.667,0.200,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSUnderline = 1
+[110,22] ](https://example.com)
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[132,5]  and 
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[137,1] $
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[138,3] x^2
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[141,1] $
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[142,2] .\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[144,2] - 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 11.9365, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[146,17] bullet item with 
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 11.9365, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[163,2] **
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 11.9365, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[165,4] bold
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedBody"; font-weight: bold; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 11.9365, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[169,2] **
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 11.9365, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[171,1] \n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 11.9365, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[172,4]   - 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 36.6357, TailIndent 0, FirstLineHeadIndent 16, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[176,14] nested bullet\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 36.6357, TailIndent 0, FirstLineHeadIndent 16, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[190,3] 1. 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 16.0039, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[193,13] ordered item\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 16.0039, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[206,6] - [ ] 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 32.7549, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[212,10] open task\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 32.7549, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[222,6] - [x] 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 36.8887, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[228,16] done task with *
+    NSColor = colour light(0.235,0.235,0.263,0.600) dark(0.922,0.922,0.961,0.600)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 36.8887, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+    NSStrikethrough = 1
+[244,5] style
+    NSColor = colour light(0.235,0.235,0.263,0.600) dark(0.922,0.922,0.961,0.600)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleItalicBody"; font-weight: normal; font-style: italic; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 36.8887, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+    NSStrikethrough = 1
+[249,1] *
+    NSColor = colour light(0.235,0.235,0.263,0.600) dark(0.922,0.922,0.961,0.600)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 36.8887, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+    NSStrikethrough = 1
+[250,1] \n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 36.8887, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[251,2] > 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 16, TailIndent 0, FirstLineHeadIndent 16, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[253,17] quoted text with 
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 16, TailIndent 0, FirstLineHeadIndent 16, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[270,1] `
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 16, TailIndent 0, FirstLineHeadIndent 16, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[271,4] code
+    NSBackgroundColor = colour light(0.471,0.471,0.502,0.160) dark(0.471,0.471,0.502,0.320)
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 16, TailIndent 0, FirstLineHeadIndent 16, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[275,1] `
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 16, TailIndent 0, FirstLineHeadIndent 16, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[276,1] \n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 16, TailIndent 0, FirstLineHeadIndent 16, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[277,3] >> 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 32, TailIndent 0, FirstLineHeadIndent 32, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[280,13] deeper quote\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 32, TailIndent 0, FirstLineHeadIndent 32, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[293,3] ---
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[296,1] \n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[297,3] $$\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Center, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 48.2871/48.2871, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[300,19] \frac{a}{b} = c\n$$\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Left, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 1/1, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[319,7] ```cpp\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[326,13] int main() {\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[339,14]     return 0;\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 55.6348, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[353,2] }\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[355,4] ```\n
+    NSBaselineOffset = 9.544921875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 27.6182/27.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[359,10] ```output\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.424,0.424,0.439,1.000) dark(0.596,0.596,0.616,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[369,2] 0\n
+    NSColor = colour light(0.067,0.067,0.075,1.000) dark(0.961,0.961,0.969,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[371,4] ```\n
+    NSBaselineOffset = 9.544921875
+    NSColor = colour light(0.424,0.424,0.439,1.000) dark(0.596,0.596,0.616,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 27.6182/27.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[375,10] ```python\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[385,17] print("unclosed")
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+====
+rendered=true
+[0,2] # 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle0"; font-weight: bold; font-style: normal; font-size: 34.00pt
+[2,12] Heading one\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle0"; font-weight: bold; font-style: normal; font-size: 34.00pt
+[14,3] ## 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[17,8] Heading 
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[25,2] **
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[27,3] two
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[30,2] **
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[32,6]  with 
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[38,1] `
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[39,4] code
+    NSBackgroundColor = colour light(0.471,0.471,0.502,0.160) dark(0.471,0.471,0.502,0.320)
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 28.00pt
+[43,1] `
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[44,1] \n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[45,11] Prose with 
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[56,1] *
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[57,8] emphasis
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleItalicBody"; font-weight: normal; font-style: italic; font-size: 17.00pt
+[65,1] *
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[66,2] , 
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[68,2] **
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[70,4] bold
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedBody"; font-weight: bold; font-style: normal; font-size: 17.00pt
+[74,2] **
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[76,2] , 
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[78,2] ~~
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[80,4] gone
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSStrikethrough = 1
+[84,2] ~~
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[86,19] , ==marked== and a 
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[105,1] [
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[106,4] link
+    NSColor = colour light(0.722,0.349,0.000,1.000) dark(1.000,0.667,0.200,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSUnderline = 1
+[110,22] ](https://example.com)
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[132,5]  and 
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[137,1] $
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[138,3] x^2
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[141,1] $
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[142,2] .\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[144,2] - 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 11.9365, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[146,17] bullet item with 
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 11.9365, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[163,2] **
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 11.9365, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[165,4] bold
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedBody"; font-weight: bold; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 11.9365, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[169,2] **
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 11.9365, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[171,1] \n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 11.9365, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[172,4]   - 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 36.6357, TailIndent 0, FirstLineHeadIndent 16, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[176,14] nested bullet\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 36.6357, TailIndent 0, FirstLineHeadIndent 16, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[190,3] 1. 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 16.0039, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[193,13] ordered item\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 16.0039, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[206,6] - [ ] 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 20.918, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[212,10] open task\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 20.918, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[222,6] - [x] 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 20.918, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[228,16] done task with *
+    NSColor = colour light(0.235,0.235,0.263,0.600) dark(0.922,0.922,0.961,0.600)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 20.918, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+    NSStrikethrough = 1
+[244,5] style
+    NSColor = colour light(0.235,0.235,0.263,0.600) dark(0.922,0.922,0.961,0.600)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleItalicBody"; font-weight: normal; font-style: italic; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 20.918, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+    NSStrikethrough = 1
+[249,1] *
+    NSColor = colour light(0.235,0.235,0.263,0.600) dark(0.922,0.922,0.961,0.600)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 20.918, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+    NSStrikethrough = 1
+[250,1] \n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 20.918, TailIndent 0, FirstLineHeadIndent 0, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[251,2] > 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 16, TailIndent 0, FirstLineHeadIndent 16, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[253,17] quoted text with 
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 16, TailIndent 0, FirstLineHeadIndent 16, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[270,1] `
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 16, TailIndent 0, FirstLineHeadIndent 16, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[271,4] code
+    NSBackgroundColor = colour light(0.471,0.471,0.502,0.160) dark(0.471,0.471,0.502,0.320)
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 16, TailIndent 0, FirstLineHeadIndent 16, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[275,1] `
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 16, TailIndent 0, FirstLineHeadIndent 16, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[276,1] \n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 16, TailIndent 0, FirstLineHeadIndent 16, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[277,3] >> 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 32, TailIndent 0, FirstLineHeadIndent 32, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[280,13] deeper quote\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 32, TailIndent 0, FirstLineHeadIndent 32, LineHeight 0/0, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[293,3] ---
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[296,1] \n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[297,3] $$\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Center, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 48.2871/48.2871, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[300,19] \frac{a}{b} = c\n$$\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+    NSParagraphStyle = Alignment Left, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 1/1, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[319,7] ```cpp\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[326,13] int main() {\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[339,14]     return 0;\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 55.6348, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[353,2] }\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[355,4] ```\n
+    NSBaselineOffset = 9.544921875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 27.6182/27.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[359,10] ```output\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.424,0.424,0.439,1.000) dark(0.596,0.596,0.616,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[369,2] 0\n
+    NSColor = colour light(0.067,0.067,0.075,1.000) dark(0.961,0.961,0.969,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[371,4] ```\n
+    NSBaselineOffset = 9.544921875
+    NSColor = colour light(0.424,0.424,0.439,1.000) dark(0.596,0.596,0.616,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 27.6182/27.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[375,10] ```python\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[385,17] print("unclosed")
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+====
+rendered=false
+[0,13] Prose before\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[13,7] ```cpp\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[20,39] int value = query(gap);\
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[59,4] ```\n
+    NSBaselineOffset = 9.544921875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 27.6182/27.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[63,36] Prose after the block\na
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+====
+rendered=true
+[0,13] Prose before\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[13,7] ```cpp\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[20,39] int value = query(gap);\
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[59,4] ```\n
+    NSBaselineOffset = 9.544921875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 27.6182/27.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[63,36] Prose after the block\na
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+====
+rendered=false
+[0,3] ## 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[3,16] Section 0 gjpqy\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[19,1028] Line 1: the loop invaria
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[1047,7] ```cpp\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[1054,38] int query(gap g) { retur
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[1092,4] ```\n
+    NSBaselineOffset = 9.544921875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 27.6182/27.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[1096,1938] Line 12: the loop invari
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[3034,3] ## 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[3037,17] Section 30 gjpqy\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[3054,1037] Line 31: the loop invari
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[4091,7] ```cpp\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[4098,38] int query(gap g) { retur
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[4136,4] ```\n
+    NSBaselineOffset = 9.544921875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 27.6182/27.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[4140,1938] Line 42: the loop invari
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[6078,3] ## 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[6081,17] Section 60 gjpqy\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[6098,1037] Line 61: the loop invari
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[7135,7] ```cpp\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[7142,38] int query(gap g) { retur
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[7180,4] ```\n
+    NSBaselineOffset = 9.544921875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 27.6182/27.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[7184,1938] Line 72: the loop invari
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[9122,3] ## 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[9125,17] Section 90 gjpqy\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[9142,1038] Line 91: the loop invari
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[10180,7] ```cpp\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[10187,38] int query(gap g) { retur
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[10225,4] ```\n
+    NSBaselineOffset = 9.544921875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 27.6182/27.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[10229,1956] Line 102: the loop invar
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[12185,3] ## 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[12188,18] Section 120 gjpqy\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[12206,1047] Line 121: the loop invar
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[13253,7] ```cpp\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[13260,38] int query(gap g) { retur
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[13298,4] ```\n
+    NSBaselineOffset = 9.544921875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 27.6182/27.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[13302,1956] Line 132: the loop invar
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[15258,3] ## 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[15261,18] Section 150 gjpqy\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[15279,1047] Line 151: the loop invar
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[16326,7] ```cpp\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[16333,38] int query(gap g) { retur
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[16371,4] ```\n
+    NSBaselineOffset = 9.544921875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 27.6182/27.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[16375,1956] Line 162: the loop invar
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[18331,3] ## 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[18334,18] Section 180 gjpqy\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[18352,1047] Line 181: the loop invar
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[19399,7] ```cpp\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[19406,38] int query(gap g) { retur
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[19444,4] ```\n
+    NSBaselineOffset = 9.544921875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 27.6182/27.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[19448,1956] Line 192: the loop invar
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[21404,3] ## 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[21407,18] Section 210 gjpqy\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[21425,977] Line 211: the loop invar
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+====
+rendered=true
+[0,3] ## 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[3,16] Section 0 gjpqy\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[19,1028] Line 1: the loop invaria
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[1047,7] ```cpp\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[1054,38] int query(gap g) { retur
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[1092,4] ```\n
+    NSBaselineOffset = 9.544921875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 27.6182/27.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[1096,1938] Line 12: the loop invari
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[3034,3] ## 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[3037,17] Section 30 gjpqy\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[3054,1037] Line 31: the loop invari
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[4091,7] ```cpp\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[4098,38] int query(gap g) { retur
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[4136,4] ```\n
+    NSBaselineOffset = 9.544921875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 27.6182/27.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[4140,1938] Line 42: the loop invari
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[6078,3] ## 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[6081,17] Section 60 gjpqy\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[6098,1037] Line 61: the loop invari
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[7135,7] ```cpp\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[7142,38] int query(gap g) { retur
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[7180,4] ```\n
+    NSBaselineOffset = 9.544921875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 27.6182/27.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[7184,1938] Line 72: the loop invari
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[9122,3] ## 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[9125,17] Section 90 gjpqy\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[9142,1038] Line 91: the loop invari
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[10180,7] ```cpp\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[10187,38] int query(gap g) { retur
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[10225,4] ```\n
+    NSBaselineOffset = 9.544921875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 27.6182/27.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[10229,1956] Line 102: the loop invar
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[12185,3] ## 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[12188,18] Section 120 gjpqy\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[12206,1047] Line 121: the loop invar
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[13253,7] ```cpp\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[13260,38] int query(gap g) { retur
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[13298,4] ```\n
+    NSBaselineOffset = 9.544921875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 27.6182/27.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[13302,1956] Line 132: the loop invar
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[15258,3] ## 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[15261,18] Section 150 gjpqy\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[15279,1047] Line 151: the loop invar
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[16326,7] ```cpp\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[16333,38] int query(gap g) { retur
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[16371,4] ```\n
+    NSBaselineOffset = 9.544921875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 27.6182/27.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[16375,1956] Line 162: the loop invar
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[18331,3] ## 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[18334,18] Section 180 gjpqy\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[18352,1047] Line 181: the loop invar
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[19399,7] ```cpp\n
+    NSBaselineOffset = 14.715576171875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 55.6182/55.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[19406,38] int query(gap g) { retur
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 18.5449, TailIndent 0, FirstLineHeadIndent 0, LineHeight 22/22, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[19444,4] ```\n
+    NSBaselineOffset = 9.544921875
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: ".AppleSystemUIFontMonospaced-Regular"; font-weight: normal; font-style: normal; font-size: 15.00pt
+    NSParagraphStyle = Alignment Natural, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 27.6182/27.6182, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+[19448,1956] Line 192: the loop invar
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+[21404,3] ## 
+    NSColor = colour light(0.235,0.235,0.263,0.298) dark(0.922,0.922,0.961,0.298)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[21407,18] Section 210 gjpqy\n
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleEmphasizedTitle1"; font-weight: bold; font-style: normal; font-size: 28.00pt
+[21425,977] Line 211: the loop invar
+    NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
+    NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
+====
