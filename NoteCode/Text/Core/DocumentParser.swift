@@ -34,10 +34,8 @@ nonisolated enum DocumentParser {
         // and the whole file parses as one line.
         let lines = text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
 
-        // Set while we're inside a code block.
-        var openFence: (start: String.Index, contentStart: String.Index, info: String, backticks: Int)?
-        // Position of the next code block among code blocks, in document order.
-        var ordinal = 0
+        var fences = FenceScanner(text: text)
+        let maths = MathScanner(text: text, lines: lines)
         // The lines a math block has taken, which are not read on their own.
         var mathEnd = 0
 
@@ -47,71 +45,101 @@ nonisolated enum DocumentParser {
             // Start of the next line, i.e. this line including its terminator.
             let lineEnd = offset + 1 < lines.count ? lines[offset + 1].startIndex : text.endIndex
 
-            let fence = fenceInfo(line)
-
-            if let open = openFence {
-                // Inside a block: only a bare fence of at least the opening
-                // width closes it. A tagged fence is just code content.
-                guard let fence, fence.info.isEmpty, fence.backticks >= open.backticks else { continue }
-
-                let contentRange = open.contentStart..<lineStart
-                blocks.append(
-                    BlockNode(
-                        kind: .code(
-                            CodeBlock(
-                                id: CodeBlockID(ordinal: ordinal, code: String(text[contentRange])),
-                                language: language(from: open.info),
-                                infoString: open.info,
-                                isClosed: true,
-                                contentRange: contentRange
-                            )
-                        ),
-                        range: open.start..<lineEnd,
-                        contentRange: contentRange
-                    )
-                )
-                ordinal += 1
-                openFence = nil
-            } else if let fence {
-                openFence = (start: lineStart, contentStart: lineEnd, info: fence.info, backticks: fence.backticks)
-            } else if let math = mathBlock(in: text, lines: lines, at: offset) {
-                blocks.append(math.block)
-                mathEnd = math.end
-            } else {
-                // A trailing empty line sits at the very end of the string and
-                // spans nothing. Emitting it would add a zero-length block.
-                guard lineStart < lineEnd else { continue }
-                blocks.append(proseBlock(text, line: line, from: lineStart, to: lineEnd))
+            switch fences.read(line, from: lineStart, to: lineEnd) {
+            case .inside, .opened:
+                continue
+            case .closed(let block):
+                blocks.append(block)
+            case .outside:
+                if let math = maths.block(at: offset) {
+                    blocks.append(math.block)
+                    mathEnd = math.end
+                } else {
+                    // A trailing empty line sits at the very end of the string and
+                    // spans nothing. Emitting it would add a zero-length block.
+                    guard lineStart < lineEnd else { continue }
+                    blocks.append(proseBlock(text, line: line, from: lineStart, to: lineEnd))
+                }
             }
         }
 
         // An unterminated fence runs to the end of the document.
-        if let open = openFence {
-            let contentRange = open.contentStart..<text.endIndex
-            blocks.append(
-                BlockNode(
-                    kind: .code(
-                        CodeBlock(
-                            id: CodeBlockID(ordinal: ordinal, code: String(text[contentRange])),
-                            language: language(from: open.info),
-                            infoString: open.info,
-                            isClosed: false,
-                            contentRange: contentRange
-                        )
-                    ),
-                    range: open.start..<text.endIndex,
-                    contentRange: contentRange
-                )
-            )
-        }
+        if let block = fences.finish() { blocks.append(block) }
 
         return blocks
     }
 
     // MARK: Private
 
-    /// A `$$` block starting at line `offset`, and the offset of the line
-    /// after it, or `nil` where the line isn't one.
+    /// Finds the fenced code blocks, a line at a time. It holds the open
+    /// fence, and the position of the next block among code blocks.
+    private struct FenceScanner {
+        enum Reading {
+            /// Not in a block, and this line doesn't open one.
+            case outside
+            /// This line opens a block.
+            case opened
+            /// In a block, and this line doesn't close it.
+            case inside
+            /// This line closes the block, which is done.
+            case closed(BlockNode)
+        }
+
+        let text: String
+        private var open: (start: String.Index, contentStart: String.Index, info: String, backticks: Int)?
+        /// Position of the next code block among code blocks, in document order.
+        private var ordinal = 0
+
+        init(text: String) { self.text = text }
+
+        mutating func read(_ line: Substring, from lineStart: String.Index, to lineEnd: String.Index) -> Reading {
+            let fence = DocumentParser.fenceInfo(line)
+
+            if let open {
+                // Inside a block: only a bare fence of at least the opening
+                // width closes it. A tagged fence is just code content.
+                guard let fence, fence.info.isEmpty, fence.backticks >= open.backticks else { return .inside }
+                let block = codeBlock(open, contentEnd: lineStart, end: lineEnd, isClosed: true)
+                self.open = nil
+                return .closed(block)
+            }
+            guard let fence else { return .outside }
+            open = (start: lineStart, contentStart: lineEnd, info: fence.info, backticks: fence.backticks)
+            return .opened
+        }
+
+        /// The block an unterminated fence makes, running to the document's end.
+        mutating func finish() -> BlockNode? {
+            guard let open else { return nil }
+            self.open = nil
+            return codeBlock(open, contentEnd: text.endIndex, end: text.endIndex, isClosed: false)
+        }
+
+        private mutating func codeBlock(
+            _ open: (start: String.Index, contentStart: String.Index, info: String, backticks: Int),
+            contentEnd: String.Index,
+            end: String.Index,
+            isClosed: Bool
+        ) -> BlockNode {
+            let contentRange = open.contentStart..<contentEnd
+            defer { ordinal += 1 }
+            return BlockNode(
+                kind: .code(
+                    CodeBlock(
+                        id: CodeBlockID(ordinal: ordinal, code: String(text[contentRange])),
+                        language: DocumentParser.language(from: open.info),
+                        infoString: open.info,
+                        isClosed: isClosed,
+                        contentRange: contentRange
+                    )
+                ),
+                range: open.start..<end,
+                contentRange: contentRange
+            )
+        }
+    }
+
+    /// Finds `$$` blocks.
     ///
     /// The line starts with `$$`. If it also ends with one, with something
     /// between, that is the whole block (`$$ x $$`); if it ends with none, the
@@ -120,17 +148,36 @@ nonisolated enum DocumentParser {
     /// otherwise be swallowed). `$$x$$ and more` is neither, so it is a
     /// paragraph with a display formula in it. Nothing but blanks between is
     /// no formula either.
-    private static func mathBlock(
-        in text: String,
-        lines: [Substring],
-        at offset: Int
-    ) -> (block: BlockNode, end: Int)? {
-        let first = lines[offset]
-        guard first.hasPrefix("$$") else { return nil }
-        let contentStart = text.index(first.startIndex, offsetBy: 2)
+    private struct MathScanner {
+        let text: String
+        let lines: [Substring]
 
-        // The `$$` that ends `line`, past trailing blanks, unless escaped.
-        func closing(of line: Substring) -> Range<String.Index>? {
+        /// A `$$` block starting at line `offset`, and the offset of the line
+        /// after it, or `nil` where the line isn't one.
+        func block(at offset: Int) -> (block: BlockNode, end: Int)? {
+            let first = lines[offset]
+            guard first.hasPrefix("$$") else { return nil }
+            let contentStart = text.index(first.startIndex, offsetBy: 2)
+
+            // `$$` alone, or `$$$`, ends in `$$` but with the opening's own.
+            if let closer = closing(of: first), closer.lowerBound >= contentStart {
+                return block(from: first, contentStart: contentStart, closing: closer, ending: offset)
+            }
+            if let closer = closing(of: first), closer.lowerBound < contentStart, first.count > 2 { return nil }
+
+            let last = min(lines.count, offset + DocumentParser.maxMathLines)
+            for index in (offset + 1)..<max(offset + 1, last) {
+                let line = lines[index]
+                if DocumentParser.fenceInfo(line) != nil { return nil }
+                if let closer = closing(of: line) {
+                    return block(from: first, contentStart: contentStart, closing: closer, ending: index)
+                }
+            }
+            return nil
+        }
+
+        /// The `$$` that ends `line`, past trailing blanks, unless escaped.
+        private func closing(of line: Substring) -> Range<String.Index>? {
             var end = line.endIndex
             while end > line.startIndex, line[text.index(before: end)] == " " || line[text.index(before: end)] == "\t" {
                 end = text.index(before: end)
@@ -141,7 +188,12 @@ nonisolated enum DocumentParser {
             return start..<end
         }
 
-        func block(closing closer: Range<String.Index>, ending lastOffset: Int) -> (block: BlockNode, end: Int)? {
+        private func block(
+            from first: Substring,
+            contentStart: String.Index,
+            closing closer: Range<String.Index>,
+            ending lastOffset: Int
+        ) -> (block: BlockNode, end: Int)? {
             let contentRange = contentStart..<closer.lowerBound
             guard text[contentRange].contains(where: { !$0.isWhitespace }) else { return nil }
             let lastEnd = lastOffset + 1 < lines.count ? lines[lastOffset + 1].startIndex : text.endIndex
@@ -153,20 +205,6 @@ nonisolated enum DocumentParser {
             )
             return (BlockNode(kind: .math(math), range: first.startIndex..<lastEnd, contentRange: contentRange), lastOffset + 1)
         }
-
-        // `$$` alone, or `$$$`, ends in `$$` but with the opening's own.
-        if let closer = closing(of: first), closer.lowerBound >= contentStart {
-            return block(closing: closer, ending: offset)
-        }
-        if let closer = closing(of: first), closer.lowerBound < contentStart, first.count > 2 { return nil }
-
-        let last = min(lines.count, offset + maxMathLines)
-        for index in (offset + 1)..<max(offset + 1, last) {
-            let line = lines[index]
-            if fenceInfo(line) != nil { return nil }
-            if let closer = closing(of: line) { return block(closing: closer, ending: index) }
-        }
-        return nil
     }
 
     /// One source line of prose: a heading if it starts with `#`, otherwise a
