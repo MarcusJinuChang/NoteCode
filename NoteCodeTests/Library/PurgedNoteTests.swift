@@ -35,6 +35,16 @@ struct PurgedNoteTests {
         return page
     }
 
+    /// The same note fetched into a context of its own, as a relaunch has it:
+    /// its ink is not loaded, which is what makes reading it after the purge
+    /// trap. (The context is returned because a page holds its context weakly.)
+    private func unloadedNote() throws -> (page: Page, context: ModelContext) {
+        _ = try noteWithInk()
+        let fresh = ModelContext(container)
+        let page = try #require(try fresh.fetch(FetchDescriptor<Page>()).first)
+        return (page, fresh)
+    }
+
     private func directory() -> URL {
         FileManager.default.temporaryDirectory.appending(path: "PurgedNoteTests-\(UUID().uuidString)", directoryHint: .isDirectory)
     }
@@ -44,9 +54,9 @@ struct PurgedNoteTests {
         let dir = directory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let store = ThumbnailStore(directory: dir)
-        let page = try noteWithInk()
+        let (page, fresh) = try unloadedNote()
 
-        try Page.delete([page], from: context)
+        try Page.delete([page], from: fresh)
 
         #expect(await store.thumbnail(for: page) == nil)
         #expect(store.rendered == 0)
@@ -57,11 +67,13 @@ struct PurgedNoteTests {
         let dir = directory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let store = ThumbnailStore(directory: dir)
-        let page = try noteWithInk()
+        let (page, fresh) = try unloadedNote()
 
-        // The request starts, then yields before it reads the note.
+        // The request starts and yields before it reads the note; the purge
+        // lands in that gap.
         let asking = Task { @MainActor in await store.thumbnail(for: page) }
-        try Page.delete([page], from: context)
+        await Task.yield()
+        try Page.delete([page], from: fresh)
 
         #expect(await asking.value == nil)
         #expect(store.rendered == 0)
