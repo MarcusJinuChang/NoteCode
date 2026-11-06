@@ -86,6 +86,11 @@ struct NoteList: View {
     // others out, rather than the list loading them to filter). The foot
     // counts the others in the store (`Page.deletedCount`).
     @Query(filter: Page.livePredicate, sort: \Page.modifiedAt, order: .reverse) private var pages: [Page]
+
+    /// Bumped whenever a context saves, so the foot's count is read again. A
+    /// purge, Delete Now or Delete All changes no live note, so `pages` alone
+    /// would not say the count had moved.
+    @State private var deletedCountTick = 0
     @Query private var folders: [Folder]
 
     /// How notes are ordered. Per device, like the view mode: it's how this
@@ -136,12 +141,19 @@ struct NoteList: View {
     @State private var editMode: EditMode = .inactive
 #endif
 
+    /// The foot's count, read from the store. Reading the tick makes the body
+    /// depend on it, so a save re-reads the count.
+    private func deletedNotesCount() -> Int {
+        _ = deletedCountTick
+        return Page.deletedCount(in: modelContext)
+    }
+
     var body: some View {
         let search = NoteSearch(searchText)
         let sections = NoteListSections(pages: pages, folders: folders, sort: sort)
         let results = search.results(in: pages, sort: sort)
         let hasLiveNotes = pages.contains(where: \.isLive)
-        let deletedCount = Page.deletedCount(in: modelContext)
+        let deletedCount = deletedNotesCount()
 
         ScrollViewReader { proxy in
         List(selection: $selection) {
@@ -278,6 +290,7 @@ struct NoteList: View {
             Button("Rename") { finishRenamingPage() }
         }
         }
+        .modifier(CountsSaves(tick: $deletedCountTick))
     }
 
     /// Recently Deleted, the list's last row, while it holds anything. Not a
@@ -579,5 +592,20 @@ struct NoteList: View {
 
     private func delete(_ folder: Folder, _ deletion: Folder.Deletion) {
         actions.delete(folder, deletion)
+    }
+}
+
+/// Bumps `tick` each time a context saves, for a view that reads something
+/// the store holds and its `@Query` does not (F8: the foot's count of deleted
+/// notes). Ends with the view.
+private struct CountsSaves: ViewModifier {
+    @Binding var tick: Int
+
+    func body(content: Content) -> some View {
+        content.task {
+            for await _ in NotificationCenter.default.notifications(named: ModelContext.didSave) {
+                tick += 1
+            }
+        }
     }
 }

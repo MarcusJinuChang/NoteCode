@@ -113,3 +113,55 @@ struct NoteListQueryTests {
         #expect(Page.deletedCount(in: context) == NoteListFetchCostTests.deleted)
     }
 }
+
+#if canImport(UIKit)
+import SwiftUI
+import UIKit
+
+/// The foot's Recently Deleted row with the list on screen: a purge, Delete Now
+/// or Delete All changes no live note, so only a save of the context can tell
+/// the list. SwiftUI's text isn't reachable from a test, so this watches the
+/// row itself come and go (a cell of the list), which the count decides.
+@Suite("The list's Recently Deleted row follows the store", .tags(.library))
+@MainActor
+struct NoteListDeletedCountTests {
+
+    /// The cells showing: a row that has been taken away is left hidden in the
+    /// tree until the list's animation ends.
+    private static func cells(in view: UIView) -> Int {
+        (view is UICollectionViewCell && !view.isHidden ? 1 : 0) + view.subviews.reduce(0) { $0 + cells(in: $1) }
+    }
+
+    @Test("Purging every deleted note, with no live note changing, takes the row away")
+    func rowFollowsPurge() async throws {
+        let schema = NoteSchema.current
+        let container = try ModelContainer(
+            for: schema, configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)])
+        let context = container.mainContext
+        context.insert(Page(title: "Live", content: "kept"))
+        let gone = (0..<3).map { Page(title: "Gone \($0)", content: "x") }
+        gone.forEach { context.insert($0); $0.deletedAt = .now }
+        try context.save()
+
+        let list = NoteList(selection: .constant(nil), navigation: NoteNavigation(), searchText: .constant(""))
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 400, height: 800))
+        window.rootViewController = UIHostingController(rootView: NavigationStack { list }.modelContainer(container))
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        // The live note, the Recently Deleted row and the foot's rows.
+        let drawn = await waitFor({ window.layoutIfNeeded(); return Self.cells(in: window) >= 6 })
+        #expect(drawn)
+        let withRow = Self.cells(in: window)
+
+        // The 30-day purge, Delete Now, Delete All: deleted notes go, no live note changes.
+        let other = ModelContext(container)
+        let ids = Set(gone.map(\.persistentModelID))
+        let victims = try other.fetch(FetchDescriptor<Page>(predicate: Page.deletedPredicate)).filter { ids.contains($0.persistentModelID) }
+        try Page.delete(victims, from: other)
+        try other.save()
+        let gone1 = await waitFor({ window.layoutIfNeeded(); return Self.cells(in: window) < withRow })
+        #expect(gone1)
+        #expect(Self.cells(in: window) == withRow - 1)
+    }
+}
+#endif
