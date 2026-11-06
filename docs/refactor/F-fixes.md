@@ -101,7 +101,11 @@ numbers in each PR, and the new budget in `docs/refactor/baseline.md`.
   so it means file reads on the main thread.
 - **F8. Every list's `@Query` loads every note's content,** deleted notes
   included, and filters in memory (NoteList.swift:76, HomeView.swift:55,
-  RecentlyDeletedView).
+  RecentlyDeletedView). Fixed for the two live lists: the store leaves
+  deleted notes out and counts them for the foot. Measured: the ink is
+  not read by the fetch (external storage is already lazy), so
+  `propertiesToFetch` gains nothing; the text is needed for titles and
+  search. Recently Deleted's own queries already filter in the store.
 - **Known problems Marcus may pick:**
   - Compiler Explorer's pinned ids go stale (refreshed 6 Nov, `scripts/refresh-ce-ids.sh`; rerun when a new gcc, Python, Rust or Go ships).
   - Syntax colours carry no weight or italic. That one is a feature,

@@ -58,6 +58,21 @@ extension Page {
         #Predicate<Page> { $0.deletedAt != nil }
     }
 
+    /// Matches the notes that are not in Recently Deleted, for a `@Query` of
+    /// just those (F8). The lists ask the store for these rather than taking
+    /// every note and filtering with `live`: the deleted ones keep their text
+    /// for 30 days and no list shows them.
+    static var livePredicate: Predicate<Page> {
+        #Predicate<Page> { $0.deletedAt == nil }
+    }
+
+    /// How many notes are in Recently Deleted, counted by the store without
+    /// loading any of them: the list's foot says it. It reads the store as
+    /// last saved, which deleting, restoring and purging all do at once.
+    static func deletedCount(in context: ModelContext) -> Int {
+        (try? context.fetchCount(FetchDescriptor<Page>(predicate: deletedPredicate))) ?? 0
+    }
+
     /// Whole days left before the note is purged: 30 on the day it was
     /// deleted, then one fewer each day. `nil` for a note not in Recently
     /// Deleted.
