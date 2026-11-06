@@ -76,14 +76,10 @@ struct NotePageChromeTests {
         }
     }
 
-    @Test("The PDF is titled for the note, or its first line when it has no title")
-    func documentTitle() {
-        #expect(SharePopover.documentTitle("Graphs", text: "# Other") == "Graphs")
-        #expect(SharePopover.documentTitle("  ", text: "\n## Dijkstra notes\nbody") == "Dijkstra notes")
-        #expect(SharePopover.documentTitle("", text: "```cpp\nint x;\n```\nbody") == "int x;")
-        #expect(SharePopover.documentTitle("", text: "") == "")
-        #expect(NotePDF.fileName(for: SharePopover.documentTitle("", text: "")) == "Untitled.pdf")
-        #expect(NotePDF.fileName(for: SharePopover.documentTitle("", text: "# Heaps")) == "Heaps.pdf")
+    @Test("The PDF and .md are named for the note's display title, Untitled when it has none")
+    func fileNames() {
+        #expect(NotePDF.fileName(for: NoteTitle.display(stored: "", content: "")) == "Untitled.pdf")
+        #expect(NotePDF.fileName(for: NoteTitle.display(stored: "", content: "# Heaps")) == "Heaps.pdf")
     }
 
     // MARK: Outline
