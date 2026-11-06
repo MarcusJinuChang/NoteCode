@@ -81,6 +81,9 @@ final class PageEdgeView: UIView {
         layer.shadowOffset = CGSize(width: 0, height: 2)
         layer.borderWidth = 1
         resolveColors()
+        registerForTraitChanges(
+            [UITraitUserInterfaceStyle.self, UITraitUserInterfaceLevel.self, UITraitAccessibilityContrast.self]
+        ) { (view: PageEdgeView, _) in view.resolveColors() }
     }
 
     @available(*, unavailable)
@@ -88,11 +91,6 @@ final class PageEdgeView: UIView {
 
     override var frame: CGRect {
         didSet { layer.shadowPath = UIBezierPath(rect: bounds).cgPath }
-    }
-
-    override func traitCollectionDidChange(_ previous: UITraitCollection?) {
-        super.traitCollectionDidChange(previous)
-        resolveColors()
     }
 
     /// CALayer colours are plain CGColors and don't follow dark mode alone.

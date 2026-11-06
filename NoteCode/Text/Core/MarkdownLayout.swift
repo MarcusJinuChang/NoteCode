@@ -27,7 +27,7 @@ import Foundation
 ///
 /// The ranges come from `DocumentStyler.layouts`, the same ones that dim the
 /// markers in a legacy note, so styling and layout can't disagree.
-enum MarkdownLayout {
+nonisolated enum MarkdownLayout {
 
     static let joiner: Character = "\u{2060}"
     static let box: Character = "\u{2003}"   // em space: the checkbox is drawn in it

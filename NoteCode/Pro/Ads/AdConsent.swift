@@ -135,9 +135,10 @@ struct SystemAdPlatform: AdPlatform {
                 }
                 Task { @MainActor in
                     let root = Self.rootViewController()
-                    ConsentForm.loadAndPresentIfRequired(from: root) { _ in
-                        continuation.resume(returning: ConsentInformation.shared.canRequestAds)
-                    }
+                    // A failure to load or show the form is not an answer: what
+                    // Google already holds decides, as it did with the handler.
+                    try? await ConsentForm.loadAndPresentIfRequired(from: root)
+                    continuation.resume(returning: ConsentInformation.shared.canRequestAds)
                 }
             }
         }

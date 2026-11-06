@@ -296,7 +296,7 @@ struct NoteThumbnailPictureTests {
         let other = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: other) }
         let store = ThumbnailStore(directory: other) { _, id in
-            asked.record(onMain: Thread.isMainThread, id: id)
+            asked.record(onMain: pthread_main_np() != 0, id: id)
             return Data()
         }
         _ = try #require(await store.thumbnail(for: page))
@@ -335,8 +335,10 @@ struct NoteThumbnailPictureTests {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let page = try savedPage("Going")
+        // Only touched inside `MainActor.run`, where the page lives.
+        nonisolated(unsafe) let going = page
         let store = ThumbnailStore(directory: directory) { container, id in
-            await MainActor.run { page.deletedAt = .now }
+            await MainActor.run { going.deletedAt = .now }
             return NoteInk.read(container: container, id: id)
         }
         #expect(await store.thumbnail(for: page) == nil)

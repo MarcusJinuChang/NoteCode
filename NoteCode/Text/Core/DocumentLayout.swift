@@ -91,7 +91,7 @@ extension DocumentStyler {
 
         /// A marker's characters, which a rendered note lays out at no width
         /// (`MarkdownLayout`) and the styler dims; none for text.
-        var markers: [NSRange] { kind.isMarker ? [range] : [] }
+        nonisolated var markers: [NSRange] { kind.isMarker ? [range] : [] }
     }
 
     /// Converts every range in the document to UTF-16 offsets in one forward pass.
@@ -102,7 +102,7 @@ extension DocumentStyler {
     /// 184ms for a 500-line note, on every keystroke. Blocks are contiguous and
     /// in order, and so are the inline spans inside them, so their lengths can
     /// simply be accumulated instead.
-    static func layouts(for blocks: [BlockNode], in source: String) -> [BlockLayout] {
+    nonisolated static func layouts(for blocks: [BlockNode], in source: String) -> [BlockLayout] {
         var layouts: [BlockLayout] = []
         layouts.reserveCapacity(blocks.count)
 

@@ -552,7 +552,7 @@ final class NoteEditor {
 
     /// + Output: an empty output block under the code block the caret is in.
     func addOutputBlock() {
-        perform { [textTarget] text, selection in
+        perform { text, selection in
             MarkdownFormatting.insertOutputBlock(
                 afterBlockAt: selection.location, in: text as NSString, codeRanges: codeRanges
             )

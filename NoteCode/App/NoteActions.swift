@@ -86,7 +86,7 @@ struct NoteActions {
             pages.count == 1 ? "Moved to Recently Deleted" : "Moved \(pages.count) notes to Recently Deleted",
             actionTitle: "Undo"
         ) {
-            withAnimation { Storage.attempt("restore notes") { try Page.restore(pages, in: context) } }
+            withAnimation { _ = Storage.attempt("restore notes") { try Page.restore(pages, in: context) } }
             if let reopening, nav.selection == nil {
                 nav.openedSearch = NoteSearch("")
                 nav.selection = reopening
@@ -106,13 +106,13 @@ struct NoteActions {
         }
         let context = context
         withAnimation {
-            Storage.attempt("delete a folder") { try Folder.delete(folder, deletion, from: context) }
+            _ = Storage.attempt("delete a folder") { try Folder.delete(folder, deletion, from: context) }
         }
         // Kept notes leave a folder that is gone for good, so there is nothing
         // to undo. Deleted ones went with the folder, and Undo brings both back.
         guard deletion == .withNotes, let toasts else { return }
         toasts.show("Moved “\(folder.name)” to Recently Deleted", actionTitle: "Undo") {
-            withAnimation { Storage.attempt("restore a folder") { try Folder.restore([folder], in: context) } }
+            withAnimation { _ = Storage.attempt("restore a folder") { try Folder.restore([folder], in: context) } }
         }
     }
 }

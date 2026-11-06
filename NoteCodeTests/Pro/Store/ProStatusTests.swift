@@ -50,7 +50,7 @@ struct ProStatusTests {
         func push(_ update: ProEntitlement) { continuation?.yield(update) }
     }
 
-    static let now = Date(timeIntervalSince1970: 1_800_000_000)
+    nonisolated static let now = Date(timeIntervalSince1970: 1_800_000_000)
 
     static func entitlement(expires: TimeInterval? = 86_400, revoked: Bool = false,
                             id: String = ProStatus.productID) -> ProEntitlement {
