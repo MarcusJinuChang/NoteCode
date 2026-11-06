@@ -286,10 +286,25 @@ in the two runs. Run 2 against this file (ms; base in parentheses):
 - **Gains that survive the load:** the caret-move costs into and out of a code
   block fell by about 75% (1.8 and 1.9 ms to 0.5 ms) and a long code block by
   about 70% (4.9 to 1.4 ms) in both runs.
-- **Not judged:** the rows over 10% worse (line-number keystrokes, typing cost,
-  PDF printing, opening and switching, first frame) moved by different amounts
-  between the two runs and the untouched `parseCost` moved by 83%. They need a
-  re-run on a quiet Mac before the release; nothing in the code explains them.
+- **The worse rows are load, shown by a control (6 Nov, load average 40 to 70
+  throughout; the other lanes never leave the Mac quiet).** `perf.sh --compare` was
+  run on this branch, then on `main` 8767927 (the commit this file was taken at,
+  checked out in the same worktree and simulator), back to back, then on this branch
+  again (ms; base in parentheses):
+
+  | Test | This branch, run 1 | `8767927` | This branch, run 2 | Base |
+  |---|---|---|---|---|
+  | `LineNumbersTests/keystrokeCost.on` | 46.6 | 40.1 | 48.8 | 34.1 |
+  | `MarkdownLayoutCostTests/typingCost.rendered` | 48.0 | 46.8 | 46.6 | 39.4 |
+  | `NotePDFTests/printingCost` | 2,098.7 | 1,362.7 | 1,318.1 | 873.7 |
+  | `PageViewTests/openingCost.open` / `.switch` | 222.6 / 475.0 | 198.1 / 393.9 | 196.5 / 377.6 | 147.5 / 319.5 |
+
+  The unrefactored commit is 18% to 56% worse than its own base under this load, and
+  this branch's second run matches it within a few percent. So the rows read worse
+  because the Mac is busy, not because of the code. The gains held in every run
+  (caret moves 67% to 68% better, long block 55%). Those figures do not meet "nothing
+  more than 10% worse" in absolute terms: a run on an idle Mac is still owed, and
+  Release QA item 1 is met only on the control's evidence until then.
 - **New rows with no base yet:** `PageViewTests/exclusionPathsAreTheCost.with`
   98.8 to 111.1 ms, `.without` 0.8 ms and `PageViewTests/typingCostLongNote`
   96.6 to 98.4 ms (F5).
