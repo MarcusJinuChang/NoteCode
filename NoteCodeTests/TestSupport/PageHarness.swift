@@ -88,6 +88,7 @@ final class PageHarness {
 
     /// Every line, in note coordinates, laid out to the end.
     var lines: [(range: NSRange, frame: CGRect)] {
+        page.paginate()
         let textView = page.textView
         guard let manager = textView.textLayoutManager,
               let content = manager.textContentManager

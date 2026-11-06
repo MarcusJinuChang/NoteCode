@@ -39,22 +39,48 @@ final class BlankLineLayout: NSObject, NSTextContentStorageDelegate {
     /// until the text changes.
     var markerRuns: (() -> [MarkdownLayout.Run])?
 
+    /// The pushes that keep each paragraph on one page (`PagePaginator`),
+    /// laid in as paragraph spacing on the copy TextKit lays out.
+    let pushes = PagePushTable()
+
     func textContentStorage(_ textContentStorage: NSTextContentStorage, textParagraphWith range: NSRange) -> NSTextParagraph? {
         guard let storage = textContentStorage.textStorage, range.location < storage.length else { return nil }
 
+        var laidOut: NSAttributedString?
         if let markerRuns {
             let touching = MarkdownLayout.runs(in: markerRuns(), touching: range)
             if !touching.isEmpty {
-                return NSTextParagraph(attributedString: MarkdownLayout.laidOut(range, of: storage, runs: touching))
+                laidOut = MarkdownLayout.laidOut(range, of: storage, runs: touching)
             }
         }
 
-        guard range.length == 1,
-              (storage.string as NSString).character(at: range.location) == UTF16Unit.newline
-        else { return nil }
+        if laidOut == nil,
+           range.length == 1,
+           (storage.string as NSString).character(at: range.location) == UTF16Unit.newline {
+            let attributes = storage.attributes(at: range.location, effectiveRange: nil)
+            laidOut = NSAttributedString(string: Self.stand, attributes: attributes)
+        }
 
-        let attributes = storage.attributes(at: range.location, effectiveRange: nil)
-        return NSTextParagraph(attributedString: NSAttributedString(string: Self.stand, attributes: attributes))
+        let push = pushes.push(at: range.location)
+        if push > 0 {
+            laidOut = Self.pushed(laidOut ?? storage.attributedSubstring(from: range), by: push, gap: pushes.layout?.gap ?? 0)
+        }
+        return laidOut.map { NSTextParagraph(attributedString: $0) }
+    }
+
+    /// `paragraph` with `push` more space above it. Only the layout's copy:
+    /// the note's text and styles are untouched, and the paragraph style's
+    /// own spacing stays.
+    static func pushed(_ paragraph: NSAttributedString, by push: CGFloat, gap: CGFloat) -> NSAttributedString {
+        let result = NSMutableAttributedString(attributedString: paragraph)
+        let whole = NSRange(location: 0, length: result.length)
+        let base = result.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle ?? .default
+        let style = base.mutableCopy() as! NSMutableParagraphStyle
+        style.paragraphSpacingBefore += push
+        result.addAttribute(.paragraphStyle, value: style, range: whole)
+        result.addAttribute(.pagePush, value: Double(push), range: whole)
+        result.addAttribute(.pageGap, value: Double(gap), range: whole)
+        return result
     }
 
     /// Whether the character at `offset` is a blank line: a newline that

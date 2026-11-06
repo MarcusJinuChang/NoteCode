@@ -355,7 +355,8 @@ struct PageViewTests {
         let page = harness.page
 
         #expect(page.pageCount > 2)
-        #expect(page.textView.textContainer.exclusionPaths.count == page.pageCount)
+        // The breaks are paragraphs pushed down, not exclusion paths (F5).
+        #expect(page.textView.textContainer.exclusionPaths.isEmpty)
 
         let breaks = layout.exclusionBands(pageCount: page.pageCount, containerTop: layout.firstBodyTop)
             .map { $0.offsetBy(dx: 0, dy: layout.firstBodyTop) }
@@ -1573,9 +1574,10 @@ struct PageViewTests {
         return times.sorted()[4]
     }
 
-    /// The same keystroke on a 40-page note, with every page break below the
-    /// edit an exclusion path. About 92-100ms (simulator, 6 Nov), against
-    /// 15-18ms on 250 lines: the cost grows with the note.
+    /// The same keystroke on a 40-page note. With every page break below the
+    /// edit an exclusion path it was 92-100ms (simulator, 6 Nov), against
+    /// 15-18ms on 250 lines: the cost grew with the note. With the breaks as
+    /// pushed paragraphs (F5) it is about 4ms, and no longer grows with it.
     @Test("Typing near the top of a 40-page note stays within budget", .tags(.perf))
     func typingCostLongNote() {
         let harness = PageHarness(text: StylingPerformanceTests.document(lines: 1500))
@@ -1583,19 +1585,22 @@ struct PageViewTests {
 
         let median = keystrokeMedian(in: harness.page.textView)
         reportPerf("PageViewTests/typingCostLongNote", seconds: median)
-        #expect(median < 0.25, "keystroke near the top of a 40-page note took \(median)s")
+        #expect(median < 0.03, "keystroke near the top of a 40-page note took \(median)s")
     }
 
-    /// F5's finding: the cost is the exclusion paths themselves. The same text
-    /// in the same configured view costs 1ms a keystroke without them and
-    /// about 100ms with them, because TextKit 2 lays out everything below an
-    /// edit once line positions depend on where they fall. `PageView` puts the
-    /// paths back on its next layout, so this uses a view of its own.
-    @Test("The cost of a keystroke on a 40-page note is the exclusion paths", .tags(.perf))
+    /// F5's finding, kept as the guard: the cost was the exclusion paths. The
+    /// same text in the same configured view costs 1ms a keystroke without
+    /// them and about 100ms with them, because TextKit 2 lays out everything
+    /// below an edit once line positions depend on where they fall. Page breaks
+    /// are now paragraphs pushed down, so the paged note has none and costs
+    /// what the plain one does. `PageView` puts a note's paths back only for a
+    /// paragraph taller than a page, so this uses a view of its own for them.
+    @Test("A 40-page note has no exclusion paths, and costs a keystroke what unpaged text does", .tags(.perf))
     func exclusionPathsAreTheCost() {
         let harness = PageHarness(text: StylingPerformanceTests.document(lines: 1500))
-        let bands = harness.page.textView.textContainer.exclusionPaths
-        #expect(bands.count >= 40)
+        #expect(harness.page.textView.textContainer.exclusionPaths.isEmpty)
+        let layout = harness.page.pageLayout
+        let paged = keystrokeMedian(in: harness.page.textView)
 
         let plain = DocumentTextView.makeConfiguredTextView()
         plain.frame = CGRect(x: 0, y: 0, width: 700, height: 900)
@@ -1604,14 +1609,18 @@ struct PageViewTests {
         plain.layoutIfNeeded()
         let without = keystrokeMedian(in: plain)
 
-        plain.textContainer.exclusionPaths = bands
+        // What it was: the same view with a break after every page as a path.
+        let bands = layout.exclusionBands(pageCount: 45, containerTop: plain.textContainerInset.top)
+        plain.textContainer.exclusionPaths = bands.map { UIBezierPath(rect: $0) }
         plain.layoutIfNeeded()
         let with = keystrokeMedian(in: plain)
         plain.removeFromSuperview()
 
+        reportPerf("PageViewTests/exclusionPathsAreTheCost.paged", seconds: paged)
         reportPerf("PageViewTests/exclusionPathsAreTheCost.without", seconds: without)
         reportPerf("PageViewTests/exclusionPathsAreTheCost.with", seconds: with)
         #expect(with > without * 5, "with \(with)s, without \(without)s")
+        #expect(paged < with / 2, "paged \(paged)s, as exclusion paths \(with)s")
     }
 
     // MARK: The note window (W2)

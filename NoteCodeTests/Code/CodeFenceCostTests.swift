@@ -102,6 +102,11 @@ struct CodeFenceCostTests {
         let textView = harness.textView
         try await harness.settle()
         try await harness.caret(at: 120)
+        // The note laid out to its end, as it always was while page breaks were
+        // exclusion paths. Now a note is laid out as far as it has been read,
+        // and counting the fragments the first look at the tail makes would
+        // blame the caret for them.
+        _ = Self.fragmentIDs(textView)
         let storageEdits = StorageEditCounter(textView.textStorage)
 
         let counter = FragmentCounter(forwardingTo: harness.coordinator)

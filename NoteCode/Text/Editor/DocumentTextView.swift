@@ -406,6 +406,7 @@ struct DocumentTextView: UIViewRepresentable {
 
         let blankLines = BlankLineLayout()
         textView.blankLineLayout = blankLines
+        blankLines.pushes.observe(textView.textStorage)
         (textView.textLayoutManager?.textContentManager as? NSTextContentStorage)?.delegate = blankLines
 
         textView.isEditable = true

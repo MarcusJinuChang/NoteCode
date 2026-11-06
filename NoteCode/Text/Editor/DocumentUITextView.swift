@@ -28,6 +28,13 @@ final class DocumentUITextView: UITextView {
     /// and appending to one crashed.
     private var layoutObservers: [() -> Void]?
 
+    /// Run at the start of every layout pass, before UIKit sets the content
+    /// size from what TextKit has laid out. `PageView` puts the page breaks in
+    /// place from here, which lays the paragraphs an edit invalidated out, so
+    /// the height UIKit reads is the note's and not an estimate. Optional for
+    /// the same reason `layoutObservers` is.
+    private var willLayoutObservers: [() -> Void]?
+
     /// Weak on purpose: the coordinator owns the overlay, and the overlay
     /// already points back at this view.
     weak var overlay: CodeBlockOverlay?
@@ -343,6 +350,10 @@ final class DocumentUITextView: UITextView {
         return self.position(from: position, offset: -1)
     }
 
+    func addWillLayoutObserver(_ observer: @escaping () -> Void) {
+        willLayoutObservers = (willLayoutObservers ?? []) + [observer]
+    }
+
     func addLayoutObserver(_ observer: @escaping () -> Void) {
         layoutObservers = (layoutObservers ?? []) + [observer]
     }
@@ -417,6 +428,9 @@ final class DocumentUITextView: UITextView {
     }
 
     override func layoutSubviews() {
+        for observer in willLayoutObservers ?? [] {
+            observer()
+        }
         super.layoutSubviews()
         for observer in layoutObservers ?? [] {
             observer()

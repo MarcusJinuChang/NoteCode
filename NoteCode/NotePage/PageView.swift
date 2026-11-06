@@ -134,6 +134,12 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
     /// the text's height — see `PageBands.noteHeight(forTextHeight:)`.
     var pageCount: Int { bands.pageCount }
 
+    /// Puts every page break in place now, rather than at the next layout pass.
+    /// For what has to know where lines are before then.
+    func paginate() {
+        bands.paginate()
+    }
+
     /// The fewest pages the note has (`Page.minimumPageCount`): Add Page
     /// raises it, and so does ink reaching the last page in seamless.
     /// Setting it from outside only follows the note; it is told onward
@@ -274,6 +280,11 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
 
         bands.applyPageLayout(replacing: nil)
 
+        // The page breaks first: they decide the note's height, which UIKit
+        // reads while it lays out.
+        textView.addWillLayoutObserver { [weak self] in
+            self?.bands.paginate()
+        }
         textView.addLayoutObserver { [weak self] in
             self?.textViewDidLayout()
         }

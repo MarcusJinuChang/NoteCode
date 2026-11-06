@@ -58,10 +58,14 @@ struct CodeBlockPageBreakTests {
                 page.textView.setNeedsLayout()
                 page.textView.layoutIfNeeded()
             }
+            // The breaks are paragraphs pushed down, worked out as far as the
+            // reader has scrolled; these tests look past that.
+            page.paginate()
         }
 
+        /// Where the page breaks are, in container coordinates.
         var bandRects: [CGRect] {
-            page.textView.textContainer.exclusionPaths.map(\.bounds)
+            page.pageLayout.exclusionBands(pageCount: page.pageCount, containerTop: page.textView.textContainerInset.top)
         }
 
         /// The code block's fragments, in container coordinates.

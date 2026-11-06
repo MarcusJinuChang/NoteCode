@@ -246,17 +246,24 @@ nonisolated struct PageLayout: Equatable, Sendable {
     /// The bands text flows around, one after each of the first `pageCount`
     /// pages, in the text container's coordinates.
     ///
+    /// Where the breaks are, as geometry. The container itself has exclusion
+    /// paths only for the breaks inside a paragraph taller than a page; every
+    /// other break is a push on the paragraph below it (`PagePaginator`).
+    ///
     /// - Parameter containerTop: the note coordinate the container starts at,
     ///   which is the text view's top inset. It must be `firstBodyTop`.
     func exclusionBands(pageCount: Int, containerTop: CGFloat) -> [CGRect] {
-        (0..<max(pageCount, 0)).map { index in
-            CGRect(
-                x: 0,
-                y: bodyTop(ofPage: index) + bodyHeight - containerTop,
-                width: textWidth,
-                height: gap
-            )
-        }
+        (0..<max(pageCount, 0)).map { exclusionBand(afterPage: $0, containerTop: containerTop) }
+    }
+
+    /// The break after page `index`, in the text container's coordinates.
+    func exclusionBand(afterPage index: Int, containerTop: CGFloat) -> CGRect {
+        CGRect(
+            x: 0,
+            y: bodyTop(ofPage: index) + bodyHeight - containerTop,
+            width: textWidth,
+            height: gap
+        )
     }
 
     // MARK: Between modes
