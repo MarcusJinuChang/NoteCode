@@ -51,11 +51,13 @@ extension DocumentTextView.Coordinator {
     /// What this coordinator does for the editor's features, on `textView`.
     func featureServices(for textView: UITextView) -> EditorServices {
         EditorServices(
-            text: { [weak textView] in (textView?.text ?? "").nativeUTF8 },
+            text: { [weak self, weak textView] in
+                guard let self, let textView else { return "" }
+                return snapshot(of: textView).source
+            },
             blocks: { [weak self, weak textView] in
                 guard let self, let textView else { return [] }
-                let source = (textView.text ?? "").nativeUTF8
-                return CodeBlockAction.targets(in: source, blocks: documentCache.blocks(for: source))
+                return snapshot(of: textView).targets
             },
             openAtSite: { [weak self, weak textView] code, language in
                 self?.openAtSite(code: code, language: language, from: textView)
