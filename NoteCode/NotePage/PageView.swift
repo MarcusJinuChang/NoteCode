@@ -26,7 +26,7 @@ import UIKit
 /// every mode paginates identically. The bands make typing cost more, because
 /// TextKit lays out everything below an edit once any exclusion path exists —
 /// see docs/archive/phase-drawing-layer.md for the numbers.
-final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, PageScrollIndicatorHost {
+final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, PageScrollIndicatorHost, PageZoomHost {
 
     let textView: DocumentUITextView
 
@@ -72,8 +72,10 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
         }
     }
 
-    /// The reader's zoom, relative to fitting the page's width to the area.
-    private(set) var zoom: CGFloat = 1
+    /// The reader's zoom, relative to fitting the page's width to the area
+    /// (`PageZoom`).
+    private lazy var zoomControl = PageZoom(host: self)
+    var zoom: CGFloat { zoomControl.zoom }
 
     /// The area's width when the page was last fitted to it, so a change of
     /// width re-centres a page fitted to its text column.
@@ -157,9 +159,6 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
     /// since nothing needs saving then, and a save would bump the note up the
     /// list just for being looked at.
     var onInkChanged: ((PaperMarkup) -> Void)?
-
-    private let pinch = UIPinchGestureRecognizer()
-    private var zoomAtPinchStart: CGFloat = 1
 
     /// Which touches scroll the note on the canvas, for the mode. Set by
     /// `NoteEditor`; off the canvas, `offCanvas` applies instead.
@@ -250,9 +249,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
         selectionOverlay.takesTouch = canvas.takesTouch
         textView.insertSubview(selectionOverlay, aboveSubview: covers)
 
-        pinch.addTarget(self, action: #selector(handlePinch(_:)))
-        pinch.delegate = self
-        addGestureRecognizer(pinch)
+        zoomControl.install()
 
         applyPageLayout(replacing: nil)
 
@@ -267,7 +264,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
         // own layout of what's on screen covers edits too, and comes before
         // the frame is drawn.
         textView.addViewportLayoutObserver { [weak self] in
-            guard let self, pinch.state != .changed else { return }
+            guard let self, !zoomControl.isPinching else { return }
             matchRenderingScale()
         }
 
@@ -478,13 +475,13 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
 
     /// The text column, offered for fitting in a compact width only: an
     /// iPhone, a folded Duo, a narrow Split View (`CanvasGeometry.fitScale`).
-    private var columnWidth: CGFloat? {
+    var columnWidth: CGFloat? {
         guard traitCollection.horizontalSizeClass == .compact else { return nil }
         return CanvasGeometry.columnWidth(textWidth: pageLayout.textWidth)
     }
 
     /// Draws the page at `scale` in the current area.
-    private func apply(scale: CGFloat) {
+    func apply(scale: CGFloat) {
         let area = bounds.size
         let pageWidth = pageLayout.pageSize.width
         let frame = CanvasGeometry.pageFrame(in: area, pageWidth: pageWidth, scale: scale)
@@ -524,7 +521,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
 
         // Re-rendering every line on every frame of a pinch would stutter.
         // The pinch's end catches up.
-        if pinch.state != .changed {
+        if !zoomControl.isPinching {
             matchRenderingScale()
         }
     }
@@ -566,7 +563,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
         defer { DebugSession.shared.pageDidLayout(self) }
 #endif
         updatePageFurniture()
-        if pinch.state != .changed {
+        if !zoomControl.isPinching {
             matchRenderingScale()
         }
         if let reveal = pendingReveal, textView.bounds.height > 0 {
@@ -1074,53 +1071,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
     /// - Parameter focus: a point in this view's visible area, in screen
     ///   points from its top left.
     func setZoom(_ newZoom: CGFloat, about focus: CGPoint) {
-        let area = bounds.size
-        guard area.width > 0, area.height > 0 else { return }
-
-        let clamped = CanvasGeometry.clampedZoom(newZoom)
-        let pageWidth = pageLayout.pageSize.width
-        let next = CanvasGeometry.zoom(
-            CanvasGeometry.Viewport(
-                scale: displayScale,
-                horizontalOffset: contentOffset.x,
-                verticalOffset: textView.contentOffset.y
-            ),
-            to: CanvasGeometry.displayScale(
-                areaWidth: area.width,
-                pageWidth: pageWidth,
-                columnWidth: columnWidth,
-                zoom: clamped,
-                gutter: CanvasGeometry.gutter(for: pageLayout.mode)
-            ),
-            about: focus,
-            area: area,
-            pageWidth: pageWidth,
-            noteHeight: textView.contentSize.height
-        )
-
-        zoom = clamped
-        apply(scale: next.scale)
-        contentOffset.x = next.horizontalOffset
-        textView.contentOffset.y = next.verticalOffset
-    }
-
-    @objc private func handlePinch(_ gesture: UIPinchGestureRecognizer) {
-        switch gesture.state {
-        case .began:
-            zoomAtPinchStart = zoom
-            // Two fingers moving apart also look like a scroll. Stop both
-            // scroll views taking a share of the gesture while it zooms.
-            setPanning(enabled: false)
-        case .changed:
-            let location = gesture.location(in: self)
-            let focus = CGPoint(x: location.x - contentOffset.x, y: location.y - contentOffset.y)
-            setZoom(zoomAtPinchStart * gesture.scale, about: focus)
-        case .ended, .cancelled, .failed:
-            setPanning(enabled: true)
-            matchRenderingScale()
-        default:
-            break
-        }
+        zoomControl.setZoom(newZoom, about: focus)
     }
 
     // MARK: Touches
@@ -1208,16 +1159,12 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
         return true
     }
 
-    private func setPanning(enabled: Bool) {
-        textView.panGestureRecognizer.isEnabled = enabled
-    }
-
     func gestureRecognizer(
         _ gestureRecognizer: UIGestureRecognizer,
         shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
     ) -> Bool {
         // A scroll already under way mustn't keep the pinch from starting.
-        gestureRecognizer === pinch && (other === panGestureRecognizer || other === textView.panGestureRecognizer)
+        gestureRecognizer === zoomControl.pinch && (other === panGestureRecognizer || other === textView.panGestureRecognizer)
     }
 
     // MARK: Rendering
@@ -1234,7 +1181,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
     /// The canvas is left out: PaperKit keeps its own views' scale, and draws
     /// ink at the density it's shown at by zooming instead — see
     /// `DrawingCanvas.renderScale`.
-    private func matchRenderingScale() {
+    func matchRenderingScale() {
         let value = CanvasGeometry.renderingScale(
             displayScale: displayScale,
             screenScale: traitCollection.displayScale
