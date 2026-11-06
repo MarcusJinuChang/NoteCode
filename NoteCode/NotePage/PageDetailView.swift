@@ -505,13 +505,15 @@ struct PageDetailView: View {
                         NoteMemory().setPlace(place, of: id)
                     }
                 },
-                showMarkdown: showMarkdown,
-                markerDimming: MarkerDimming(
-                    headings: headingMarkers, bullets: bulletMarkers, checkboxes: checkboxMarkers, fences: fenceMarkers
+                editorSettings: EditorSettings(
+                    showMarkdown: showMarkdown,
+                    markerDimming: MarkerDimming(
+                        headings: headingMarkers, bullets: bulletMarkers, checkboxes: checkboxMarkers, fences: fenceMarkers
+                    ),
+                    rendersMarkdown: true,
+                    codeSettings: CodeEditorSettings(indentWidth: indentWidth, codeKeys: codeKeys, lineNumbers: lineNumbers),
+                    rewritesProse: rewritesProse
                 ),
-                rendersMarkdown: true,
-                codeSettings: CodeEditorSettings(indentWidth: indentWidth, codeKeys: codeKeys, lineNumbers: lineNumbers),
-                rewritesProse: rewritesProse,
                 typography: NoteTypography(bodySize: page.textSize, lineSpacing: page.lineSpacing),
                 minimumPageCount: page.minimumPageCount,
                 onMinimumPageCountChanged: { [weak page] count in

@@ -328,7 +328,7 @@ struct TextRewritingPolicyTests {
         let setting: Setting
         var body: some View {
             DocumentTextView(text: Binding(get: { setting.text }, set: { setting.text = $0 }),
-                             rewritesProse: setting.rewritesProse)
+                             editorSettings: EditorSettings(rewritesProse: setting.rewritesProse))
         }
     }
 
