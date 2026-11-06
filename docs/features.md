@@ -124,6 +124,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | A4, side-by-side pages, infinite canvas | | idea | ROADMAP |
 | Paper styles | Removed for the full release (31 Oct, Marcus): every note shows plain paper, with no menu, setting, template or debug argument for it. The drawing code is gone; `Page.paperStyle` stays in the model, unused, so version 1's hashes hold | removed | `paper-styles.md` |
 | Text alignment | A text alignment system (left, centre, right, justified) to come in place of paper styles | idea | ROADMAP |
+| Typing in a long note | Typing near the top of a 40-page note costs about 97ms a keystroke; the text view's exclusion paths for the pages are the cost (98.8 to 111.1 ms with them, 0.8 without) and no safe fix exists | measured, not fixed (F5) | `baseline.md` › Release QA 4A |
 | Blank pages after moving between pages | Ink is absent about 130 to 200ms after a jump with 3,000 strokes while PaperKit draws the new region; not reproduced at "a few seconds" | measured, options in `pages.md` (feedback #27) | |
 
 ## 6. Interface
@@ -181,3 +182,17 @@ Sheet with General, Pro, Notes, Writing, Code, Drawing and Help and About
 | Ads | Banner (standard anchored adaptive, at most 90pt) for readers without Pro, in an opaque strip below Home's page and in the list's foot, with Remove ads under it opening the paywall; sized from the width of its slot, so it stays inside the column (#117). UMP consent form first (EEA/UK), then the Mobile Ads SDK starts; the ATT prompt waits for a second Home visit, never launch. Refused or unasked tracking: non-personalised (`npa`). Where UMP requires it, Help and About › **Ad Privacy Options** reopens Google's form to change the answer; on a launch that skipped Home it asks UMP when that page opens, showing nothing. Test ids in Debug, real ids in Release (`AdConfig`) | built (P3); unverified on device | `shipping.md`, `AdConfig.swift`, `AdConsent.swift`, `AdBanner.swift` |
 | Rating prompt | iOS's App Store rating sheet (`requestReview`), a second after a note closes back to Home, once notes were opened on three different days; once a version and 120 days apart, and iOS may still show nothing (`ReviewPrompt`). Never for a note just deleted, in a debug launch, or while a free reader's tracking prompt is still to come. A build from Xcode always shows it; TestFlight never does | built; unverified on device | `ReviewPrompt.swift` |
 | Group notes, sign-in | Needs a server; nothing else in the app does | idea | ROADMAP |
+
+## 10. Editions and tooling
+
+What the app is built as, and what guards it. For a feature's place in the
+code, see AGENTS.md › How a feature plugs in.
+
+| Feature | How it works | Status | Detail |
+|---|---|---|---|
+| App Store edition | `Pro/AppStoreEdition.swift` is the `@main`; it hands `NoteCodeScene` `AppExtensions.appStore` (Pro, Run, assistant, ads, tip jar) | built | `AGENTS.md`, `refactor/2X-seam.md` |
+| Open-source edition | `OpenSource/OpenSourceEdition.swift` is the `@main` with `AppExtensions.none`; the build is `NoteCode/` minus `Pro/`. Run opens a compiler site. Proved by `scripts/build-open-source.sh`; not yet published | built; the public repo is planned | `refactor/split.md` |
+| The seam | No file outside `Pro/` names a `Pro/` type; `check-seam.sh` counts breaches (0) | built | `AGENTS.md` |
+| Editor features | `EditorFeature` adds actions, a top-bar item, a side panel and Run to a note's editor; Run and the assistant are the two | built | `NotePage/EditorFeature.swift` |
+| Pure core | `Text/Core` compiles alone with `swift test` (`Package.swift`, `scripts/core-test.sh`) | built | `refactor/T11-core-package.md` |
+| Checks | `check.sh` (lint, seam, core tests, build, tests, warning ratchet), `lint-traps.sh`, `perf.sh`, `verify-move.sh` | built | `AGENTS.md` › Scripts |
