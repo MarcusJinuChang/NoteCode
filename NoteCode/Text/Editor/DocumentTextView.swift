@@ -117,16 +117,14 @@ struct DocumentTextView: UIViewRepresentable {
         var text: Binding<String>
         var editor: NoteEditor?
 
-        /// The note as the last edit left it, made the first time anything
-        /// asks after an edit and dropped by the next one
-        /// (`textStorageDidProcessEditing`). Every reader goes through
+        /// What the note was last styled with and the snapshot of its text
+        /// (`TextStyleSession`). Every reader of the snapshot goes through
         /// `snapshot(of:)`, so an edit converts the text and parses it once,
         /// however many callbacks it triggers.
-        private var currentSnapshot: DocumentSnapshot?
+        let styleSession = TextStyleSession()
 
-        /// How many snapshots were made. Exists so a test can see that a
-        /// layout, or a caret move, made none.
-        private(set) var snapshotCount = 0
+        /// How many snapshots were made.
+        var snapshotCount: Int { styleSession.snapshotCount }
 
         /// The run and copy buttons floating over each code block.
         var overlay: CodeBlockOverlay?
@@ -140,11 +138,17 @@ struct DocumentTextView: UIViewRepresentable {
         private(set) var rewritesProse = TextRewritingPolicy.proseEnabledByDefault
 
         /// Settings › Writing › Show Markdown, as `DocumentTextView` last had it.
-        var showMarkdown = ShowMarkdown.whileEditing
+        var showMarkdown: ShowMarkdown {
+            get { styleSession.showMarkdown }
+            set { styleSession.showMarkdown = newValue }
+        }
 
         /// Settings › Writing › Markers, as `DocumentTextView` last had it.
         /// Changed through `setMarkerDimming`, which restyles.
-        var markerDimming = MarkerDimming.standard
+        var markerDimming: MarkerDimming {
+            get { styleSession.markerDimming }
+            set { styleSession.markerDimming = newValue }
+        }
 
         /// Settings › Code › Indent Width.
         var indentWidth = CodeIndent.defaultWidth
@@ -163,12 +167,12 @@ struct DocumentTextView: UIViewRepresentable {
 
         /// Whether the note lays its Markdown markers out at zero width.
         /// See `MarkdownLayout`. Set through `setRendersMarkdown`.
-        private(set) var rendersMarkdown = false
+        var rendersMarkdown: Bool { styleSession.rendersMarkdown }
 
         /// The size the note is styled in. A value the coordinator owns, not
         /// a global: a PDF or a thumbnail made while another note is open
         /// has a coordinator of its own. Set through `setTypography`.
-        var typography = NoteTypography.standard
+        var typography: NoteTypography { styleSession.typography }
 
         /// Which blocks show their fences. See `CodeFenceDisplay.swift`.
         var fenceVisibility = FenceVisibility.away
@@ -179,7 +183,7 @@ struct DocumentTextView: UIViewRepresentable {
 
         /// How many times the text's characters have been edited, so a
         /// selection change can tell typing from an arrow key.
-        private var editCount = 0
+        private var editCount: Int { styleSession.editCount }
         private var editCountAtLastSelection = 0
         /// Where the caret was at the last selection change, for the
         /// direction an arrow key walked it.
@@ -209,7 +213,6 @@ struct DocumentTextView: UIViewRepresentable {
 
         /// What the document looked like at the last styling pass, so only the
         /// blocks that actually changed get restyled.
-        var styleSignatures: [DocumentStyler.BlockSignature] = []
 
         private let highlighter: SyntaxHighlighter = HighlightSwiftHighlighter()
         private var highlightTask: Task<Void, Never>?
@@ -312,18 +315,13 @@ struct DocumentTextView: UIViewRepresentable {
             guard let storage = notification.object as? NSTextStorage,
                   storage.editedMask.contains(.editedCharacters)
             else { return }
-            currentSnapshot = nil
-            editCount += 1
+            styleSession.textDidEdit()
         }
 
         /// The note as it stands, made once per edit. `text` is read, and
         /// converted with `nativeUTF8`, only when no snapshot is held.
         func snapshot(of text: @autoclosure () -> String) -> DocumentSnapshot {
-            if let currentSnapshot { return currentSnapshot }
-            let snapshot = DocumentSnapshot(text: text(), editCount: editCount)
-            currentSnapshot = snapshot
-            snapshotCount += 1
-            return snapshot
+            styleSession.snapshot(of: text())
         }
 
         func snapshot(of textView: UITextView) -> DocumentSnapshot {
@@ -334,8 +332,7 @@ struct DocumentTextView: UIViewRepresentable {
         /// again when that changes it. The text storage's elements are cached
         /// per paragraph, so a flag alone would leave every one as it was.
         func setRendersMarkdown(_ renders: Bool, in textView: DocumentUITextView) {
-            guard renders != rendersMarkdown else { return }
-            rendersMarkdown = renders
+            guard styleSession.setRendersMarkdown(renders) else { return }
             editor?.rendersMarkdown = renders
             textView.blankLineLayout?.markerRuns = renders ? { [weak self, weak textView] in
                 guard let self, let textView else { return [] }

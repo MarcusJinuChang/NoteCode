@@ -21,47 +21,27 @@ extension DocumentTextView.Coordinator {
     /// replaces every run's font with one, which the restyle would then
     /// undo with a second layout.
     func setTypography(_ new: NoteTypography, in textView: UITextView) {
-        guard new != typography else { return }
-        typography = new
+        guard styleSession.setTypography(new) else { return }
         invalidateStyling()
         if textView.textStorage.length > 0 {
             restyle(textView)
         } else {
-            let snapshot = self.snapshot(of: textView)
-            DocumentStyler.applyTypingAttributes(
-                to: textView, source: snapshot.source, blocks: snapshot.blocks,
-                rendered: rendersMarkdown, typography: typography
-            )
+            styleSession.applyTypingAttributes(to: textView, snapshot: snapshot(of: textView))
         }
     }
 
     /// The runs to collapse in `storage`, worked out once per edit.
     func markerRuns(in storage: NSTextStorage) -> [MarkdownLayout.Run] {
-        snapshot(of: storage.string).markerRuns
+        styleSession.markerRuns(in: storage)
     }
 
     /// Re-parses and re-applies styling. Everything goes through the shared
     /// cache, so an edit parses the document exactly once no matter how many
     /// delegate callbacks it triggers.
     func restyle(_ textView: UITextView) {
-        // Read the text exactly once. Every range below indexes into this
-        // instance, and mixing instances is ruinously slow — see the note
-        // on DocumentStyler.applyStyling(to:source:blocks:previousSignatures:).
-        let snapshot = self.snapshot(of: textView)
+        let snapshot = styleSession.style(textView)
         let source = snapshot.source
         let blocks = snapshot.blocks
-
-        styleSignatures = DocumentStyler.applyStyling(
-            to: textView,
-            snapshot: snapshot,
-            previousSignatures: styleSignatures,
-            rendered: rendersMarkdown,
-            typography: typography,
-            markers: markerDimming
-        )
-        DocumentStyler.applyTypingAttributes(
-            to: textView, source: source, blocks: blocks, rendered: rendersMarkdown, typography: typography
-        )
         // Before the overlay places its buttons: an edit can add a block or
         // move the one the caret is in.
         refreshFenceVisibility(in: textView, repositioning: false)
@@ -76,7 +56,7 @@ extension DocumentTextView.Coordinator {
     /// Forgets what's on screen, forcing the next restyle to do everything.
     /// Needed whenever the storage is replaced wholesale.
     func invalidateStyling() {
-        styleSignatures = []
+        styleSession.invalidate()
         // Replacing the storage wipes the colours too.
         highlightedBlocks = []
     }
