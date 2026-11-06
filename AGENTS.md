@@ -141,9 +141,97 @@ Everything still to see on a real iPad, in the order of a walk through the app:
 [docs/ipad-test-checklist.md](docs/ipad-test-checklist.md).
 How the app was built, phase by phase with PR numbers:
 [docs/timeline.md](docs/timeline.md).
-The refactor (planned 2 Nov: two updates, then a public and a private repo) is
-[docs/refactor/README.md](docs/refactor/README.md); its Rules bind every
-refactor PR, and `/refactor-wp` runs one step.
+The refactor (planned 2 Nov, waves 1-10 merged by 6 Nov) is
+[docs/refactor/README.md](docs/refactor/README.md); what it left undone is
+the debt register, [docs/refactor/debt.md](docs/refactor/debt.md). Its Rules
+still bind any PR that moves code, and `/refactor-wp` runs one step.
+
+## Folder map
+
+`NoteCode/` is a Xcode synchronized group, so a file's folder is its place in
+the target; nothing is listed in the project. Tests mirror it in
+`NoteCodeTests/`.
+
+| Folder | Holds |
+|---|---|
+| `App/` | `NoteCodeScene` (the one scene), `AppExtensions` (the seam), `ContentView`, launch, navigation, commands, Welcome |
+| `Model/` | `Page`, `Folder` and the frozen schema, `Storage`; behaviour in `+Behaviour` extensions, never in the frozen class files |
+| `Library/` | Home, the note list, folders, search, templates, thumbnails, Recently Deleted |
+| `NotePage/` | A note's page: `PageDetailView`, `PageView` (the scroll view that owns the layers), `NoteEditor`, header, hotbar, the controllers (typography, typing style, selection size, undo, mode), `EditorFeature` |
+| `Text/Core/` | The pure core: parser, `DocumentSnapshot`, formatting, layout planning, text maths. No UIKit or SwiftUI (lint rule 4); `swift test` compiles it alone (Package.swift) |
+| `Text/Editor/` | `DocumentTextView` and its Coordinator extensions, `DocumentStyler`, edit router, clipboard, caret, settings, `PageConfiguration` |
+| `Text/Layout/` | TextKit 2 layout fragments for prose, blanks and lists |
+| `Code/` | Code-block overlay and bars, languages, keys row, indent, highlighter, `CodeDestination` (compiler sites) |
+| `Ink/` | Canvas, codec, capture, tools and palettes, selection and the object table, `PageInkPipeline` |
+| `Formula/` | LaTeX attachments and editor |
+| `InOut/` | PDF, Markdown interchange, Export All, Import |
+| `Settings/` | `SettingKeys` (one table per section, names and defaults frozen), the settings pages |
+| `Shared/` | Small helpers with no feature in them |
+| `Debug/` | The `-debug-` launch options (DEBUG only) |
+| `Pro/` | Everything sold: `AppStoreEdition` (`@main`), Store, Run, Assistant, Ads, Pro setting keys and debug options. Nothing outside `Pro/` may name it (the seam, below) |
+| `OpenSource/` (repo root) | The open-source edition's `@main`, tests, Info.plist and privacy manifest |
+| `server/run-proxy/` | The Run proxy, its own npm project |
+| `scripts/` | Below |
+| `docs/` | Start at docs/README.md |
+
+## How a feature plugs in
+
+The app is **the general app plus an edition**. `NoteCodeScene` is the whole
+app with nothing sold in it; an edition's `@main` hands it an
+`AppExtensions` (App/AppExtensions.swift). The App Store's is
+`AppExtensions.appStore` (Pro/AppStoreEdition.swift); the open-source
+build's is `.none`. `build-open-source.sh` proves the second compiles with
+`Pro/` deleted.
+
+- **Where an edition adds app-level things:** a member of `AppExtensions`
+  (`start`, `root`, `homeFooter`, `listFootRows`, `aboutRows`,
+  `settingsSections`, `mayAskForReview`, `runLines`, and under `#if DEBUG`
+  `debugResetKeys` and `debugRoot`). A member is added only because the
+  general code calls it; its default does nothing.
+- **Where it adds things to a note's editor:** an `EditorFeature`
+  (NotePage/EditorFeature.swift), made per note by an
+  `EditorFeatureFactory` listed in `AppExtensions.editorFeatures`. A
+  feature offers `actions(for:)` (placed in the code-block menu, the text
+  row or the ••• menu), a `pageAccessory`, a `topBarItem`, a `sidePanel`,
+  `run(_:from:)`, `blocksDidChange` and `connect(_: EditorServices)`.
+  `EditorServices` is everything a feature may ask of the text view
+  (text, blocks, apply an edit, place the caret, open a site); none of it
+  knows a feature. Run (`RunFeature`) and the assistant (`AssistantFeature`)
+  are the two examples.
+- **Settings:** a new setting is a `SettingKey` in `SettingKeys` (or
+  `Pro/ProSettingKeys.swift` for a Pro one), declared with the `@AppStorage`
+  init that takes it. Settings that must move together are one type with
+  `apply(to:)` (`TextRewritingPolicy`, `EditorSettings`,
+  `PageConfiguration`).
+- **The seam rule:** no file outside `Pro/` names a type declared in `Pro/`
+  or reaches an editor's Pro members. `scripts/check-seam.sh` counts the
+  breaches (0 since 2X7) and fails above `SEAM <n>` in
+  docs/refactor/baseline.md. To add a Pro feature, put it in `Pro/`, make it
+  an `EditorFeature` or an `AppExtensions` member, and register it in
+  `AppExtensions.appStore`.
+- **The test twin:** `NoteCodeTests/Pro/` is deleted by the open-source
+  build as well; a general test must not use a Pro type.
+
+## Scripts
+
+Every script runs from any worktree. Set `NOTECODE_SIM` to a simulator
+copy of its own (for example `"NoteCode Lane B"`) and `TMPDIR` to a folder
+of its own when sessions run at once: the simulator lock is per simulator
+name, so runs on different copies go in parallel and runs on one queue. Logs
+and result bundles go under `$TMPDIR/notecode-check/<worktree>-<hash>/`.
+
+| Script | Does |
+|---|---|
+| `scripts/check.sh [--full] [--coverage] [--only <Suite> …]` | Lint, seam, `swift test` of the core, then a build and the Fast plan (every unit test but `.perf`). `--full` adds the Full plan, the UI tests, the proxy's tests and the open-source build. Fails on a failing test, a build error or more warnings than `WARNINGS <n>` in baseline.md. The macOS build failing (the ad SDKs have no macOS slice) is expected |
+| `scripts/lint-traps.sh` | Greps for the traps below (`.layoutManager`, `.inkType`, `MarkupOrderedSet` walks, UIKit in Core, test sleeps and the rest); exceptions in `scripts/lint-allow.txt` |
+| `scripts/check-seam.sh` | The seam count (above) |
+| `scripts/core-test.sh [--filter …]` | `swift test` on the Mac for `Text/Core` and its tests, no simulator |
+| `scripts/build-open-source.sh` | Builds the public edition in a temporary worktree of HEAD (committed files only) and runs its unit tests |
+| `scripts/perf.sh [--compare docs/refactor/baseline.md]` | The cost tests; fails if any is more than 10% worse than its `PERF` line |
+| `scripts/verify-move.sh [base]` | Checks that a commit only moves code, and lists access that was loosened |
+| `scripts/debug-launch.sh` | Relaunches the Debug build with the `-debug-` arguments below and prints the report |
+| `scripts/make-icons.swift` | Draws the app icons |
+| `scripts/refresh-ce-ids.sh` | Refreshes the pinned Compiler Explorer compiler ids |
 
 ## The model
 
@@ -183,6 +271,9 @@ Scheme `NoteCode`; targets `NoteCode`, `NoteCodeTests`, `NoteCodeUITests`.
 SwiftPM dependencies: HighlightSwift 1.1.0 (code colours), SwiftMath 1.7.3
 (LaTeX), Google Mobile Ads 13.11.0 with User Messaging Platform 3.1.0 (ads
 and consent). The run proxy in `server/run-proxy` is its own npm project.
+
+Use `scripts/check.sh` (Scripts, above), which wraps this with the lint, the
+simulator lock and the warning ratchet. The raw command is:
 
     xcodebuild test -project NoteCode.xcodeproj -scheme NoteCode \
       -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)'
@@ -284,7 +375,7 @@ the same arguments in the scheme's Run → Arguments.
   `InkCapture`). PaperKit's delegate says only that the markup changed, so
   what changed is found by walking all of it, and at 5,000 strokes that was
   400ms on the main thread per stroke even walked properly. Now
-  `PageView.captureInk` only takes a snapshot of the canvas (free: a
+  `PageInkPipeline.capture()` only takes a snapshot of the canvas (free: a
   `PaperMarkup` is a value) with the layout it was drawn in, and a detached
   task works out the rest; while one runs, only the newest snapshot waits,
   so a burst of strokes is taken in as one. So `onInkChanged` arrives a
@@ -298,7 +389,7 @@ the same arguments in the scheme's Run → Arguments.
   **A test that waits for it must `await`**, not turn the run loop: the
   task comes back to the main actor, which a synchronous test turning the
   run loop is still holding, so nothing ever arrived
-  (`PageViewTests.waitFor`).
+  (`waitFor` in `TestSupport/InkHarness.swift`).
 - Parse and index `(textView.text ?? "").nativeUTF8`, never `textView.text`
   itself. That String is backed by the text storage's NSString, and reading
   it a character at a time is a message send per character: the parser took
@@ -317,7 +408,7 @@ the same arguments in the scheme's Run → Arguments.
 - Walk a `MarkupOrderedSet` with `for … in`, never `map`, `reduce`, an
   index or anything else that reads it by position. Reading one element by
   index costs what `count` does, and both grow with the set (16ms each at
-  5,000 strokes); `map` reads every element that way. `PageView.frames(of:)`
+  5,000 strokes); `map` reads every element that way. `InkMarkupTransforms.frames(of:)`
   did, after every stroke: 808ms per stroke at 500 strokes, 10.6s at 2,000
   (simulator, 10 Oct), and writing stuttered and caught up seconds later.
   Even done right, every operation on the set is linear: at 5,000 strokes a
@@ -325,7 +416,7 @@ the same arguments in the scheme's Run → Arguments.
 - **Build a `MarkupOrderedSet` with one `append(contentsOf:)`** of a Swift
   array, never an `append`, `insert`, `updateOrAppend` or `set[id] =` per
   element: each costs what `count` does, so building a set grows with the
-  square of its size. Opening a note did, in `PageView.convert`: 1.5s at
+  square of its size. Opening a note did, in `InkMarkupTransforms.convert`: 1.5s at
   2,000 strokes and 7s at 5,000, now 141ms and 384ms; switching to print
   layout 1.7s at 2,000, now 323ms; and the PDF 7.2s at 2,000, now 1.8s,
   most of it PaperKit drawing (simulator, 10 Oct; `PageViewTests.openingCost`

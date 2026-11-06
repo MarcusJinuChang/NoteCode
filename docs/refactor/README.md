@@ -142,7 +142,7 @@ have merged.
 Within a wave, steps on different files run at once: up to four or five
 sessions, whose test runs queue on the shared simulator lock (0C3).
 
-**Update 1 (1.1.1)**
+**Update 1 (1.1.1)** (waves 1-4 merged; 1B6 and 1B7 went to Update 2)
 
 - **Wave 1:** 0B → 0C1 → 0C2, then 0D, then 0C3. Alongside: T1, F2.
 - **Wave 2:** 1A alone (nothing else open while files move). Needs T1 (the
@@ -172,13 +172,15 @@ whose code it pins, never in the same PR.
 - **Wave 7** (done, PRs 171, 172, 174, 175): 2X4b and 2X5b, then 2X5c, then 2X7 alone. The seam count is
   0 when this wave ends; `check.sh --full` and `build-open-source.sh` on
   `main`.
-- **Wave 8:** 2S2a, then 2S2b–2S2d (2S2b after 2X4b has taken the AI keys
+- **Wave 8** (done): 2S2a, then 2S2b–2S2d (2S2b after 2X4b has taken the AI keys
   out of PageDetailView). T6 alongside.
-- **Wave 9:** 2T and 2P alongside each other, one step at a time per track,
+- **Wave 9** (done): 2T and 2P alongside each other, one step at a time per track,
   each after its T5 tests. T8 alongside.
-- **Wave 10:** 2C, then 2W; the feature cleanups; F5–F8 as Marcus picks
+- **Wave 10** (done, 6 Nov): 2C, then 2W; the feature cleanups; F5–F8 as Marcus picks
   them.
-- **Release:** update-2.md › Release QA for 1.2.0.
+- **Release:** update-2.md › Release QA for 1.2.0. 4A (the checks) and 4B
+  (the audit; what is left is [debt.md](debt.md)) are done; Marcus's device
+  pass and the submission are not.
 
 Overlaps to watch: 2X4a, 2X4b, 2X5b and 2X5c all edit PageDetailView and
 NoteEditor, one at a time. 2X1 renames `NoteCodeApp.swift`, which 2X6 then
