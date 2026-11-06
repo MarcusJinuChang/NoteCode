@@ -116,6 +116,45 @@ nonisolated enum NoteThumbnail {
     }
 }
 
+// MARK: - Reading a note's ink
+
+/// Reads `Page.drawingData` without the main actor (F7).
+///
+/// The attribute is external storage, so reading it is a file read, and for a
+/// note with thousands of strokes a megabyte or more. It is read through a
+/// context of its own, made on the thread that asks: a `Page` belongs to the
+/// main context, and its attributes can't be read from anywhere else.
+///
+/// **A note that is gone reads as empty.** A fetch finds only rows the store
+/// still has, so a note whose deletion has been saved never has its ink
+/// touched (AGENTS.md › Implementation requirements); the caller checks the
+/// page on the main actor before asking and again after.
+nonisolated enum NoteInk {
+
+    /// Reads a note's ink bytes: the container and the note's ID in, the bytes
+    /// out. Tests pass their own to see where the read happens.
+    typealias Loader = @Sendable (ModelContainer, PersistentIdentifier) async -> Data
+
+    /// The ink as the store has it, read off the main actor.
+    static let load: Loader = { container, id in
+        await Task.detached(priority: .userInitiated) {
+            read(container: container, id: id)
+        }.value
+    }
+
+    /// Told, for tests, whether each read ran on the main thread.
+    nonisolated(unsafe) static var observeRead: (@Sendable (_ onMain: Bool) -> Void)?
+
+    /// Synchronous, for the thread it is called on.
+    static func read(container: ModelContainer, id: PersistentIdentifier) -> Data {
+        observeRead?(Thread.isMainThread)
+        let context = ModelContext(container)
+        var descriptor = FetchDescriptor<Page>(predicate: #Predicate { $0.persistentModelID == id })
+        descriptor.fetchLimit = 1
+        return (try? context.fetch(descriptor).first)?.drawingData ?? Data()
+    }
+}
+
 // MARK: - Drawing
 
 #if canImport(UIKit)
@@ -176,7 +215,10 @@ extension NoteThumbnail {
 
         // Only the ink that touches page 1 is decoded into the sheet; the
         // rest of a long note's strokes are walked once to find it.
-        if case .ink(let markup) = DrawingCodec.decode(source.drawingData), !markup.subelements.isEmpty {
+        // Decoding is PaperKit parsing a blob, so it is done off the main actor.
+        let data = source.drawingData
+        let loaded = data.isEmpty ? .none : await Task.detached(priority: .userInitiated) { DrawingCodec.decode(data) }.value
+        if case .ink(let markup) = loaded, !markup.subelements.isEmpty {
             // One sheet: every element is filed under it, then kept only if
             // its frame reaches it.
             let first = NotePDF.sheetsInk(markup, layout: layout, pageCount: 1)[0]
@@ -208,9 +250,13 @@ final class ThumbnailStore {
     private let memory = NSCache<NSString, UIImage>()
     private let directory: URL
     private let gate = Gate()
+    private let inkLoader: NoteInk.Loader
 
-    /// - Parameter directory: where pictures are kept. Tests pass their own.
-    init(directory: URL? = nil) {
+    /// - Parameters:
+    ///   - directory: where pictures are kept. Tests pass their own.
+    ///   - inkLoader: how a note's ink is read; off the main actor by default.
+    init(directory: URL? = nil, inkLoader: @escaping NoteInk.Loader = NoteInk.load) {
+        self.inkLoader = inkLoader
         self.directory = directory ?? (FileManager.default
             .urls(for: .cachesDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory)
             .appending(path: "NoteThumbnails-v\(NoteThumbnail.version)", directoryHint: .isDirectory)
@@ -243,6 +289,15 @@ final class ThumbnailStore {
 
         // The note can go while a request waits. Reading the ink of a note
         // whose deletion has been saved traps (AGENTS.md).
+        guard let container = page.modelContext?.container, !page.isDeleted, page.isLive,
+              let id = page.settledID, Self.name(for: page) == name
+        else { return nil }
+
+        // The ink is read off the main actor (F7), through a context of its
+        // own, so a purge that lands during the read can't trap this one.
+        let ink = await inkLoader(container, id)
+        guard !Task.isCancelled else { return nil }
+        // Gone, or edited, while the read ran.
         guard page.modelContext != nil, !page.isDeleted, page.isLive,
               Self.name(for: page) == name
         else { return nil }
@@ -250,7 +305,7 @@ final class ThumbnailStore {
         let source = NoteThumbnail.Source(
             text: page.content,
             orientation: page.orientation,
-            drawingData: page.drawingData,
+            drawingData: ink,
             rendersMarkdown: true,
             typography: page.typography
         )
