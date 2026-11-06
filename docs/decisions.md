@@ -2,6 +2,17 @@
 
 Newest first. One entry each: what was decided, why, and where the detail is.
 
+## 7 Nov 2026: in print layout, ink stays clipped to each sheet's body
+
+Question (found by T10's `inkAcrossPageBreak` snapshot): a stroke that
+crosses a sheet's margins or the gap between sheets is drawn only inside
+each sheet's body. Draw it over the margins instead?
+
+Decided (Marcus): keep it clipped. Print layout is a preview of paper, and
+the PDF matches what's on screen; paper has no gap, so ink there could only
+be dropped or split anyway. The stroke itself is stored whole, so seamless
+and compressed modes still show all of it. The snapshot pins this.
+
 ## 6 Nov 2026: 2P4 gets an app seam, not a UI test
 
 Question (refactor 2P4): how are navigation, create and delete-with-Undo
