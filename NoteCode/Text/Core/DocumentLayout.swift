@@ -5,9 +5,13 @@
 //  The parser's blocks as UTF-16 ranges, and which of them changed. Pure: no UIKit, no TextKit.
 //
 
-#if canImport(UIKit)
-
 import Foundation
+
+/// The namespace for the styling of a note. Declared here so the pure layout
+/// below can extend it without UIKit (the package in Package.swift compiles
+/// this folder alone); the attribute half is `extension DocumentStyler` in
+/// Text/Editor/DocumentStyler.swift.
+enum DocumentStyler {}
 
 extension DocumentStyler {
     // MARK: Incremental restyling
@@ -158,5 +162,3 @@ extension DocumentStyler {
         return layouts
     }
 }
-
-#endif
