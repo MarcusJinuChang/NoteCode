@@ -20,41 +20,67 @@ import UIKit
 @Observable
 final class NoteEditor {
 
-    var mode: EditorMode = .text
+    // MARK: The mode and the ink tool in hand (EditorModeState)
+
+    @ObservationIgnored private(set) var modeState: EditorModeState!
+
+    var mode: EditorMode { modeState.mode }
 
     /// Called after the mode changes. The text view's code blocks show or
     /// hide their fences with it (`DocumentTextView.Coordinator`), and no
     /// edit or selection change tells them.
-    ///
-    /// Not observed state: it is the text view's hook, and hooking it up
-    /// must not make the hotbar re-render.
-    @ObservationIgnored var modeDidChange: (() -> Void)?
-
-    /// What the pen, highlighter, eraser and Select tool are set to, and
-    /// Finger Draws, kept for the device (`InkToolStore`). The editor holds
-    /// only the tool in hand.
-    let inkTools: InkToolStore
-
-    /// The tool in hand. Not stored: a note opens on the pen.
-    var toolKind = InkToolKind.pen {
-        didSet {
-            guard toolKind != oldValue else { return }
-            previousInkKind = oldValue
-            toolDidChange()
-            // The selection is the canvas controller's, not the tool's, so it
-            // outlived the lasso (reported 21 Oct). Only *leaving* the lasso
-            // clears it: `insertIntoInk` selects what it inserted and then
-            // switches to the lasso, and that must keep the selection.
-            if oldValue == .lasso, toolKind != .lasso {
-                canvas?.clearPaperKitSelection()
-                page?.selection.clear()
-            }
-        }
+    var modeDidChange: (() -> Void)? {
+        get { modeState.modeDidChange }
+        set { modeState.modeDidChange = newValue }
     }
 
-    /// The tool in use before the current one, for the Pencil's double tap
-    /// and squeeze to switch back to.
-    var previousInkKind = InkToolKind.pen
+    /// What the pen, highlighter, eraser and Select tool are set to, and
+    /// Finger Draws, kept for the device (`InkToolStore`).
+    var inkTools: InkToolStore { modeState.inkTools }
+
+    /// What ink mode draws with: the tool in hand, and the store's settings.
+    var inkTool: InkToolState {
+        get { modeState.inkTool }
+        set { modeState.inkTool = newValue }
+    }
+
+    /// The Select tool's selection, once the page exists.
+    var selection: InkSelection? { modeState.selection }
+
+    /// The tool in use before the current one.
+    var previousInkKind: InkToolKind { modeState.previousInkKind }
+
+    func toggleEraser() { modeState.toggleEraser() }
+    func switchToPreviousTool() { modeState.switchToPreviousTool() }
+    @discardableResult
+    func enterInkForPencil(_ response: PencilResponse) -> Bool { modeState.enterInkForPencil(response) }
+    func selectTool(_ kind: InkToolKind) { modeState.selectTool(kind) }
+    func stepWidth(by direction: Int) { modeState.stepWidth(by: direction) }
+    func toggleMode() { modeState.toggleMode() }
+    func setMode(_ newMode: EditorMode) { modeState.setMode(newMode) }
+    func selectionEnded() { modeState.selectionEnded() }
+
+    /// Whether only the Pencil draws.
+    var isPencilOnly: Bool {
+        get { modeState.isPencilOnly }
+        set { modeState.isPencilOnly = newValue }
+    }
+
+    /// The same switch as `isPencilOnly`, said the way the hotbar's hand
+    /// button says it: on, a finger draws.
+    var fingerDraws: Bool {
+        get { modeState.fingerDraws }
+        set { modeState.fingerDraws = newValue }
+    }
+
+    /// Whether the selection ending sends the reader back to their tool.
+    var returnsToPreviousTool: Bool {
+        get { modeState.returnsToPreviousTool }
+        set { modeState.returnsToPreviousTool = newValue }
+    }
+
+    func applySelecting() { modeState.applySelecting() }
+    func applyScrolling() { modeState.applyScrolling() }
 
     /// Whether the text options row is out on a phone, where it waits to be
     /// asked for (`Hotbar.showsTextRow`). Ignored in a regular width.
@@ -69,22 +95,6 @@ final class NoteEditor {
     /// Select tool once the selection ends by the reader's choice. Off
     /// unless chosen.
     static let returnToPreviousToolKey = SettingKeys.Drawing.returnToPreviousTool.name
-
-    /// Whether the selection ending sends the reader back to their tool.
-    /// Per device (`InkToolStore`).
-    var returnsToPreviousTool: Bool {
-        get { inkTools.returnsToPreviousTool }
-        set { inkTools.returnsToPreviousTool = newValue }
-    }
-
-    /// The Select tool's selection ended because the reader let go of it:
-    /// Delete, or a tap on empty space. Never a tool or mode switch (they
-    /// chose a tool) and never a move, recolour or duplicate (they often
-    /// do two in a row). Goes back to the tool before Select, if asked to.
-    func selectionEnded() {
-        guard returnsToPreviousTool, mode == .ink, inkTool.kind == .lasso, previousInkKind != .lasso else { return }
-        inkTool.kind = previousInkKind
-    }
 
     /// Whether the note's text is locked (`Page.isTextLocked`), so text mode
     /// reads rather than edits: no keyboard, no formatting, no undo. The page
@@ -145,8 +155,7 @@ final class NoteEditor {
     ///   it unless the note is opened for the reader (`NoteSession`), so an
     ///   editor made in a test reaches no real settings.
     init(features: [EditorFeatureFactory] = [], inkTools: InkToolStore = InkToolStore()) {
-        self.inkTools = inkTools
-        inkTools.listen(self) { editor, change in editor.storeDidChange(change) }
+        modeState = EditorModeState(editor: self, inkTools: inkTools)
         undoRouter = UndoRouter(editor: self)
         typographyController = NoteTypographyController(editor: self)
         typing = TypingStyleController(editor: self)
@@ -199,7 +208,6 @@ final class NoteEditor {
     @ObservationIgnored private(set) weak var textView: UITextView?
     @ObservationIgnored weak var canvas: DrawingCanvas?
     @ObservationIgnored weak var page: PageView?
-    @ObservationIgnored private var savedSession: TextSession?
 
     /// How many pages the open note runs to, for its info. Read when asked
     /// rather than observed: the count changes as the note is typed, and
@@ -351,24 +359,10 @@ final class NoteEditor {
         page?.selection.onEditingChange = { [weak self] in self?.applySelecting() }
         page?.selection.onEnded = { [weak self] in self?.selectionEnded() }
         page?.selection.recolourText = { [weak self] ranges, hex in self?.recolourText(ranges, to: hex) }
-        savedSession = mode.apply(to: textView, canvas: canvas, saved: nil, textLocked: isTextLocked)
+        modeState.attachViews(textView, canvas: canvas)
         applySelecting()
         applyScrolling()
         undoRouter.refresh()
-    }
-
-    func setMode(_ newMode: EditorMode) {
-        guard newMode != mode else { return }
-        mode = newMode
-        clearTypingStyle()
-        if let textView {
-            savedSession = newMode.apply(to: textView, canvas: canvas, saved: savedSession, textLocked: isTextLocked)
-        }
-        applyScrolling()
-        if newMode != .ink { page?.selection.clear() }
-        applySelecting()
-        undoRouter.refresh()
-        modeDidChange?()
     }
 
     /// Locks or unlocks the note's text.
@@ -382,23 +376,8 @@ final class NoteEditor {
         guard locked != isTextLocked else { return }
         isTextLocked = locked
         if locked { clearTypingStyle() }
-        if let textView {
-            savedSession = mode.apply(to: textView, canvas: canvas, saved: savedSession, textLocked: locked)
-        }
+        modeState.textLockDidChange(locked)
         undoRouter.refresh()
-    }
-
-    /// Hands the page's pans whatever the mode and the Pencil lock leave them.
-    ///
-    /// Through the page when there is one: it picks between this rule and
-    /// one finger as each touch lands, by whether the canvas takes it.
-    func applyScrolling() {
-        let scrolling = mode.scrolling(fingerDraws: !isPencilOnly)
-        if let page {
-            page.scrolling = scrolling
-        } else if let textView {
-            scrolling.apply(to: textView.panGestureRecognizer)
-        }
     }
 
     // MARK: Find
