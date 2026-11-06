@@ -117,6 +117,19 @@ extension CodeRange {
     }
 }
 
+extension Array where Element == CodeRange {
+
+    /// The block a caret at `offset` is on, by `CodeRange.contains`.
+    nonisolated func block(atCaret offset: Int) -> CodeRange? {
+        first { $0.contains(NSRange(location: offset, length: 0)) }
+    }
+
+    /// Whether a caret at `offset` is on any block's lines.
+    nonisolated func hasCode(atCaret offset: Int) -> Bool {
+        block(atCaret: offset) != nil
+    }
+}
+
 // MARK: - Fence tags
 
 /// Changing a block's language by rewriting its opening fence.

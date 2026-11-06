@@ -41,7 +41,7 @@ nonisolated extension MarkdownFormatting {
 
     /// Whether a caret at `offset` is on a code block's lines.
     static func isCode(_ offset: Int, in codeRanges: [CodeRange]) -> Bool {
-        codeRanges.contains { $0.contains(NSRange(location: offset, length: 0)) }
+        codeRanges.hasCode(atCaret: offset)
     }
 
     // MARK: Finding the stretches
@@ -372,7 +372,7 @@ nonisolated extension MarkdownFormatting {
     /// wholly inside one.
     static func formatting(at selection: NSRange, in text: NSString, codeRanges: [CodeRange]) -> CaretFormatting {
         var state = CaretFormatting()
-        if let code = codeRanges.first(where: { $0.contains(NSRange(location: selection.location, length: 0)) }) {
+        if let code = codeRanges.block(atCaret: selection.location) {
             let kind: CodeBlockKind? = if let language = code.language {
                 .language(language)
             } else if code.isOutput {

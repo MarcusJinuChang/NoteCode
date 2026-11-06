@@ -91,13 +91,7 @@ nonisolated enum KeepInNote {
     /// A fence longer than any run of backticks in the text, so output that
     /// holds a fence doesn't close its own block.
     static func fenced(_ text: String) -> String {
-        var longest = 0, run = 0
-        for character in text {
-            run = character == "`" ? run + 1 : 0
-            longest = max(longest, run)
-        }
-        let fence = String(repeating: "`", count: max(3, longest + 1))
-        return fence + "output\n" + text + "\n" + fence
+        CodeFence.wrapping(text, tag: CodeBlockKind.outputTag)
     }
 
     /// Where the caret goes for line `line` (1-based) of a block's code: the

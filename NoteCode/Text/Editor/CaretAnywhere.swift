@@ -57,7 +57,7 @@ extension DocumentUITextView {
         let caret = lineCaretRect(for: endOfDocument)
         guard !caret.isNull, !caret.isInfinite else { return nil }
         let top = caret.minY + CaretHeight.above
-        let endsInNewline = text.length > 0 && text.character(at: text.length - 1) == 0x0A
+        let endsInNewline = text.length > 0 && text.character(at: text.length - 1) == UTF16Unit.newline
         return endsInNewline ? top + lineHeight : caret.maxY - CaretHeight.below
     }
 }

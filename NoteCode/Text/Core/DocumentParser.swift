@@ -433,7 +433,7 @@ nonisolated enum DocumentParser {
 
     /// First whitespace-separated word of the info string, mapped to a language.
     private static func language(from infoString: String) -> CodeLanguage? {
-        guard let tag = infoString.split(separator: " ").first else { return nil }
+        guard let tag = CodeBlock.tag(of: infoString) else { return nil }
         return CodeLanguage(tag: String(tag))
     }
 }

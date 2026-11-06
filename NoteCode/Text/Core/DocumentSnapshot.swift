@@ -87,7 +87,7 @@ nonisolated final class DocumentSnapshot {
                 lastCaret: range.location + range.length - terminator,
                 isOutput: code.isOutput,
                 language: code.language,
-                tag: code.infoString.split(separator: " ").first.map(String.init) ?? ""
+                tag: code.tag.map(String.init) ?? ""
             ))
         }
         return result
@@ -103,7 +103,7 @@ nonisolated final class DocumentSnapshot {
                 range: blockRanges[index],
                 language: code.language,
                 code: String(source[code.contentRange]),
-                tag: code.infoString.split(separator: " ").first.map(String.init) ?? ""
+                tag: code.tag.map(String.init) ?? ""
             ))
         }
         return result
@@ -128,7 +128,7 @@ nonisolated final class DocumentSnapshot {
         var offset = blockRanges[slot].location
         var result: [Int] = []
         for unit in source[blocks[slot].range].utf16 {
-            if unit == 10 { result.append(offset) }
+            if unit == UTF16Unit.newline { result.append(offset) }
             offset += 1
         }
         newlineCache[index] = result

@@ -50,7 +50,7 @@ final class BlankLineLayout: NSObject, NSTextContentStorageDelegate {
         }
 
         guard range.length == 1,
-              (storage.string as NSString).character(at: range.location) == 0x0A
+              (storage.string as NSString).character(at: range.location) == UTF16Unit.newline
         else { return nil }
 
         let attributes = storage.attributes(at: range.location, effectiveRange: nil)
@@ -60,8 +60,8 @@ final class BlankLineLayout: NSObject, NSTextContentStorageDelegate {
     /// Whether the character at `offset` is a blank line: a newline that
     /// starts its paragraph.
     static func isBlankLine(at offset: Int, in text: NSString) -> Bool {
-        guard offset >= 0, offset < text.length, text.character(at: offset) == 0x0A else { return false }
-        return offset == 0 || text.character(at: offset - 1) == 0x0A
+        guard offset >= 0, offset < text.length, text.character(at: offset) == UTF16Unit.newline else { return false }
+        return offset == 0 || text.character(at: offset - 1) == UTF16Unit.newline
     }
 }
 

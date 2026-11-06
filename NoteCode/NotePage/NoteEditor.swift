@@ -517,10 +517,7 @@ final class NoteEditor {
 
         guard let edit = makeEdit(textView.text ?? "", textView.selectedRange) else { return }
 
-        guard let start = textView.position(from: textView.beginningOfDocument, offset: edit.range.location),
-              let end = textView.position(from: start, offset: edit.range.length),
-              let range = textView.textRange(from: start, to: end)
-        else { return }
+        guard let range = textView.textRange(for: edit.range) else { return }
 
         // Formatting is a prelude to typing, so the keyboard comes up for it.
         if !textView.isFirstResponder {
@@ -587,9 +584,7 @@ final class NoteEditor {
             for range in ranges.sorted(by: { $0.location > $1.location }) {
                 let text = textView.text ?? ""
                 guard let edit = MarkdownFormatting.colour(hex, selection: range, in: text as NSString, codeRanges: textTarget?.codeRanges ?? []),
-                      let start = textView.position(from: textView.beginningOfDocument, offset: edit.range.location),
-                      let end = textView.position(from: start, offset: edit.range.length),
-                      let textRange = textView.textRange(from: start, to: end)
+                      let textRange = textView.textRange(for: edit.range)
                 else { continue }
                 textView.replace(textRange, withText: edit.replacement)
             }

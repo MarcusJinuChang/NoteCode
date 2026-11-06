@@ -47,7 +47,7 @@ extension DocumentTextView.Coordinator {
         let text = textView.textStorage.mutableString
         guard !Self.touchesCode(selection, in: codeRanges(in: textView.textStorage)) else { return false }
 
-        let atLineStart = selection.location == 0 || text.character(at: selection.location - 1) == 10
+        let atLineStart = selection.location == 0 || text.character(at: selection.location - 1) == UTF16Unit.newline
         guard let markdown = RichPaste.markdown(from: .general, atLineStart: atLineStart) else { return false }
 
         // Pasted text isn't typed, so no typing style writes over it.
