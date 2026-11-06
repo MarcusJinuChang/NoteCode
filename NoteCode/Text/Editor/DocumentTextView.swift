@@ -115,7 +115,12 @@ struct DocumentTextView: UIViewRepresentable {
     /// Owns the UIKit delegate callbacks and forwards edits back into SwiftUI.
     final class Coordinator: NSObject, UITextViewDelegate {
         var text: Binding<String>
-        var editor: NoteEditor?
+        /// Set by the page. The editor's `EditGuard` becomes the router's, so
+        /// the flags a formatting edit sets are seen from both sides.
+        var editor: NoteEditor? {
+            didSet { editRouter.editGuard = editor?.editGuard ?? ownEditGuard }
+        }
+        private let ownEditGuard = EditGuard()
 
         /// What the note was last styled with and the snapshot of its text
         /// (`TextStyleSession`). Every reader of the snapshot goes through
@@ -184,27 +189,21 @@ struct DocumentTextView: UIViewRepresentable {
         /// How many times the text's characters have been edited, so a
         /// selection change can tell typing from an arrow key.
         var editCount: Int { styleSession.editCount }
-        var editCountAtLastSelection = 0
-        /// Where the caret was at the last selection change, for the
-        /// direction an arrow key walked it.
-        var lastCaret = 0
-        var isNormalizingCaret = false
+        /// Where the caret was at the last selection change, and moving it off
+        /// the inside of a hidden marker (`CaretTracker`).
+        let caretTracker = CaretTracker()
+        /// What a keystroke or an edit of the app's own turns into
+        /// (`EditRouter`), and the flags that tell the two apart.
+        let editRouter = EditRouter()
         /// The formula editor now showing (`FormulaEditor`).
         var formulaEditor: UIViewController?
 
-        /// Set while the coordinator applies an edit of its own (a Backspace
-        /// at a hidden marker, a list's Return), so `shouldChangeTextIn`
-        /// doesn't take it for another keystroke.
-        var isApplyingMarkerEdit = false
+        /// The re-entrancy flags (`EditGuard`).
+        var editGuard: EditGuard { editRouter.editGuard }
 
         /// The text view this coordinator serves, for the parts of the layout
         /// delegate that need its geometry.
         weak var textView: DocumentUITextView?
-
-        /// Set while a language pick rewrites a fence's tag, which the
-        /// keyboard-rewrite guard in `shouldChangeTextIn` would turn away: it
-        /// replaces text that isn't the selection, in code.
-        var isRetagging = false
 
         /// The parts of the selection currently painted over code panels, so
         /// the next selection change can take them back off. See
