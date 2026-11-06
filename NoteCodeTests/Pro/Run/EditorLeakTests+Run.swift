@@ -63,6 +63,9 @@ extension EditorLeakTests {
             let editor = NoteEditor(features: [Self.runFeature])
             let feature = try #require(editor.feature(RunFeature.self))
             opener.editor = editor
+            // Open the dock, so its `onShow` closure (which scrolls the
+            // editor) is built too; the wait below covers it.
+            feature.session.isOpen = true
             for _ in 0..<100 where feature.onNeedsPro == nil {
                 try await Task.sleep(for: .milliseconds(20))
             }
