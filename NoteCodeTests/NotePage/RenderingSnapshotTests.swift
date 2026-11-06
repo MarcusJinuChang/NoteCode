@@ -65,6 +65,9 @@ struct RenderingSnapshotTests {
     func inkAcrossPageBreak() async throws {
         let layout = PageLayout(orientation: .portrait, mode: .print)
         let harness = PageHarness(text: TestFixtures.severalPages, area: CGSize(width: 900, height: 700), layout: layout)
+        // The reference is light. This window is in the test host's scene, so
+        // it would otherwise follow the simulator's appearance.
+        harness.window.overrideUserInterfaceStyle = .light
         // From the end of the first sheet's body to the start of the second's.
         let from = layout.bodyTop(ofPage: 0) + layout.bodyHeight - 60
         let to = layout.bodyTop(ofPage: 1) + 60
@@ -78,9 +81,13 @@ struct RenderingSnapshotTests {
         harness.setInk(PKDrawing(strokes: [stroke]))
         harness.page.textView.contentOffset.y = edge - 350
         harness.layOut()
+        // PaperKit draws the second sheet's ink in tiles, off the main thread,
+        // with nothing to await; and a snapshot taken before they land keeps
+        // the gap. So this one test waits (lint-traps rule 9 counts it).
         try await Task.sleep(for: .milliseconds(500))
         harness.layOut()
-        Snapshot.verify(harness.window, region: CGRect(x: 0, y: 0, width: 900, height: 700), named: "inkAcrossPageBreak")
+        let region = CGRect(x: 0, y: 0, width: 900, height: 700)
+        Snapshot.verify(harness.window, region: region, named: "inkAcrossPageBreak")
     }
 }
 
