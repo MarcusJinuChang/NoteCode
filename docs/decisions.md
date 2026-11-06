@@ -2,6 +2,22 @@
 
 Newest first. One entry each: what was decided, why, and where the detail is.
 
+## 6 Nov 2026: 2P4 gets an app seam, not a UI test
+
+Question (refactor 2P4): how are navigation, create and delete-with-Undo
+tested, when they live in ContentView's and NoteList's private state?
+
+Decided: route A. `NoteNavigation` (`@Observable`, App/NoteNavigation.swift)
+owns the selection, the compact path, the columns, the opened search and the
+new page, and the create, delete and folder-delete actions; the views hold
+one and pass the `ToastCenter` and `ModelContext` in. Landed first as its own
+PR with no behaviour change, so the T5 tests drive it as unit tests in the
+Fast plan; a UI test would run only under `check.sh --full`. The 2P4 proper
+(`NavigationModel`, `NoteActions`) builds on it. Both Undos stay as they are:
+the note's reopens, the list's only restores.
+
+Detail: [refactor/2P-page.md](refactor/2P-page.md) › T5 tests for this track.
+
 ## 6 Nov 2026: Text/Core gets a test-only package, not a real one (proposed)
 
 Question (refactor T11): make `NoteCode/Text/Core` a Swift package so its

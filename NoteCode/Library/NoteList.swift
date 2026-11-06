@@ -20,6 +20,10 @@ struct NoteList: View {
 
     @Binding var selection: Page?
 
+    /// Owns the open note and the delete actions. `selection` is its
+    /// `selection`, seen through a binding that also records the search.
+    var navigation: NoteNavigation
+
     /// What the search field holds. While it holds words, the list shows the
     /// notes that match instead of its folders.
     @Binding var searchText: String
@@ -46,6 +50,7 @@ struct NoteList: View {
     init(
         storageIsEphemeral: Bool = false,
         selection: Binding<Page?>,
+        navigation: NoteNavigation,
         searchText: Binding<String>,
         onNewPage: @escaping (Page) -> Void = { _ in },
         onShowSettings: @escaping () -> Void = {},
@@ -56,6 +61,7 @@ struct NoteList: View {
     ) {
         self.storageIsEphemeral = storageIsEphemeral
         _selection = selection
+        self.navigation = navigation
         _searchText = searchText
         self.onNewPage = onNewPage
         self.onShowSettings = onShowSettings
@@ -766,46 +772,11 @@ struct NoteList: View {
 
     /// Moves notes to Recently Deleted, with a toast that puts them back.
     private func deletePages(_ deleted: [Page]) {
-        if let selection, deleted.contains(selection) {
-            self.selection = nil
-        }
-        withAnimation {
-            // If saving fails, the change is still pending in the context,
-            // and autosave tries again.
-            try? Page.moveToRecentlyDeleted(deleted, from: modelContext)
-        }
-        announceMoved(deleted)
-    }
-
-    private func announceMoved(_ moved: [Page]) {
-        guard !moved.isEmpty, let toasts else { return }
-        let context = modelContext
-        toasts.show(
-            moved.count == 1 ? "Moved to Recently Deleted" : "Moved \(moved.count) notes to Recently Deleted",
-            actionTitle: "Undo"
-        ) {
-            withAnimation { try? Page.restore(moved, in: context) }
-        }
+        navigation.deletePages(deleted, context: modelContext, toasts: toasts)
     }
 
     private func delete(_ folder: Folder, _ deletion: Folder.Deletion) {
-        // Only the notes the reader could see go to Recently Deleted; the ones
-        // already there keep their first date.
-        let going = deletion == .withNotes ? folder.livePages : []
-        // The open note closes first if it's going.
-        if let selection, going.contains(selection) {
-            self.selection = nil
-        }
-        withAnimation {
-            try? Folder.delete(folder, deletion, from: modelContext)
-        }
-        // Kept notes leave a folder that is gone for good, so there is nothing
-        // to undo. Deleted ones went with the folder, and Undo brings both back.
-        guard deletion == .withNotes, let toasts else { return }
-        let context = modelContext
-        toasts.show("Moved “\(folder.name)” to Recently Deleted", actionTitle: "Undo") {
-            withAnimation { try? Folder.restore([folder], in: context) }
-        }
+        navigation.delete(folder, deletion, context: modelContext, toasts: toasts)
     }
 }
 
