@@ -285,7 +285,7 @@ enum DocumentStyler {
         // uncoloured until the next highlight pass rather than inheriting the
         // colour of whatever they were typed after.
         for run in existingColors {
-            styled.addAttributes([.foregroundColor: run.color, .noteCodeSyntax: true], range: run.range)
+            styled.addAttributes(syntaxAttributes(run, over: typography.code), range: run.range)
         }
 
         let wanted = styled.attributedSubstring(from: span)
@@ -508,9 +508,13 @@ enum DocumentStyler {
             // until highlighting caught up, and it carries no mark.
             storage.enumerateAttribute(.noteCodeSyntax, in: range) { marked, markedRange, _ in
                 guard marked != nil else { return }
-                storage.enumerateAttribute(.foregroundColor, in: markedRange) { value, subrange, _ in
-                    guard let color = value as? UIColor else { return }
-                    preserved.append(ColorRun(range: subrange, color: color))
+                storage.enumerateAttributes(in: markedRange) { attributes, subrange, _ in
+                    guard let color = attributes[.foregroundColor] as? UIColor else { return }
+                    let traits = (attributes[.font] as? UIFont)?.fontDescriptor.symbolicTraits ?? []
+                    preserved.append(ColorRun(
+                        range: subrange, color: color,
+                        bold: traits.contains(.traitBold), italic: traits.contains(.traitItalic)
+                    ))
                 }
             }
         }
@@ -663,6 +667,13 @@ enum DocumentStyler {
         for range in ranges where range.location >= 0 && range.location + range.length <= length {
             storage.addAttribute(.foregroundColor, value: UIColor.label, range: range)
             storage.removeAttribute(.noteCodeSyntax, range: range)
+            // Back to the block's plain face, at the size it already has.
+            storage.enumerateAttribute(.font, in: range) { value, subrange, _ in
+                guard let font = value as? UIFont,
+                      font.fontDescriptor.symbolicTraits.isDisjoint(with: [.traitBold, .traitItalic]) == false
+                else { return }
+                storage.addAttribute(.font, value: syntaxFont(font, bold: false, italic: false), range: subrange)
+            }
         }
 
         for run in runs {
@@ -673,9 +684,47 @@ enum DocumentStyler {
                   run.range.location + run.range.length <= length
             else { continue }
 
-            storage.addAttributes([.foregroundColor: run.color, .noteCodeSyntax: true], range: run.range)
+            storage.addAttributes(syntaxAttributes(run, over: storage, at: run.range), range: run.range)
         }
         storage.endEditing()
+    }
+
+    /// A code font with a token's weight and italic: monospaced, at `base`'s
+    /// size, so the token is as wide and as tall as the code around it.
+    /// Semibold rather than bold, as the theme asks for 600.
+    static func syntaxFont(_ base: UIFont, bold: Bool, italic: Bool) -> UIFont {
+        let key = SyntaxFontKey(size: base.pointSize, bold: bold, italic: italic)
+        return syntaxFonts.value(for: key) {
+            let face = UIFont.monospacedSystemFont(ofSize: key.size, weight: bold ? .semibold : .regular)
+            guard bold || italic else { return face }
+            // The bold trait is added too, so the weight reads back as bold.
+            var traits: UIFontDescriptor.SymbolicTraits = []
+            if bold { traits.insert(.traitBold) }
+            if italic { traits.insert(.traitItalic) }
+            guard let descriptor = face.fontDescriptor.withSymbolicTraits(traits) else { return face }
+            return UIFont(descriptor: descriptor, size: key.size)
+        } ?? base
+    }
+
+    private struct SyntaxFontKey: Hashable {
+        var size: CGFloat
+        var bold: Bool
+        var italic: Bool
+    }
+
+    /// Built once per size and style: a run is a font lookup, not a font build.
+    private static let syntaxFonts = BoundedCache<SyntaxFontKey, UIFont>(limit: 64)
+
+    /// The attributes a syntax run is drawn with over the code font.
+    private static func syntaxAttributes(_ run: ColorRun, over base: UIFont) -> [NSAttributedString.Key: Any] {
+        var attributes: [NSAttributedString.Key: Any] = [.foregroundColor: run.color, .noteCodeSyntax: true]
+        if run.bold || run.italic { attributes[.font] = syntaxFont(base, bold: run.bold, italic: run.italic) }
+        return attributes
+    }
+
+    private static func syntaxAttributes(_ run: ColorRun, over storage: NSTextStorage, at range: NSRange) -> [NSAttributedString.Key: Any] {
+        let base = storage.attribute(.font, at: range.location, effectiveRange: nil) as? UIFont ?? codeFont
+        return syntaxAttributes(run, over: base)
     }
 
     /// Sets the attributes newly typed characters will take on.

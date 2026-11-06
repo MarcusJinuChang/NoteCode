@@ -14,8 +14,11 @@
 /// browser: plain class selectors and the compound and descendant forms the
 /// stock themes use are fine, nothing fancier is tried here.
 ///
-/// Weight and italic are asked for too, but `ColorRun` carries only colour,
-/// so they are not drawn yet. Colour is what the design relies on.
+/// Weight and italic are asked for too. HighlightSwift strips the importer's
+/// fonts, so they could not be read back; each is also sent as a decoration
+/// that survives, bold as an underline and italic as a strikethrough
+/// (`decorations`), and the highlighter reads them off as `ColorRun.bold` and
+/// `.italic`. Nothing draws the decoration itself.
 nonisolated struct SyntaxTheme: Equatable {
 
     /// One role: the colour, and whether highlight.js's classes for it are bold
@@ -59,6 +62,15 @@ nonisolated struct SyntaxTheme: Equatable {
     /// left out of the result, leaving the text at the editor's own `.label`.
     static let plainHex = "010203"
 
+    /// The decoration that carries a role's weight and italic through the
+    /// importer: underline for bold, line-through for italic.
+    private static func decoration(of role: Role) -> String? {
+        var words: [String] = []
+        if role.weight != nil { words.append("underline") }
+        if role.style != nil { words.append("line-through") }
+        return words.isEmpty ? nil : words.joined(separator: " ")
+    }
+
     /// highlight.js CSS for this theme.
     ///
     /// Order matters: the importer applies later rules over earlier ones of the
@@ -69,6 +81,7 @@ nonisolated struct SyntaxTheme: Equatable {
             var body = "color:#\(role.hex)"
             if let weight = role.weight { body += ";font-weight:\(weight)" }
             if let style = role.style { body += ";font-style:\(style)" }
+            if let decoration = Self.decoration(of: role) { body += ";text-decoration:\(decoration)" }
             return selectors.joined(separator: ",") + "{\(body)}"
         }
 
