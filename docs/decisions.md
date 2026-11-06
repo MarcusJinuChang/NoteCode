@@ -29,7 +29,7 @@ the note's reopens, the list's only restores.
 
 Detail: [refactor/2P-page.md](refactor/2P-page.md) › T5 tests for this track.
 
-## 6 Nov 2026: Text/Core gets a test-only package, not a real one (proposed)
+## 6 Nov 2026: Text/Core gets a test-only package, not a real one (accepted, built)
 
 Question (refactor T11): make `NoteCode/Text/Core` a Swift package so its
 pure tests run with `swift test` on the Mac?
@@ -45,6 +45,16 @@ under the module name `NoteCode` and runs the same test files, with no
 `public` and no project edit; after the 2T text stream settles, and after
 `CodeRange`/`CodeLanguage` move into Core and `FenceVisibility` stops reading
 `SettingKeys`. Adding the package to the Xcode project stays Marcus's step
-(`project.pbxproj`). Not yet accepted: Marcus decides.
+(`project.pbxproj`). Marcus accepted option B on 6 Nov.
+
+Built 6 Nov (T11 PR). Two things the measurement did not show, because 2C had
+moved files since: Core also needed `CodeBlockTarget` (moved in with
+`CodeRange`), the `DocumentStyler` namespace (now declared in
+`Text/Core/DocumentLayout.swift` and extended by the editor's half), and
+`FormulaValidity`, which asks SwiftMath whether a formula parses. So
+`Package.swift` depends on SwiftMath 1.7.3 (the app's version) and compiles
+`Formula/FormulaValidity.swift` and `Shared/BoundedCache.swift` in place too;
+the clean build is therefore longer than the scratch package's. Run it with
+`scripts/core-test.sh`; `check.sh` does first.
 
 Detail and numbers: [refactor/T11-core-package.md](refactor/T11-core-package.md).
