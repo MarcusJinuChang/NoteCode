@@ -5,8 +5,9 @@
 //  Every setting's stored name and what it reads as where nothing is
 //  stored, one table per Settings section. An `@AppStorage` takes an entry
 //  in place of a name and a default, so a declaration can't repeat a
-//  default, or get it wrong. The owners' old names (for
-//  example `CodeIndent.widthKey`) forward here until their callers move.
+//  default, or get it wrong. The owners' old names (for example
+//  `CodeIndent.widthKey`) forward here until 2S2b-2S2d have moved their
+//  callers, and go in the last of those PRs.
 //
 //  The Pro tables (the assistant, Run, ads) are in Pro/ProSettingKeys.swift,
 //  so the open-source build, which has no Pro/, has none of their keys.
