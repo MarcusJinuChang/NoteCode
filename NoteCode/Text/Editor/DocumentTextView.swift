@@ -453,13 +453,13 @@ struct DocumentTextView: UIViewRepresentable {
             // Read the text exactly once. Every range below indexes into this
             // instance, and mixing instances is ruinously slow — see the note
             // on DocumentStyler.applyStyling(to:source:blocks:previousSignatures:).
-            let source = (textView.text ?? "").nativeUTF8
-            let blocks = documentCache.blocks(for: source)
+            let snapshot = documentCache.snapshot(for: (textView.text ?? "").nativeUTF8)
+            let source = snapshot.source
+            let blocks = snapshot.blocks
 
             styleSignatures = DocumentStyler.applyStyling(
                 to: textView,
-                source: source,
-                blocks: blocks,
+                snapshot: snapshot,
                 previousSignatures: styleSignatures,
                 rendered: rendersMarkdown,
                 typography: typography,

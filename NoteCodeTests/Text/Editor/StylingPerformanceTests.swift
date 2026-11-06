@@ -52,10 +52,11 @@ struct StylingPerformanceTests {
     func fullPassCost() {
         let source = Self.document(lines: 500)
         let textView = editor(showing: source)
-        let blocks = DocumentParser.parse(source)
+        let snapshot = DocumentSnapshot(text: source)
+        let blocks = snapshot.blocks
 
         let start = Date()
-        _ = DocumentStyler.applyStyling(to: textView, source: source, blocks: blocks, previousSignatures: [])
+        _ = DocumentStyler.applyStyling(to: textView, snapshot: snapshot, previousSignatures: [])
         let seconds = Date().timeIntervalSince(start)
 
         reportPerf("StylingPerformanceTests/fullPassCost", seconds: seconds)
@@ -68,23 +69,24 @@ struct StylingPerformanceTests {
         let textView = editor(showing: source)
         let signatures = DocumentStyler.applyStyling(
             to: textView,
-            source: source,
-            blocks: DocumentParser.parse(source),
+            snapshot: DocumentSnapshot(text: source),
             previousSignatures: []
         )
 
         var edited = source
         edited.insert("z", at: edited.index(edited.startIndex, offsetBy: edited.count / 2))
         textView.text = edited
-        let blocks = DocumentParser.parse(edited)
 
         var times: [TimeInterval] = []
         for _ in 0..<5 {
+            // Made fresh each pass, as an edit makes one. The parse is outside
+            // the timing, as it was; the layouts are inside, as they were.
+            let snapshot = DocumentSnapshot(text: edited)
+            _ = snapshot.blocks
             let start = Date()
             _ = DocumentStyler.applyStyling(
                 to: textView,
-                source: edited,
-                blocks: blocks,
+                snapshot: snapshot,
                 previousSignatures: signatures
             )
             times.append(Date().timeIntervalSince(start))

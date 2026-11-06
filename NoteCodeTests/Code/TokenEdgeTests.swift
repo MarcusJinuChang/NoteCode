@@ -71,8 +71,9 @@ struct TokenEdgeTests {
         let textView = DocumentTextView.makeConfiguredTextView()
         textView.text = source
 
-        let blocks = DocumentParser.parse(source)
-        DocumentStyler.applyStyling(to: textView, source: source, blocks: blocks)
+        let snapshot = DocumentSnapshot(text: source)
+        let blocks = snapshot.blocks
+        DocumentStyler.applyStyling(to: textView, snapshot: snapshot)
 
         guard let code = blocks.compactMap(\.codeBlock).first else { return textView }
         let offset = NSRange(code.contentRange, in: source).location
@@ -152,7 +153,7 @@ struct TokenEdgeTests {
 
         // The keystroke triggers a restyle before the debounced highlight runs.
         let edited = textView.text ?? ""
-        DocumentStyler.applyStyling(to: textView, source: edited, blocks: DocumentParser.parse(edited))
+        DocumentStyler.applyStyling(to: textView, snapshot: DocumentSnapshot(text: edited))
 
         let typedColor = textView.textStorage.attribute(.foregroundColor, at: caret, effectiveRange: nil) as? UIColor
 
@@ -169,7 +170,7 @@ struct TokenEdgeTests {
 
         // A keystroke elsewhere triggers a restyle, which snapshots and
         // reapplies these colours.
-        DocumentStyler.applyStyling(to: textView, source: source, blocks: DocumentParser.parse(source))
+        DocumentStyler.applyStyling(to: textView, snapshot: DocumentSnapshot(text: source))
 
         let found = colours(textView, of: "int", in: source)
         #expect(Set(found.map { $0?.description ?? "nil" }).count == 1, "after restyle, colours across `int` = \(found.map { $0?.description ?? "nil" })")

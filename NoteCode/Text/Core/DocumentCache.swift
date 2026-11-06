@@ -25,7 +25,7 @@ extension String {
     ///
     /// Parse and index the same converted text. Indices from one backing
     /// used on the other are reconciled on every use — see
-    /// `DocumentStyler.applyStyling(to:source:blocks:previousSignatures:)`.
+    /// `DocumentStyler.applyStyling(to:snapshot:previousSignatures:)`.
     nonisolated var nativeUTF8: String {
         var copy = self
         copy.makeContiguousUTF8()
@@ -33,51 +33,33 @@ extension String {
     }
 }
 
+/// Holds the snapshot of the text last asked about. A snapshot works out its
+/// parse and code ranges once and keeps them, so this only has to decide
+/// whether the text it was given is the text it already has.
 final class DocumentCache {
-    private var cachedSource: String?
-    private var cachedBlocks: [BlockNode] = []
+    private var cachedSnapshot: DocumentSnapshot?
 
-    /// How many times the parser actually ran. Exists so tests can prove the
-    /// cache is doing its job — a keystroke should cost one parse, not several.
+    /// How many snapshots were made, each of which parses at most once. Exists
+    /// so tests can prove the cache is doing its job: a keystroke should cost
+    /// one parse, not several.
     private(set) var parseCount = 0
 
-    func blocks(for source: String) -> [BlockNode] {
-        if cachedSource != source {
-            cachedSource = source
-            cachedBlocks = DocumentParser.parse(source)
-            cachedCodeRanges = nil
-            parseCount += 1
-        }
-        return cachedBlocks
+    /// The snapshot of `source`, made again only when the text differs from
+    /// the last one asked for.
+    func snapshot(for source: String) -> DocumentSnapshot {
+        if let cachedSnapshot, cachedSnapshot.source == source { return cachedSnapshot }
+        let snapshot = DocumentSnapshot(text: source)
+        cachedSnapshot = snapshot
+        parseCount += 1
+        return snapshot
     }
 
-    private var cachedCodeRanges: [CodeRange]?
+    func blocks(for source: String) -> [BlockNode] {
+        snapshot(for: source).blocks
+    }
 
     /// The code blocks, as UTF-16 ranges.
-    ///
-    /// Converted against the string the blocks were parsed from. Their
-    /// indices belong to that instance, and converting them against another,
-    /// even an equal one, forces index reconciliation on every use.
     func codeRanges(for source: String) -> [CodeRange] {
-        let blocks = blocks(for: source)
-        if let cachedCodeRanges { return cachedCodeRanges }
-        let parsed = cachedSource ?? source
-        let ranges = blocks.compactMap { block -> CodeRange? in
-            guard let code = block.codeBlock else { return nil }
-            let range = NSRange(block.range, in: parsed)
-            // A closed block's range ends with the closing fence's newline,
-            // if it has one; the caret on that line stops before it.
-            let terminator = code.isClosed ? parsed[block.range].last.flatMap { $0.isNewline ? $0.utf16.count : nil } ?? 0 : 0
-            return CodeRange(
-                range: range,
-                isClosed: code.isClosed,
-                lastCaret: range.location + range.length - terminator,
-                isOutput: code.isOutput,
-                language: code.language,
-                tag: code.infoString.split(separator: " ").first.map(String.init) ?? ""
-            )
-        }
-        cachedCodeRanges = ranges
-        return ranges
+        snapshot(for: source).codeRanges
     }
 }
