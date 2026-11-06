@@ -134,7 +134,7 @@ struct CodeEditingFixesTests {
         }
         #expect(colour("def f") != UIColor.label, "python colours def")
 
-        let target = try #require(CodeBlockAction.targets(in: source, blocks: DocumentParser.parse(source)).first)
+        let target = try #require(DocumentSnapshot(text: source).targets.first)
         harness.coordinator.setKind(.plain, of: target, in: harness.textView)
         try await harness.settle()
         try await harness.settle()

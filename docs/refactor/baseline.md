@@ -163,6 +163,34 @@ back to back) because it read every note's text; now it reads none, under
 0.05 ms. Its budget is 5 ms (the test's bound); perf.sh does not judge numbers
 under 5 ms.
 
+### 2T1d: the old caches deleted (6 Nov, `main` 1e88da4)
+
+`layoutCodeRanges`, `layoutNewlines`, `layoutMarkerRuns` and
+`CodeBlockAction.targets(in:blocks:)` are gone; code ranges, marker runs and
+each code block's newlines are read from the edit's `DocumentSnapshot`. Same
+simulator, run back to back, with other lanes' test runs on the machine (it
+read about 20% slow on tests this PR cannot touch, such as `openingCost`), so
+the table gives `main` just before and this branch just after, in ms, besides
+the 0D numbers above:
+
+| Test | 0D | `main` before | after |
+|---|---|---|---|
+| StylingPerformanceTests/keystrokeCost | 0.6 | 0.6 | 0.7 |
+| CodeFenceCostTests/caretMoveCost.keystroke | 42.0 | 45.3 | 44.4 |
+| LineNumbersTests/keystrokeCost.on | 34.1 | 40.7 | 40.3 |
+| LineNumbersTests/keystrokeCost.off | 34.7 | 40.4 | 40.6 |
+| MarkdownLayoutCostTests/typingCost.rendered | 39.4 | 42.6 | 45.7 |
+| MarkdownLayoutCostTests/typingCost.legacy | 39.4 | 45.3 | 45.1 |
+
+No per-keystroke gain shows within the noise: 2T1c had already made the
+three caches read the snapshot, so deleting them removes a second copy of
+the same value, which no timer can see. The gain of the step (one
+`nativeUTF8` and one parse per edit) is held by `MarkdownLayoutTests`
+(`snapshotCount` goes up by one per edit and a layout pass adds none). The 0D
+rows stay the reference for `--compare`. One perf test throws
+`NSRangeException` ("NSMutableRLEArray replaceObjectsInRange … Out of
+bounds"); it does so on `main` before this change too.
+
 ## 4. Warnings
 
 Taken at `main` 8767927.

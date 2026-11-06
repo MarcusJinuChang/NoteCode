@@ -13,7 +13,7 @@ struct CodeBlockActionTests {
     // MARK: Locating every block
 
     private static func targets(in source: String) -> [CodeBlockTarget] {
-        CodeBlockAction.targets(in: source, blocks: DocumentParser.parse(source))
+        DocumentSnapshot(text: source).targets
     }
 
     @Test("Prose contributes no targets")

@@ -132,7 +132,7 @@ struct AIEditorTests {
         let anchor = ("Intro\n\n```cpp\nint add(int a, int b) { return a + b; }\n```\n" as NSString).length
         assistant.insertAnswer("Line one.", style: .output, at: anchor)
 
-        let targets = CodeBlockAction.targets(in: harness.stored, blocks: DocumentParser.parse(harness.stored))
+        let targets = DocumentSnapshot(text: harness.stored).targets
         #expect(targets.count == 2)
         #expect(targets[1].isOutput)
     }

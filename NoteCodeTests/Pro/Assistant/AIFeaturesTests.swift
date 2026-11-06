@@ -453,7 +453,7 @@ struct AIInsertionTests {
         let text = "A\n"
         let edit = AIInsertion.edit(inserting: "Line one.\nLine two.", style: .output, at: 2, in: text as NSString)!
         let result = edit.applied(to: text)
-        let blocks = CodeBlockAction.targets(in: result, blocks: DocumentParser.parse(result))
+        let blocks = DocumentSnapshot(text: result).targets
         #expect(blocks.count == 1)
         #expect(blocks[0].isOutput)
         #expect(blocks[0].code.contains("Line two."))

@@ -247,7 +247,7 @@ struct FenceTagTests {
     @Test("A target carries the tag as typed")
     func targetTag() {
         let source = "```c++\nx\n```\n```\ny\n```\n```ruby\nz\n```\n"
-        let targets = CodeBlockAction.targets(in: source, blocks: DocumentParser.parse(source))
+        let targets = DocumentSnapshot(text: source).targets
         #expect(targets.map(\.tag) == ["c++", "", "ruby"])
         #expect(targets.map(\.languageLabel) == ["C++", "Code", "ruby"])
     }

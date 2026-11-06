@@ -79,7 +79,7 @@ struct RunWiringTests {
     }
 
     private func targets(_ source: String) -> [CodeBlockTarget] {
-        CodeBlockAction.targets(in: source, blocks: DocumentParser.parse(source))
+        DocumentSnapshot(text: source).targets
     }
 
     @Test("Keep in Note inserts under the code, then replaces on a second run")

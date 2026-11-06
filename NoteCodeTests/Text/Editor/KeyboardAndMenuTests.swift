@@ -214,7 +214,7 @@ struct KeyboardAndMenuTests {
     @Test("The caret finds its block, fence lines included, and the end of the note finds the open one")
     func blockAtCaret() {
         let source = "a\n```cpp\nint x;\n```\nb\n```cpp\nint y;"
-        let targets = CodeBlockAction.targets(in: source, blocks: DocumentParser.parse(source))
+        let targets = DocumentSnapshot(text: source).targets
         let length = (source as NSString).length
 
         #expect(targets.count == 2)
