@@ -94,8 +94,8 @@ numbers in each PR, and the new budget in `docs/refactor/baseline.md`.
   iPad first.
 - **F6. `modifiedAt` is written on every keystroke** (PageDetailView.swift:273),
   and it is the note list's `@Query` sort key, so every live list re-sorts.
-  The fix probably batches the write. That changes when the list reorders,
-  so Marcus decides.
+  Fixed: `ModifiedAtBatcher` writes it after about 2s idle, and when the
+  note closes or the app leaves the screen. The list reorders after a pause.
 - **F7. Thumbnails read `drawingData` on the main actor**
   (NoteThumbnail.swift:253, HomeView.swift:355). That is external storage,
   so it means file reads on the main thread.

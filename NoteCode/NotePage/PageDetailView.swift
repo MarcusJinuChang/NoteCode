@@ -47,6 +47,14 @@ struct PageDetailView: View {
     var startsRenaming = false
 
     @Environment(\.modelContext) private var modelContext
+
+    /// What the badge's hold and the edit date's pause are measured on
+    /// (`PageBadgeModel.hold`, `ModifiedAtBatcher.pause`).
+    @Environment(\.debounceClock) private var debounceClock
+    @Environment(\.scenePhase) private var scenePhase
+
+    /// Writes `modifiedAt` when typing pauses, or the note closes or leaves the screen.
+    @State private var modifiedAtBatcher = ModifiedAtBatcher()
     @Query private var folders: [Folder]
 
 #if canImport(UIKit)
@@ -67,8 +75,6 @@ struct PageDetailView: View {
     /// (`EditorPageLayout`).
     @State private var windowWidth: CGFloat = 0
 
-    /// What the badge's hold is measured on (`PageBadgeModel.hold`).
-    @Environment(\.debounceClock) private var debounceClock
 
     let settings = NoteViewSettings()
 
@@ -195,8 +201,14 @@ struct PageDetailView: View {
         .sheet(item: $editingFolder) { editing in
             FolderEditor(editing: editing)
         }
-        .onChange(of: page.title) { page.modifiedAt = .now }
-        .onChange(of: page.content) { page.modifiedAt = .now }
+        // Not at once: the date is the lists' sort key, and writing it per
+        // keystroke re-sorted them as the reader typed (`ModifiedAtBatcher`).
+        .onChange(of: page.title) { modifiedAtBatcher.edited(page, clock: debounceClock) }
+        .onChange(of: page.content) { modifiedAtBatcher.edited(page, clock: debounceClock) }
+        .onDisappear { modifiedAtBatcher.flush() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { modifiedAtBatcher.flush() }
+        }
 #if canImport(UIKit)
         // The note's text size is the page's property, and changing it isn't
         // an edit: `modifiedAt` and the undo stack stay as they are.
