@@ -239,13 +239,13 @@ struct AppearanceSwitchTests {
         coordinator.invalidateStyling()
         coordinator.restyle(textView)
 
-        let unpaintedBefore = await Self.waitUntilPainted(beforeRuns, in: textView)
+        let unpaintedBefore = await Self.waitUntilPainted(beforeRuns, in: textView, coordinator: coordinator)
         #expect(unpaintedBefore.isEmpty, "never coloured for \(before) to begin with")
 
         textView.traitOverrides.userInterfaceStyle = Self.style(after)
         textView.updateTraitsIfNeeded()
 
-        let unpaintedAfter = await Self.waitUntilPainted(afterRuns, in: textView)
+        let unpaintedAfter = await Self.waitUntilPainted(afterRuns, in: textView, coordinator: coordinator)
         #expect(unpaintedAfter.isEmpty, "\(unpaintedAfter.count) of \(afterRuns.count) runs kept the \(before) colours")
     }
 
@@ -253,24 +253,18 @@ struct AppearanceSwitchTests {
         appearance == .dark ? .dark : .light
     }
 
-    /// Polls until every run's colour is in the text storage, since
-    /// highlighting is debounced and runs off the main actor. Returns the runs
-    /// still wrong when time runs out.
-    private static func waitUntilPainted(_ runs: [ColorRun], in textView: UITextView) async -> [ColorRun] {
-        let deadline = ContinuousClock.now + .seconds(3)
-
-        while true {
-            let unpainted = runs.filter { run in
-                guard run.range.length > 0 else { return false }
-                let color = textView.textStorage.attribute(
-                    .foregroundColor, at: codeOffset + run.range.location, effectiveRange: nil
-                ) as? UIColor
-                return color != run.color
-            }
-            if unpainted.isEmpty || ContinuousClock.now >= deadline {
-                return unpainted
-            }
-            try? await Task.sleep(for: .milliseconds(10))
+    /// Waits for the colouring pass, which is debounced and runs off the main
+    /// actor, then returns the runs whose colour is not in the text storage.
+    private static func waitUntilPainted(
+        _ runs: [ColorRun], in textView: UITextView, coordinator: DocumentTextView.Coordinator
+    ) async -> [ColorRun] {
+        await coordinator.highlightingFinished()
+        return runs.filter { run in
+            guard run.range.length > 0 else { return false }
+            let color = textView.textStorage.attribute(
+                .foregroundColor, at: Self.codeOffset + run.range.location, effectiveRange: nil
+            ) as? UIColor
+            return color != run.color
         }
     }
 }

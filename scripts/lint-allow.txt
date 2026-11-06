@@ -3,8 +3,8 @@
 # Rule 7 is a count that may only fall: `limit 7 <n>`. T1 takes it to 0.
 # Lines starting with # are ignored.
 limit 7 1
-# Rule 9 too: `limit 9 <n>`. T6's second PR takes it to the UIKit layout spins that stay.
-limit 9 59
+# Rule 9 too: `limit 9 <n>`. What stays: simulated service latency in test doubles, StoreKit and the system AI model (no hook of ours), and spins for UIKit layout and the run loop turn.
+limit 9 48
 2 NoteCode/Ink/InkCapture.swift:363 PKInkReference is the Objective-C ink; its inkType is a string, the safe read
 3 NoteCode/Ink/InkObjects.swift:216 `elements` is a [any Markup] array, not a MarkupOrderedSet
 3 NoteCode/Text/Core/MarkdownFormatting+Markers.swift:94 `markup` is an Optional<Bool> kind, not a MarkupOrderedSet
