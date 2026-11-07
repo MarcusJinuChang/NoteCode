@@ -76,6 +76,29 @@ struct NotePageChromeTests {
         }
     }
 
+    @Test("An anchor in no window still opens the sheet, in the key window, at its top right")
+    func anchorOutOfWindow() throws {
+        let key = UIWindow(frame: CGRect(x: 0, y: 0, width: 1376, height: 1032))
+        let detached = UIView(frame: CGRect(x: 0, y: 0, width: 24, height: 30))
+        let placement = try #require(SharePopover.placement(anchor: detached, keyWindow: key),
+                                     "an anchor out of every window presented nothing")
+        #expect(placement.window === key)
+        let rect = SharePopover.sourceRect(button: placement.button, in: key.bounds)
+        #expect(rect.midX > key.bounds.midX && rect.midY < key.bounds.midY, "pointed at \(rect)")
+    }
+
+    @Test("An anchor in a window opens the sheet in that window, pointing at the button")
+    func anchorInWindow() throws {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1376, height: 1032))
+        let host = UIView(frame: CGRect(x: 1200, y: 10, width: 100, height: 50))
+        window.addSubview(host)
+        let button = UIView(frame: CGRect(x: 50, y: 4, width: 40, height: 36))
+        host.addSubview(button)
+        let placement = try #require(SharePopover.placement(anchor: button, keyWindow: UIWindow()))
+        #expect(placement.window === window)
+        #expect(placement.button == CGRect(x: 1250, y: 14, width: 40, height: 36))
+    }
+
     @Test("The PDF and .md are named for the note's display title, Untitled when it has none")
     func fileNames() {
         #expect(NotePDF.fileName(for: NoteTitle.display(stored: "", content: "")) == "Untitled.pdf")
