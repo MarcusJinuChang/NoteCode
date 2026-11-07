@@ -12,7 +12,7 @@ import SwiftUI
 /// on every build). A class compared by identity is the
 /// same value on every pass, so nothing reads as changed unless a test puts a
 /// different clock in.
-final class DebounceClock: Equatable, Sendable {
+nonisolated final class DebounceClock: Equatable, Sendable {
     let clock: any Clock<Duration>
 
     init(_ clock: any Clock<Duration>) {

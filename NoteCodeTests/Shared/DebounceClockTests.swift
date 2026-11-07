@@ -11,7 +11,7 @@ import SwiftUI
 import Testing
 @testable import NoteCode
 
-@Suite("Debounce clock", .tags(.layout))
+@Suite("Debounce clock", .tags(.pure))
 struct DebounceClockTests {
 
     @Test("The default is one instance, equal on every read")
