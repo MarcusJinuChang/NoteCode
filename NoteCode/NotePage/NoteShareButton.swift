@@ -107,7 +107,10 @@ struct NoteShareButton: View {
     }
 
     private func present(_ url: URL) {
-        guard let placement = SharePopover.placement(anchor: anchor.view, keyWindow: Self.keyWindow) else { return }
+        // The editor's own window before any scene's: with two NoteCode
+        // windows open, the first active scene's key window may be the other one.
+        let window = editor.textView?.window ?? Self.keyWindow
+        guard let placement = SharePopover.placement(anchor: anchor.view, keyWindow: window) else { return }
         Self.present(url, in: placement.window, pointingAt: placement.button)
     }
 
@@ -143,8 +146,10 @@ nonisolated enum SharePopover {
     /// The anchor's window when it has one. **It may not**: on a short note
     /// with no ink the anchor was the only copy SwiftUI made, and it sat in a
     /// toolbar item host that was in no window, so Share wrote the PDF and
-    /// opened nothing (device pass, 7 Nov). Then the key window, with no
-    /// rect, so `sourceRect` points at the top right, where the button is.
+    /// opened nothing (device pass, 7 Nov). Then the given window (the
+    /// note's own), with no rect, so `sourceRect` points at the top right.
+    /// That stands in for the button only while Share is the trailing
+    /// toolbar item; if it moves, this fallback points at the wrong place.
     ///
     /// Pointed at in the window's coordinates, not the anchor's own: the
     /// anchor sits in the toolbar's hosting view, and in landscape its bounds

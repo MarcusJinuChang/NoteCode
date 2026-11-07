@@ -4,8 +4,8 @@
 //
 //  The note's Share button opens the share sheet, on a short note with no
 //  ink as well as a long one. On a short note it once wrote the PDF and
-//  opened nothing: the popover anchor held a copy of the button's
-//  background that SwiftUI never put in a window (device pass, 7 Nov).
+//  opened nothing: the popover anchor was the only copy SwiftUI made, and
+//  it sat in a toolbar item host that was in no window (device pass, 7 Nov).
 //
 
 import XCTest
