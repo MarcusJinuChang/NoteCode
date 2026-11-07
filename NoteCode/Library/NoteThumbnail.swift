@@ -298,9 +298,11 @@ final class ThumbnailStore {
         // the autosave, the old ink was drawn and kept under the new date's
         // name, and every launch after served it (list-x1). So the note is
         // saved first, as autosave would within seconds (`settledID` does
-        // the same).
-        if page.hasChanges, let context = page.modelContext {
-            Storage.save(context, reason: "save a note before reading its ink for a thumbnail")
+        // the same). If that save fails the read would see the old ink and
+        // cache it under the new name, so nothing is drawn this time.
+        if page.hasChanges, let context = page.modelContext,
+           !Storage.save(context, reason: "save a note before reading its ink for a thumbnail") {
+            return nil
         }
 
         // The ink is read off the main actor (F7), through a context of its
