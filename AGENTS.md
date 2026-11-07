@@ -132,6 +132,11 @@ What the app contains: [docs/features.md](docs/features.md) — every feature by
 works, and what is missing or planned. Read it before reading code to find out whether
 something exists, and update its rows in the same PR that adds, changes or removes a feature.
 
+Start at [docs/README.md](docs/README.md) (where every kind of fact lives)
+and [docs/NOW.md](docs/NOW.md) (this week, the queue, what is parked). How a
+feature is shaped, planned and built, and the skills for it:
+[docs/process.md](docs/process.md). Decisions and reversals:
+[docs/decisions.md](docs/decisions.md).
 Planning docs: `docs/ROADMAP.md` (status, what is left, and the After 1.0 list);
 the 1.0 plan is finished and lives in `docs/archive/release-1.0/` with the other
 finished plans in `docs/archive/`. Still live while 1.0 is in App Review:

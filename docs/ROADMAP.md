@@ -14,7 +14,7 @@ used to carry is in git (`git log -p docs/ROADMAP.md`).
 |---|---|
 | Drawing layer | Done 3 Oct |
 | 1.0 | Built and merged to `main` (29 Oct; polish and fixes to #123, 1 Nov) |
-| App Store submission | Submitted 1 Nov as 1.1.0 (4), iPad, iPhone and Duo; **in App Review**, automatic release on approval |
+| App Store submission | Submitted 1 Nov as 1.1.0 (4), iPad, iPhone and Duo; **approved 5 Nov**, releasing automatically (expected on the store 6 Nov) |
 | EU storefronts | Waiting on Apple to verify EU trader status |
 | Duo launch | 23 Oct 2026 (runs iOS 27.1) |
 | Second version | AI + feedback, Mar 2027 |
@@ -66,7 +66,10 @@ into a public, open-source `NoteCode` (Apache-2.0, fresh history, no ads or
 Pro) and the private `NoteCode-AppStore`. Plan, decisions and order:
 [refactor/README.md](refactor/README.md).
 
-### In App Review (Marcus)
+### Approved 5 Nov, releasing (Marcus)
+
+App Review approved 1.1.0 (4) on 5 Nov; items 1 and 4 below are history
+once it is on the store, and "After it's live" starts.
 
 Submitted 1 Nov as **1.1.0 (4)** with NoteCode Pro, its subscription and
 the three tips attached; automatic release on approval. Done before
