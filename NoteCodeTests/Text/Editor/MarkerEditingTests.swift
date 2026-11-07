@@ -116,6 +116,30 @@ struct MarkerEditingTests {
         #expect(stop(bare, 12) == 12, "a bare address shows exactly as typed")
     }
 
+    // MARK: Typing over a selection
+
+    private func typedOver(_ text: String, _ selection: NSRange, _ typed: String) -> String? {
+        let ns = text as NSString
+        return MarkdownFormatting.replacing(
+            selection, with: typed, in: ns, codeRanges: DocumentCache().codeRanges(for: text)
+        )?.applied(to: text)
+    }
+
+    @Test("Typing over a selection keeps the hidden markers of the spans it cuts, and only those")
+    func typingOverMarkers() {
+        // Nested spans keep both closing markers, in their order.
+        #expect(typedOver("x ***ab*** y", NSRange(location: 6, length: 6), "Q") == "x ***aQ***")
+        // Two spans: the first's closing markers and the second's opening ones.
+        #expect(typedOver("**ab** **cd**", NSRange(location: 3, length: 7), "Q") == "**aQ****d**")
+        // A link keeps its hidden address.
+        #expect(typedOver("see [notes](https://a.b) now", NSRange(location: 7, length: 21), "Q") == "see [noQ](https://a.b)")
+        // Nothing hidden taken, or a whole span taken: the ordinary replace.
+        #expect(typedOver("a **bold** b", NSRange(location: 5, length: 2), "Q") == nil)
+        #expect(typedOver("a **bold** b", NSRange(location: 1, length: 10), "Q") == nil)
+        #expect(typedOver("a $x+y$ b", NSRange(location: 4, length: 5), "Q") == nil, "a formula's dollars show")
+        #expect(typedOver("```\n**not bold**\n```", NSRange(location: 12, length: 4), "Q") == nil, "code has no markers")
+    }
+
     // MARK: Backspace
 
     private func backspace(_ text: String, _ caret: Int) -> String? {

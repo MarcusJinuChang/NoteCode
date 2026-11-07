@@ -218,6 +218,50 @@ nonisolated extension MarkdownFormatting {
         }
         return TextEdit(range: letter, replacement: "", selection: NSRange(location: letter.location, length: 0))
     }
+
+    // MARK: Typing over a selection
+
+    /// What typing `replacement` over `selection` (or deleting it, for "")
+    /// does when the selection takes some of a span's hidden markers but not
+    /// the whole span. `nil` for the default.
+    ///
+    /// The markers it takes any of are kept whole, with what was typed in
+    /// front of them: over `d** b` in `a **boldword** b` that is
+    /// `a **boldworQ**`, still bold. Taking one marker of a pair would leave the other on the page
+    /// as text, and the reader never saw either. A span the selection takes
+    /// whole goes, markers and all.
+    static func replacing(_ selection: NSRange, with replacement: String, in text: NSString, codeRanges: [CodeRange]) -> TextEdit? {
+        guard selection.length > 0, NSMaxRange(selection) <= text.length else { return nil }
+
+        var kept: [NSRange] = []
+        for line in lines(touching: selection, in: text) where line.length > 0 && !isCode(line.location, in: codeRanges) {
+            let lineText = text.substring(with: line)
+            guard let block = DocumentParser.parse(lineText).first, !block.isCode else { continue }
+            // A formula's dollars show (`hiddenStretches`), so a selection
+            // takes them as it would any letter.
+            for span in InlineSpan.spans(in: block.inlines) {
+                if case .math = span.markup { continue }
+                let whole = shifted(NSRange(span.range, in: lineText), by: line.location)
+                guard NSIntersectionRange(whole, selection).length > 0, NSUnionRange(whole, selection) != selection else { continue }
+                for marker in span.markerRanges {
+                    let marker = shifted(NSRange(marker, in: lineText), by: line.location)
+                    if NSIntersectionRange(marker, selection).length > 0 { kept.append(marker) }
+                }
+            }
+        }
+        guard !kept.isEmpty else { return nil }
+
+        // A selection that starts or ends inside a marker (⇧← stops between
+        // the two `*`s) is widened to the whole marker, so what was typed
+        // goes in front of it rather than splitting it.
+        let range = kept.reduce(selection) { NSUnionRange($0, $1) }
+        let markers = kept.sorted { $0.location < $1.location }.map { text.substring(with: $0) }.joined()
+        return TextEdit(
+            range: range,
+            replacement: replacement + markers,
+            selection: NSRange(location: range.location + (replacement as NSString).length, length: 0)
+        )
+    }
 }
 
 // MARK: - Nesting, boxes, links, and the state at the caret
