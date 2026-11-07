@@ -46,6 +46,7 @@ struct DocumentTextView: UIViewRepresentable {
         context.coordinator.observeAppearance(of: textView)
         editorSettings.apply(to: context.coordinator, in: textView, typography: typography)
         textView.text = text
+        context.coordinator.syncedText = text
         context.coordinator.invalidateStyling()
         context.coordinator.restyle(textView)
         editorSettings.applyShowMarkdown(to: context.coordinator)
@@ -87,11 +88,24 @@ struct DocumentTextView: UIViewRepresentable {
         // and Swift's `==` compares those canonically, a character at a time
         // through the bridge — on every keystroke, since this runs after each
         // one.
-        if !(textView.textStorage.string as NSString).isEqual(to: text) {
+        //
+        // And only text that came from outside. `insertText` changes the
+        // storage and the selection before it tells the coordinator the
+        // text changed, and a render in between (the keyboard reloading as
+        // the caret crosses into code moves its frame, which lays SwiftUI
+        // out there and then) finds the binding behind. Pushing it then
+        // wiped the character just typed, outside UIKit's typing undo, and
+        // the next Undo replaced a range past the end of the text: an
+        // NSRangeException that aborted the app. A binding that still holds
+        // what was last synced hasn't changed; the text view is ahead, and
+        // `textViewDidChange` writes it back in a moment.
+        if !(textView.textStorage.string as NSString).isEqual(to: text),
+           !(text as NSString).isEqual(to: context.coordinator.syncedText) {
             // Assigning `.text` resets the storage to plain attributes, so the
             // styling has to be reapplied every time text arrives from outside,
             // and nothing on screen can be reused.
             textView.text = text
+            context.coordinator.syncedText = text
             context.coordinator.invalidateStyling()
             context.coordinator.restyle(textView)
         }
@@ -115,6 +129,12 @@ struct DocumentTextView: UIViewRepresentable {
     /// Owns the UIKit delegate callbacks and forwards edits back into SwiftUI.
     final class Coordinator: NSObject, UITextViewDelegate {
         var text: Binding<String>
+        /// The note's text as the binding and the text view last agreed on
+        /// it: what `textViewDidChange` wrote, or what `updateUIView` pushed.
+        /// A binding still holding this has not changed from outside, so a
+        /// text view that differs from it is ahead of it, with a keystroke
+        /// UIKit has not finished (`updateUIView`).
+        var syncedText = ""
         /// Set by the page. The editor's `EditGuard` becomes the router's, so
         /// the flags a formatting edit sets are seen from both sides.
         var editor: NoteEditor? {
