@@ -78,7 +78,7 @@ struct NotePageChromeTests {
 
     @Test("An anchor in no window still opens the sheet, in the key window, at its top right")
     func anchorOutOfWindow() throws {
-        let key = UIWindow(frame: CGRect(x: 0, y: 0, width: 1376, height: 1032))
+        let key = makeSceneLessTestWindow(frame: CGRect(x: 0, y: 0, width: 1376, height: 1032))
         let detached = UIView(frame: CGRect(x: 0, y: 0, width: 24, height: 30))
         let placement = try #require(SharePopover.placement(anchor: detached, keyWindow: key),
                                      "an anchor out of every window presented nothing")
@@ -89,12 +89,12 @@ struct NotePageChromeTests {
 
     @Test("An anchor in a window opens the sheet in that window, pointing at the button")
     func anchorInWindow() throws {
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 1376, height: 1032))
+        let window = makeSceneLessTestWindow(frame: CGRect(x: 0, y: 0, width: 1376, height: 1032))
         let host = UIView(frame: CGRect(x: 1200, y: 10, width: 100, height: 50))
         window.addSubview(host)
         let button = UIView(frame: CGRect(x: 50, y: 4, width: 40, height: 36))
         host.addSubview(button)
-        let placement = try #require(SharePopover.placement(anchor: button, keyWindow: UIWindow()))
+        let placement = try #require(SharePopover.placement(anchor: button, keyWindow: makeSceneLessTestWindow(frame: .zero)))
         #expect(placement.window === window)
         #expect(placement.button == CGRect(x: 1250, y: 14, width: 40, height: 36))
     }
