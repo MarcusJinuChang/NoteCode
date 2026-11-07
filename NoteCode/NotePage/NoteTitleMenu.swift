@@ -7,6 +7,9 @@
 
 import SwiftData
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// What the menu under the open note's title offers, and, since phase 8, what
 /// the note's long-press menu in the list offers too: one view, so the two
@@ -95,10 +98,21 @@ struct NoteTitleMenu: View {
 /// Starts the system's rename on the title as it appears. Invisible; present
 /// only for a note just made.
 ///
-/// The action comes from the environment, and only a view under the
-/// `navigationTitle` that has the binding sees it, which is why this is a view
-/// of its own rather than a line in `PageDetailView`.
+/// On iOS it sends UIKit's `rename:` up the responder chain, where the
+/// navigation controller showing the note takes it and edits the title
+/// through the binding given to `navigationTitle`, as the title menu's
+/// Rename does. SwiftUI's `\.rename` can't be used for this: on iOS 27 it is
+/// set only inside the title menu's own content, which isn't built until
+/// the menu opens, and it read nil from the page and from a toolbar item
+/// (simulator, 7 Nov), so a new note never started renaming.
 struct RenameOnAppear: View {
+#if canImport(UIKit)
+    var body: some View {
+        RenameSender()
+            .frame(width: 0, height: 0)
+            .accessibilityHidden(true)
+    }
+#else
     @Environment(\.rename) private var rename
 
     var body: some View {
@@ -106,4 +120,30 @@ struct RenameOnAppear: View {
             .frame(width: 0, height: 0)
             .task { rename?() }
     }
+#endif
 }
+
+#if canImport(UIKit)
+/// A view that sends `rename:` once, the first time it is in a window.
+private struct RenameSender: UIViewRepresentable {
+    func makeUIView(context: Context) -> SenderView { SenderView() }
+    func updateUIView(_ uiView: SenderView, context: Context) {}
+
+    final class SenderView: UIView {
+        private var sent = false
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            guard window != nil, !sent else { return }
+            sent = true
+            // On the next turn of the run loop, once the bar has the title.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.window != nil else { return }
+                let rename = #selector(UIResponderStandardEditActions.rename(_:))
+                (self.target(forAction: rename, withSender: nil) as? UIResponder)?
+                    .perform(rename, with: nil)
+            }
+        }
+    }
+}
+#endif
