@@ -75,14 +75,17 @@ struct NoteRow: View {
             }
         }
         .padding(.leading, NoteListMetrics.indent(depth))
-        .tag(page)
         .opensOnTapInCompactWidth(onOpen)
-        .modifier(SelectedRowBackground(isSelected: isSelected))
         .contextMenu { menu }
         .onDrag { drag.lift(.note(page)) }
         .modifier(ListRowDrop(
             target: .note(page), hoverID: .row(.note(page.persistentModelID)), drag: drag
         ))
+        // The tag and the row background last, outside the drag and the
+        // drop: under them the sidebar never selected the row on a tap, so
+        // it opened nothing, and its tint didn't show (simulator, 7 Nov).
+        .tag(page)
+        .modifier(SelectedRowBackground(isSelected: isSelected))
     }
 }
 
