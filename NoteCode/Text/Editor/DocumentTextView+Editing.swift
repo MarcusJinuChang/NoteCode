@@ -22,7 +22,9 @@ extension DocumentTextView.Coordinator {
         // once the reader starts working there.
         (textView as? DocumentUITextView)?.clearSearchHighlights()
         restyle(textView)
-        text.wrappedValue = textView.text
+        let current = textView.text ?? ""
+        text.wrappedValue = current
+        syncedText = current
         editor?.undoRouter.refresh()
     }
 
