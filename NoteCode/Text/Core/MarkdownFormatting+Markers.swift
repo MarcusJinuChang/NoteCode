@@ -227,13 +227,20 @@ nonisolated extension MarkdownFormatting {
     ///
     /// The markers it takes any of are kept whole, with what was typed in
     /// front of them: over `d** b` in `a **boldword** b` that is
-    /// `a **boldworQ**`, still bold. Taking one marker of a pair would leave the other on the page
-    /// as text, and the reader never saw either. A span the selection takes
-    /// whole goes, markers and all.
+    /// `a **boldworQ**`, still bold. Taking one marker of a pair would leave
+    /// the other on the page as text, and the reader never saw either. A
+    /// span the selection takes whole goes, markers and all.
+    ///
+    /// Over two spans (`b** **c` in `**ab** **cd**`) the first's closing
+    /// markers and the second's opening ones are kept with the typed text
+    /// between them, `**a**Q**d**`: side by side they would read as one
+    /// run of asterisks. With nothing typed, or when the result doesn't
+    /// parse back into the spans it should, it is the ordinary replace.
     static func replacing(_ selection: NSRange, with replacement: String, in text: NSString, codeRanges: [CodeRange]) -> TextEdit? {
         guard selection.length > 0, NSMaxRange(selection) <= text.length else { return nil }
 
-        var kept: [NSRange] = []
+        var closing: [NSRange] = []
+        var opening: [NSRange] = []
         for line in lines(touching: selection, in: text) where line.length > 0 && !isCode(line.location, in: codeRanges) {
             let lineText = text.substring(with: line)
             guard let block = DocumentParser.parse(lineText).first, !block.isCode else { continue }
@@ -245,22 +252,55 @@ nonisolated extension MarkdownFormatting {
                 guard NSIntersectionRange(whole, selection).length > 0, NSUnionRange(whole, selection) != selection else { continue }
                 for marker in span.markerRanges {
                     let marker = shifted(NSRange(marker, in: lineText), by: line.location)
-                    if NSIntersectionRange(marker, selection).length > 0 { kept.append(marker) }
+                    guard NSIntersectionRange(marker, selection).length > 0 else { continue }
+                    if marker.location == whole.location { opening.append(marker) } else { closing.append(marker) }
                 }
             }
         }
-        guard !kept.isEmpty else { return nil }
+        guard !closing.isEmpty || !opening.isEmpty else { return nil }
+        let between = !closing.isEmpty && !opening.isEmpty
+        if between, replacement.isEmpty { return nil }
 
         // A selection that starts or ends inside a marker (⇧← stops between
         // the two `*`s) is widened to the whole marker, so what was typed
         // goes in front of it rather than splitting it.
-        let range = kept.reduce(selection) { NSUnionRange($0, $1) }
-        let markers = kept.sorted { $0.location < $1.location }.map { text.substring(with: $0) }.joined()
-        return TextEdit(
+        let range = (closing + opening).reduce(selection) { NSUnionRange($0, $1) }
+        func joined(_ markers: [NSRange]) -> String {
+            markers.sorted { $0.location < $1.location }.map { text.substring(with: $0) }.joined()
+        }
+        let before = between ? joined(closing) : ""
+        let after = between ? joined(opening) : joined(closing + opening)
+        let edit = TextEdit(
             range: range,
-            replacement: replacement + markers,
-            selection: NSRange(location: range.location + (replacement as NSString).length, length: 0)
+            replacement: before + replacement + after,
+            selection: NSRange(location: range.location + (before as NSString).length + (replacement as NSString).length, length: 0)
         )
+        return keepsSpans(edit, typed: replacement, in: text) ? edit : nil
+    }
+
+    /// Whether `edit` leaves the lines it touches with the spans they had,
+    /// less those it replaces whole, plus any in `typed`: kept markers that
+    /// run into a neighbour's would join into text instead.
+    private static func keepsSpans(_ edit: TextEdit, typed: String, in text: NSString) -> Bool {
+        func spanCount(_ source: String) -> Int {
+            DocumentParser.parse(source).reduce(0) { $0 + InlineSpan.spans(in: $1.inlines).count }
+        }
+        var before = 0
+        var replaced = 0
+        for line in lines(touching: edit.range, in: text) {
+            let lineText = text.substring(with: line)
+            for block in DocumentParser.parse(lineText) {
+                for span in InlineSpan.spans(in: block.inlines) {
+                    before += 1
+                    let whole = shifted(NSRange(span.range, in: lineText), by: line.location)
+                    if NSUnionRange(whole, edit.range) == edit.range { replaced += 1 }
+                }
+            }
+        }
+        let edited = text.replacingCharacters(in: edit.range, with: edit.replacement) as NSString
+        let written = NSRange(location: edit.range.location, length: (edit.replacement as NSString).length)
+        let after = lines(touching: written, in: edited).reduce(0) { $0 + spanCount(edited.substring(with: $1)) }
+        return after == before - replaced + spanCount(typed)
     }
 }
 

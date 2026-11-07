@@ -129,8 +129,13 @@ struct MarkerEditingTests {
     func typingOverMarkers() {
         // Nested spans keep both closing markers, in their order.
         #expect(typedOver("x ***ab*** y", NSRange(location: 6, length: 6), "Q") == "x ***aQ***")
-        // Two spans: the first's closing markers and the second's opening ones.
-        #expect(typedOver("**ab** **cd**", NSRange(location: 3, length: 7), "Q") == "**aQ****d**")
+        // Two spans: the first's closing markers and the second's opening
+        // ones, with the typed text between them so they don't run together.
+        #expect(typedOver("**ab** **cd**", NSRange(location: 3, length: 7), "Q") == "**a**Q**d**")
+        #expect(typedOver("**ab**\n**cd**", NSRange(location: 3, length: 7), "Q") == "**a**Q**d**", "across a line break")
+        #expect(typedOver("**ab** **cd**", NSRange(location: 3, length: 7), "") == nil, "nothing typed: the ordinary delete")
+        // Kept markers that would run into a neighbour's: the ordinary replace.
+        #expect(typedOver("**ab** **cd**", NSRange(location: 3, length: 4), "Q") == nil)
         // A link keeps its hidden address.
         #expect(typedOver("see [notes](https://a.b) now", NSRange(location: 7, length: 21), "Q") == "see [noQ](https://a.b)")
         // Nothing hidden taken, or a whole span taken: the ordinary replace.
