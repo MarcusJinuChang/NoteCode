@@ -206,8 +206,8 @@ struct PageDetailView: View {
         }
         // Not at once: the date is the lists' sort key, and writing it per
         // keystroke re-sorted them as the reader typed (`ModifiedAtBatcher`).
-        .onChange(of: page.title) { modifiedAtBatcher.edited(page, clock: debounceClock) }
-        .onChange(of: page.content) { modifiedAtBatcher.edited(page, clock: debounceClock) }
+        .onChange(of: page.title) { modifiedAtBatcher.edited(page, clock: debounceClock.clock) }
+        .onChange(of: page.content) { modifiedAtBatcher.edited(page, clock: debounceClock.clock) }
         .onDisappear { modifiedAtBatcher.flush() }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { modifiedAtBatcher.flush() }
@@ -307,7 +307,7 @@ struct PageDetailView: View {
                 dock: dock, insets: pageInsets, keyboardClearance: keyboardClearance,
                 revealing: revealing, resumingAtPage: resumingAtPage,
                 onScrolled: { [badge, debounceClock] place in
-                    badge.noteScrolled(to: place, clock: debounceClock)
+                    badge.noteScrolled(to: place, clock: debounceClock.clock)
                 }
             )
 

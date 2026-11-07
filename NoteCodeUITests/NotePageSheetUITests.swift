@@ -5,7 +5,9 @@
 //  Sheets over an open note: each must appear and go away again. On an
 //  iPhone a page sheet over the note once never appeared: the app's main
 //  thread spun in the sheet's layout pass for good, because the note handed
-//  the menu bar a new `OpenNote` on every build (see `OpenNote`). Run on an
+//  the menu bar a new `OpenNote` on every build (see `OpenNote`) and the
+//  environment's clock read as changed on every pass (see `DebounceClock`);
+//  it took both, and either fix alone stopped it, so both are fixed. Run on an
 //  iPhone simulator to cover that; on an iPad they are ordinary checks.
 //  The Pro sheets (Summarise Note) are in Pro/NotePageProSheetUITests.swift,
 //  which the open-source build deletes.
