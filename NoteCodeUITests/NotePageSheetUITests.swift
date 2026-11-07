@@ -7,6 +7,8 @@
 //  thread spun in the sheet's layout pass for good, because the note handed
 //  the menu bar a new `OpenNote` on every build (see `OpenNote`). Run on an
 //  iPhone simulator to cover that; on an iPad they are ordinary checks.
+//  The Pro sheets (Summarise Note) are in Pro/NotePageProSheetUITests.swift,
+//  which the open-source build deletes.
 //
 
 import XCTest
@@ -16,16 +18,16 @@ final class NotePageSheetUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         // A hung app fails each query only after a long wait; this keeps a
-        // hang from holding the run for the default ten minutes (it rounds up to whole minutes).
-        executionTimeAllowance = 60
+        // hang from holding the run for the default ten minutes (it rounds up
+        // to whole minutes). A healthy run from a cold simulator took 49s.
+        executionTimeAllowance = 120
     }
 
-    /// The code note with Pro on, so ••• has Summarise Note and the
-    /// paywall stays out of it.
+    /// The code note. Nothing here needs Pro, so it runs in either edition.
     @MainActor
     private func openNote() -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-debug-note", "code", "-debug-pro", "on", "-runDisclosureAccepted", "YES"]
+        app.launchArguments = ["-debug-note", "code"]
         app.launch()
         XCTAssertTrue(app.textViews.firstMatch.waitForExistence(timeout: 15), "the note never opened")
         return app
@@ -50,21 +52,6 @@ final class NotePageSheetUITests: XCTestCase {
         XCTAssertTrue(sheet.waitForExistence(timeout: 8), "the Settings sheet never appeared")
         sheet.buttons["Done"].tap()
         XCTAssertTrue(sheet.waitForNonExistence(timeout: 8), "the Settings sheet never went away")
-        XCTAssertTrue(app.buttons["noteMenu"].firstMatch.waitForExistence(timeout: 5), "not back on the note")
-    }
-
-    @MainActor
-    func testSummariseOverTheNote() throws {
-        let app = openNote()
-        openMoreMenu(app)
-        let item = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Summarise Note'")).firstMatch
-        XCTAssertTrue(item.waitForExistence(timeout: 5), "••• has no Summarise Note")
-        item.tap()
-
-        let done = app.buttons["Done"].firstMatch
-        XCTAssertTrue(done.waitForExistence(timeout: 8), "the Summarise sheet never appeared")
-        done.tap()
-        XCTAssertTrue(done.waitForNonExistence(timeout: 8), "the Summarise sheet never went away")
         XCTAssertTrue(app.buttons["noteMenu"].firstMatch.waitForExistence(timeout: 5), "not back on the note")
     }
 }

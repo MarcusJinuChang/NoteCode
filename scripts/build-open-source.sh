@@ -5,8 +5,8 @@
 #   scripts/build-open-source.sh
 #
 # Works in a temporary worktree of HEAD (committed changes only), removed
-# however the script ends. There it deletes NoteCode/Pro/ and
-# NoteCodeTests/Pro/, copies the worktree's OpenSource/OpenSourceEdition.swift
+# however the script ends. There it deletes NoteCode/Pro/,
+# NoteCodeTests/Pro/ and NoteCodeUITests/Pro/, copies the worktree's OpenSource/OpenSourceEdition.swift
 # into NoteCode/App/, OpenSourceEditionTests.swift into NoteCodeTests/App/,
 # and OpenSource/Info.plist and PrivacyInfo.xcprivacy over NoteCode/'s, then
 # builds and runs the Fast plan. The folders are synchronized groups, so the
@@ -62,7 +62,7 @@ fi
 
 # The public tree: NoteCode/ minus Pro/ plus the edition's files, all from
 # HEAD's OpenSource/, not this checkout's.
-rm -rf "$work/NoteCode/Pro" "$work/NoteCodeTests/Pro"
+rm -rf "$work/NoteCode/Pro" "$work/NoteCodeTests/Pro" "$work/NoteCodeUITests/Pro"
 cp "$work/OpenSource/OpenSourceEdition.swift" "$work/NoteCode/App/" || exit 1
 cp "$work/OpenSource/OpenSourceEditionTests.swift" "$work/NoteCodeTests/App/" || exit 1
 cp "$work/OpenSource/Info.plist" "$work/NoteCode/Info.plist" || exit 1

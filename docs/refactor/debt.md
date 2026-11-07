@@ -57,6 +57,7 @@ Tests are listed after the app. The budget (lessons.md 4) is a question at
 | D15 | **Two compiler warnings are kept** (baseline.md): the deprecated adaptive banner (AdBanner.swift:61) and `UIWindow(frame:)` in `TestWindow` | S | The ratchet is 2, not 0 | The banner's, if Marcus ever accepts the larger banner; the test window's, when the tests can have a scene |
 | D16 | **Nothing here is checked on a device.** The device lines from every refactor PR, `ipad-test-checklist.md` and a TestFlight sandbox pass are owed (Release QA 3) | L, Marcus | Behaviour a test cannot see (touch, Pencil, drag and drop, feel) | The one device pass on the release build |
 | D17 | Public-repo prerequisites in `split.md` (S1 the pages move, S2 editions in the project, build-number reproducibility 0F) are not started | L | The open-source build is proved by script only; the project has no target for it | After 1.2.0 ships, as split.md says |
+| D18 | **`WindowActions` is a focused value made of closures** (ContentView.swift:191), rebuilt on every build: the pattern that froze sheets over a note on iPhone (`OpenNote`, PR #234). It sits in the root hosting view only and Home showed no hang | S | A sheet over Home could spin the same way if a second hosting view starts building it | If it ever shows, give it `OpenNote`'s shape: references and plain values, the closures in a box kept in `@State` |
 
 ## Not debt
 
