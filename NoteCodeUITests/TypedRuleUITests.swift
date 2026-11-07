@@ -73,6 +73,11 @@ final class TypedRuleUITests: XCTestCase {
         if !keyboard.keys["-"].exists { keyboard.keys["more"].firstMatch.tap() }
         let hyphen = keyboard.keys["-"].firstMatch
         XCTAssertTrue(hyphen.waitForExistence(timeout: 3), "no - key")
+        // With a hardware keyboard connected the keyboard still exists, its
+        // keys below the screen's edge, so a tap could never reach them.
+        guard hyphen.isHittable else {
+            throw XCTSkip("no on-screen keyboard (a hardware keyboard is connected)")
+        }
         for _ in 0..<3 {
             hyphen.tap()
             Thread.sleep(forTimeInterval: 0.3)

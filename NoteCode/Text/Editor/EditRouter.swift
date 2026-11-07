@@ -81,6 +81,8 @@ final class EditRouter {
         // asks only about the plain "-" and makes its dash afterwards, in its
         // own insert, with no second question; so a hyphen after hyphens at
         // a line's start is typed by the app, where smart dashes don't reach.
+        // It runs in code too (a `--` comment line), harmlessly: smart dashes
+        // are off there, and the app inserts the same hyphen.
         if text == "-", range.length == 0, range == textView.selectedRange,
            isTyping(in: textView), textView.markedTextRange == nil,
            let edit = TextRewritingPolicy.hyphenKept(typedAt: range.location, in: textView.textStorage.mutableString) {

@@ -66,11 +66,12 @@ the version string, the licence text, the palette reset) are `AppSettings.swift`
     then a hyphen). The delegate sees the first two hyphens as ordinary
     inserts (`range=1,0 text=-`); the second becomes an em dash *after* it is
     in, with no `shouldChangeTextIn` for the replacement, so refusing it in
-    the delegate is impossible (a first attempt did, and did nothing). A fix
-    would have to undo the dash from `textViewDidChange`, fighting the
-    keyboard; not done. **So a rule can't be typed with smart dashes on**: use
-    Style ▾ › Horizontal Rule, paste, or turn Autocorrect off, where `---`
-    types as three hyphens (checked by the same test).
+    the delegate is impossible (a first attempt did, and did nothing).
+    **Fixed 7 Nov** (`TextRewritingPolicy.hyphenKept`): a `-` typed after
+    hyphens at a line's start (spaces or tabs before them only) is inserted
+    by the app in `shouldChangeTextIn`, so the keyboard never sees a `--` to
+    turn into a dash, and `---` typed there stays hyphens and becomes a rule.
+    `--` between words is still a dash (`TypedRuleUITests`).
 - **Appearance is applied at the root of the scene** (`AppearanceModifier`,
   `preferredColorScheme`, on both the note view and the storage-unavailable
   view), so every window, the sheet and UIKit controllers presented from it
