@@ -74,6 +74,7 @@ struct MidEditRenderTests {
 
     /// The note in a window, its text view, and a delegate that renders
     /// inside every keystroke.
+    @MainActor
     private struct Hosted {
         let note: Note
         let window: UIWindow
