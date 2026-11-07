@@ -200,6 +200,9 @@ struct MidEditRenderTests {
         #expect(hosted.textView.text == "replaced from outside")
 
         // And back to what it was synced at before, which is a change too.
+        // The outside value above has already moved `syncedText` on, so this
+        // is not a no-op: it checks the comparison is with the last sync, not
+        // with the first.
         hosted.note.text = "before typed"
         hosted.render()
         #expect(hosted.textView.text == "before typed")

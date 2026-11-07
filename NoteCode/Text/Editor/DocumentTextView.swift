@@ -134,6 +134,12 @@ struct DocumentTextView: UIViewRepresentable {
         /// A binding still holding this has not changed from outside, so a
         /// text view that differs from it is ahead of it, with a keystroke
         /// UIKit has not finished (`updateUIView`).
+        ///
+        /// So an outside write that sets the binding back to exactly this
+        /// while a keystroke is in progress is taken for no change and
+        /// dropped. Nothing does that today (one editor per note, every edit
+        /// through `replace`); a second writer, such as iCloud sync, must not
+        /// land its text inside a keystroke.
         var syncedText = ""
         /// Set by the page. The editor's `EditGuard` becomes the router's, so
         /// the flags a formatting edit sets are seen from both sides.
