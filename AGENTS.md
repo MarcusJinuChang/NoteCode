@@ -214,8 +214,10 @@ build's is `.none`. `build-open-source.sh` proves the second compiles with
   docs/refactor/baseline.md. To add a Pro feature, put it in `Pro/`, make it
   an `EditorFeature` or an `AppExtensions` member, and register it in
   `AppExtensions.appStore`.
-- **The test twin:** `NoteCodeTests/Pro/` is deleted by the open-source
-  build as well; a general test must not use a Pro type.
+- **The test twin:** `NoteCodeTests/Pro/` and `NoteCodeUITests/Pro/` are
+  deleted by the open-source build as well; a general test must not use a
+  Pro type, and a UI test that needs Pro (`-debug-pro`, a Pro item) goes in
+  `NoteCodeUITests/Pro/`.
 
 ## Scripts
 

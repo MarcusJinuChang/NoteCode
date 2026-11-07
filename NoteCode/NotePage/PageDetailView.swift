@@ -108,6 +108,9 @@ struct PageDetailView: View {
     /// The header's outline popover (also ⌃⌘O).
     @State private var showsOutline = false
 
+    /// What the menu bar's Print, View and Outline do on this note.
+    @State private var noteActions = OpenNoteActions()
+
     /// The page badge: where the reader is while the note scrolls.
     @State private var badge = PageBadgeModel()
 #else
@@ -203,8 +206,8 @@ struct PageDetailView: View {
         }
         // Not at once: the date is the lists' sort key, and writing it per
         // keystroke re-sorted them as the reader typed (`ModifiedAtBatcher`).
-        .onChange(of: page.title) { modifiedAtBatcher.edited(page, clock: debounceClock) }
-        .onChange(of: page.content) { modifiedAtBatcher.edited(page, clock: debounceClock) }
+        .onChange(of: page.title) { modifiedAtBatcher.edited(page, clock: debounceClock.clock) }
+        .onChange(of: page.content) { modifiedAtBatcher.edited(page, clock: debounceClock.clock) }
         .onDisappear { modifiedAtBatcher.flush() }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { modifiedAtBatcher.flush() }
@@ -230,14 +233,14 @@ struct PageDetailView: View {
             editor.setTextLocked(locked)
         }
         // The menu bar's shortcuts act on this note.
-        .openNote(OpenNote(
-            editor: editor,
-            viewMode: settings.$viewMode,
-            printNote: { [editor, title = page.displayTitle] in
-                Task { await editor.printNote(title: title) }
-            },
-            showOutline: { showsOutline = true }
-        ))
+        .openNote(OpenNote(editor: editor, actions: noteActions, viewMode: settings.viewMode))
+        .onAppear {
+            noteActions.printNote = { [editor, page] in
+                Task { await editor.printNote(title: page.displayTitle) }
+            }
+            noteActions.setViewMode = { [settings] mode in settings.viewMode = mode }
+            noteActions.showOutline = { showsOutline = true }
+        }
         .modifier(NoteInkLifecycle(editor: editor, inkSaver: session.inkSaver))
 #endif
     }
@@ -304,7 +307,7 @@ struct PageDetailView: View {
                 dock: dock, insets: pageInsets, keyboardClearance: keyboardClearance,
                 revealing: revealing, resumingAtPage: resumingAtPage,
                 onScrolled: { [badge, debounceClock] place in
-                    badge.noteScrolled(to: place, clock: debounceClock)
+                    badge.noteScrolled(to: place, clock: debounceClock.clock)
                 }
             )
 

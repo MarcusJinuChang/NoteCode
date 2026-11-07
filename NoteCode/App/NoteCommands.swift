@@ -46,12 +46,36 @@ struct WindowActions {
 
 #if canImport(UIKit)
 /// The open note, handed to the menu bar by its page (`PageDetailView`).
+///
+/// Built of references and a value, so that the page building it again
+/// hands the menu bar the same thing. SwiftUI compares a focused value by
+/// its bits, not by `==`: one holding closures or a `Binding` is new on
+/// every build, and each new one invalidates the scene's root, whose update
+/// re-renders the page, which builds another. On an iPhone a page sheet
+/// lays the page out in one `layoutBelowIfNeeded` that runs until nothing
+/// is dirty, so presenting a sheet over a note never returned (the device
+/// pass's pro-8: Settings, the paywall, Get Info, Run at its large detent).
 struct OpenNote {
-    var editor: NoteEditor
-    var viewMode: Binding<PageViewMode>
-    var printNote: () -> Void
+    let editor: NoteEditor
+    /// What the page does for the menu bar, made once per page.
+    let actions: OpenNoteActions
+    /// The view mode the page is in, for the View menu's tick. A value,
+    /// so a new mode is a new focused value and the menu updates.
+    let viewMode: PageViewMode
+
+    func printNote() { actions.printNote() }
+    func setViewMode(_ mode: PageViewMode) { actions.setViewMode(mode) }
     /// ⌃⌘O: the outline popover, which hangs off the header's button.
-    var showOutline: () -> Void
+    func showOutline() { actions.showOutline() }
+}
+
+/// The open note's actions for the menu bar, one per page for its life and
+/// set as it appears, so `OpenNote` stays the same from build to build.
+@MainActor
+final class OpenNoteActions {
+    var printNote: () -> Void = {}
+    var setViewMode: (PageViewMode) -> Void = { _ in }
+    var showOutline: () -> Void = {}
 }
 #endif
 
@@ -285,8 +309,8 @@ struct NoteCommands: Commands {
             Divider()
             ForEach([PageViewMode.seamless, .compressed, .print], id: \.self) { mode in
                 Toggle(isOn: Binding(
-                    get: { note?.viewMode.wrappedValue == mode },
-                    set: { _ in note?.viewMode.wrappedValue = mode }
+                    get: { note?.viewMode == mode },
+                    set: { _ in note?.setViewMode(mode) }
                 )) {
                     Text(mode.title)
                 }
