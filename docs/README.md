@@ -2,7 +2,7 @@
 
 **What this is.** Where every kind of fact lives, and the rules that keep
 the docs readable. **Read it when** you don't know where to look or where
-to write. **Last checked:** 3 Nov 2026.
+to write. **Last checked:** 7 Nov 2026.
 
 Five minutes a week keep this true: `/weekly`, Mondays.
 
@@ -13,13 +13,13 @@ Five minutes a week keep this true: `/weekly`, Mondays.
 | What I'm doing this week, what's next, what's parked | [NOW.md](NOW.md) | you, Mondays, via `/weekly` | 60 lines |
 | Whether something exists in the app, and how it works in one line | [features.md](features.md) | the PR that changes the feature | one line per feature |
 | Why a feature works the way it does | `design/<area>.md` | the PR | 250 lines; older reasoning goes to `archive/` |
-| What was decided, and what was reversed and why | [decisions.md](decisions.md) | the session that decides | one line per decision |
+| What was decided, and what was reversed and why | [decisions.md](decisions.md) | the session that decides | one line per decision; an entry under the table when a line isn't enough |
 | The rules every session follows (traps, build, shipping) | [../AGENTS.md](../AGENTS.md) | rarely | 300 lines |
 | How a feature goes from idea to shipped, and how to use Claude for it | [process.md](process.md) | rarely | 200 lines |
 | The plan for the one feature being built | `plans/<feature>.md` from [plans/_template.md](plans/_template.md) | the planning session; you approve | 150 lines |
-| The refactor (the live plan until 1.2.0 ships) | [refactor/README.md](refactor/README.md) | you, between waves | |
+| The refactor (finished 7 Nov; Phase 5, the split, is still to come) | [refactor/README.md](refactor/README.md) | you, between waves | |
 | What was done when | [timeline.md](timeline.md) | at the end of each plan | |
-| The long status and the ranked list after 1.0 | [ROADMAP.md](ROADMAP.md) | folds into NOW, decisions and timeline when 1.1.1 ships | |
+| The long status and the ranked list after 1.0 | [ROADMAP.md](ROADMAP.md) | folds into NOW, decisions and timeline when the next update ships | |
 | What to try on a real iPad | [ipad-test-checklist.md](ipad-test-checklist.md) | a PR adds lines; you tick them | |
 | How 1.0 went and what to do differently | [retrospective-2026-11.md](retrospective-2026-11.md), [refactor/lessons.md](refactor/lessons.md) | | |
 | Finished plans and old reasoning | `archive/` | `/weekly` moves them | |
@@ -35,8 +35,8 @@ Private things (marketing, keys, friends' names) never go here:
    suspect, and `/weekly` says so.
 2. **Live or archived.** A file is in `docs/` because someone will read it
    this month. Otherwise it is in `archive/`, where nothing is updated.
-3. **One plan live at a time** in `plans/`. The refactor counts as the live
-   plan until 1.2.0 ships.
+3. **One plan live at a time** in `plans/`. The refactor's release and split
+   count as the live plan until the split is done.
 4. **Dates are absolute.** Never "next week"; "the week of 10 Nov".
 5. **Six status words**, from `features.md`: built, partial, missing,
    planned, idea, stalled. A plan's status: shaped, planned, building, on
