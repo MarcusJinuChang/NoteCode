@@ -766,8 +766,7 @@ struct PageViewTests {
         #expect(inks == [PKInk.InkType.pen.rawValue, "com.apple.ink.eraser"])
     }
 
-    /// Where a stroke shows ink: its mask's parts with area to speak of,
-    /// leaving out the specks `InkPages.shown` adds to keep its frame whole.
+    /// Where a stroke shows ink: its mask's parts with area to speak of.
     private static func inked(_ stroke: PKStroke) -> CGRect {
         guard let mask = stroke.mask else { return stroke.renderFrame }
         return mask.cgPath.componentsSeparated()

@@ -143,15 +143,14 @@ final class PageInkPipeline {
             }
 
             // A stroke the host.canvas holds whole but the ink holds cut changes
-            // shape, and one shown with specks has a frame that isn't its
-            // piece's: each leaves the host.canvas and comes back as stored,
-            // below. A changed copy assigned over the host.canvas's own doesn't
-            // take, and nor does a new one with its id while the old one is
-            // there. Ink undo is cleared here anyway, so nothing loses track.
+            // shape, and one cut in place may keep its whole frame there:
+            // each leaves the host.canvas and comes back as stored, below. A
+            // changed copy assigned over the host.canvas's own doesn't take,
+            // and nor does a new one with its id while the old one is there. Ink undo is cleared here anyway, so nothing loses track.
             // Added and placed a set at a time, never an element at a time:
             // see `convert`. Removed one at a time, which is few: a set
             // without them keeps them, and so does `removeAll(where:)`.
-            let reshaped = state.wholeOnCanvas.union(state.specked).filter { stored[$0] != nil }
+            let reshaped = state.wholeOnCanvas.union(state.cutInPlace).filter { stored[$0] != nil }
             for id in Set(shown.subelements.ids) where stored[id] == nil || reshaped.contains(id) {
                 shown.subelements.removeElement(for: id)
             }
@@ -208,7 +207,7 @@ final class PageInkPipeline {
         state.shown = frames
         state.contents = contents
         state.wholeOnCanvas = []
-        state.specked = []
+        state.cutInPlace = []
         state.buried = [:]
         bottom = frames.values.map(\.maxY).max()
         // The page count depends on the ink, and nothing about the text changed.
@@ -285,16 +284,25 @@ final class PageInkPipeline {
     /// was started on, keeping their ids: in compressed and print layout, a
     /// stroke drawn across a border stops at it once the pen lifts.
     ///
-    /// The id is kept so PaperKit's undo still finds the stroke, and
-    /// assigning the host.canvas registers no undo of its own (probe, 10
-    /// October). Taken off and put back, since a changed copy assigned over
-    /// the host.canvas's own doesn't take, and with a new path (`InkPages.redrawn`),
-    /// or PencilKit goes on drawing it whole.
+    /// Updated in place, with its id, so PaperKit's undo still finds the
+    /// stroke: taken off and put back, it redraws, but two undos then did
+    /// nothing (simulator, 10 October). Assigning the host.canvas registers
+    /// no undo of its own. With a new path (`InkPages.redrawn`), or PencilKit
+    /// goes on drawing it whole. Replaced one at a time, which is few: one
+    /// per stroke drawn across a border.
+    ///
+    /// The canvas takes the piece at once, but the screen may not: a stroke
+    /// is taken in a few milliseconds after the pen lifts, while PaperKit is
+    /// still drawing it for the first time, and what that drawing puts on
+    /// screen is the stroke as drawn, whole, which nothing then redraws
+    /// (simulator, 7 November; cut on the next turn of the run loop it
+    /// stayed whole, cut 250 or 500ms later it stopped at the border). So
+    /// the pieces are given a new path again once that has finished
+    /// (`redrawAfterFirstDrawing`).
     private func showOwnPieces(_ pieces: [PKStroke], on host: PageInkHost) {
         var markup = host.canvas.markup
         for piece in pieces {
-            let whole = state.shown[piece.elementID] ?? piece.renderFrame
-            markup.subelements.updateOrAppend(InkPages.shown(piece, over: whole))
+            markup.subelements.updateOrAppend(InkPages.redrawn(piece))
         }
         host.canvas.markup = markup
 
@@ -302,13 +310,47 @@ final class PageInkPipeline {
         let now = host.canvas.markup.subelements
         for piece in pieces {
             state.shown[piece.elementID] = now[piece.elementID]?.renderFrame
-            state.specked.insert(piece.elementID)
+            state.cutInPlace.insert(piece.elementID)
         }
         bottom = state.shown.values.map(\.maxY).max()
         // A snapshot waiting to be taken in was taken before this.
         if var waiting = newestSnapshot {
             waiting.markup = host.canvas.markup
             newestSnapshot = waiting
+        }
+        redrawAfterFirstDrawing(Set(pieces.map(\.elementID)), on: host)
+    }
+
+    /// How long PaperKit is given to finish drawing a new stroke before the
+    /// pieces cut from it are drawn again: 250ms was enough in the simulator.
+    static let firstDrawing: Duration = .milliseconds(400)
+
+    /// Gives the strokes with `ids` a new path once PaperKit has drawn them
+    /// for the first time, so the screen shows what the canvas holds. Not
+    /// when ink was shown again since, which drew them afresh, nor for a
+    /// stroke the canvas no longer holds: undone, it isn't put back.
+    private func redrawAfterFirstDrawing(_ ids: Set<MarkupOrderedSet.ElementID>, on host: PageInkHost) {
+        let generation = generation
+        Task { [weak self, weak host] in
+            try? await Task.sleep(for: Self.firstDrawing)
+            guard let self, let host, generation == self.generation else { return }
+            // Found with one walk, with `for`: see `InkMarkupTransforms.frames(of:)`.
+            var markup = host.canvas.markup
+            var strokes: [PKStroke] = []
+            for element in markup.subelements where ids.contains(element.elementID) {
+                if let stroke = element as? PKStroke {
+                    strokes.append(stroke)
+                }
+            }
+            guard !strokes.isEmpty else { return }
+            for stroke in strokes {
+                markup.subelements.updateOrAppend(InkPages.redrawn(stroke))
+            }
+            host.canvas.markup = markup
+            if var waiting = newestSnapshot {
+                waiting.markup = host.canvas.markup
+                newestSnapshot = waiting
+            }
         }
     }
 

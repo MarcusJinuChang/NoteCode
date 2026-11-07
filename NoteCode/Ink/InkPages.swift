@@ -111,7 +111,7 @@ nonisolated enum InkPages {
             if let existing = stroke.mask {
                 mask = existing.cgPath.intersection(mask)
             }
-            // Nothing left, or only a speck of `shown`'s.
+            // Nothing left, or only a sliver.
             let kept = mask.boundingBoxOfPath
             guard !kept.isEmpty, kept.height >= minimumPieceHeight || kept.width >= minimumPieceHeight else { return nil }
 
@@ -155,36 +155,6 @@ nonisolated enum InkPages {
         stroke.path = PKStrokePath(controlPoints: Array(stroke.path), creationDate: stroke.path.creationDate)
         return stroke
     }
-
-    /// `piece` as the canvas shows it in place of its whole stroke, which
-    /// covered `extent`: `redrawn`, with a speck added to its mask at each
-    /// of the extent's corners.
-    ///
-    /// Updated in place, PaperKit redraws only the tiles a stroke's new
-    /// frame touches, and a masked stroke's frame is its mask's: ink past
-    /// the border stayed on screen wherever its tiles missed the piece
-    /// (simulator, 10 October). The specks keep the frame, and so what's
-    /// redrawn, on the whole stroke. They're `speck` points square, outside
-    /// the ink, which a stroke's frame leaves room around; points with no
-    /// area didn't do, as PaperKit drops them. Cutting leaves out pieces
-    /// thinner than `minimumPieceHeight`, so a speck never becomes one. Not
-    /// taken off the canvas and put back instead: that redraws, but
-    /// PaperKit's undo then can't find the stroke.
-    static func shown(_ piece: PKStroke, over extent: CGRect) -> PKStroke {
-        var piece = redrawn(piece)
-        guard let mask = piece.mask?.copy() as? UIBezierPath else { return piece }
-        let toStroke = piece.transform.inverted()
-        for corner in [CGPoint(x: extent.minX, y: extent.minY), CGPoint(x: extent.maxX - speck, y: extent.maxY - speck)] {
-            let speck = UIBezierPath(rect: CGRect(origin: corner, size: CGSize(width: speck, height: speck)))
-            speck.apply(toStroke)
-            mask.append(speck)
-        }
-        piece.mask = mask
-        return piece
-    }
-
-    /// The side of `shown`'s specks, in note points.
-    static let speck: CGFloat = 0.01
 
     // MARK: Overflow
 

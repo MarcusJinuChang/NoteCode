@@ -57,12 +57,12 @@ nonisolated enum InkCapture {
         /// mode switch or reopening — when the canvas takes its pieces.
         var wholeOnCanvas: Set<ElementID> = []
 
-        /// Strokes the canvas shows as their own piece with
-        /// `InkPages.shown`'s specks, so their frame there is the whole
-        /// stroke's, not their piece's. Like `wholeOnCanvas`, they're put
-        /// back as stored when ink is next shown: placed by that frame, they
-        /// moved by half the part that's hidden (simulator, 10 October).
-        var specked: Set<ElementID> = []
+        /// Strokes the canvas shows as their own piece, cut in place when the
+        /// pen lifted (`PageInkPipeline.showOwnPieces`). Like
+        /// `wholeOnCanvas`, they're put back as stored when ink is next
+        /// shown: placed by the frame the canvas gives them, they didn't
+        /// land on their words (unit test, 7 November).
+        var cutInPlace: Set<ElementID> = []
 
         /// Overflow taken out with its stroke since ink was last shown, by
         /// family, so that undoing the erase brings it back. Showing ink
@@ -138,7 +138,7 @@ nonisolated enum InkCapture {
         let hidesOverflow = layout.mode != .seamless
         var updated = state.ink
         var whole = state.wholeOnCanvas
-        var specked = state.specked
+        var cutInPlace = state.cutInPlace
         var buried = state.buried
         var reshow: [PKStroke] = []
 
@@ -180,7 +180,7 @@ nonisolated enum InkCapture {
         // kept aside in case the erase is undone.
         for id in gone {
             whole.remove(id)
-            specked.remove(id)
+            cutInPlace.remove(id)
             guard let stroke = remove(id), !InkPages.isOverflow(stroke.id) else { continue }
             let family = InkPages.family(of: stroke.id)
             let pieces = hidden(of: family).compactMap(remove)
@@ -273,7 +273,7 @@ nonisolated enum InkCapture {
         }
 
         return Result(
-            state: State(ink: updated, shown: frames, contents: contents, wholeOnCanvas: whole, specked: specked, buried: buried),
+            state: State(ink: updated, shown: frames, contents: contents, wholeOnCanvas: whole, cutInPlace: cutInPlace, buried: buried),
             changed: true,
             inkBottom: bottom,
             reshow: reshow,
