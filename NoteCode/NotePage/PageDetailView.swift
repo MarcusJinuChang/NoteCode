@@ -108,6 +108,9 @@ struct PageDetailView: View {
     /// The header's outline popover (also ⌃⌘O).
     @State private var showsOutline = false
 
+    /// What the menu bar's Print, View and Outline do on this note.
+    @State private var noteActions = OpenNoteActions()
+
     /// The page badge: where the reader is while the note scrolls.
     @State private var badge = PageBadgeModel()
 #else
@@ -230,14 +233,14 @@ struct PageDetailView: View {
             editor.setTextLocked(locked)
         }
         // The menu bar's shortcuts act on this note.
-        .openNote(OpenNote(
-            editor: editor,
-            viewMode: settings.$viewMode,
-            printNote: { [editor, title = page.displayTitle] in
-                Task { await editor.printNote(title: title) }
-            },
-            showOutline: { showsOutline = true }
-        ))
+        .openNote(OpenNote(editor: editor, actions: noteActions, viewMode: settings.viewMode))
+        .onAppear {
+            noteActions.printNote = { [editor, page] in
+                Task { await editor.printNote(title: page.displayTitle) }
+            }
+            noteActions.setViewMode = { [settings] mode in settings.viewMode = mode }
+            noteActions.showOutline = { showsOutline = true }
+        }
         .modifier(NoteInkLifecycle(editor: editor, inkSaver: session.inkSaver))
 #endif
     }
