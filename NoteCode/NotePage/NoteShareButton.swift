@@ -107,27 +107,29 @@ struct NoteShareButton: View {
     }
 
     private func present(_ url: URL) {
-        if let view = anchor.view {
-            Self.present(url, from: view)
-        }
+        guard let placement = SharePopover.placement(anchor: anchor.view, keyWindow: Self.keyWindow) else { return }
+        Self.present(url, in: placement.window, pointingAt: placement.button)
+    }
+
+    /// The window the reader is in: the active scene's key window.
+    private static var keyWindow: UIWindow? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let active = scenes.filter { $0.activationState == .foregroundActive }
+        return (active.isEmpty ? scenes : active).lazy.compactMap(\.keyWindow).first
     }
 
     /// Opens the share sheet over whatever is showing, pointing at the
     /// button on iPad, where it's a popover.
-    private static func present(_ url: URL, from anchor: UIView) {
-        guard var presenter = anchor.window?.rootViewController else { return }
+    private static func present(_ url: URL, in window: UIWindow, pointingAt button: CGRect) {
+        guard var presenter = window.rootViewController else { return }
         while let presented = presenter.presentedViewController {
             presenter = presented
         }
 
         let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-        if let popover = activity.popoverPresentationController, let window = anchor.window {
-            // Pointed at in the window's coordinates, not the anchor's own:
-            // the anchor sits in the toolbar's hosting view, and in landscape
-            // its bounds put the popover in the window's top-left corner.
-            let rect = anchor.convert(anchor.bounds, to: window)
+        if let popover = activity.popoverPresentationController {
             popover.sourceView = window
-            popover.sourceRect = SharePopover.sourceRect(button: rect, in: window.bounds)
+            popover.sourceRect = SharePopover.sourceRect(button: button, in: window.bounds)
         }
         presenter.present(activity, animated: true)
     }
@@ -135,6 +137,25 @@ struct NoteShareButton: View {
 
 /// The share sheet's pure choices: where it points, and what the file is called.
 nonisolated enum SharePopover {
+
+    /// The window to present in and the button's rect in it.
+    ///
+    /// The anchor's window when it has one. **It may not**: on a short note
+    /// with no ink the anchor was the only copy SwiftUI made, and it sat in a
+    /// toolbar item host that was in no window, so Share wrote the PDF and
+    /// opened nothing (device pass, 7 Nov). Then the key window, with no
+    /// rect, so `sourceRect` points at the top right, where the button is.
+    ///
+    /// Pointed at in the window's coordinates, not the anchor's own: the
+    /// anchor sits in the toolbar's hosting view, and in landscape its bounds
+    /// put the popover in the window's top-left corner.
+    @MainActor
+    static func placement(anchor: UIView?, keyWindow: UIWindow?) -> (window: UIWindow, button: CGRect)? {
+        if let anchor, let window = anchor.window {
+            return (window, anchor.convert(anchor.bounds, to: window))
+        }
+        return keyWindow.map { ($0, .zero) }
+    }
 
     /// The rect the popover points at. The Share button's, in window
     /// coordinates, or when that can't be trusted (no size, or outside the

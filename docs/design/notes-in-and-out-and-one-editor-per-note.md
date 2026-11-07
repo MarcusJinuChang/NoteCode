@@ -17,6 +17,11 @@ v3 phase 7 (14 Oct, `docs/archive/ui-design-v3-implementation.md`). The pure par
   top-left corner (31 Oct; not seen on a device since). The PDF's title
   metadata and file name are the note's title, or its first line when the
   title is blank (`NoteTitle.display`, the same title Print uses).
+- **The sheet opens even when the anchor is in no window**
+  (`SharePopover.placement`, 7 Nov): on a short note with no ink the anchor
+  view sat in a toolbar item host that was in no window, and Share wrote the
+  PDF and opened nothing. Then it presents from the scene's key window,
+  pointing at the top right (`ShareSheetUITests`).
 - **File names** are `NoteFileName.stem(for:)`, which `NotePDF.fileName` now
   uses too: `/ \ :` become `-`, a leading `.` goes (or the file would be
   hidden), control characters go, 80 characters at most, never blank.
