@@ -63,7 +63,9 @@ phase 5 of `docs/archive/ui-design-v2-implementation.md`). Pure rules are in
   it as code, as it did a key earlier. Return, or the caret leaving the
   line, lets go and the block closes there. Only the editor's snapshot holds
   a line; every other parse (search, outline, export) reads it as CommonMark
-  does. `FenceTypingTests`, `HeldFenceTests`.
+  does. An edit that moves no caret (one a feature applies through
+  `EditorServices`) can leave a held line open until the next caret move
+  or edit; nothing shows it. `FenceTypingTests`, `HeldFenceTests`.
 - **Not checked:** a real tap on the name, the menu on the iPad, fast typing
   into a new block, a paste, a block scrolled out of view while its state
   changes (it draws its state when it returns, since it asks at draw time),

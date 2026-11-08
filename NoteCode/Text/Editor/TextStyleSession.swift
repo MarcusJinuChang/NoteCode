@@ -54,10 +54,10 @@ final class TextStyleSession {
 
     /// The note's characters were edited: the snapshot is stale. `edited`
     /// is the storage's edited range in `text`, which decides `heldFence`.
-    func textDidEdit(_ edited: NSRange? = nil, in text: NSString? = nil) {
+    func textDidEdit(_ edited: NSRange, in text: NSString) {
         currentSnapshot = nil
         editCount += 1
-        heldFence = edited.flatMap { edited in text.flatMap { DocumentParser.heldFence(afterEditing: edited, in: $0) } }
+        heldFence = DocumentParser.heldFence(afterEditing: edited, in: text)
     }
 
     /// Lets go of `heldFence` once the caret is anywhere but its line's end.
