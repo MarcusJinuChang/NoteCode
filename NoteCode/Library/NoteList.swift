@@ -77,9 +77,9 @@ struct NoteList: View {
         NoteActions(navigation: navigation, context: modelContext, toasts: toasts)
     }
 
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.modelContext) var modelContext
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.appExtensions) private var extensions
+    @Environment(\.appExtensions) var extensions
     @AppStorage(SettingKeys.General.accent) private var accent
     @Environment(ToastCenter.self) private var toasts: ToastCenter?
     // The notes that are not in Recently Deleted (F8: the store leaves the
@@ -99,7 +99,7 @@ struct NoteList: View {
 
     /// Which way up the "+" button's tap makes a note's pages
     /// (Settings › Notes › New Notes).
-    @AppStorage(SettingKeys.Notes.newNoteOrientation) private var newNoteOrientation
+    @AppStorage(SettingKeys.Notes.newNoteOrientation) var newNoteOrientation
 
     /// Whether a note made here is opened (Settings › Notes › Open Note After
     /// Creating).
@@ -333,36 +333,6 @@ struct NoteList: View {
         }
     }
 
-    // MARK: Empty states
-
-    /// A list with no notes and no folders: the two ways to start.
-    ///
-    /// "Open Welcome Note" makes a new copy, as Settings does, rather than
-    /// looking for one: an empty list means the first launch's copy is gone.
-    private var emptyList: some View {
-        ContentUnavailableView {
-            Label { Text("No Notes") } icon: { EmptyStateMark() }
-        } description: {
-            Text("Start a note, or open the tour of what NoteCode does.")
-        } actions: {
-            Button("New Note") {
-                addPage(newNoteOrientation, in: nil)
-            }
-            .buttonStyle(.borderedProminent)
-            Button("Open Welcome Note") {
-                selection = WelcomeNote.make(in: modelContext, runLines: extensions.runLines)
-            }
-        }
-    }
-
-    /// What a folder shows when nothing is filed in it. Not a note, so it
-    /// can't be selected.
-    private var emptyFolderRow: some View {
-        Text("No Notes")
-            .foregroundStyle(.secondary)
-            .selectionDisabled()
-    }
-
     // MARK: Rows
 
     /// A search's results, each opening its note.
@@ -538,7 +508,7 @@ struct NoteList: View {
         NewNotes.folder(whileViewing: selection)
     }
 
-    private func addPage(_ orientation: PageOrientation, in folder: Folder?) {
+    func addPage(_ orientation: PageOrientation, in folder: Folder?) {
         let page: Page = withAnimation {
             if let folder {
                 closedFolders.remove(folder.persistentModelID)
