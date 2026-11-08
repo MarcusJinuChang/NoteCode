@@ -386,6 +386,21 @@ struct DocumentTextView: UIViewRepresentable {
             redrawFences(ofBlocks: Set(ranges.indices), ranges: ranges, in: textView)
         }
 
+        /// Where `fragment`'s paragraph sits in its code block as the note is
+        /// now, or `nil` when it is in none. See `CodeBlockLayoutFragment.placement`.
+        func placement(of fragment: NSTextLayoutFragment, in storage: NSTextStorage) -> CodeBlockLayoutFragment.Placement? {
+            guard let contentManager = fragment.textLayoutManager?.textContentManager,
+                  let range = fragment.textElement?.elementRange
+            else { return nil }
+            let start = contentManager.offset(from: contentManager.documentRange.location, to: range.location)
+            let element = NSRange(location: start, length: contentManager.offset(from: range.location, to: range.endLocation))
+            let ranges = codeRanges(in: storage)
+            guard let index = FenceVisibility.blockIndex(containing: start, in: ranges),
+                  let position = CodeBlockPosition.of(element: element, in: ranges[index].range)
+            else { return nil }
+            return .init(position: position, closesBlock: ranges[index].isClosed && position.roundsBottom)
+        }
+
         /// A paragraph's line number in its block, from 1 for the first line
         /// after the opening fence, `nil` when numbers are off.
         ///
@@ -498,8 +513,11 @@ extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
                 continue
             }
             let fragment = CodeBlockLayoutFragment(textElement: textElement, range: textElement.elementRange)
-            fragment.position = position
-            fragment.closesBlock = code.isClosed && position.roundsBottom
+            fragment.madePlacement = .init(position: position, closesBlock: code.isClosed && position.roundsBottom)
+            fragment.placement = { [weak self, weak fragment, weak storage] in
+                guard let self, let fragment, let storage else { return nil }
+                return placement(of: fragment, in: storage)
+            }
             fragment.isOutput = code.isOutput
             fragment.lineNumber = { [weak self, weak fragment, weak storage] in
                 guard let self, let fragment, let storage else { return nil }
