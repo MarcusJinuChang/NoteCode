@@ -192,6 +192,43 @@ final class HotbarUITests: XCTestCase {
         app.terminate()
     }
 
+    /// Level with Undo, in the gap beside the bar: nothing there takes the
+    /// touch, so the stroke stays. Undo's frame took touches 10pt past
+    /// itself, as the mode toggle's did, until the pinned buttons' touches
+    /// were bounded to the bar.
+    @MainActor
+    private func checkGapBesideUndo(dock: Dock) {
+        let app = launchInInkMode(dock: dock)
+        let undo = app.buttons["Undo"]
+        XCTAssertFalse(undo.isEnabled, "an empty note has nothing to undo")
+
+        // A stroke across the middle of the page, well clear of the bar.
+        let window = app.windows.firstMatch.frame
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        origin.withOffset(CGVector(dx: window.midX - 120, dy: window.midY))
+            .press(forDuration: 0.1, thenDragTo: origin.withOffset(CGVector(dx: window.midX + 120, dy: window.midY + 40)))
+        XCTAssertTrue(undo.waitForEnabled(), "the stroke never made Undo available")
+
+        // 6pt past the drawn bar, as in `checkReach`, level with Undo.
+        let bar = app.otherElements["hotbar"].frame.insetBy(dx: -Self.barPadding, dy: -Self.barPadding)
+        let frame = undo.frame
+        let inGap: CGPoint
+        switch dock {
+        case .bottom: inGap = CGPoint(x: frame.midX, y: bar.minY - 6)
+        case .left: inGap = CGPoint(x: bar.maxX + 6, y: frame.midY)
+        case .right: inGap = CGPoint(x: bar.minX - 6, y: frame.midY)
+        }
+        tap(inGap, in: app)
+        Thread.sleep(forTimeInterval: 0.5)
+        XCTAssertTrue(undo.isEnabled, "a touch in the gap beside Undo undid the stroke")
+        XCTAssertEqual(app.buttons["modeToggle"].value as? String, "Draw mode")
+        app.terminate()
+    }
+
+    @MainActor func testGapBesideUndoDockedAtTheBottom() { checkGapBesideUndo(dock: .bottom) }
+    @MainActor func testGapBesideUndoDockedLeft() { checkGapBesideUndo(dock: .left) }
+    @MainActor func testGapBesideUndoDockedRight() { checkGapBesideUndo(dock: .right) }
+
     @MainActor func testReachDockedAtTheBottom() { checkReach(dock: .bottom) }
     // Docked to a side, the tap in the gap is level with the mode toggle,
     // 10pt past its frame: it switched the note to text mode, and the row
@@ -243,5 +280,14 @@ extension HotbarUITests {
         }
         hyphen.tap(); hyphen.tap(); hyphen.tap()
         XCTAssertEqual(text.value as? String, "---")
+    }
+}
+
+private extension XCUIElement {
+    /// Waits for the element to become enabled.
+    func waitForEnabled(timeout: TimeInterval = 3) -> Bool {
+        let predicate = NSPredicate(format: "isEnabled == true")
+        let wait = XCTNSPredicateExpectation(predicate: predicate, object: self)
+        return XCTWaiter().wait(for: [wait], timeout: timeout) == .completed
     }
 }
