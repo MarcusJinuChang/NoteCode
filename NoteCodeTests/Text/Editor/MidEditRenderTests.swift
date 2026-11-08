@@ -46,6 +46,12 @@ struct MidEditRenderTests {
     final class RenderOnSelection: NSObject, UITextViewDelegate {
         let coordinator: DocumentTextView.Coordinator
         let render: () -> Void
+        /// Render only where the keyboard is reloaded: where the caret
+        /// crosses between prose and code and the policy changes, which is
+        /// the only place the device pass saw a render inside a keystroke.
+        var onlyWhereTheKeyboardReloads = false
+        /// The note's text at each such render, before the keystroke ended.
+        private(set) var crossings: [String] = []
 
         init(coordinator: DocumentTextView.Coordinator, render: @escaping () -> Void) {
             self.coordinator = coordinator
@@ -61,7 +67,10 @@ struct MidEditRenderTests {
         }
 
         func textViewDidChangeSelection(_ textView: UITextView) {
+            let before = coordinator.rewritingPolicy
             coordinator.textViewDidChangeSelection(textView)
+            guard !onlyWhereTheKeyboardReloads || coordinator.rewritingPolicy != before else { return }
+            if onlyWhereTheKeyboardReloads { crossings.append(textView.textStorage.string) }
             render()
         }
     }
@@ -147,6 +156,35 @@ struct MidEditRenderTests {
         guard textView.text == "a `code` b" else { return }
         let undo = try #require(textView.undoManager)
         #expect(undo.canUndo)
+        while undo.canUndo { undo.undo() }
+        #expect(textView.text == "")
+        #expect(hosted.note.text == "")
+    }
+
+    /// Device pass writing-5: `a `code` b` typed on the soft keyboard lost
+    /// its first backtick, or another character, and the first Undo after
+    /// it aborted. The render that did it came only from the keyboard
+    /// reloading as the caret crossed between prose and code, so this
+    /// renders there and nowhere else. Pushing the stale binding there
+    /// stored "a code b": each backtick is a crossing, and each was wiped.
+    @Test("A render only where the keyboard reloads, at each prose/code crossing, loses no character")
+    func renderWhereTheKeyboardReloads() throws {
+        let hosted = try host()
+        defer { hosted.close() }
+        hosted.delegate.onlyWhereTheKeyboardReloads = true
+        let textView = hosted.textView
+
+        type("a `code` b", in: textView)
+
+        // Recorded mid-keystroke: into code at the first backtick, out at
+        // the space after the closing one, the two characters the device
+        // pass lost.
+        #expect(hosted.delegate.crossings == ["a `", "a `code` "])
+        #expect(textView.text == "a `code` b")
+        #expect(hosted.note.text == "a `code` b")
+
+        guard textView.text == "a `code` b" else { return }
+        let undo = try #require(textView.undoManager)
         while undo.canUndo { undo.undo() }
         #expect(textView.text == "")
         #expect(hosted.note.text == "")
