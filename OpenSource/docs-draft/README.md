@@ -49,8 +49,8 @@ You need a Mac with Xcode and the iOS 27 SDK.
    bundle id prefix:
 
    ```
-   DEVELOPMENT_TEAM = ABCDE12345
-   BUNDLE_ID_PREFIX = com.example
+   DEVELOPMENT_TEAM = <your team id>
+   BUNDLE_ID_PREFIX = <a reverse domain of yours>
    ```
 
    The simulator needs neither; a device needs both.

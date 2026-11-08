@@ -16,7 +16,8 @@
 #    if not (`brew install gitleaks`);
 #  - a grep for each pattern in SCANS: the AdMob ids, the run proxy's URL,
 #    the team id, the com.marcus bundle and product ids, the ad SDKs, email
-#    addresses, local paths, prices, and the Pro test plan.
+#    addresses, local paths, prices, and the Pro test plan;
+#  - every relative Markdown link to a file the export left out.
 # Exits 0 when nothing is found, 1 when anything is, 2 when the export
 # itself failed. The split expects 0 before the public repo is made.
 
@@ -127,7 +128,7 @@ SCANS=(
   'team id|N454V8HV9J|DEVELOPMENT_TEAM *= *[A-Z0-9]{10}'
   'com.marcus id|com\.marcus\.'
   'ad SDK|GoogleMobileAds|google-mobile-ads|UserMessagingPlatform|google-user-messaging|GADApplicationIdentifier'
-  'email address|[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}'
+  'email address|[A-Za-z0-9._%+-]+@[A-Za-z][A-Za-z0-9-]*(\.[A-Za-z0-9-]+)*\.(com|net|org|edu|io|dev|app|me|co|uk)([^A-Za-z0-9]|$)'
   'local path|/Users/[A-Za-z]|NoteCode-private'
   'price|\$[0-9]+\.[0-9]{2}'
   'Pro test plan|Pro\.xctestplan'
@@ -137,10 +138,23 @@ for scan in $SCANS; do
   found=$(cd "$out" && grep -rnIE -- "$pattern" . | sed 's|^\./||' |
     { [[ $label == 'email address' ]] && grep -vE '@example\.(com|test)' || cat; } |
     cut -c1-220 | sort)
-  n=0; [[ -n $found ]] && n=${#${(f)found}}
-  print "\n== $label: $n"
-  (( n )) && { print -r -- $found; hits=1; }
+  lines=(${(f)found})
+  print "\n== $label: $#lines"
+  (( $#lines )) && { print -rl -- $lines; hits=1; }
 done
+
+# Relative links in the Markdown that lead to a file the export left out.
+broken=()
+for md in $out/**/*.md(N); do
+  for target in ${(f)"$(grep -oE '\]\([^)#[:space:]]+' $md | cut -c3-)"}; do
+    [[ $target == (http|https|mailto):* || $target == /* ]] && continue
+    # Only paths: `[text](url)` in a note about link syntax is not one.
+    [[ $target == */ || $target == *.(md|txt|swift|sh|html|png|json|plist|xcprivacy|storekit) ]] || continue
+    [[ -e ${md:h}/$target ]] || broken+=("${md#$out/}: $target")
+  done
+done
+print "\n== link to a file left out: $#broken"
+(( $#broken )) && { print -rl -- ${(o)broken}; hits=1; }
 
 print
 (( hits )) && { print "export-public: hits above, in $out"; exit 1; }
