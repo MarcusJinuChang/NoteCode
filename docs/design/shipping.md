@@ -115,15 +115,17 @@ Google's test ids (`AdConfig.units(forRelease:)`, pinned in `AdTests`).
   before the launch has decided about the title screen and then sits under it
   (31 Oct; Google's form and the system's tracking prompt showed over the title
   screen). `HomeView.consentMayStart` is false until the launch task has
-  claimed the title screen and while it is up. Without ATT consent the request carries `npa=1`.
+  claimed the title screen and while it is up. Without ATT consent the
+  request carries `npa=1`.
   That order is the app's own. While the AdMob console publishes an IDFA
   explainer message for this app, Google's flow puts ATT on the first visit
   outside the EEA and UK (next bullet).
 - **UMP's IDFA explainer asks for tracking on the first visit** (found 8 Nov,
-  device pass home-4). The sequence was a fresh install in the US (en_US, simulator, the real
-  `GADApplicationIdentifier`), Get Started, and then Google's "Our app wants to stay free for you"
-  on the first Home visit. One Continue and the system ATT alert appeared
-  half a second later, with Google's card still behind it.
+  device pass home-4). The sequence was a fresh install in the US (en_US,
+  simulator, the real `GADApplicationIdentifier`), Get Started, and then
+  Google's "Our app wants to stay free for you" on the first Home visit.
+  One Continue and the system ATT alert appeared half a second later, with
+  Google's card still behind it.
   `adHomeVisits` was 0 going in, so `AdConsent`'s `visits >= 1` gate did not
   fire and the app never called `requestTracking()`. The defaults showed
   `IABTCF_gdprApplies` = 0, so no GDPR form was due, and
@@ -141,30 +143,35 @@ Google's test ids (`AdConfig.units(forRelease:)`, pinned in `AdTests`).
   not yet checked in an EEA region):
   - Outside the EEA and UK: the IDFA explainer, so ATT comes on the first visit.
   - In the EEA or UK with no answer yet: the GDPR form, and no ATT. The
-    app's own ATT prompt comes on the second visit in that launch, without
-    the explainer.
-  - In the EEA or UK after an answer: UMP would show the explainer on a later launch's first visit,
-    but by then ATT has usually been answered, and UMP loads that form only
-    while the status is not determined.
+    app's own ATT prompt comes on the second Home visit ever (`adHomeVisits`
+    is saved, so that may be a later launch's first), without the explainer.
+  - In the EEA or UK after an answer: UMP would show the explainer on a
+    later launch's first visit, but by then ATT has usually been answered,
+    and UMP loads that form only while the status is not determined.
 
   The code could keep its own order only by not presenting the form on the
   first visit when `IABTCF_gdprApplies` is not 1, and presenting it on the
   second visit instead. GDPR would not wait, but the change leans on an
   IAB key UMP writes rather than on UMP's API. It would also still show
-  the explainer, one visit later. Which way to go is Marcus's choice; no code changed:
+  the explainer, one visit later. Which way to go is Marcus's choice; no
+  code changed:
   - **Accept it** (no change in the build). The first visit outside the EEA
     is Google's explainer and then ATT. The app's second-visit prompt stays
     as the fallback for the EEA and UK, and for when the explainer isn't
-    published. `ReviewPrompt` already waits on `trackingAnswered`, so the
-    rating prompt is unaffected. Change the Order bullet above and
-    features.md › Ads to say so.
+    published. The rating prompt already waits for tracking to be answered
+    (`mayAskForReview` in `Pro/AppStoreEdition.swift`, checked by
+    `ContentView`), so it is unaffected. Change the Order bullet above,
+    features.md › Ads, the App Review notes
+    (`release-1.0/R5-submission.md`, "on a later visit to Home") and the
+    P3 line of `ipad-test-checklist.md` to say so.
   - **Turn it off** in the console: admob.google.com › Privacy & messaging
     › IDFA (Manage on its card) › the NoteCode message's row › Unpublish,
     then confirm. Google says the message can keep showing for up to 10
     minutes. After that the first visit outside the EEA shows nothing and
     ATT comes, bare, on the second visit, as designed. Readers who already
-    answered are unaffected. To check, run a fresh install with `simctl privacy reset all`
-    and look for no alert on the first Home visit (home-4).
+    answered are unaffected. To check, run a fresh install with
+    `simctl privacy reset all` and look for no alert on the first Home
+    visit (home-4).
 - **Size**: the standard anchored adaptive size (`AdSizing`, 31 Oct), for the
   width the slot is given, measured on a placeholder the banner lies over.
   It was the large anchored size, up to 150pt tall: a seventh of an iPad
