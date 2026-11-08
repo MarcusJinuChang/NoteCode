@@ -392,6 +392,21 @@ struct DocumentTextView: UIViewRepresentable {
         /// Counted at draw time from the note as it is now: an edit above
         /// moves a block without touching its fragments. A fence line gets a
         /// number here too, which the fragment declines to draw.
+        /// Where `fragment`'s paragraph sits in its code block as the note is
+        /// now, or `nil` when it is in none. See `CodeBlockLayoutFragment.placement`.
+        func placement(of fragment: NSTextLayoutFragment, in storage: NSTextStorage) -> CodeBlockLayoutFragment.Placement? {
+            guard let contentManager = fragment.textLayoutManager?.textContentManager,
+                  let range = fragment.textElement?.elementRange
+            else { return nil }
+            let start = contentManager.offset(from: contentManager.documentRange.location, to: range.location)
+            let element = NSRange(location: start, length: contentManager.offset(from: range.location, to: range.endLocation))
+            for code in codeRanges(in: storage) {
+                guard let position = CodeBlockPosition.of(element: element, in: code.range) else { continue }
+                return .init(position: position, closesBlock: code.isClosed && position.roundsBottom)
+            }
+            return nil
+        }
+
         func lineNumber(of fragment: NSTextLayoutFragment, in storage: NSTextStorage) -> Int? {
             let ranges = codeRanges(in: storage)
             guard showsLineNumbers, let offset = offset(of: fragment),
@@ -498,8 +513,11 @@ extension DocumentTextView.Coordinator: NSTextLayoutManagerDelegate {
                 continue
             }
             let fragment = CodeBlockLayoutFragment(textElement: textElement, range: textElement.elementRange)
-            fragment.position = position
-            fragment.closesBlock = code.isClosed && position.roundsBottom
+            fragment.madePlacement = .init(position: position, closesBlock: code.isClosed && position.roundsBottom)
+            fragment.placement = { [weak self, weak fragment, weak storage] in
+                guard let self, let fragment, let storage else { return nil }
+                return placement(of: fragment, in: storage)
+            }
             fragment.isOutput = code.isOutput
             fragment.lineNumber = { [weak self, weak fragment, weak storage] in
                 guard let self, let fragment, let storage else { return nil }
