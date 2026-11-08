@@ -111,7 +111,7 @@ nonisolated enum InkPages {
             if let existing = stroke.mask {
                 mask = existing.cgPath.intersection(mask)
             }
-            // Nothing left, or only a speck of `shown`'s.
+            // Nothing left, or only a speck of `spanning`'s.
             let kept = mask.boundingBoxOfPath
             guard !kept.isEmpty, kept.height >= minimumPieceHeight || kept.width >= minimumPieceHeight else { return nil }
 
@@ -156,21 +156,19 @@ nonisolated enum InkPages {
         return stroke
     }
 
-    /// `piece` as the canvas shows it in place of its whole stroke, which
-    /// covered `extent`: `redrawn`, with a speck added to its mask at each
-    /// of the extent's corners.
+    /// `piece` with a speck added to its mask at each of `extent`'s
+    /// corners, and a new path: its frame, and so what PaperKit redraws
+    /// when it's replaced, is then the whole stroke's.
     ///
-    /// Updated in place, PaperKit redraws only the tiles a stroke's new
-    /// frame touches, and a masked stroke's frame is its mask's: ink past
-    /// the border stayed on screen wherever its tiles missed the piece
-    /// (simulator, 10 October). The specks keep the frame, and so what's
-    /// redrawn, on the whole stroke. They're `speck` points square, outside
-    /// the ink, which a stroke's frame leaves room around; points with no
-    /// area didn't do, as PaperKit drops them. Cutting leaves out pieces
-    /// thinner than `minimumPieceHeight`, so a speck never becomes one. Not
-    /// taken off the canvas and put back instead: that redraws, but
-    /// PaperKit's undo then can't find the stroke.
-    static func shown(_ piece: PKStroke, over extent: CGRect) -> PKStroke {
+    /// Updated in place, PaperKit redraws only the tiles the stroke's old
+    /// and new frames touch, and a masked stroke's frame is its mask's: once
+    /// the canvas holds the piece, ink past the border drawn there stays
+    /// (simulator, 10 October and 7 November). The specks are `speck`
+    /// points square, outside the ink, which a stroke's frame leaves room
+    /// around; points with no area didn't do, as PaperKit drops them.
+    /// Cutting leaves out pieces thinner than `minimumPieceHeight`, so a
+    /// speck never becomes one. Used by `PageInkPipeline.redrawCutPieces`.
+    static func spanning(_ piece: PKStroke, over extent: CGRect) -> PKStroke {
         var piece = redrawn(piece)
         guard let mask = piece.mask?.copy() as? UIBezierPath else { return piece }
         let toStroke = piece.transform.inverted()
@@ -183,7 +181,7 @@ nonisolated enum InkPages {
         return piece
     }
 
-    /// The side of `shown`'s specks, in note points.
+    /// The side of `spanning`'s specks, in note points.
     static let speck: CGFloat = 0.01
 
     // MARK: Overflow

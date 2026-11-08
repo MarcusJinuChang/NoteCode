@@ -177,7 +177,8 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
 
     /// The stored ink, the snapshot on its way in, the generation and the
     /// ink's lowest point (`PageInkPipeline`).
-    private let inkPipeline: PageInkPipeline
+    /// Internal for `PageViewTests.redrawCost`.
+    let inkPipeline: PageInkPipeline
 
     /// Called with the note's ink, in print coordinates, whenever the reader
     /// changes it: a stroke drawn, erased or moved.
