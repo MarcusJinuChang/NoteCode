@@ -58,7 +58,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Links | Markdown links, tappable | built | `writing-hidden-…md` |
 | Quotes, rules | `>` quotes up to a depth, `---` rules | built | `obsidian-s-other-marks-and-blocks.md` |
 | Paste and copy with formatting | Rich paste becomes Markdown with colours, sizes, code and lists; copy writes RTF and HTML as well | built | `paste-and-copy-with-formatting.md` |
-| Autocorrect | On in prose, off in code; Settings › Writing › Autocorrect turns prose off, in a note that is already open too. Smart dashes make a typed `--` between words a dash while on; at a line's start the hyphens stay, so `---` is a rule or a front-matter fence | built (feedback #19) | `the-note-page.md` |
+| Autocorrect | On in prose, off in code; Settings › Writing › Autocorrect turns prose off, in a note that is already open too. Smart dashes make a typed `--` between words a dash while on; at a line's start the hyphens stay, so `---` is a rule or a front-matter fence. Where nothing rewrites (code, or prose with it off), two quick spaces stay two: the keyboard's "." shortcut is put back (`PeriodShortcut`) | built (feedback #19) | `the-note-page.md` |
 | Marker dimming | Settings › Writing › Markers: heading marks, list bullets, checkboxes, code fences each Off / Dim (default) / Full | built (feedback #9) | `settings.md` |
 | Caret on empty space | A tap below the last line adds the blank lines needed and puts the caret there, one undo step; gaps between sheets in print and compressed are not handled | built (feedback #7) | |
 | Outline and page badge | Headings list (exactly as tall as its rows) jumps to a heading; "2 / 5" shows the page | built | `navigation-and-the-text-options-row.md` |
