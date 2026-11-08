@@ -41,7 +41,7 @@ Tests are listed after the app. The budget (lessons.md 4) is a question at
 | # | Debt | Size | Cost if left | First step |
 |---|---|---|---|---|
 | D1 | `DocumentStyler.swift` 845 lines (above) | M | The largest app file; a styling change reads both halves | Move the colour helpers (`codeColors` :494, `inheritedCodeColor` :790, `TextColourCache` :833) to `DocumentStyler+Colour.swift`, as a pure move with `verify-move.sh` |
-| D2 | `NoteEditor.swift` 728 lines | M | The editor is still the one place features, settings and controllers meet | **Answered 8 Nov ([d2-note-editor.md](d2-note-editor.md)):** no. The plumbing is about 55 lines and features are made from the whole editor. Instead, two pure moves into `NoteEditor+Formatting.swift` and `NoteEditor+Page.swift` take it to about 440 lines; one private `perform` becomes internal. Not needed before the split |
+| D2 | `NoteEditor.swift` 728 lines | M | The editor is still the one place features, settings and controllers meet | **Done, #253 ([d2-note-editor.md](d2-note-editor.md)):** no. The plumbing is about 55 lines and features are made from the whole editor. Instead, two pure moves into `NoteEditor+Formatting.swift` and `NoteEditor+Page.swift` take it to about 440 lines; one private `perform` becomes internal. Not needed before the split |
 | D3 | `NoteList.swift` 613 lines | S | 13 over budget | Move its Menus section (:418) or Empty states (:336), whichever is a pure move |
 | D4 | `RunPanel.swift` 610 lines, six views | S | Pro-only; 10 over | One file per view (`RunDock`, `NotesRunToggle`, `RunTopBarItem`, `RunSidePanel`, `RunPanelHost`) |
 | D5 | `PageViewTests.swift` 1,972 lines | M | Slow to navigate; a failure names a 2,000-line file | Split by the PageView piece it tests |
