@@ -111,7 +111,7 @@ nonisolated enum InkPages {
             if let existing = stroke.mask {
                 mask = existing.cgPath.intersection(mask)
             }
-            // Nothing left, or only a sliver.
+            // Nothing left, or only a speck of `spanning`'s.
             let kept = mask.boundingBoxOfPath
             guard !kept.isEmpty, kept.height >= minimumPieceHeight || kept.width >= minimumPieceHeight else { return nil }
 
@@ -155,6 +155,34 @@ nonisolated enum InkPages {
         stroke.path = PKStrokePath(controlPoints: Array(stroke.path), creationDate: stroke.path.creationDate)
         return stroke
     }
+
+    /// `piece` with a speck added to its mask at each of `extent`'s
+    /// corners, and a new path: its frame, and so what PaperKit redraws
+    /// when it's replaced, is then the whole stroke's.
+    ///
+    /// Updated in place, PaperKit redraws only the tiles the stroke's old
+    /// and new frames touch, and a masked stroke's frame is its mask's: once
+    /// the canvas holds the piece, ink past the border drawn there stays
+    /// (simulator, 10 October and 7 November). The specks are `speck`
+    /// points square, outside the ink, which a stroke's frame leaves room
+    /// around; points with no area didn't do, as PaperKit drops them.
+    /// Cutting leaves out pieces thinner than `minimumPieceHeight`, so a
+    /// speck never becomes one. Used by `PageInkPipeline.redrawCutPieces`.
+    static func spanning(_ piece: PKStroke, over extent: CGRect) -> PKStroke {
+        var piece = redrawn(piece)
+        guard let mask = piece.mask?.copy() as? UIBezierPath else { return piece }
+        let toStroke = piece.transform.inverted()
+        for corner in [CGPoint(x: extent.minX, y: extent.minY), CGPoint(x: extent.maxX - speck, y: extent.maxY - speck)] {
+            let speck = UIBezierPath(rect: CGRect(origin: corner, size: CGSize(width: speck, height: speck)))
+            speck.apply(toStroke)
+            mask.append(speck)
+        }
+        piece.mask = mask
+        return piece
+    }
+
+    /// The side of `spanning`'s specks, in note points.
+    static let speck: CGFloat = 0.01
 
     // MARK: Overflow
 

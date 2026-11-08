@@ -1757,6 +1757,34 @@ struct PageViewTests {
         #expect(switched < 0.9, "switching to print layout took \(switched)s")
     }
 
+    /// A stroke cut at a border is drawn again a few times after the pen
+    /// lifts (`PageInkPipeline.redrawTimes`), each a lookup, a replacement
+    /// and an assignment of the canvas on the main thread.
+    @Test("Drawing a cut stroke again in a note of 5,000 strokes stays within budget", .tags(.perf))
+    func redrawCost() async throws {
+        let layout = PageLayout(mode: .compressed)
+        let harness = PageHarness(text: Self.severalPages, layout: layout)
+        harness.page.setInk(Self.handwriting(5000))
+        harness.layOut()
+        var reported = 0
+        harness.page.onInkChanged = { _ in reported += 1 }
+        let bottom = layout.bodyTop(ofPage: 1) + layout.bodyHeight
+        Self.draw([Self.verticalStroke(x: 760, from: bottom - 60, to: layout.bodyTop(ofPage: 2) + 60)], on: harness)
+        #expect(await waitFor({ reported == 1 }, seconds: 10))
+
+        var times: [TimeInterval] = []
+        for run in 0..<5 {
+            let start = Date()
+            let drawn = harness.page.inkPipeline.redrawCutPieces(spanning: run.isMultiple(of: 2), on: harness.page)
+            times.append(Date().timeIntervalSince(start))
+            try #require(drawn == 1, "nothing waited to be drawn again")
+        }
+        let median = times.sorted()[2]
+        reportPerf("PageViewTests/redrawCost", seconds: median)
+        #expect(harness.page.canvas.markup.subelements.strokes.count == 5001)
+        #expect(median < 0.3, "drawing the piece again took \(median)s")
+    }
+
     // MARK: Add page, and seamless's buffer (roadmap step 6)
 
     @Test("A note given more pages than its text needs has them", arguments: PageViewMode.allCases)

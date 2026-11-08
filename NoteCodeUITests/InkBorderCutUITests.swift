@@ -64,6 +64,19 @@ final class InkBorderCutUITests: XCTestCase {
         app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: x, dy: y))
     }
 
+    /// The screen, taken every quarter second until `settled` holds
+    /// of it or `timeout` passes, rather than once after a fixed wait: the
+    /// app redraws a cut stroke at times it can't report
+    /// (`PageInkPipeline.redrawTimes`), later on a busy machine.
+    private func screen(within timeout: TimeInterval, until settled: (Pixels) -> Bool) -> Pixels {
+        let end = Date(timeIntervalSinceNow: timeout)
+        while true {
+            Thread.sleep(forTimeInterval: 0.25)
+            let shot = Pixels(XCUIScreen.main.screenshot())
+            if settled(shot) || Date() >= end { return shot }
+        }
+    }
+
     /// The seeded note, scrolled so the border between pages 2 and 3 is on
     /// screen, in draw mode.
     @MainActor
@@ -74,14 +87,21 @@ final class InkBorderCutUITests: XCTestCase {
                                "-penSettings", "", "-highlighterSettings", "", "-eraser", ""]
         app.launch()
         XCTAssertTrue(app.textViews.firstMatch.waitForExistence(timeout: 15), "the note never opened")
-        Thread.sleep(forTimeInterval: 1.5)
+        // `-debug-page 3` puts page 3's top edge at the top of the screen;
+        // dragging the text down 400 points brings page 2's foot and the
+        // border on screen above it. Settled before the toggle is looked for.
         point(app, 1000, 300).press(forDuration: 0.3, thenDragTo: point(app, 1000, 700), withVelocity: 250, thenHoldForDuration: 1.0)
-        Thread.sleep(forTimeInterval: 1.5)
         let toggle = app.buttons["modeToggle"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
         if (toggle.value as? String) != "Draw mode" { toggle.tap() }
         XCTAssertTrue(app.buttons["Pen"].waitForExistence(timeout: 5), "no ink tools")
-        Thread.sleep(forTimeInterval: 1)
+        // The scroll's deceleration and the hotbar's appearance finished:
+        // two screenshots a quarter second apart agree.
+        var last = Pixels(XCUIScreen.main.screenshot())
+        _ = screen(within: 5) { shot in
+            defer { last = shot }
+            return shot.changed(from: last, in: CGRect(x: 0, y: 0, width: 1400, height: 1400)) == 0
+        }
         return app
     }
 
@@ -93,17 +113,20 @@ final class InkBorderCutUITests: XCTestCase {
 
             // From high on page 2 to low on page 3.
             point(app, 420, 150).press(forDuration: 0.02, thenDragTo: point(app, 460, 1150), withVelocity: 600, thenHoldForDuration: 0)
-            Thread.sleep(forTimeInterval: 2)
-            let after = Pixels(XCUIScreen.main.screenshot())
             let onPage2 = CGRect(x: 380, y: 170, width: 120, height: 200)
             let onPage3 = CGRect(x: 380, y: 750, width: 120, height: 350)
+            // On main the overflow never went: it stayed for as long as
+            // anyone looked.
+            let after = screen(within: 6) {
+                $0.changed(from: before, in: onPage2) > 50 && $0.changed(from: before, in: onPage3) == 0
+            }
             XCTAssertGreaterThan(after.changed(from: before, in: onPage2), 50, "in \(mode): no stroke was drawn")
             XCTAssertEqual(after.changed(from: before, in: onPage3), 0, "in \(mode): the stroke still shows in page 3's body")
 
             app.buttons["Undo"].firstMatch.tap()
-            Thread.sleep(forTimeInterval: 1.5)
-            let undone = Pixels(XCUIScreen.main.screenshot())
+            let undone = screen(within: 4) { $0.changed(from: before, in: onPage2) == 0 }
             XCTAssertEqual(undone.changed(from: before, in: onPage2), 0, "in \(mode): one undo left the stroke")
+            XCTAssertEqual(undone.changed(from: before, in: onPage3), 0, "in \(mode): undo brought the overflow back")
             app.terminate()
         }
     }

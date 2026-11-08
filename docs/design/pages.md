@@ -164,24 +164,37 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
         mask.
       - **Drawn again once PaperKit has drawn it** (7 November). A stroke
         is taken in a few milliseconds after the pen lifts, while PaperKit
-        is still drawing it for the first time, and that drawing showed it
-        whole, with nothing to redraw it: the overflow stayed in the next
-        page's body until ink was next shown. Cut on the next turn of the
-        run loop it stayed; cut 250 or 500ms later it stopped. So the
-        pieces get a new path again 400ms on
-        (`PageInkPipeline.redrawAfterFirstDrawing`), unless ink was shown
-        since or the stroke was undone. The canvas holds the piece from
-        the start, so undo, the lasso and the eraser see it at once.
-        Specks at the whole stroke's corners, added to the mask on 10
-        October so PaperKit redrew all the tiles the stroke had touched,
-        are gone. A stroke cut in place is still put back as stored at
-        the next show (`InkCapture.State.cutInPlace`): placed by the frame
-        the canvas gives it, it missed its words.
+        is still drawing it for the first time, and that drawing can land
+        after the piece, whole, with nothing to redraw it: the overflow
+        stayed in the next page's body until ink was next shown. Cut 250 or
+        500ms later it stopped. PaperKit says nothing when it has finished
+        drawing, so this is a timing workaround: the canvas gets the piece
+        at once, so undo, the lasso and the eraser see it, and then
+        (`PageInkPipeline.redrawTimes`) it is replaced four times, 300ms to
+        1.8s after the last stroke cut, alternately **spanning** the whole
+        stroke (`InkPages.spanning`: 0.01pt specks in the mask at the
+        whole stroke's corners) and as itself, ending as itself. PaperKit
+        seems to redraw only the tiles a replaced stroke's old and new
+        frames touch (10 October), and a masked stroke's frame is its
+        mask's, so the piece replaced by itself would leave the overflow's
+        tiles alone; spanning, both replacements cover them. Points of no area didn't do, as PaperKit
+        drops them. Never while a stroke is being drawn
+        (`DrawingCanvas.isDrawing`, from PaperKit's began-drawing call) or
+        one is on its way in; not once ink was shown since; not for a
+        piece undone, erased or moved by the lasso. Each costs about 40ms
+        at 5,000 strokes (`PageViewTests.redrawCost`). 400ms alone failed
+        three times in four on a busy machine; a device still drawing the
+        stroke past the last redraw shows the overflow until ink is next
+        shown. A stroke cut in place is put back as stored at the next
+        show (`InkCapture.State.cutInPlace`): placed by the frame the
+        canvas gives it, it missed its words.
       Checked in the simulator, compressed and print, scrolled so the
-      border is on screen: stopped at the border by 400ms after the lift;
-      one undo took the stroke, redo brought it back, still stopped
-      (`InkBorderCutUITests`). Not checked: the Pencil, the lasso and the
-      eraser on a stopped stroke, and on the iPad.
+      border is on screen: stopped at the border within seconds of the
+      lift, and one undo took the stroke with nothing left past the border
+      (`InkBorderCutUITests`; it fails on main). On a machine with a load
+      average up to 190 it still failed three runs in 21. Not checked:
+      the Pencil, the lasso and the eraser on a stopped stroke, and on the
+      iPad.
     - **Erased:** a stroke's overflow the canvas doesn't hold goes with
       it, and is kept aside (`InkCapture.State.buried`) until ink is next
       shown, so undoing the erase brings it back. **Moved by the lasso:**
