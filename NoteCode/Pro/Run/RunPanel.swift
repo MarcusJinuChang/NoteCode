@@ -419,11 +419,23 @@ struct RunDock: View {
             Button {
                 withAnimation(.snappy) { session.isCollapsed = true }
             } label: {
-                Image(systemName: "chevron.right").font(.caption2.weight(.bold)).frame(width: 18, height: 36)
+                // Drawn in the handle's top 18×36 as before, but tapped
+                // anywhere in 30×44: the handle's width and the block
+                // strip's empty leading padding (12pt), 44pt down. A plain
+                // button's target is otherwise the glyph alone (6×10), and a
+                // touch beside it went to the handle's width drag. It can't
+                // reach over the page: the page takes those touches.
+                Image(systemName: "chevron.right").font(.caption2.weight(.bold))
+                    .frame(width: 18, height: 36)
+                    .padding(.trailing, 12)
+                    .padding(.bottom, 8)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Collapse Run panel")
         }
+        // Above the panel, so the target's part over the strip is the button's.
+        .zIndex(1)
     }
 }
 

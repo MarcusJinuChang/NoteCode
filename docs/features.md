@@ -45,7 +45,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 
 | Feature | How it works | Status | Detail |
 |---|---|---|---|
-| One continuous document | A note is one flowing text with Markdown as the source; markers are hidden unless the caret is in the line | built | `writing-hidden-markdown-markers-lists-checklists.md` |
+| One continuous document | A note is one flowing text with Markdown as the source; markers are hidden unless the caret is in the line; typing or deleting over a selection that takes some of a span's hidden markers keeps them, so the span stays | built | `writing-hidden-markdown-markers-lists-checklists.md` |
 | Headings | H1 to H6 from Aa (the hotbar's Style menu, headings only) or the hotkeys (H1 to H3) | built; a default size on the hotkey stalled (feedback #10) | `the-note-page.md` |
 | Inline marks | Bold, italic, underline, strikethrough in the text options row (after the size control), inline code on the hotbar, highlight (six colours); applied per character; the bars light the state at the caret | built | `formatting-per-character.md`, `obsidian-s-other-marks-and-blocks.md` |
 | Typing style | A press with a caret sets what the next characters will be | built | `typing-style.md` |
@@ -71,7 +71,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 
 | Feature | How it works | Status | Detail |
 |---|---|---|---|
-| Fenced blocks | Triple backticks anywhere become a block; detected while typing, before the closing fence | built | `code-block-fences.md` |
+| Fenced blocks | Triple backticks anywhere become a block; detected while typing, before the closing fence. A bare fence typed inside a block closes it only once its line is left, so typing ```swift there doesn't flash the rest of the note | built | `code-block-fences.md` |
 | Languages | C++, Java, Python, C, JavaScript, Rust, Go, SQL; chosen from the hotbar or the block's name button | built | `code-languages-and-keys.md` |
 | Unmarked blocks | Shown as "Code" (stored key unchanged); plain styling | built (feedback #15) | |
 | Output blocks | An `output` fence for a program's result, on the code panel's own light/dark colours | built | `code-languages-and-keys.md` |

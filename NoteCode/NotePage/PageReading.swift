@@ -34,6 +34,9 @@ final class PageReading {
     private var lastReportedPlace: NoteMemory.Place?
     private var lastScrolledOffset: CGFloat = 0
 
+    /// Whether the page is moving the note itself (`positioning`).
+    private var isPositioning = false
+
     init(host: PageReadingHost) {
         self.host = host
     }
@@ -57,12 +60,26 @@ final class PageReading {
         reportScroll()
     }
 
+    /// Runs `body`, which moves the note to put the reader back where they
+    /// were (`PageView.reflow`), without reporting the places it passes
+    /// through: the offset goes to the top and back, which is not the
+    /// reader scrolling.
+    func positioning(_ body: () -> Void) {
+        let outer = isPositioning
+        isPositioning = true
+        body()
+        isPositioning = outer
+        guard !outer else { return }
+        lastScrolledOffset = textView.contentOffset.y
+        reportReadingPlace()
+    }
+
     /// Tells `onScrolled` the note has moved. Not while it is opening at a
     /// place, which is the app positioning the note rather than the reader.
     private func reportScroll() {
         let offset = textView.contentOffset.y
         defer { lastScrolledOffset = offset }
-        guard let onScrolled = host.onScrolled, abs(offset - lastScrolledOffset) > 0.5,
+        guard let onScrolled = host.onScrolled, abs(offset - lastScrolledOffset) > 0.5, !isPositioning,
               pendingRestore == nil, pendingReveal == nil, textView.bounds.height > 0
         else { return }
         let place = readingPlace
@@ -118,7 +135,7 @@ final class PageReading {
 
     private func reportReadingPlace() {
         guard let onReadingPlaceChanged = host.onReadingPlaceChanged, pendingRestore == nil, pendingReveal == nil,
-              textView.bounds.height > 0
+              !isPositioning, textView.bounds.height > 0
         else { return }
         let place = readingPlace
         guard place != lastReportedPlace else { return }

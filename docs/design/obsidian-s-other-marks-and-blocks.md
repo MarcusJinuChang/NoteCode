@@ -109,9 +109,10 @@ note reads there as it does here.
     nothing a rule shows, and every line still paginates alike.
   - **The caret stops after the dashes**, wherever it lands in them, so Return
     makes the next line and Backspace there takes the dashes (the line is empty).
-  - **Typing `---` by hand**: prose has smart dashes on, which may turn `--`
-    into an em dash before the third hyphen arrives. **Not tried.** The menu
-    item and a paste make a rule.
+  - **Typing `---` by hand** at a line's start stays three hyphens and makes
+    a rule, smart dashes or not (7 Nov, `TextRewritingPolicy.hyphenKept`;
+    docs/design/settings.md › Three hyphens by hand). The menu item and a
+    paste make one too.
 - **Search, Get Info, the outline** needed nothing more than `isSpanTag` and a
   prefilter: `SpanStyle.maskingTags` parses only a note that could hold a tag
   (`<span style="`, `<u>`, or `==` and an emoji: a note of code is full of `==`).

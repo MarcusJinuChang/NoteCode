@@ -250,6 +250,13 @@ final class DrawingCanvas: UIView {
     /// showed rather than trusting this to mean "the reader did something".
     var onMarkupChanged: (() -> Void)?
 
+    /// True from the moment the reader puts the pen or a finger down to draw
+    /// until PaperKit reports the change it made, so the app can keep from
+    /// replacing the markup mid-stroke (`PageInkPipeline.redrawCutPieces`).
+    /// A touch that changes nothing may leave it set until the next change;
+    /// what waits on it waits only so long.
+    private(set) var isDrawing = false
+
     init(pageSize: CGSize) {
         let frame = CGRect(origin: .zero, size: pageSize)
         controller = PaperMarkupViewController(
@@ -566,6 +573,7 @@ final class DrawingCanvas: UIView {
 extension DrawingCanvas: PaperMarkupViewController.Delegate {
 
     func paperMarkupViewControllerDidChangeMarkup(_ paperMarkupViewController: PaperMarkupViewController) {
+        isDrawing = false
         guard !isShowingInk else { return }
         onMarkupChanged?()
         // PaperKit has registered the change on ink's stack by now (measured
@@ -584,12 +592,12 @@ extension DrawingCanvas: PaperMarkupViewController.Delegate {
         paperMarkupViewController.selection = []
     }
 
-    #if DEBUG
-
     func paperMarkupViewControllerDidBeginDrawing(_ paperMarkupViewController: PaperMarkupViewController) {
+        isDrawing = true
+        #if DEBUG
         probeDelegate("PaperKit began drawing")
+        #endif
     }
-    #endif
 }
 
 #endif

@@ -419,6 +419,49 @@ struct HiddenMarkerHookTests {
         #expect(single.textView.text == "a  b")
     }
 
+    /// Typing over a selection as UIKit does it: the delegate is asked with
+    /// the selection, and makes the edit itself if the delegate says yes.
+    private func typeOver(_ harness: EditorHarness, _ range: NSRange, with text: String) {
+        let textView = harness.textView
+        textView.selectedRange = range
+        if harness.coordinator.textView(textView, shouldChangeTextIn: range, replacementText: text) {
+            textView.replace(textView.textRange(for: range)!, withText: text)
+        }
+    }
+
+    @Test("Typing over a selection that takes some of a span's hidden markers keeps them, and the span")
+    func typingOverHiddenMarkers() {
+        // `a **boldword** b`: ⇧← from the end steps one character at a time,
+        // so 3, 4 and 5 presses take one, both, and both and the `d`.
+        let text = "a **boldword** b"
+        for (start, typed, expected, caret) in [
+            (11, "Q", "a **boldworQ**", 12),
+            (12, "Q", "a **boldwordQ**", 13),
+            (13, "Q", "a **boldwordQ**", 13),
+            (11, "", "a **boldwor**", 11),
+        ] {
+            let harness = harness(text)
+            typeOver(harness, NSRange(location: start, length: 16 - start), with: typed)
+            #expect(harness.textView.text == expected, "from \(start)")
+            #expect(harness.textView.selectedRange == NSRange(location: caret, length: 0), "from \(start)")
+            harness.textView.undoManager?.undo()
+            #expect(harness.textView.text == text, "one undo step, from \(start)")
+        }
+
+        // An opening marker: what was typed goes in front of it, outside the span.
+        let opening = harness(text)
+        typeOver(opening, NSRange(location: 0, length: 3), with: "Q")
+        #expect(opening.textView.text == "Q**boldword** b")
+        let both = harness(text)
+        typeOver(both, NSRange(location: 0, length: 5), with: "Q")
+        #expect(both.textView.text == "Q**oldword** b")
+
+        // A selection that takes the whole span takes its markers too.
+        let whole = harness(text)
+        typeOver(whole, NSRange(location: 1, length: 14), with: "Q")
+        #expect(whole.textView.text == "aQb")
+    }
+
     @Test("Backspace is the ordinary one in a legacy note")
     func legacy() {
         let legacy = EditorHarness("## Title")

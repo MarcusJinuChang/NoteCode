@@ -25,6 +25,10 @@ extension DocumentTextView.Coordinator {
         )
         defer { caretTracker.settle(at: textView, editCount: editCount) }
 
+        // A fence line held open while it was typed closes its block once
+        // the caret leaves it.
+        if styleSession.releaseHeldFence(selection: textView.selectedRange) { restyle(textView) }
+
         // Moving the caret across a fence boundary changes what the next
         // character should look like, even though no text changed. This
         // fires on every keystroke too, so it reads through the cache

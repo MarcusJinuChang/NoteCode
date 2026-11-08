@@ -80,12 +80,15 @@ final class EditRouter {
             return false
         }
 
-        // A typed --- is a rule, not "—-": at a line's start the keyboard's
-        // dash is kept as the hyphens typed (F-fixes, Dashes).
-        if text == "\u{2013}" || text == "\u{2014}", isTyping(in: textView), textView.markedTextRange == nil,
-           range.length > 0,
-           NSMaxRange(range) <= (textView.text as NSString).length,
-           let edit = TextRewritingPolicy.hyphensKept(replacing: range, with: text, in: textView.text as NSString) {
+        // A typed --- is a rule, not "—-" (F-fixes, Dashes). The keyboard
+        // asks only about the plain "-" and makes its dash afterwards, in its
+        // own insert, with no second question; so a hyphen after hyphens at
+        // a line's start is typed by the app, where smart dashes don't reach.
+        // It runs in code too (a `--` comment line), harmlessly: smart dashes
+        // are off there, and the app inserts the same hyphen.
+        if text == "-", range.length == 0, range == textView.selectedRange,
+           isTyping(in: textView), textView.markedTextRange == nil,
+           let edit = TextRewritingPolicy.hyphenKept(typedAt: range.location, in: textView.textStorage.mutableString) {
             apply(edit)
             return false
         }
@@ -162,6 +165,15 @@ final class EditRouter {
            NSMaxRange(range) == textView.selectedRange.location,
            let edit = CodeIndent.backspaceEdit(
                in: text, caret: NSMaxRange(range), codeRanges: context.codeRanges(), width: context.indentWidth
+           ) {
+            return edit
+        }
+        // Typing or deleting over a selection that takes a hidden marker of
+        // a span it doesn't take whole keeps the marker, or the span's other
+        // marker would show as text (⇧← steps through `**` one at a time).
+        if context.rendersMarkdown, range.length > 0, range == textView.selectedRange, !replacement.contains("\n"),
+           let edit = MarkdownFormatting.replacing(
+               range, with: replacement, in: text, codeRanges: context.codeRanges()
            ) {
             return edit
         }

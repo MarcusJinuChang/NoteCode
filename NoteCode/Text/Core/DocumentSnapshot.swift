@@ -39,15 +39,23 @@ nonisolated final class DocumentSnapshot {
     /// reader can tell a snapshot of the current text from an older one.
     let editCount: Int
 
+    /// The UTF-16 start of a line being typed as a fence, which doesn't
+    /// close a block yet (`DocumentParser.heldFence`).
+    let heldFence: Int?
+
     /// `text` is converted with `nativeUTF8` here, so a caller can hand over
     /// `textView.text ?? ""` as it comes.
-    init(text: String, editCount: Int = 0) {
+    init(text: String, editCount: Int = 0, heldFence: Int? = nil) {
         self.source = text.nativeUTF8
         self.editCount = editCount
+        self.heldFence = heldFence
     }
 
     /// The parse.
-    private(set) lazy var blocks: [BlockNode] = DocumentParser.parse(source)
+    private(set) lazy var blocks: [BlockNode] = DocumentParser.parse(
+        source,
+        holdingOpen: heldFence.map { String.Index(utf16Offset: $0, in: source) }
+    )
 
     /// Every block and span as UTF-16 ranges, with the signatures that decide
     /// what needs restyling. The styler's input.

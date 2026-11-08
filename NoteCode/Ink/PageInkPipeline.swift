@@ -143,15 +143,15 @@ final class PageInkPipeline {
             }
 
             // A stroke the host.canvas holds whole but the ink holds cut changes
-            // shape, and one shown with specks has a frame that isn't its
-            // piece's: each leaves the host.canvas and comes back as stored,
-            // below. A changed copy assigned over the host.canvas's own doesn't
-            // take, and nor does a new one with its id while the old one is
-            // there. Ink undo is cleared here anyway, so nothing loses track.
+            // shape, and one cut in place may keep its whole frame there:
+            // each leaves the host.canvas and comes back as stored, below. A
+            // changed copy assigned over the host.canvas's own doesn't take,
+            // and nor does a new one with its id while the old one is there.
+            // Ink undo is cleared here anyway, so nothing loses track.
             // Added and placed a set at a time, never an element at a time:
             // see `convert`. Removed one at a time, which is few: a set
             // without them keeps them, and so does `removeAll(where:)`.
-            let reshaped = state.wholeOnCanvas.union(state.specked).filter { stored[$0] != nil }
+            let reshaped = state.wholeOnCanvas.union(state.cutInPlace).filter { stored[$0] != nil }
             for id in Set(shown.subelements.ids) where stored[id] == nil || reshaped.contains(id) {
                 shown.subelements.removeElement(for: id)
             }
@@ -208,7 +208,7 @@ final class PageInkPipeline {
         state.shown = frames
         state.contents = contents
         state.wholeOnCanvas = []
-        state.specked = []
+        state.cutInPlace = []
         state.buried = [:]
         bottom = frames.values.map(\.maxY).max()
         // The page count depends on the ink, and nothing about the text changed.
@@ -285,16 +285,30 @@ final class PageInkPipeline {
     /// was started on, keeping their ids: in compressed and print layout, a
     /// stroke drawn across a border stops at it once the pen lifts.
     ///
-    /// The id is kept so PaperKit's undo still finds the stroke, and
-    /// assigning the host.canvas registers no undo of its own (probe, 10
-    /// October). Taken off and put back, since a changed copy assigned over
-    /// the host.canvas's own doesn't take, and with a new path (`InkPages.redrawn`),
-    /// or PencilKit goes on drawing it whole.
+    /// Updated in place, with its id, so PaperKit's undo still finds the
+    /// stroke: taken off and put back, it redraws, but two undos then did
+    /// nothing (simulator, 10 October). Assigning the host.canvas registers
+    /// no undo of its own. With a new path (`InkPages.redrawn`), or PencilKit
+    /// goes on drawing it whole. Replaced one at a time, which is few: one
+    /// per stroke drawn across a border.
+    ///
+    /// The canvas takes the piece at once, but the screen may not: a stroke
+    /// is taken in a few milliseconds after the pen lifts, while PaperKit is
+    /// still drawing it for the first time, and what that drawing puts on
+    /// screen is the stroke as drawn, whole, which nothing then redraws
+    /// (simulator, 7 November; cut on the next turn of the run loop it
+    /// stayed whole, cut 250 or 500ms later it stopped at the border). So
+    /// the pieces are given a new path again a few times after
+    /// (`scheduleRedraws`).
     private func showOwnPieces(_ pieces: [PKStroke], on host: PageInkHost) {
+        // What the whole strokes covered, for the redraws.
+        var cut: [MarkupOrderedSet.ElementID: CutPiece] = [:]
+        for piece in pieces {
+            cut[piece.elementID] = CutPiece(piece: piece, extent: (state.shown[piece.elementID] ?? piece.renderFrame).union(piece.renderFrame))
+        }
         var markup = host.canvas.markup
         for piece in pieces {
-            let whole = state.shown[piece.elementID] ?? piece.renderFrame
-            markup.subelements.updateOrAppend(InkPages.shown(piece, over: whole))
+            markup.subelements.updateOrAppend(InkPages.redrawn(piece))
         }
         host.canvas.markup = markup
 
@@ -302,7 +316,7 @@ final class PageInkPipeline {
         let now = host.canvas.markup.subelements
         for piece in pieces {
             state.shown[piece.elementID] = now[piece.elementID]?.renderFrame
-            state.specked.insert(piece.elementID)
+            state.cutInPlace.insert(piece.elementID)
         }
         bottom = state.shown.values.map(\.maxY).max()
         // A snapshot waiting to be taken in was taken before this.
@@ -310,6 +324,105 @@ final class PageInkPipeline {
             waiting.markup = host.canvas.markup
             newestSnapshot = waiting
         }
+        scheduleRedraws(of: cut)
+    }
+
+    /// A piece cut in place, and the whole stroke's frame on the canvas.
+    struct CutPiece {
+        var piece: PKStroke
+        var extent: CGRect
+    }
+
+    /// When the pieces cut from strokes are drawn again, counted from the
+    /// last stroke cut: spanning the whole stroke (`InkPages.spanning`) and
+    /// as themselves in turn, ending as themselves. Replacing the stroke
+    /// with the piece when it's taken in redraws every tile the stroke
+    /// touched, but a few milliseconds after the pen lifts PaperKit is
+    /// still drawing the stroke for the first time, and that drawing can
+    /// land after, whole. PaperKit seems to redraw only the tiles a
+    /// replaced stroke's old and new frames touch, so the piece replaced by
+    /// itself would leave the overflow's alone; spanning, the frames cover
+    /// the stroke both times. A timing workaround all the same: PaperKit
+    /// says nothing when it has finished drawing (its delegate has no such
+    /// call). A device still drawing past the last of these shows the
+    /// overflow until ink is next shown (docs/design/pages.md).
+    static let redrawTimes: [Duration] = [.milliseconds(300), .milliseconds(600), .milliseconds(1500), .milliseconds(1800)]
+
+    /// How long a redraw waits for a stroke being drawn, or a capture, to
+    /// finish before it gives up its turn.
+    static let redrawPatience: Duration = .seconds(3)
+
+    /// Pieces cut in place whose redraws haven't all run, and the task
+    /// running them.
+    private var awaitingRedraw: [MarkupOrderedSet.ElementID: CutPiece] = [:]
+    private var redraws: Task<Void, Never>?
+
+    /// Draws `cut`, and the pieces still waiting, again at each of
+    /// `redrawTimes`. Not while a stroke is being drawn, since replacing the
+    /// markup then could cut it short, nor while one is on its way in,
+    /// whose capture would replace the frames recorded here; and no more
+    /// once ink is shown again, which draws everything afresh.
+    private func scheduleRedraws(of cut: [MarkupOrderedSet.ElementID: CutPiece]) {
+        awaitingRedraw.merge(cut) { $1 }
+        redraws?.cancel()
+        let generation = generation
+        redraws = Task { [weak self] in
+            var elapsed = Duration.zero
+            for (index, time) in Self.redrawTimes.enumerated() {
+                try? await Task.sleep(for: time - elapsed)
+                elapsed = time
+                var waited = Duration.zero
+                while waited < Self.redrawPatience, !Task.isCancelled, self?.isBusy == true {
+                    try? await Task.sleep(for: .milliseconds(100))
+                    waited += .milliseconds(100)
+                }
+                guard let self, !Task.isCancelled else { return }
+                guard generation == self.generation else {
+                    awaitingRedraw = [:]
+                    return
+                }
+                // Spanning, then not, so the last leaves each piece itself.
+                if let host, !isBusy {
+                    redrawCutPieces(spanning: index.isMultiple(of: 2), on: host)
+                }
+            }
+            guard let self, !Task.isCancelled else { return }
+            awaitingRedraw = [:]
+        }
+    }
+
+    /// A stroke is being drawn, or one is on its way in.
+    private var isBusy: Bool {
+        (host?.canvas.isDrawing ?? false) || isCapturing || newestSnapshot != nil
+    }
+
+    /// Replaces the pieces waiting to be drawn again with themselves, with a
+    /// new path, `spanning` their whole strokes or not, and records where
+    /// PaperKit has them, as `showOwnPieces` does: a frame left stale would
+    /// look like a lasso move to the next capture. A piece the canvas no
+    /// longer holds (undone, erased) isn't put back, and one the reader
+    /// has moved is left alone. Looked up by id and replaced one at a time,
+    /// which is few. Internal for its cost test. Returns how many it drew.
+    @discardableResult
+    func redrawCutPieces(spanning: Bool, on host: PageInkHost) -> Int {
+        guard !awaitingRedraw.isEmpty else { return 0 }
+        var markup = host.canvas.markup
+        var redrawn: [MarkupOrderedSet.ElementID] = []
+        for (id, cut) in awaitingRedraw {
+            guard let shown = markup.subelements[id] as? PKStroke, shown.transform == cut.piece.transform else {
+                awaitingRedraw[id] = nil
+                continue
+            }
+            markup.subelements.updateOrAppend(spanning ? InkPages.spanning(cut.piece, over: cut.extent) : InkPages.redrawn(cut.piece))
+            redrawn.append(id)
+        }
+        guard !redrawn.isEmpty else { return 0 }
+        host.canvas.markup = markup
+        let now = host.canvas.markup.subelements
+        for id in redrawn {
+            state.shown[id] = now[id]?.renderFrame
+        }
+        return redrawn.count
     }
 
 }

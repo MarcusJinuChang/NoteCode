@@ -57,7 +57,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
     private let sidewaysFling = SidewaysFling()
     /// The page's edge: a hairline and a soft shadow behind the text view
     /// in the continuous modes (print layout's sheets have their own).
-    private let pageEdge = PageEdgeView()
+    let pageEdge = PageEdgeView()
 
     /// The pages' orientation and how they are shown.
     ///
@@ -177,7 +177,8 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
 
     /// The stored ink, the snapshot on its way in, the generation and the
     /// ink's lowest point (`PageInkPipeline`).
-    private let inkPipeline: PageInkPipeline
+    /// Internal for `PageViewTests.redrawCost`.
+    let inkPipeline: PageInkPipeline
 
     /// Called with the note's ink, in print coordinates, whenever the reader
     /// changes it: a stroke drawn, erased or moved.
@@ -287,6 +288,10 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
         }
         textView.addLayoutObserver { [weak self] in
             self?.textViewDidLayout()
+        }
+        textView.keepingReadingPlace = { [weak self] change in
+            guard let self else { return change() }
+            reflow(change)
         }
 
         // An edit lays its paragraph out again in a new view, at the screen's
@@ -502,6 +507,10 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
     /// the old layout's viewport and the lines on screen sit a stale
     /// break's worth off.
     func reflow(_ change: () -> Void) {
+        reading.positioning { reflowKeepingTopLine(change) }
+    }
+
+    private func reflowKeepingTopLine(_ change: () -> Void) {
         let anchor = reading.topLineCharacter()
         change()
 

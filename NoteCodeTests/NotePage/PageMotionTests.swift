@@ -80,6 +80,36 @@ struct PageMotionTests {
         #expect(fixture.page.textView.bounds.size == still.page.textView.bounds.size)
     }
 
+    @Test("Leaving a side, the page's edge moves with the page rather than at once")
+    func edgeMovesWithThePage() {
+        let fixture = Fixture()
+        fixture.dockLeft(animation: nil)
+        let edge = fixture.page.pageEdge
+        let before = edge.convert(edge.bounds, to: fixture.window)
+
+        // Every place the edge is put while the bar goes back to the bottom.
+        // An animation set by UIKit leaves the model at its end, so the
+        // start can only be seen as it is set.
+        var placed: [CGRect] = []
+        let record = { placed.append(edge.convert(edge.bounds, to: fixture.window)) }
+        let watchers = [
+            edge.layer.observe(\.bounds) { _, _ in MainActor.assumeIsolated { record() } },
+            edge.layer.observe(\.position) { _, _ in MainActor.assumeIsolated { record() } },
+        ]
+        fixture.page.areaWillChange(to: .zero, animation: .linear(duration: 10))
+        fixture.container.frame = fixture.window.bounds
+        fixture.page.frame = fixture.container.bounds
+        fixture.page.layoutIfNeeded()
+        watchers.forEach { $0.invalidate() }
+
+        #expect(fixture.isMoving)
+        // The page colour behind the text was put at the page's full new
+        // width at once, while the text view slid there: in seamless mode
+        // the page snapped wide on leaving a side (device pass, 7 Nov).
+        #expect(placed.contains(before), "the edge never started where the page was")
+        #expect(edge.frame == fixture.page.textView.frame, "and it ends with the page")
+    }
+
     @Test("With no animation, the page goes there at once")
     func noAnimation() {
         let fixture = Fixture()

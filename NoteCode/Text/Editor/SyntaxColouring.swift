@@ -165,9 +165,40 @@ final class SyntaxColouring {
             else { return }
 
             let covered = jobs.map { NSRange(location: $0.offset, length: ($0.code as NSString).length) }
-            DocumentStyler.applyColors(painted, clearing: covered, to: textView)
+            let paint = { DocumentStyler.applyColors(painted, clearing: covered, to: textView) }
+            // Colours above the screen move the lines on it. The edit
+            // invalidates every paragraph it spans, and TextKit 2 lays the
+            // screen's lines out again a page break's worth higher for every
+            // page above, under an offset that never moved, while the
+            // fragments above keep their old frames (measured 7 Nov,
+            // ColoursLandingTests). A note opened at page 5, a search result
+            // and a new text size all landed 17 to 58 lines past where they
+            // were put, out of step with the sheets. So the page puts the
+            // reader back on their line, as a new text size does. Only for
+            // a block that starts above the screen. Typing in a block that
+            // starts on it colours that block alone, and nothing above it
+            // moves. Typing in a long block whose opening fence has scrolled
+            // off takes this path at every pause too, since that edit also
+            // spans paragraphs above the screen: the page lays out down to
+            // the top line again and sets the offset back to where it was.
+            if let keep = (textView as? DocumentUITextView)?.keepingReadingPlace,
+               let first = covered.map(\.location).min(),
+               first < Self.screenStart(of: textView) {
+                keep(paint)
+            } else {
+                paint()
+            }
             self.colouredBlocks.formUnion(jobs.map(\.key))
         }
+    }
+
+    /// The character TextKit's viewport starts at; 0 before it has laid out.
+    private static func screenStart(of textView: UITextView) -> Int {
+        guard let manager = textView.textLayoutManager,
+              let content = manager.textContentManager,
+              let start = manager.textViewportLayoutController.viewportRange?.location
+        else { return 0 }
+        return content.offset(from: content.documentRange.location, to: start)
     }
 
     /// Returns once the colouring pass in flight, if any, has painted.

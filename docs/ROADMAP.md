@@ -122,9 +122,6 @@ hardware-keyboard chords, export and import in Files, a physical Duo.
   banner's size), an unnecessary effect marker in TipJarTests, unreachable
   code after a `throw` in ListDragUITests, and AdConsent's "consider using
   asynchronous alternative". Update 2's 2W takes them to zero.
-- Typing three hyphens by hand in prose turns into "—-" while autocorrect is
-  on (smart dashes), so it doesn't become a rule; Style ▾'s rule and
-  autocorrect off both work (features.md › Autocorrect).
 - Weight and italic are not drawn in syntax colours (`ColorRun` carries
   colour only).
 - The first-Run notice (`RunDisclosure.message`) says Judge0 keeps code
