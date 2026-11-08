@@ -41,7 +41,7 @@ Tests are listed after the app. The budget (lessons.md 4) is a question at
 |---|---|---|---|---|
 | D1 | `DocumentStyler.swift` 845 lines (above) | M | The largest app file; a styling change reads both halves | Move the colour helpers (`codeColors` :494, `inheritedCodeColor` :790, `TextColourCache` :833) to `DocumentStyler+Colour.swift`, as a pure move with `verify-move.sh` |
 | D2 | `NoteEditor.swift` 728 lines | M | The editor is still the one place features, settings and controllers meet | Ask whether the feature plumbing (`EditorServices`, the installed features) is a type of its own |
-| D3 | ~~`NoteList.swift` 613 lines~~ **Done (PR #PRNUM)**: 583 lines; the Empty states went to `NoteListEmptyStates.swift` as a pure move (the Menus section reads about eleven private members) | S | — | — |
+| D3 | ~~`NoteList.swift` 613 lines~~ **Done (PR #254)**: 583 lines; the Empty states went to `NoteListEmptyStates.swift` as a pure move (the Menus section reads about eleven private members) | S | — | — |
 | D4 | `RunPanel.swift` 610 lines, six views | S | Pro-only; 10 over | One file per view (`RunDock`, `NotesRunToggle`, `RunTopBarItem`, `RunSidePanel`, `RunPanelHost`) |
 | D5 | `PageViewTests.swift` 1,972 lines | M | Slow to navigate; a failure names a 2,000-line file | Split by the PageView piece it tests |
 | D6 | **Old settings names still forward.** 29 `static let …Key = SettingKeys.…` lines in 19 files (for example `CodeIndent.widthKey`). SettingKeys.swift's header says they go in the last of 2S2b-2S2d | M | A new setting can be declared two ways, which is the drift 2S2 was to end | Move each caller to the `SettingKey`, delete the forwarder; `SettingKeysTests` keep the names |
