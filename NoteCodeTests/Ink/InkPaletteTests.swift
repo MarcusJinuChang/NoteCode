@@ -175,9 +175,9 @@ struct InkPalettesTests {
 
     @Test("The pen keeps the key it always had, or a device's saved palette is forgotten")
     func penKeepsItsKey() {
-        #expect(InkPalette.defaultsKey == "inkPalette")
+        #expect(SettingKeys.Drawing.penPalette.name == "inkPalette")
         #expect(InkPalette.defaultsKey(for: .pen) == "inkPalette")
-        #expect(InkPalette.highlighterDefaultsKey == "highlighterPalette")
+        #expect(SettingKeys.Drawing.highlighterPalette.name == "highlighterPalette")
     }
 
     @Test("A palette saved before the redesign still reads, and isn't replaced by the new defaults")
@@ -304,10 +304,10 @@ struct InkPaletteSetTests {
 
         InkPaletteSet.original.apply(to: defaults)
 
-        let marker = defaults.string(forKey: InkPalette.highlighterDefaultsKey).flatMap(InkPalette.init(rawValue:))
-        let pen = defaults.string(forKey: InkPalette.defaultsKey).flatMap(InkPalette.init(rawValue:))
+        let marker = defaults.string(forKey: SettingKeys.Drawing.highlighterPalette.name).flatMap(InkPalette.init(rawValue:))
+        let pen = defaults.string(forKey: SettingKeys.Drawing.penPalette.name).flatMap(InkPalette.init(rawValue:))
         let remembered = try #require(defaults.string(forKey: key).flatMap(InkingSettings.init(rawValue:)))
-        #expect(defaults.string(forKey: InkPaletteSet.defaultsKey) == "original")
+        #expect(defaults.string(forKey: SettingKeys.Drawing.paletteSet.name) == "original")
         #expect(marker == InkPaletteSet.original.palette(for: .highlighter))
         #expect(pen == InkPaletteSet.original.palette(for: .pen))
         #expect(remembered.color == InkColor.originalHighlighterYellow)
@@ -325,13 +325,13 @@ struct InkPaletteSetTests {
 
         #expect(InkPaletteSet.stored(in: defaults) == .refined)
 
-        defaults.set(InkPalette([.red]).rawValue, forKey: InkPalette.highlighterDefaultsKey)
+        defaults.set(InkPalette([.red]).rawValue, forKey: SettingKeys.Drawing.highlighterPalette.name)
         #expect(InkPaletteSet.stored(in: defaults) == .original)
 
-        defaults.set("refined", forKey: InkPaletteSet.defaultsKey)
+        defaults.set("refined", forKey: SettingKeys.Drawing.paletteSet.name)
         #expect(InkPaletteSet.stored(in: defaults) == .refined)
 
-        defaults.set("neon", forKey: InkPaletteSet.defaultsKey)
+        defaults.set("neon", forKey: SettingKeys.Drawing.paletteSet.name)
         #expect(InkPaletteSet.stored(in: defaults) == .original)
     }
 

@@ -55,7 +55,7 @@ struct PageConfiguration {
     var onMinimumPageCountChanged: ((Int) -> Void)? = nil
 
     /// Settings › Drawing › Add Pages While Drawing.
-    var addsPagesWhileDrawing = InkPageGrowth.defaultEnabled
+    var addsPagesWhileDrawing = SettingKeys.Drawing.addPagesWhileDrawing.defaultValue
 
     /// Told whenever the page scrolls, with the place it is scrolled to, for
     /// the page badge.

@@ -79,14 +79,14 @@ struct FingerDrawsPersistenceTests {
     /// Stores `value` as the device's Finger Draws (`nil`: nothing stored).
     private func store(_ value: Bool?) {
         if let value {
-            device.defaults.set(value, forKey: NoteEditor.fingerDrawsKey)
+            device.defaults.set(value, forKey: SettingKeys.Drawing.fingerDraws.name)
         } else {
-            device.defaults.removeObject(forKey: NoteEditor.fingerDrawsKey)
+            device.defaults.removeObject(forKey: SettingKeys.Drawing.fingerDraws.name)
         }
     }
 
     private var stored: Bool? {
-        device.defaults.object(forKey: NoteEditor.fingerDrawsKey) as? Bool
+        device.defaults.object(forKey: SettingKeys.Drawing.fingerDraws.name) as? Bool
     }
 
     @Test("With nothing stored, a finger draws")
@@ -158,7 +158,7 @@ struct FingerDrawsPersistenceTests {
         var eraser = EraserSettings()
         eraser.mode = .wholeStroke
         eraser.size = .large
-        device.defaults.set(eraser.rawValue, forKey: EraserSettings.defaultsKey)
+        device.defaults.set(eraser.rawValue, forKey: SettingKeys.Drawing.eraser.name)
         note.settle()
         #expect(note.editor.inkTool.eraser == eraser)
     }

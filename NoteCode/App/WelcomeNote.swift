@@ -16,15 +16,6 @@ import SwiftData
 /// made from now on: an existing note keeps its own, since changing it would
 /// re-wrap the text and move every line out from under its ink.
 nonisolated enum NewNotes {
-    static let defaultsKey = SettingKeys.Notes.newNoteOrientation.name
-
-    /// Settings › Notes › Open Note After Creating: whether the list's "+"
-    /// (its tap, its menu and the folder menu) opens the note it makes. On
-    /// until switched off (31 Oct): a "+" that made a note and showed nothing
-    /// read as broken. Off, adding several notes in a row leaves the reader
-    /// where they were, and the note shows up in the list with a toast.
-    static let opensAfterCreatingKey = SettingKeys.Notes.opensAfterCreating.name
-    static let opensAfterCreatingByDefault = SettingKeys.Notes.opensAfterCreating.defaultValue
 
     /// What the list selects once it has made `page`: the note itself if the
     /// reader wants it opened, else whatever was open.
@@ -39,7 +30,7 @@ nonisolated enum NewNotes {
 
     /// The stored choice, or portrait where nothing valid is stored.
     static func orientation(in defaults: UserDefaults = .standard) -> PageOrientation {
-        defaults.string(forKey: defaultsKey).flatMap(PageOrientation.init(rawValue:)) ?? .default
+        defaults.string(forKey: SettingKeys.Notes.newNoteOrientation.name).flatMap(PageOrientation.init(rawValue:)) ?? .default
     }
 
     /// The folder the "+" button files a note in: the open note's, so adding

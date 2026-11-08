@@ -38,11 +38,6 @@ nonisolated enum TextRewritingPolicy: Equatable, Sendable {
     /// code-keys row stays away.
     case proseWithoutRewriting
 
-    /// Settings › Writing › Autocorrect: whether prose is autocorrected,
-    /// capitalised and given smart punctuation. Per device, on until turned off.
-    static let proseDefaultsKey = SettingKeys.Writing.autocorrectInProse.name
-    static let proseEnabledByDefault = SettingKeys.Writing.autocorrectInProse.defaultValue
-
     /// What a new editor starts with, before the caret has been placed.
     ///
     /// Nothing rewrites until the editor knows where typing will go: the
@@ -64,7 +59,7 @@ nonisolated enum TextRewritingPolicy: Equatable, Sendable {
         _ utf16Offset: Int,
         in source: String,
         blocks: [BlockNode],
-        rewritesProse: Bool = proseEnabledByDefault
+        rewritesProse: Bool = SettingKeys.Writing.autocorrectInProse.defaultValue
     ) -> TextRewritingPolicy {
         let prose: TextRewritingPolicy = rewritesProse ? .prose : .proseWithoutRewriting
         guard let caret = Range(NSRange(location: utf16Offset, length: 0), in: source)?.lowerBound else {

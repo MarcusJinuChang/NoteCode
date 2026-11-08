@@ -342,13 +342,13 @@ struct CodeIndentTests {
         #expect(CodeIndent.validWidth(3) == 4)
         #expect(CodeIndent.validWidth(0) == 4)
         #expect(CodeIndent.validWidth(nil) == 4)
-        #expect(CodeIndent.widthKey == "indentWidth")
+        #expect(SettingKeys.Code.indentWidth.name == "indentWidth")
 
         let defaults = UserDefaults(suiteName: "CodeIndentTests.\(UUID().uuidString)")!
         #expect(CodeIndent.width(from: defaults) == 4)
-        defaults.set(2, forKey: CodeIndent.widthKey)
+        defaults.set(2, forKey: SettingKeys.Code.indentWidth.name)
         #expect(CodeIndent.width(from: defaults) == 2)
-        defaults.set(8, forKey: CodeIndent.widthKey)
+        defaults.set(8, forKey: SettingKeys.Code.indentWidth.name)
         #expect(CodeIndent.width(from: defaults) == 4)
     }
 }

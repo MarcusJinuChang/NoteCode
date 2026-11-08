@@ -97,17 +97,17 @@ struct ProDebugOptionsTests {
 
     @Test("A first launch also clears the App Store edition's Run disclosure")
     func resetKeys() throws {
-        #expect(AppExtensions.appStore.debugResetKeys == [RunDisclosure.key])
+        #expect(AppExtensions.appStore.debugResetKeys == [SettingKeys.Run.disclosureAccepted.name])
 #if canImport(UIKit)
         let name = "ProDebugOptionsTests-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: name))
         defaults.removePersistentDomain(forName: name)
-        defaults.set(true, forKey: RunDisclosure.key)
+        defaults.set(true, forKey: SettingKeys.Run.disclosureAccepted.name)
         let options = DebugLaunchOptions.parse(["app", "-debug-first-launch"])
         _ = DebugLaunch.firstLaunchOrHomeStorage(
             options, session: DebugSession(options: options),
             alsoClearing: AppExtensions.appStore.debugResetKeys, defaults: defaults)
-        #expect(defaults.object(forKey: RunDisclosure.key) == nil)
+        #expect(defaults.object(forKey: SettingKeys.Run.disclosureAccepted.name) == nil)
 #endif
     }
 }

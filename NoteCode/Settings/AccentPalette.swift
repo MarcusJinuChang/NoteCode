@@ -17,7 +17,7 @@ import AppKit
 
 /// The reader's accent, per device like the dock and the appearance.
 ///
-/// Stored as six hex digits (`FA8500`) under `defaultsKey`; nothing stored
+/// Stored as six hex digits (`FA8500`) under `SettingKeys.General.accent`; nothing stored
 /// means the design's orange, which is the `AccentColor` asset and keeps its
 /// Increase Contrast variants. A value that isn't six hex digits reads as
 /// nothing stored, so a bad write can't leave the app without an accent.
@@ -28,7 +28,6 @@ import AppKit
 /// enough to get it (`textHex`). The default keeps the design's own pair.
 nonisolated enum AccentPalette {
 
-    static let defaultsKey = SettingKeys.General.accent.name
 
     /// The design's orange, `#FA8500`.
     static let defaultHex = 0xFA8500
@@ -42,7 +41,7 @@ nonisolated enum AccentPalette {
 
     /// The chosen colour, or `nil` for the default.
     static func customHex(in defaults: UserDefaults = .standard) -> Int? {
-        parse(defaults.string(forKey: defaultsKey))
+        parse(defaults.string(forKey: SettingKeys.General.accent.name))
     }
 
     /// The accent in use: the chosen colour or the default.

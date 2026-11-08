@@ -17,7 +17,6 @@ nonisolated enum InkPaletteSet: String, CaseIterable, Sendable {
     case refined
     case original
 
-    static let defaultsKey = SettingKeys.Drawing.paletteSet.name
 
     var title: String {
         switch self {
@@ -46,10 +45,10 @@ nonisolated enum InkPaletteSet: String, CaseIterable, Sendable {
     /// device that has saved a palette of its own before sets existed (its
     /// highlighters are the old ones), and Refined for one that saved none.
     static func stored(in defaults: UserDefaults = .standard) -> InkPaletteSet {
-        if let raw = defaults.string(forKey: defaultsKey), let chosen = InkPaletteSet(rawValue: raw) {
+        if let raw = defaults.string(forKey: SettingKeys.Drawing.paletteSet.name), let chosen = InkPaletteSet(rawValue: raw) {
             return chosen
         }
-        let savedAPalette = [InkPalette.defaultsKey, InkPalette.highlighterDefaultsKey]
+        let savedAPalette = [SettingKeys.Drawing.penPalette.name, SettingKeys.Drawing.highlighterPalette.name]
             .contains { defaults.object(forKey: $0) != nil }
         return savedAPalette ? .original : .refined
     }
@@ -64,7 +63,7 @@ nonisolated enum InkPaletteSet: String, CaseIterable, Sendable {
     /// highlighter's remembered colour (keeping its width), in the defaults
     /// the hotbar reads them from. Ink already on a page keeps its colour.
     func apply(to defaults: UserDefaults = .standard) {
-        defaults.set(rawValue, forKey: Self.defaultsKey)
+        defaults.set(rawValue, forKey: SettingKeys.Drawing.paletteSet.name)
         resetPalette(for: .pen, in: defaults)
         resetPalette(for: .highlighter, in: defaults)
 

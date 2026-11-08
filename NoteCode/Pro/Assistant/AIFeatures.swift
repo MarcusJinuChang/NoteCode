@@ -90,9 +90,6 @@ nonisolated enum AIInsertStyle: String, CaseIterable, Sendable, Identifiable {
 /// value and one `apply(to:)`, so none can be set on its own and forgotten.
 nonisolated struct AIFeatureSettings: Equatable, Sendable {
 
-    static let enabledKey = SettingKeys.Assistant.enabled.name
-    static let lengthKey = SettingKeys.Assistant.answerLength.name
-    static let insertStyleKey = SettingKeys.Assistant.insertStyle.name
 
     /// On, where the model exists. The switch only ever turns the features
     /// off; it can't make an unavailable model available.
@@ -118,9 +115,9 @@ nonisolated struct AIFeatureSettings: Equatable, Sendable {
 
     init(defaults: UserDefaults) {
         self.init(
-            isEnabled: defaults.object(forKey: Self.enabledKey) as? Bool ?? true,
-            length: defaults.string(forKey: Self.lengthKey) ?? "",
-            insertStyle: defaults.string(forKey: Self.insertStyleKey) ?? ""
+            isEnabled: defaults.object(forKey: SettingKeys.Assistant.enabled.name) as? Bool ?? true,
+            length: defaults.string(forKey: SettingKeys.Assistant.answerLength.name) ?? "",
+            insertStyle: defaults.string(forKey: SettingKeys.Assistant.insertStyle.name) ?? ""
         )
     }
 }

@@ -18,11 +18,11 @@ struct ProKeysTests {
 
     @Test("The Pro-side settings keep the names devices saved them under")
     func settingsKeys() {
-        #expect(AIFeatureSettings.enabledKey == "aiEnabled")
-        #expect(AIFeatureSettings.lengthKey == "aiAnswerLength")
-        #expect(AIFeatureSettings.insertStyleKey == "aiInsertStyle")
-        #expect(RunDockWidth.key == "runPanelWidth")
-        #expect(RunDisclosure.key == "runDisclosureAccepted")
+        #expect(SettingKeys.Assistant.enabled.name == "aiEnabled")
+        #expect(SettingKeys.Assistant.answerLength.name == "aiAnswerLength")
+        #expect(SettingKeys.Assistant.insertStyle.name == "aiInsertStyle")
+        #expect(SettingKeys.Run.panelWidth.name == "runPanelWidth")
+        #expect(SettingKeys.Run.disclosureAccepted.name == "runDisclosureAccepted")
     }
 
     @Test("The Pro-side settings start on their defaults")
@@ -30,7 +30,7 @@ struct ProKeysTests {
         #expect(AIFeatureSettings().isEnabled == true)
         #expect(AIAnswerLength.standard.rawValue == "standard")
         #expect(AIInsertStyle.quote.rawValue == "quote")
-        #expect(RunDockWidth.initial == 360.0)
+        #expect(SettingKeys.Run.panelWidth.defaultValue == 360.0)
     }
 
     @Test("The ad visit count is kept under adHomeVisits")

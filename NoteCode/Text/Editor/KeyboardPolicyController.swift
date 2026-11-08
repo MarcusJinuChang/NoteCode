@@ -17,10 +17,10 @@ final class KeyboardPolicyController {
 
     /// The keyboard traits the text view has now: prose or code.
     private(set) var rewritingPolicy = TextRewritingPolicy.initial
-    private(set) var rewritesProse = TextRewritingPolicy.proseEnabledByDefault
+    private(set) var rewritesProse = SettingKeys.Writing.autocorrectInProse.defaultValue
 
     /// Settings › Code › Code Keys, and the row it turns on.
-    private(set) var codeKeysEnabled = CodeKeys.enabledByDefault
+    private(set) var codeKeysEnabled = SettingKeys.Code.codeKeys.defaultValue
 
     /// A tap on the row. Set by the Coordinator, which edits the text.
     var onKey: ((CodeKey) -> Void)?

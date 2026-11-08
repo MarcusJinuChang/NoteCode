@@ -93,7 +93,6 @@ nonisolated enum SelectionKind: String, CaseIterable, Sendable {
     case lasso
     case rectangle
 
-    static let defaultsKey = SettingKeys.Drawing.selectionKind.name
 
     var title: String {
         switch self {

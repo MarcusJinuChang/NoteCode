@@ -61,8 +61,8 @@ struct CodeKeysTests {
         #expect(!shown(policy: .prose))
         #expect(!shown(hardware: true))
         #expect(!shown(editable: false))
-        #expect(CodeKeys.enabledByDefault)
-        #expect(CodeKeys.enabledKey == "codeKeys")
+        #expect(SettingKeys.Code.codeKeys.defaultValue)
+        #expect(SettingKeys.Code.codeKeys.name == "codeKeys")
     }
 
     @MainActor

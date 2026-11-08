@@ -10,9 +10,9 @@ import SwiftUI
 
 /// Explain Code and Summarise Note, on Apple's on-device model.
 struct AssistantSettingsSection: View {
-    @AppStorage(AIFeatureSettings.enabledKey) private var aiEnabled = true
-    @AppStorage(AIFeatureSettings.lengthKey) private var aiLength = AIAnswerLength.standard.rawValue
-    @AppStorage(AIFeatureSettings.insertStyleKey) private var aiInsertStyle = AIInsertStyle.quote.rawValue
+    @AppStorage(SettingKeys.Assistant.enabled.name) private var aiEnabled = true
+    @AppStorage(SettingKeys.Assistant.answerLength.name) private var aiLength = AIAnswerLength.standard.rawValue
+    @AppStorage(SettingKeys.Assistant.insertStyle.name) private var aiInsertStyle = AIInsertStyle.quote.rawValue
 
     var body: some View {
         Section {

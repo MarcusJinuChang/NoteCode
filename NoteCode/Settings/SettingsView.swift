@@ -4,8 +4,8 @@
 //
 //  Settings: a form sheet with a list of sections, each opening a page of its
 //  own. Every row reads and writes the key the rest of the app already uses,
-//  through the type that owns it (`HotbarDock.defaultsKey`,
-//  `NoteSort.defaultsKey`, …), so there is no second copy of a preference to
+//  through the type that owns it (`SettingKeys.General.hotbarDock.name`,
+//  `SettingKeys.Notes.sort.name`, …), so there is no second copy of a preference to
 //  drift from the first. A row appears only when it does something.
 //
 

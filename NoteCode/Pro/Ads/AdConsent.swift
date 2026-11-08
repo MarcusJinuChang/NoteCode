@@ -58,7 +58,6 @@ final class AdConsent {
     private var gathering = false
     /// UMP has been asked this launch. Its answers aren't kept between launches.
     private var consentInfoUpdated = false
-    private static let visitsKey = SettingKeys.Ads.homeVisits.name
 
     init(platform: AdPlatform, defaults: UserDefaults) {
         self.platform = platform
@@ -66,7 +65,7 @@ final class AdConsent {
     }
 
     /// The number of times Home has appeared, across launches.
-    var homeVisits: Int { defaults.integer(forKey: Self.visitsKey) }
+    var homeVisits: Int { defaults.integer(forKey: SettingKeys.Ads.homeVisits.name) }
 
     /// Home appeared, once the store has said whether the reader has Pro.
     /// Until then `isPro` reads false, and a subscriber opening the app on
@@ -91,7 +90,7 @@ final class AdConsent {
         gathering = true
         defer { gathering = false }
         let visits = homeVisits
-        defaults.set(visits + 1, forKey: Self.visitsKey)
+        defaults.set(visits + 1, forKey: SettingKeys.Ads.homeVisits.name)
         if !canRequestAds {
             let granted = await platform.gatherConsent()
             consentInfoUpdated = true

@@ -116,17 +116,16 @@ nonisolated enum KeepInNote {
 /// their text leaves the iPad). Says what the privacy page's "Running code
 /// in the app" says.
 nonisolated enum RunDisclosure {
-    static let key = SettingKeys.Run.disclosureAccepted.name
     static let title = "Before your first run"
     static let message = "Run sends this block's code and its input to NoteCode's run service, which runs them on Judge0, an online code-execution service, and sends back the output. Nothing else in your notes is sent. Judge0 may keep what it runs for a while, so leave passwords and keys out of code you run."
     static let run = "Run"
     static let notNow = "Not Now"
 
     static func isAccepted(in defaults: UserDefaults) -> Bool {
-        defaults.bool(forKey: key)
+        defaults.bool(forKey: SettingKeys.Run.disclosureAccepted.name)
     }
 
     static func markAccepted(in defaults: UserDefaults) {
-        defaults.set(true, forKey: key)
+        defaults.set(true, forKey: SettingKeys.Run.disclosureAccepted.name)
     }
 }

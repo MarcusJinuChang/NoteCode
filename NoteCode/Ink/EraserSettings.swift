@@ -10,7 +10,6 @@ import Foundation
 /// How the eraser erases: which parts of a stroke, and how wide.
 nonisolated struct EraserSettings: Hashable, Sendable {
 
-    static let defaultsKey = SettingKeys.Drawing.eraser.name
 
     enum Mode: String, CaseIterable, Sendable {
         /// Only what it passes over, so fixing one letter of handwriting

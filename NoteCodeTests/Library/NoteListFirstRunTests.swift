@@ -47,16 +47,16 @@ struct NoteListFirstRunTests {
         let defaults = freshDefaults()
         #expect(NewNotes.orientation(in: defaults) == .portrait)
 
-        defaults.set("sideways", forKey: NewNotes.defaultsKey)
+        defaults.set("sideways", forKey: SettingKeys.Notes.newNoteOrientation.name)
         #expect(NewNotes.orientation(in: defaults) == .portrait)
     }
 
     @Test("The + button's tap follows the stored choice, under the key the setting writes")
     func newNotesFollowsSetting() {
-        #expect(NewNotes.defaultsKey == "newNoteOrientation")
+        #expect(SettingKeys.Notes.newNoteOrientation.name == "newNoteOrientation")
         let defaults = freshDefaults()
 
-        defaults.set(PageOrientation.landscape.rawValue, forKey: NewNotes.defaultsKey)
+        defaults.set(PageOrientation.landscape.rawValue, forKey: SettingKeys.Notes.newNoteOrientation.name)
         let page = Page.create(orientation: NewNotes.orientation(in: defaults), context: context)
 
         #expect(page.orientation == .landscape)
@@ -87,8 +87,8 @@ struct NoteListFirstRunTests {
     @Test("Open Note After Creating is on until switched off, and off leaves the open note open")
     func openAfterCreating() {
         let defaults = freshDefaults()
-        #expect(defaults.object(forKey: NewNotes.opensAfterCreatingKey) == nil)
-        #expect(NewNotes.opensAfterCreatingByDefault == true)
+        #expect(defaults.object(forKey: SettingKeys.Notes.opensAfterCreating.name) == nil)
+        #expect(SettingKeys.Notes.opensAfterCreating.defaultValue == true)
 
         let open = Page.create(orientation: .portrait, context: context)
         let made = Page.create(orientation: .portrait, context: context)

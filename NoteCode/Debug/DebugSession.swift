@@ -20,7 +20,7 @@ extension DebugLaunch {
     /// from the menu would.
     static func applyViewMode(_ options: DebugLaunchOptions) {
         if let mode = options.mode {
-            UserDefaults.standard.set(mode.rawValue, forKey: PageViewMode.defaultsKey)
+            UserDefaults.standard.set(mode.rawValue, forKey: SettingKeys.Notes.viewMode.name)
         }
     }
 
@@ -146,7 +146,7 @@ final class DebugSession {
                 self?.modeSwitch = .done
                 // Through the saved setting, the path the view menu takes, so
                 // the switch runs through the same SwiftUI update a tap does.
-                UserDefaults.standard.set(thenMode.rawValue, forKey: PageViewMode.defaultsKey)
+                UserDefaults.standard.set(thenMode.rawValue, forKey: SettingKeys.Notes.viewMode.name)
             }
         }
     }

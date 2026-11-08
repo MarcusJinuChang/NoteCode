@@ -15,11 +15,6 @@ nonisolated enum HotbarDock: String, CaseIterable, Sendable {
 
     static let `default` = SettingKeys.General.hotbarDock.defaultValue
 
-    /// Stored per device, like the default run destination. Where the bar
-    /// belongs depends on how this iPad is held and which hand has the Pencil,
-    /// not on which note is open.
-    static let defaultsKey = SettingKeys.General.hotbarDock.name
-
     var isVertical: Bool {
         self != .bottom
     }

@@ -16,7 +16,6 @@ import AppKit
 /// Whether the bar's icons are NoteCode's own or the system's, and how heavy
 /// the drawn ones are. Per device, stored as one string (`drawn.regular`).
 nonisolated struct IconStyle: Equatable, Sendable {
-    static let defaultsKey = SettingKeys.General.iconStyle.name
 
     var isDrawn = true
     var weight = IconWeight.regular

@@ -14,7 +14,7 @@ import Foundation
 /// A `UserDefaults` with a name no other test has, removed when this goes.
 ///
 ///     let store = TestDefaults()
-///     store.defaults.set("dark", forKey: AppAppearance.defaultsKey)
+///     store.defaults.set("dark", forKey: SettingKeys.General.appearance.name)
 ///
 /// Keep it as long as the test needs the settings: a stored property of a
 /// suite (each test makes a new one) or of the rig the test builds. The
