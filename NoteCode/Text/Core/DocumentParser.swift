@@ -22,7 +22,10 @@ nonisolated enum DocumentParser {
     /// `$$` that doesn't close within them is text.
     static let maxMathLines = 50
 
-    static func parse(_ text: String) -> [BlockNode] {
+    /// `held` is the start of a line being typed as a fence (`heldFence`):
+    /// inside a block, that line does not close it, as it would not have a
+    /// keystroke earlier.
+    static func parse(_ text: String, holdingOpen held: String.Index? = nil) -> [BlockNode] {
         var blocks: [BlockNode] = []
 
         // `split` hands back Substrings whose indices point back into `text`,
@@ -34,7 +37,7 @@ nonisolated enum DocumentParser {
         // and the whole file parses as one line.
         let lines = text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
 
-        var fences = FenceScanner(text: text)
+        var fences = FenceScanner(text: text, held: held)
         let maths = MathScanner(text: text, lines: lines)
         // The lines a math block has taken, which are not read on their own.
         var mathEnd = 0
@@ -86,11 +89,16 @@ nonisolated enum DocumentParser {
         }
 
         let text: String
+        /// The start of the line that doesn't close a block (`parse`).
+        let held: String.Index?
         private var open: (start: String.Index, contentStart: String.Index, info: String, backticks: Int)?
         /// Position of the next code block among code blocks, in document order.
         private var ordinal = 0
 
-        init(text: String) { self.text = text }
+        init(text: String, held: String.Index?) {
+            self.text = text
+            self.held = held
+        }
 
         mutating func read(_ line: Substring, from lineStart: String.Index, to lineEnd: String.Index) -> Reading {
             let fence = DocumentParser.fenceInfo(line)
@@ -98,7 +106,9 @@ nonisolated enum DocumentParser {
             if let open {
                 // Inside a block: only a bare fence of at least the opening
                 // width closes it. A tagged fence is just code content.
-                guard let fence, fence.info.isEmpty, fence.backticks >= open.backticks else { return .inside }
+                guard let fence, fence.info.isEmpty, fence.backticks >= open.backticks, lineStart != held else {
+                    return .inside
+                }
                 let block = codeBlock(open, contentEnd: lineStart, end: lineEnd, isClosed: true)
                 self.open = nil
                 return .closed(block)
@@ -429,6 +439,31 @@ nonisolated enum DocumentParser {
         guard !info.contains("`") else { return nil }
 
         return Fence(backticks: backticks, info: info)
+    }
+
+    /// The line an edit leaves half-typed as a fence, which `parse` should
+    /// hold open: the edit put in no line break and ends at the end of its
+    /// line, and the line is now a bare fence. A UTF-16 range of the line,
+    /// its terminator left out.
+    ///
+    /// Typing ```swift inside a block passes through ```, which closes the
+    /// block (CommonMark, and Obsidian, read it so). For that one keystroke
+    /// the code below turned to prose and the old closing fence opened a
+    /// block that took the prose below (the device pass's code-3, 7 Nov).
+    /// Held, the line reads as it did a key earlier, and it closes once the
+    /// line is left: by Return, or by the caret moving off it. A closing
+    /// fence typed at the end of an unclosed block waits for that too, which
+    /// changes nothing on screen, since the block ran on below it already.
+    static func heldFence(afterEditing edited: NSRange, in text: NSString) -> NSRange? {
+        guard edited.location != NSNotFound, NSMaxRange(edited) <= text.length else { return nil }
+        let inserted = text.substring(with: edited)
+        guard !inserted.contains(where: \.isNewline) else { return nil }
+        var start = 0, end = 0, contentsEnd = 0
+        text.getLineStart(&start, end: &end, contentsEnd: &contentsEnd, for: NSRange(location: edited.location, length: 0))
+        guard NSMaxRange(edited) == contentsEnd else { return nil }
+        let line = NSRange(location: start, length: contentsEnd - start)
+        guard let fence = fenceInfo(Substring(text.substring(with: line))), fence.info.isEmpty else { return nil }
+        return line
     }
 
     /// First whitespace-separated word of the info string, mapped to a language.

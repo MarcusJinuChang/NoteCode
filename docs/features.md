@@ -71,7 +71,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 
 | Feature | How it works | Status | Detail |
 |---|---|---|---|
-| Fenced blocks | Triple backticks anywhere become a block; detected while typing, before the closing fence | built | `code-block-fences.md` |
+| Fenced blocks | Triple backticks anywhere become a block; detected while typing, before the closing fence. A bare fence typed inside a block closes it only once its line is left, so typing ```swift there doesn't flash the rest of the note | built | `code-block-fences.md` |
 | Languages | C++, Java, Python, C, JavaScript, Rust, Go, SQL; chosen from the hotbar or the block's name button | built | `code-languages-and-keys.md` |
 | Unmarked blocks | Shown as "Code" (stored key unchanged); plain styling | built (feedback #15) | |
 | Output blocks | An `output` fence for a program's result, on the code panel's own light/dark colours | built | `code-languages-and-keys.md` |
