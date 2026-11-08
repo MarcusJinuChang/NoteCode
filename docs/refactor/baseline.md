@@ -352,7 +352,9 @@ in the two runs. Run 2 against this file (ms; base in parentheses):
    passed. Rerun alone with a 120 s allowance, all 7 passed in 6 s, so it
    is intermittent. Environment: Xcode 27.2, iOS 27.2 simulator (iPad Pro
    13-inch M5); no simulator log was kept from the hung run. Its own fix PR:
-   a timeout in the test and a cause.
+   a timeout in the test and a cause. **(Found and guarded in D10, #261:** the first
+   StoreKit test process on a fresh simulator buys from the real App Store,
+   which waits on an Apple ID sign-in alert.)
 2. **6 of 10 `HotbarUITests` fail, the first UI-test run ever.**
    `testAutocorrectOffKeepsThreeHyphens` (app not running),
    `testReachDockedLeft` and `testReachDockedRight` (no element with identifier
