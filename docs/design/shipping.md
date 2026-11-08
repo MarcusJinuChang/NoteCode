@@ -37,22 +37,25 @@ What an upload checks before a person sees the app (4 Oct).
   Marcus Chang" certificate issued 8 Oct to 8 Oct 2027, and the app's
   team provisioning profile, made 8 Oct and valid a year. When an on-device
   build misbehaves, check which team signed it before reading any Swift.
-  - **Marcus's working tree carries an uncommitted `project.pbxproj` edit**,
-    and has since 8 Oct: Xcode set `CODE_SIGN_IDENTITY = "Apple Development"`
-    for every SDK, in place of ad-hoc `-` for macOS (`"CODE_SIGN_IDENTITY
-    [sdk=macosx*]" = "-"`), and added an empty `PROVISIONING_PROFILE_SPECIFIER`,
-    when the paid account came back. It is his local state: **leave it
-    unstaged, never commit or revert it, and don't mention it in summaries or
-    PRs** (he knows). Stage files by name, never `git add -A` or `-a`. If a
-    change needs `project.pbxproj` itself, stop and ask first.
+  - **The signing is committed** (8 Nov): `CODE_SIGN_IDENTITY = "Apple
+    Development"` for every SDK and an empty `PROVISIONING_PROFILE_SPECIFIER`,
+    which Xcode set on 8 Oct when the paid account came back, and which lived
+    only in Marcus's working tree until 1.2.0 (5) was archived from it.
 - **iPad and iPhone** (31 Oct, for 1.0.1). TestFlight 1 was iPad only: the
   NoteCode target had `TARGETED_DEVICE_FAMILY = 2` in Marcus's working tree
   (14 Oct, v3 phase 8), while the iPhone layout was designed and not built.
   It is built now (iphone-and-the-duo.md), so the target is `"1,2"`, as
   committed, and the App Store listing needs iPhone 6.9-inch screenshots
-  beside the 13-inch iPad's. macOS is a separate platform in
-  `SUPPORTED_PLATFORMS` and still builds. Bump the build number for every
-  upload.
+  beside the 13-inch iPad's. The app target lists no macOS platform
+  (`SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"`, as 1.2.0 shipped).
+- **The build number** (8 Nov). `Config/Version.xcconfig` holds
+  `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`, and is the base of the
+  NoteCode target's Debug and Release configurations, so a release edits that
+  file and not the project. Edit the file, not the target's General tab:
+  Xcode writes a Version or Build typed there back into the project, where it
+  overrides the file. Bump the build for every upload, archive from a clean
+  commit on `main`, and tag it `v<version>-<build>`. `xcodebuild
+  -showBuildSettings` gave the same settings before and after the move.
 - **Privacy and support pages** are drafted in `docs/site/privacy.md` and
   `support.md`; Marcus copies them to the `gh-pages` branch (`privacy.md` is
   the page at `AppInfo.privacyPolicy`, which is now always set, so the
@@ -112,7 +115,63 @@ Google's test ids (`AdConfig.units(forRelease:)`, pinned in `AdTests`).
   before the launch has decided about the title screen and then sits under it
   (31 Oct; Google's form and the system's tracking prompt showed over the title
   screen). `HomeView.consentMayStart` is false until the launch task has
-  claimed the title screen and while it is up. Without ATT consent the request carries `npa=1`.
+  claimed the title screen and while it is up. Without ATT consent the
+  request carries `npa=1`.
+  That order is the app's own. While the AdMob console publishes an IDFA
+  explainer message for this app, Google's flow puts ATT on the first visit
+  outside the EEA and UK (next bullet).
+- **UMP's IDFA explainer asks for tracking on the first visit** (found 8 Nov,
+  device pass home-4). The sequence was a fresh install in the US (en_US,
+  simulator, the real `GADApplicationIdentifier`), Get Started, and then
+  Google's "Our app wants to stay free for you" on the first Home visit.
+  One Continue and the system ATT alert appeared half a second later, with
+  Google's card still behind it.
+  `adHomeVisits` was 0 going in, so `AdConsent`'s `visits >= 1` gate did not
+  fire and the app never called `requestTracking()`. The defaults showed
+  `IABTCF_gdprApplies` = 0, so no GDPR form was due, and
+  `IABTCF_idfaFlowControl` = 5. What the reader saw was not a consent form.
+  It was the **IDFA explainer message** published under AdMob › Privacy &
+  messaging › IDFA. Google shows that message "immediately before the iOS
+  ATT alert", and Continue on it raises ATT itself
+  ([AdMob help 10115027](https://support.google.com/admob/answer/10115027),
+  [10115331](https://support.google.com/admob/answer/10115331),
+  [UMP iOS IDFA guide](https://developers.google.com/admob/ios/privacy/idfa)).
+  `ConsentForm.loadAndPresentIfRequired` in `SystemAdPlatform.gatherConsent`
+  presents whichever message UMP says is due, and the SDK has no parameter
+  to leave out one type. Which message is due (Google's help says EEA readers
+  may see the GDPR message instead; the split below is a Google forum answer,
+  not yet checked in an EEA region):
+  - Outside the EEA and UK: the IDFA explainer, so ATT comes on the first visit.
+  - In the EEA or UK with no answer yet: the GDPR form, and no ATT. The
+    app's own ATT prompt comes on the second Home visit ever (`adHomeVisits`
+    is saved, so that may be a later launch's first), without the explainer.
+  - In the EEA or UK after an answer: UMP would show the explainer on a
+    later launch's first visit, but by then ATT has usually been answered,
+    and UMP loads that form only while the status is not determined.
+
+  The code could keep its own order only by not presenting the form on the
+  first visit when `IABTCF_gdprApplies` is not 1, and presenting it on the
+  second visit instead. GDPR would not wait, but the change leans on an
+  IAB key UMP writes rather than on UMP's API. It would also still show
+  the explainer, one visit later. Which way to go is Marcus's choice; no
+  code changed:
+  - **Accept it** (no change in the build). The first visit outside the EEA
+    is Google's explainer and then ATT. The app's second-visit prompt stays
+    as the fallback for the EEA and UK, and for when the explainer isn't
+    published. The rating prompt already waits for tracking to be answered
+    (`mayAskForReview` in `Pro/AppStoreEdition.swift`, checked by
+    `ContentView`), so it is unaffected. Change the Order bullet above,
+    features.md › Ads, the App Review notes
+    (`release-1.0/R5-submission.md`, "on a later visit to Home") and the
+    P3 line of `ipad-test-checklist.md` to say so.
+  - **Turn it off** in the console: admob.google.com › Privacy & messaging
+    › IDFA (Manage on its card) › the NoteCode message's row › Unpublish,
+    then confirm. Google says the message can keep showing for up to 10
+    minutes. After that the first visit outside the EEA shows nothing and
+    ATT comes, bare, on the second visit, as designed. Readers who already
+    answered are unaffected. To check, run a fresh install with
+    `simctl privacy reset all` and look for no alert on the first Home
+    visit (home-4).
 - **Size**: the standard anchored adaptive size (`AdSizing`, 31 Oct), for the
   width the slot is given, measured on a placeholder the banner lies over.
   It was the large anchored size, up to 150pt tall: a seventh of an iPad
