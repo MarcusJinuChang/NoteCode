@@ -386,12 +386,6 @@ struct DocumentTextView: UIViewRepresentable {
             redrawFences(ofBlocks: Set(ranges.indices), ranges: ranges, in: textView)
         }
 
-        /// A paragraph's line number in its block, from 1 for the first line
-        /// after the opening fence, `nil` when numbers are off.
-        ///
-        /// Counted at draw time from the note as it is now: an edit above
-        /// moves a block without touching its fragments. A fence line gets a
-        /// number here too, which the fragment declines to draw.
         /// Where `fragment`'s paragraph sits in its code block as the note is
         /// now, or `nil` when it is in none. See `CodeBlockLayoutFragment.placement`.
         func placement(of fragment: NSTextLayoutFragment, in storage: NSTextStorage) -> CodeBlockLayoutFragment.Placement? {
@@ -407,6 +401,12 @@ struct DocumentTextView: UIViewRepresentable {
             return .init(position: position, closesBlock: ranges[index].isClosed && position.roundsBottom)
         }
 
+        /// A paragraph's line number in its block, from 1 for the first line
+        /// after the opening fence, `nil` when numbers are off.
+        ///
+        /// Counted at draw time from the note as it is now: an edit above
+        /// moves a block without touching its fragments. A fence line gets a
+        /// number here too, which the fragment declines to draw.
         func lineNumber(of fragment: NSTextLayoutFragment, in storage: NSTextStorage) -> Int? {
             let ranges = codeRanges(in: storage)
             guard showsLineNumbers, let offset = offset(of: fragment),

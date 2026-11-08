@@ -44,6 +44,8 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
     /// on each of the dozen reads a draw makes.
     private var drawingPlacement: Placement?
 
+    /// Outside a draw this asks `placement()` afresh, which parses the note,
+    /// on every read: a caller there reads it once and keeps it.
     private var currentPlacement: Placement { drawingPlacement ?? placement() ?? madePlacement }
 
     var position: CodeBlockPosition { currentPlacement.position }
@@ -77,6 +79,9 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
 
     /// Whether this paragraph is a fence line rather than code. An unclosed
     /// block has only an opening one.
+    ///
+    /// `isOpeningFence` spelled out on one placement, so the draw reads it
+    /// once; change the two together.
     var isFence: Bool {
         let placement = currentPlacement
         return placement.position.roundsTop || placement.closesBlock
