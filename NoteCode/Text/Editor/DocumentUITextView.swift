@@ -350,6 +350,13 @@ final class DocumentUITextView: UITextView {
         return self.position(from: position, offset: -1)
     }
 
+    /// Runs an edit that can move every line below it, keeping the reader on
+    /// the line they were reading: `PageView.reflow`. The syntax colours use
+    /// it when they land on text above the screen (`SyntaxColouring`). `nil`
+    /// (no page) runs the edit as it is. Optional for the same reason
+    /// `layoutObservers` is.
+    var keepingReadingPlace: ((() -> Void) -> Void)?
+
     func addWillLayoutObserver(_ observer: @escaping () -> Void) {
         willLayoutObservers = (willLayoutObservers ?? []) + [observer]
     }
