@@ -372,32 +372,26 @@ struct TextRewritingPolicyTests {
 
     // MARK: Dashes
 
-    @Test("A dash the keyboard makes at a line's start stays hyphens, so --- is a rule")
+    @Test("A hyphen typed after hyphens at a line's start is typed by the app, so --- is a rule")
     func dashAtLineStart() {
-        // Typing the second hyphen: the keyboard replaces "-" with an em dash.
-        let second = TextRewritingPolicy.hyphensKept(
-            replacing: NSRange(location: 0, length: 1), with: "\u{2014}", in: "-" as NSString)
-        #expect(second == TextEdit(
-            range: NSRange(location: 0, length: 1), replacement: "--", selection: NSRange(location: 2, length: 0)))
-        // After a newline, and the pair form ("--" becomes a dash).
-        let later = TextRewritingPolicy.hyphensKept(
-            replacing: NSRange(location: 4, length: 2), with: "\u{2013}", in: "abc\n--" as NSString)
-        #expect(later?.replacement == "---")
-        #expect(later?.selection == NSRange(location: 7, length: 0))
-        #expect(TextRewritingPolicy.hyphensKept(
-            replacing: NSRange(location: 2, length: 1), with: "\u{2014}", in: "  -" as NSString) != nil)
+        // The second hyphen, and the third.
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 1, in: "-") == TextEdit(
+            range: NSRange(location: 1, length: 0), replacement: "-", selection: NSRange(location: 2, length: 0)))
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 2, in: "--")?.selection == NSRange(location: 3, length: 0))
+        // After a newline, and indented.
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 6, in: "abc\n--") != nil)
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 3, in: "  -") != nil)
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 3, in: "\t--") != nil)
     }
 
-    @Test("Mid-line dashes in prose are still made, and only dashes are kept")
+    @Test("The first hyphen, a bullet's and mid-line ones are the keyboard's")
     func dashInProse() {
-        #expect(TextRewritingPolicy.hyphensKept(
-            replacing: NSRange(location: 4, length: 1), with: "\u{2014}", in: "word-" as NSString) == nil)
-        #expect(TextRewritingPolicy.hyphensKept(
-            replacing: NSRange(location: 5, length: 2), with: "\u{2014}", in: "word --" as NSString) == nil)
-        #expect(TextRewritingPolicy.hyphensKept(
-            replacing: NSRange(location: 0, length: 1), with: "x", in: "-" as NSString) == nil)
-        #expect(TextRewritingPolicy.hyphensKept(
-            replacing: NSRange(location: 0, length: 1), with: "\u{201C}", in: "\"" as NSString) == nil)
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 0, in: "") == nil, "nothing before it to make a dash with")
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 2, in: "  ") == nil)
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 5, in: "word-") == nil)
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 7, in: "word --") == nil)
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 2, in: "- ") == nil, "a bullet's text")
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 3, in: "- -") == nil)
     }
 }
 

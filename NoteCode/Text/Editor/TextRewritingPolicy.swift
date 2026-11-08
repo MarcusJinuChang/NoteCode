@@ -119,33 +119,41 @@ nonisolated enum TextRewritingPolicy: Equatable, Sendable {
         }
     }
 
-    /// The edit that keeps hyphens where the keyboard is turning them into a
-    /// dash at the start of a line, or nil when the dash should be made.
+    /// The edit that types a hyphen itself, where the keyboard would turn
+    /// it into a dash at the start of a line, or nil when the dash should be
+    /// made.
     ///
     /// Smart dashes turn the second hyphen of a typed `---` into a dash, so
     /// the third followed it as "—-". At a line's start, hyphens are a
-    /// Markdown rule or a front-matter fence, so the typed hyphen is kept
-    /// as one (`range` holds the hyphens already there). A `--` between
-    /// words still becomes a dash.
-    static func hyphensKept(replacing range: NSRange, with text: String, in source: NSString) -> TextEdit? {
-        guard text == "\u{2013}" || text == "\u{2014}",
-              range.length == 1 || range.length == 2,
-              NSMaxRange(range) <= source.length,
-              source.substring(with: range).allSatisfy({ $0 == "-" })
-        else { return nil }
+    /// Markdown rule or a front-matter fence, so a hyphen typed after
+    /// hyphens there (and only spaces or tabs before them) stays one. A `--`
+    /// between words still becomes a dash.
+    ///
+    /// The keyboard asks the delegate about the plain "-" and then makes
+    /// the dash inside its own insert without asking again (seen in lldb,
+    /// 7 Nov), so this answers the question it does ask: the app makes the
+    /// insert, as an edit of its own, and the keyboard's never happens.
+    static func hyphenKept(typedAt caret: Int, in source: NSString) -> TextEdit? {
+        guard caret > 0, caret <= source.length else { return nil }
 
-        // Only spaces and tabs may come before them on the line.
-        var index = range.location
+        var index = caret
+        var hyphens = 0
         while index > 0 {
             let before = source.character(at: index - 1)
             if before == UTF16Unit.newline { break }
-            guard before == 0x20 || before == 0x09 else { return nil }
+            if before == 0x2D {
+                // Spaces between hyphens aren't a rule as typed here.
+                guard hyphens == caret - index else { return nil }
+                hyphens += 1
+            } else {
+                guard before == 0x20 || before == 0x09, hyphens > 0 else { return nil }
+            }
             index -= 1
         }
-        let hyphens = String(repeating: "-", count: range.length + 1)
+        guard hyphens > 0 else { return nil }
         return TextEdit(
-            range: range, replacement: hyphens,
-            selection: NSRange(location: range.location + hyphens.utf16.count, length: 0)
+            range: NSRange(location: caret, length: 0), replacement: "-",
+            selection: NSRange(location: caret + 1, length: 0)
         )
     }
 
