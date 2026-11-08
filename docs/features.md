@@ -143,7 +143,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Accessibility | VoiceOver labels, Reduce Motion, Increase Contrast; the note body ignores Dynamic Type | built; sweeps unchecked | `settings-toasts-polish-…md` |
 | iPhone and Duo | Compact stack, fold avoidance; in the 1.0.1 release (31 Oct) | built; simulator only, no physical Duo | `iphone-and-the-duo.md` |
 | Colour and icons | Accent editable; Settings › Drawing › Colour Set picks Refined or Original highlighters; highlighter swatches are marker chips, vivid on dark bars; Settings › General › Toolbar Icons picks NoteCode's drawn icons or the system's, with an Icon Weight | built (feedback #4, #5, #28) | `colour.md` |
-| macOS | Builds; the editor is a plain `TextEditor` with no fences or ink | partial | ROADMAP |
+| macOS | Not a platform of the app target since 1.2.0 (debt D14); the old Mac editor was a plain `TextEditor` with no fences or ink | planned | NOW.md queue 6 |
 
 ## 7. Sharing, import and export
 

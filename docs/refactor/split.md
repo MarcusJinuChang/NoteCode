@@ -46,8 +46,8 @@ checks it.
   sees both: `INFOPLIST_FILE`, plus a membership exception per edition
   folder.
 - **The private project:**
-  - **Version and build.** `AppStore/Version.xcconfig` holds the version
-    and build number, so an upload never edits a public file.
+  - **Version and build.** `Config/Version.xcconfig` (0F) moves to
+    `AppStore/Version.xcconfig`, so an upload never edits a public file.
   - **The Pro code.** `git mv NoteCode/Pro Pro`, and the Pro tests with
     `NoteCode.storekit` go to `ProTests/`. `TipJarTests` loads the storekit
     file from the test bundle.

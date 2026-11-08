@@ -214,14 +214,14 @@
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
-			<key>UTTypeIdentifier</key>
-			<string>com.marcus.NoteCode.list-item</string>
-			<key>UTTypeDescription</key>
-			<string>NoteCode note or folder</string>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>public.data</string>
 			</array>
+			<key>UTTypeDescription</key>
+			<string>NoteCode note or folder</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.marcus.NoteCode.list-item</string>
 		</dict>
 	</array>
 </dict>

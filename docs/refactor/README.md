@@ -129,10 +129,11 @@ for F1 and what is left of each wave.
 
 Before the split (required), sooner is better:
 
-- **Make build 4 reproducible (0F).** The version, build number, platforms
-  and signing that went to App Review exist only in your working tree; a
-  session's worktree builds version 1.0 (1). Commit them, or better, put
-  them in an xcconfig, and tag `v1.1.0-4`.
+- **Make the release build reproducible (0F). Done 8 Nov:** the settings
+  1.2.0 (5) was archived with are committed, the version and build in
+  `Config/Version.xcconfig` (#251). The tag `v1.2.0-5` marks the source
+  commit it was archived from; later uploads are archived from a clean
+  commit and tagged.
 
 Each wave, Claude runs `scripts/check.sh --full` on `main` once its PRs
 have merged.
