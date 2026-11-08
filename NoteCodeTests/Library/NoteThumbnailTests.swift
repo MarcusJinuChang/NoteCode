@@ -345,6 +345,36 @@ struct NoteThumbnailPictureTests {
         #expect(store.rendered == 0)
     }
 
+    @Test("Ink drawn but not yet saved is in the picture, and in the file a new session reads (list-x1)")
+    func unsavedInkIsDrawn() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let page = try savedPage("Hello")
+        let layout = PageLayout(orientation: .portrait, mode: .print)
+        let bytes = try await DrawingCodec.encode(TestInk.markup(strokesAt: [layout.sheet(ofPage: 0).minY + 300]))
+        // What `DrawingSaveScheduler` does with a stroke: no save, which
+        // autosave makes later.
+        page.drawingData = bytes
+        page.modifiedAt = .now
+
+        let ink = try #require(await NoteThumbnail.render(
+            NoteThumbnail.Source(text: "Hello", orientation: page.orientation, drawingData: bytes,
+                                 rendersMarkdown: true, typography: page.typography)))
+        let made = try #require(await ThumbnailStore(directory: directory).thumbnail(for: page))
+        #expect(try pixels(of: made).data == pixels(of: ink).data, "the unsaved ink is missing from the picture")
+
+        let reopened = ThumbnailStore(directory: directory)
+        let read = try #require(await reopened.thumbnail(for: page))
+        #expect(reopened.rendered == 0)
+        // Read back from a PNG, so counted rather than compared pixel for pixel.
+        let blank = try #require(await NoteThumbnail.render(
+            NoteThumbnail.Source(text: "Hello", orientation: page.orientation, drawingData: Data(),
+                                 rendersMarkdown: true, typography: page.typography)))
+        let readBack = try pixels(of: read), blankPixels = try pixels(of: blank)
+        #expect(inked(readBack, rows: 0..<readBack.height) > inked(blankPixels, rows: 0..<blankPixels.height),
+                "the next launch reads a picture without the ink")
+    }
+
     @Test("A picture is made once, then served from memory, then from its file in a new session")
     func caching() async throws {
         let directory = temporaryDirectory()
