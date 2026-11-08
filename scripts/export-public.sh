@@ -84,7 +84,9 @@ for f in $files; do
 done
 
 for (( i = 1; i <= $#maps_from; i++ )); do
-  never ${maps_to[i]} && refused+=("${maps_from[i]} => ${maps_to[i]}")
+  # Both ends: a map must not read a private file or write into a private place.
+  { never ${maps_from[i]} || never ${maps_to[i]} } &&
+    refused+=("${maps_from[i]} => ${maps_to[i]}")
 done
 if (( $#refused )); then
   print -u2 "export-public: public-paths.txt would export private paths:"
@@ -106,7 +108,10 @@ for (( i = 1; i <= $#maps_from; i++ )); do
   git show "HEAD:$src" > "$out/$dst" || exit 2
   (( mapped++ ))
 done
+# A `!` rule that matches nothing is usually a path S2 has yet to make; only
+# an including rule that matches nothing is worth saying.
 for r in $rules; do
+  [[ $r == !* ]] && continue
   (( ${+seen[$r]} )) || print "absent at HEAD: $r"
 done
 print "exported $(( $#chosen + mapped )) files of $(git rev-parse --short HEAD) to $out"
@@ -121,8 +126,9 @@ else
   print "gitleaks is not installed (brew install gitleaks); not run"
 fi
 
-# label|extended regex. Tests use example.com and example.test addresses;
-# those are left out of the email scan.
+# label|extended regex. Tests use example.com and example.test addresses,
+# and the app shows its support address, which is public; those are left
+# out of the email scan.
 SCANS=(
   'AdMob id|ca-app-pub-[0-9]+'
   'run proxy URL|notecode-run-proxy|workers\.dev'
@@ -137,7 +143,7 @@ SCANS=(
 for scan in $SCANS; do
   label=${scan%%|*} pattern=${scan#*|}
   found=$(cd "$out" && grep -rnIE -- "$pattern" . | sed 's|^\./||' |
-    { [[ $label == 'email address' ]] && grep -vE '@example\.(com|test)' || cat; } |
+    { [[ $label == 'email address' ]] && grep -vE '@example\.(com|test)|notecodesupport@gmail\.com' || cat; } |
     cut -c1-220 | sort)
   lines=(${(f)found})
   print "\n== $label: $#lines"
