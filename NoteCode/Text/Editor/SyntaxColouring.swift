@@ -175,8 +175,12 @@ final class SyntaxColouring {
             // and a new text size all landed 17 to 58 lines past where they
             // were put, out of step with the sheets. So the page puts the
             // reader back on their line, as a new text size does. Only for
-            // code above the screen: typing in a block on it colours that
-            // block alone, and nothing above it moves.
+            // a block that starts above the screen. Typing in a block that
+            // starts on it colours that block alone, and nothing above it
+            // moves. Typing in a long block whose opening fence has scrolled
+            // off takes this path at every pause too, since that edit also
+            // spans paragraphs above the screen: the page lays out down to
+            // the top line again and sets the offset back to where it was.
             if let keep = (textView as? DocumentUITextView)?.keepingReadingPlace,
                let first = covered.map(\.location).min(),
                first < Self.screenStart(of: textView) {
