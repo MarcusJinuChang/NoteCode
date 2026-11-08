@@ -6,8 +6,8 @@
 
 ## This week (3–9 Nov)
 
-- **1.1.0 (4) approved 5 Nov**, releasing automatically. Once it is live:
-  1. Tag the build: `git tag v1.1.0-4 <its commit>` (`refactor/lessons.md` 1).
+- **1.1.0 (4) is live** (approved 5 Nov; 147 countries, the EU waiting on trader status):
+  1. ~~Tag the build~~ done 7 Nov: `v1.1.0-4` at `09e1234`.
   2. One custom offer code in App Store Connect for you and friends
      (`decisions.md`, 3 Nov; an hour).
   3. AdMob: link the app; `app-ads.txt` (ROADMAP › After it's live, 5).
@@ -20,9 +20,8 @@
 - **Then the upload:** bump the build, archive, submit. The release notes
   need a line on F5: existing ink beside paragraphs that crossed a page
   break may sit lower than its text (`decisions.md`, 7 Nov).
-- **A decision to record:** 1.1.1 never shipped on its own, and everything
-  planned for 1.1.1 and 1.2.0 is now on `main`, so the next upload carries
-  both. Pick its version number; one line in `decisions.md`.
+- **Version decided 7 Nov:** the upload is **1.2.0 (5)**, carrying 1.1.1's
+  and 1.2.0's work (`decisions.md`). 1.1.0 (4) is live and tagged `v1.1.0-4`.
 
 ## Not this week
 
