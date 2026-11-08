@@ -71,10 +71,22 @@ struct Hotbar: View {
                 grip
             }
 
-            // Outside the scroll view, so they never scroll away with the
-            // tools: undo and the mode toggle are what's reached for most,
+            // Outside the tools' scroll view, so they never scroll away with
+            // the tools: undo and the mode toggle are what's reached for most,
             // and they stay where the hand expects them.
-            pinned
+            //
+            // In a scroll view of their own that never scrolls, for its
+            // bounds. SwiftUI lets a button take a touch some way past its
+            // frame, and docked to a side the undo arrows and the toggle took
+            // one 10pt past theirs, in the gap beside the bar: a tap there
+            // threw the note out of Draw mode (simulator, 3 Nov; device pass,
+            // 7 Nov). A scroll view is a UIKit view, and UIKit gives it no
+            // touch outside its bounds, which is why the tools and the
+            // options row never reached. `.contentShape` and `.clipShape`
+            // don't bound it.
+            ScrollView(axis, showsIndicators: false) { pinned }
+                .scrollDisabled(true)
+                .fixedSize()
             divider
 
             // Hugs its tools when they fit, and scrolls when they don't: the
