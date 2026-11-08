@@ -40,7 +40,13 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
     /// coordinator no longer finds in a block (it is about to be made again).
     var madePlacement = Placement(position: .middle, closesBlock: false)
 
-    var position: CodeBlockPosition { (placement() ?? madePlacement).position }
+    /// The placement for the draw under way, asked once for it rather than
+    /// on each of the dozen reads a draw makes.
+    private var drawingPlacement: Placement?
+
+    private var currentPlacement: Placement { drawingPlacement ?? placement() ?? madePlacement }
+
+    var position: CodeBlockPosition { currentPlacement.position }
 
     /// The selected stretches of code, asked for each time the fragment draws.
     ///
@@ -55,7 +61,7 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
     /// The line after it isn't code. That includes the empty line TextKit
     /// puts in this fragment when the note ends with a newline straight after
     /// the fence, the line the caret sits on once a block is closed.
-    var closesBlock: Bool { (placement() ?? madePlacement).closesBlock }
+    var closesBlock: Bool { currentPlacement.closesBlock }
 
     /// How the block this paragraph belongs to is shown, asked for each time
     /// the fragment draws.
@@ -71,7 +77,10 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
 
     /// Whether this paragraph is a fence line rather than code. An unclosed
     /// block has only an opening one.
-    var isFence: Bool { isOpeningFence || closesBlock }
+    var isFence: Bool {
+        let placement = currentPlacement
+        return placement.position.roundsTop || placement.closesBlock
+    }
 
     /// The panel's left and right edges, in this fragment's own coordinates:
     /// the text column, and `CodeBlockRoom.outset` beyond it on each side.
@@ -147,6 +156,8 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
     }
 
     override func draw(at point: CGPoint, in context: CGContext) {
+        drawingPlacement = placement() ?? madePlacement
+        defer { drawingPlacement = nil }
         let display = fenceDisplay()
         drawPanel(at: point, in: context)
         drawSelection(at: point, in: context)
@@ -488,6 +499,9 @@ final class CodeBlockLayoutFragment: NSTextLayoutFragment {
     /// Paints the panel. Called from `draw(at:in:)`, and by printing, which
     /// draws a page's lines one at a time rather than the whole fragment.
     func drawPanel(at point: CGPoint, in context: CGContext) {
+        let resolved = drawingPlacement == nil
+        if resolved { drawingPlacement = placement() ?? madePlacement }
+        defer { if resolved { drawingPlacement = nil } }
         let frame = layoutFragmentFrame
         let runs = laidOutPanelRuns
         let scale = Self.pixelScale(of: context)

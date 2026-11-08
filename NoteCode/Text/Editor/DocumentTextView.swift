@@ -400,11 +400,11 @@ struct DocumentTextView: UIViewRepresentable {
             else { return nil }
             let start = contentManager.offset(from: contentManager.documentRange.location, to: range.location)
             let element = NSRange(location: start, length: contentManager.offset(from: range.location, to: range.endLocation))
-            for code in codeRanges(in: storage) {
-                guard let position = CodeBlockPosition.of(element: element, in: code.range) else { continue }
-                return .init(position: position, closesBlock: code.isClosed && position.roundsBottom)
-            }
-            return nil
+            let ranges = codeRanges(in: storage)
+            guard let index = FenceVisibility.blockIndex(containing: start, in: ranges),
+                  let position = CodeBlockPosition.of(element: element, in: ranges[index].range)
+            else { return nil }
+            return .init(position: position, closesBlock: ranges[index].isClosed && position.roundsBottom)
         }
 
         func lineNumber(of fragment: NSTextLayoutFragment, in storage: NSTextStorage) -> Int? {
