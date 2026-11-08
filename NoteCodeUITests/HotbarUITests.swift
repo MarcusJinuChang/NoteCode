@@ -193,16 +193,11 @@ final class HotbarUITests: XCTestCase {
     }
 
     @MainActor func testReachDockedAtTheBottom() { checkReach(dock: .bottom) }
-    // Docked to a side, the tap in the gap (6pt past the drawn bar, beside the
-    // mode toggle and 10pt past its frame) switches the note to text mode, so
-    // the row goes. Docked at the bottom the same tap, the same 10pt from the
-    // toggle, does nothing (simulator, 3 Nov). An app bug, for its own fix.
-    @MainActor func testReachDockedLeft() throws {
-        throw XCTSkip("app bug: a tap in the gap beside a side-docked bar switches the note to text mode")
-    }
-    @MainActor func testReachDockedRight() throws {
-        throw XCTSkip("app bug: a tap in the gap beside a side-docked bar switches the note to text mode")
-    }
+    // Docked to a side, the tap in the gap is level with the mode toggle,
+    // 10pt past its frame: it switched the note to text mode, and the row
+    // went, until the pinned buttons' touches were bounded to the bar.
+    @MainActor func testReachDockedLeft() { checkReach(dock: .left) }
+    @MainActor func testReachDockedRight() { checkReach(dock: .right) }
 
     // MARK: The note's menu
 
