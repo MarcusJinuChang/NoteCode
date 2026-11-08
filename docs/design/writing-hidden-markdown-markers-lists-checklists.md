@@ -109,6 +109,14 @@ v3 phase 3 (12 Oct, `docs/archive/ui-design-v3-implementation.md`).
   marker (keeping indentation); in front of, inside or just past a closing
   marker it deletes the last visible character of the span by grapheme, and an
   emptied span goes with its markers. Elsewhere the ordinary Backspace.
+- **Typing over a selection** (`MarkdownFormatting.replacing`, 7 Nov): a
+  selection that takes some of a span's hidden markers but not the whole span
+  keeps them, typed text in front (`a **boldworQ**`). Across two spans the
+  typed text goes between the first's closing and the second's opening
+  markers (`**a**Q**d**`); deleting such a selection, or an edit whose result
+  doesn't parse back into the same spans, is the ordinary replace. Text with a
+  newline in it (Return, a multi-line paste or dictation) is left alone too,
+  so it still takes the markers.
 - **Return, Tab, ⇧Tab.** Return in a list item continues it (same bullet, next
   number keeping `.` or `)`, an empty box); on an empty item it ends the list;
   text after the caret moves to the new item; one undo step. In a rendered note

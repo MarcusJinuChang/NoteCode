@@ -162,6 +162,15 @@ final class EditRouter {
            ) {
             return edit
         }
+        // Typing or deleting over a selection that takes a hidden marker of
+        // a span it doesn't take whole keeps the marker, or the span's other
+        // marker would show as text (⇧← steps through `**` one at a time).
+        if context.rendersMarkdown, range.length > 0, range == textView.selectedRange, !replacement.contains("\n"),
+           let edit = MarkdownFormatting.replacing(
+               range, with: replacement, in: text, codeRanges: context.codeRanges()
+           ) {
+            return edit
+        }
         guard context.rendersMarkdown, textView.selectedRange.length == 0,
               replacement.isEmpty, range.length >= 1,
               NSMaxRange(range) == textView.selectedRange.location
