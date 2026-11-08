@@ -72,7 +72,8 @@ final class PeriodShortcutUITests: XCTestCase {
     func testProseWithAutocorrectOnTakesTheShortcut() {
         let text = launch(note: ["-debug-note", "empty"], autocorrect: true)
         text.tap()
-        tap("ab  cd", in: XCUIApplication())
-        XCTAssertEqual((text.value as? String)?.lowercased(), "ab. cd")
+        // Real words, so Autocorrect has nothing to correct before the shortcut.
+        tap("is  it", in: XCUIApplication())
+        XCTAssertEqual((text.value as? String)?.lowercased(), "is. it")
     }
 }
