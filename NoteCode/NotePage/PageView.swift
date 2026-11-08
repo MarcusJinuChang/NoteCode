@@ -289,6 +289,10 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
         textView.addLayoutObserver { [weak self] in
             self?.textViewDidLayout()
         }
+        textView.keepingReadingPlace = { [weak self] change in
+            guard let self else { return change() }
+            reflow(change)
+        }
 
         // An edit lays its paragraph out again in a new view, at the screen's
         // density, with no layout pass of the text view to raise it: the line
@@ -503,6 +507,10 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
     /// the old layout's viewport and the lines on screen sit a stale
     /// break's worth off.
     func reflow(_ change: () -> Void) {
+        reading.positioning { reflowKeepingTopLine(change) }
+    }
+
+    private func reflowKeepingTopLine(_ change: () -> Void) {
         let anchor = reading.topLineCharacter()
         change()
 
