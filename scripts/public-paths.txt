@@ -1,0 +1,97 @@
+# What goes into the public NoteCode repo (docs/refactor/split.md › S3).
+# Read by scripts/export-public.sh, which copies these paths of HEAD into an
+# empty folder and scans it. Everything not listed stays private.
+#
+# One rule per line; blank lines and lines starting with # are ignored.
+#   path/        includes every committed file under the folder
+#   path         includes that one file
+#   !path/       excludes, as above; the last rule that matches a file wins
+#   from => to   copies the committed file `from` to `to` in the export
+#                (the edition files, until S2 moves them, and the drafts)
+# A rule naming a path that does not exist at HEAD is reported, not an error,
+# so the S2 layout (Pro/, AppStore/, ProTests/, Config/) can be listed now.
+#
+# export-public.sh also refuses, whatever this file says, anything under
+# Pro/, NoteCode/Pro/, AppStore/, ProTests/, server/, docs/release-1.0/,
+# docs/site/, NoteCodeTests/Pro/ and NoteCodeUITests/Pro/.
+
+# --- The app, its tests and the project ---
+NoteCode/
+!NoteCode/Pro/
+# Holds the AdMob app id; the public one is OpenSource/Info.plist (below).
+!NoteCode/Info.plist
+# Declares the ads' data; the public one is OpenSource/PrivacyInfo.xcprivacy.
+!NoteCode/PrivacyInfo.xcprivacy
+NoteCodeTests/
+!NoteCodeTests/Pro/
+NoteCodeUITests/
+!NoteCodeUITests/Pro/
+NoteCode.xcodeproj/
+TestPlans/
+!TestPlans/Pro.xctestplan
+Package.swift
+.gitignore
+.github/pull_request_template.md
+
+# --- The edition (until S2 gives OpenSource/ its own membership) ---
+OpenSource/Info.plist => NoteCode/Info.plist
+OpenSource/PrivacyInfo.xcprivacy => NoteCode/PrivacyInfo.xcprivacy
+OpenSource/OpenSourceEdition.swift => NoteCode/App/OpenSourceEdition.swift
+OpenSource/OpenSourceEditionTests.swift => NoteCodeTests/App/OpenSourceEditionTests.swift
+
+# --- After S2: shared and public settings; the private ones never ---
+Config/Shared.xcconfig
+Config/OpenSource.xcconfig
+!Config/Version.xcconfig
+!Config/Local.xcconfig
+!Config/Release.xcconfig
+!AppStore/
+!ProTests/
+!Pro/
+
+# --- Scripts ---
+scripts/
+# One-off moves of the refactor (1A2), driven by docs/refactor/folders.md.
+!scripts/move-to-folders.sh
+!scripts/move-tests-to-folders.sh
+# The export itself is the private repo's tool.
+!scripts/export-public.sh
+!scripts/public-paths.txt
+
+# --- Public docs (drafts until S3's second PR) ---
+OpenSource/docs-draft/README.md => README.md
+OpenSource/docs-draft/LICENSE => LICENSE
+OpenSource/docs-draft/NOTICE => NOTICE
+OpenSource/docs-draft/CONTRIBUTING.md => CONTRIBUTING.md
+OpenSource/docs-draft/SECURITY.md => SECURITY.md
+
+# --- docs/ ---
+docs/README.md
+docs/features.md
+docs/decisions.md
+docs/plans/
+docs/design/
+!docs/design/shipping.md
+!docs/design/run-proxy-contract.md
+!docs/design/the-list-s-foot-and-the-tip-jar.md
+!docs/design/ai-features.md
+docs/archive/
+# The P (Pro and ads) and R (Run) streams, and the 1.0 plan's index, which
+# holds the pricing decisions and Marcus's App Store part.
+!docs/archive/release-1.0/P-pro.md
+!docs/archive/release-1.0/R-run.md
+!docs/archive/release-1.0/README.md
+# check.sh, check-seam.sh and perf.sh read their WARNINGS, SEAM and PERF
+# lines here; the rest of docs/refactor/ stays private.
+docs/refactor/baseline.md
+
+# Left out on purpose, not by omission:
+#   AGENTS.md, README.md     private rules; public versions still to write
+#   .claude/                 the refactor's and the weekly skills and agents
+#   docs/NOW.md, docs/ROADMAP.md, docs/timeline.md, docs/ipad-test-checklist.md,
+#   docs/retrospective-2026-11.md, docs/process.md
+#                            pricing, App Review, the queue; public versions
+#                            of the roadmap, timeline and checklist are S3.2
+#   docs/refactor/ (but baseline.md), docs/release-1.0/, docs/site/
+#   server/                  the run proxy
+#   OpenSource/ itself       only through the => lines above

@@ -143,7 +143,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | Accessibility | VoiceOver labels, Reduce Motion, Increase Contrast; the note body ignores Dynamic Type | built; sweeps unchecked | `settings-toasts-polish-…md` |
 | iPhone and Duo | Compact stack, fold avoidance; in the 1.0.1 release (31 Oct) | built; simulator only, no physical Duo | `iphone-and-the-duo.md` |
 | Colour and icons | Accent editable; Settings › Drawing › Colour Set picks Refined or Original highlighters; highlighter swatches are marker chips, vivid on dark bars; Settings › General › Toolbar Icons picks NoteCode's drawn icons or the system's, with an Icon Weight | built (feedback #4, #5, #28) | `colour.md` |
-| macOS | Builds; the editor is a plain `TextEditor` with no fences or ink | partial | ROADMAP |
+| macOS | Not a platform of the app target since 1.2.0 (debt D14); the old Mac editor was a plain `TextEditor` with no fences or ink | planned | NOW.md queue 6 |
 
 ## 7. Sharing, import and export
 
@@ -192,7 +192,7 @@ code, see AGENTS.md › How a feature plugs in.
 | Feature | How it works | Status | Detail |
 |---|---|---|---|
 | App Store edition | `Pro/AppStoreEdition.swift` is the `@main`; it hands `NoteCodeScene` `AppExtensions.appStore` (Pro, Run, assistant, ads, tip jar) | built | `AGENTS.md`, `refactor/2X-seam.md` |
-| Open-source edition | `OpenSource/OpenSourceEdition.swift` is the `@main` with `AppExtensions.none`; the build is `NoteCode/` minus `Pro/`. Run opens a compiler site. Proved by `scripts/build-open-source.sh`; not yet published | built; the public repo is planned | `refactor/split.md` |
+| Open-source edition | `OpenSource/OpenSourceEdition.swift` is the `@main` with `AppExtensions.none`; the build is `NoteCode/` minus `Pro/`. Run opens a compiler site. Proved by `scripts/build-open-source.sh`; not yet published. `scripts/export-public.sh` copies what `scripts/public-paths.txt` allows into a folder and scans it; draft public docs in `OpenSource/docs-draft/` | built; the public repo is planned | `refactor/split.md` |
 | The seam | No file outside `Pro/` names a `Pro/` type; `check-seam.sh` counts breaches (0) | built | `AGENTS.md` |
 | Editor features | `EditorFeature` adds actions, a top-bar item, a side panel and Run to a note's editor; Run and the assistant are the two | built | `NotePage/EditorFeature.swift` |
 | Pure core | `Text/Core` compiles alone with `swift test` (`Package.swift`, `scripts/core-test.sh`) | built | `refactor/T11-core-package.md` |
