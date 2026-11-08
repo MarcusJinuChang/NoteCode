@@ -14,7 +14,7 @@ step. Nothing here blocks 1.2.0.
 | Core tests (`core-test.sh`) | 263 tests in 31 suites pass |
 | Fast plan (`check.sh`) | CHECK OK: 2,040 tests, 2,039 passed (1 expected failure), 0 failed; macOS build fails as expected |
 | Warnings | 2, both the compiler's, listed in baseline.md |
-| Files over 600 lines | 12 (below); no app file is over 850 |
+| Files over 600 lines | 11 (below); no app file is over 850 |
 
 ## Files over 600 lines
 
@@ -28,7 +28,6 @@ Tests are listed after the app. The budget (lessons.md 4) is a question at
 | `NotePage/NoteEditor.swift` | 728 | Follow-up D2. Down from 1,386; the controllers took the typing style, typography, selection size and undo. The remainder is text commands (about 220 lines), requests to the page (130, about 90 of them movable), forwarders (150) and the feature plumbing (55); see [d2-note-editor.md](d2-note-editor.md) |
 | `Text/Core/InlineParser.swift` | 639 | Reason: one tokenizer and one delimiter resolver, pure, pinned by a snapshot (2T8b). Splitting it would put a seam through the resolver's shared state |
 | `Text/Core/DocumentNode.swift` | 606 | Reason: the node types and their ranges, 6 lines over; no split is worth the churn |
-| `NoteCodeTests/NotePage/PageViewTests.swift` | 1,972 | Follow-up D5. It tests the type that was 1,611 lines; split by the PageView pieces (ink, zoom, bands, reading) |
 | `NoteCodeTests/Text/Core/MarkdownLayoutTests.swift` | 697 | Reason: one suite per layout rule; a split would be by rule |
 | `NoteCodeTests/InOut/NoteInterchangeTests.swift` | 673 | Reason: import and export cases that share fixtures |
 | `NoteCodeTests/Text/Core/TypingStyleTests.swift` | 641 | Reason: parameterised cases |
@@ -42,7 +41,7 @@ Tests are listed after the app. The budget (lessons.md 4) is a question at
 | D2 | `NoteEditor.swift` 728 lines | M | The editor is still the one place features, settings and controllers meet | **Done, #253 ([d2-note-editor.md](d2-note-editor.md)):** no. The plumbing is about 55 lines and features are made from the whole editor. Instead, two pure moves into `NoteEditor+Formatting.swift` and `NoteEditor+Page.swift` take it to about 440 lines; no access changes. Not needed before the split |
 | D3 | ~~`NoteList.swift` 613 lines~~ **Done (PR #254)**: 583 lines; the Empty states went to `NoteListEmptyStates.swift` as a pure move (the Menus section reads about eleven private members) | S | — | — |
 | D4 | ~~`RunPanel.swift` 610 lines, six views~~ **Done (PR #257)**: 383 lines; `RunDock` (with `RunDockWidth`), `NotesRunToggle`, `RunTopBarItem`, `RunSidePanel` and `RunPanelHost` each went to their own file in `Pro/Run/` as a pure move, no access changes. The panel's private output, input and chip views stay with it | S | — | — |
-| D5 | `PageViewTests.swift` 1,972 lines | M | Slow to navigate; a failure names a 2,000-line file | Split by the PageView piece it tests |
+| D5 | ~~`PageViewTests.swift` 1,972 lines~~ **Done (PR #259)**: ten suites nested in `PageViewTests` (`Keyboard`, `Scale`, `Pages`, `Ink`, `InkBreaks`, `Bands`, `Canvas`, `Cost`, `Window`, `AddPage`), one file each, the largest 411 lines (`PageViewTests+InkBreaks.swift`). Helpers two suites use are `PageViewSuite`'s, in `PageViewTests.swift`; the rest stay private to their suite. Every test kept with its name and tags: 101 `@Test`s, 97 in the Fast plan (151 runs) before and after | M | — | — |
 | D6 | ~~**Old settings names still forward.** 29 `static let …Key = SettingKeys.…` lines in 19 files (for example `CodeIndent.widthKey`)~~ **Done, #258** | M | — | Every name forwarder (31) and its paired default forwarder deleted; callers name the `SettingKey`. `SnapHaptic` and `LineNumbers` went with them. The owners' `default`/`standard` values stay as domain values, checked against the table by `SettingKeysTests` |
 | D7 | **The docs system is not on `main`.** AGENTS.md links `docs/README.md`, `docs/NOW.md`, `docs/process.md` and `docs/plans/`; none is on `origin/main`. They exist only on the branch `docs/process-and-retrospective` (commit 09af6d1) | S | The three links in AGENTS.md are dead for anyone cloning `main`, including the public repo | Marcus: merge that branch, or say it should stay private (then drop the links) |
 | D8 | **Release QA 4A's perf is not met in absolute terms.** On a loaded Mac a control run of the baseline commit reads 18% to 56% worse than its own base | S, a Mac | "Nothing more than 10% worse" is shown only by the control, not by a run | Run `perf.sh --compare docs/refactor/baseline.md` on an idle Mac and record it in baseline.md |
