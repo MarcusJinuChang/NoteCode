@@ -44,7 +44,6 @@ nonisolated struct MarkerDimming: Equatable, Sendable {
     var fences = MarkerLevel.dim
 
     static let standard = MarkerDimming()
-
 }
 
 #if canImport(UIKit)

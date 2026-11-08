@@ -17,7 +17,6 @@ nonisolated enum InkPaletteSet: String, CaseIterable, Sendable {
     case refined
     case original
 
-
     var title: String {
         switch self {
         case .refined:  "Refined"

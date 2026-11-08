@@ -93,7 +93,6 @@ nonisolated enum SelectionKind: String, CaseIterable, Sendable {
     case lasso
     case rectangle
 
-
     var title: String {
         switch self {
         case .lasso:     "Lasso"

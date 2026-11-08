@@ -306,7 +306,6 @@ nonisolated struct PageLayout: Equatable, Sendable {
 /// Adding pages as the reader draws down (feedback item 8, 23 Oct): a stroke
 /// that ends in the last page's foot adds a page, through Add Page's path.
 nonisolated enum InkPageGrowth {
-
     /// The share of a page's body, from the bottom, that counts as its foot:
     /// about 1.4 inches of a Letter page, three or four lines of handwriting.
     static let bandShare: CGFloat = 0.15

@@ -16,7 +16,6 @@ import SwiftData
 /// made from now on: an existing note keeps its own, since changing it would
 /// re-wrap the text and move every line out from under its ink.
 nonisolated enum NewNotes {
-
     /// What the list selects once it has made `page`: the note itself if the
     /// reader wants it opened, else whatever was open.
     static func selection(afterCreating page: Page, current: Page?, opens: Bool) -> Page? {

@@ -9,8 +9,6 @@ import Foundation
 
 /// How the eraser erases: which parts of a stroke, and how wide.
 nonisolated struct EraserSettings: Hashable, Sendable {
-
-
     enum Mode: String, CaseIterable, Sendable {
         /// Only what it passes over, so fixing one letter of handwriting
         /// doesn't take the rest of the word with it.

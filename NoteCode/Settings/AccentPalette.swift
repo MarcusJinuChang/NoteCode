@@ -27,8 +27,6 @@ import AppKit
 /// page, and a chosen colour is darkened (light) or lightened (dark) just far
 /// enough to get it (`textHex`). The default keeps the design's own pair.
 nonisolated enum AccentPalette {
-
-
     /// The design's orange, `#FA8500`.
     static let defaultHex = 0xFA8500
 
