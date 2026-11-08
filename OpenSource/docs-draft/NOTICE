@@ -1,0 +1,30 @@
+NoteCode
+Copyright 2026 Marcus Chang
+
+This product is licensed under the Apache License, Version 2.0 (LICENSE).
+
+The name and the icon
+---------------------
+
+The name "NoteCode" and the NoteCode app icon (the images in
+NoteCode/Assets.xcassets/AppIcon*.appiconset and the drawing in
+scripts/make-icons.swift that makes them) are not licensed under the Apache
+License or any other licence. Section 6 of the Apache License grants no
+permission to use the licensor's trade names or marks. A build you distribute,
+on the App Store or anywhere else, must use a different name and a different
+icon.
+
+Third-party software
+--------------------
+
+NoteCode uses the following, whose licences are reproduced in full in
+NoteCode/Acknowledgements.txt, which the app also shows in Settings:
+
+- HighlightSwift, MIT License, Copyright (c) 2023 Stefan Britton
+- highlight.js (bundled by HighlightSwift), BSD 3-Clause License,
+  Copyright (c) 2006, Ivan Sagalaev
+- SwiftMath, MIT License, Copyright (c) 2023 Computer Inspirations
+- iosMath (from which SwiftMath's typesetter derives), MIT License,
+  Copyright (c) 2013 MathChat
+- Latin Modern Math (bundled by SwiftMath), GUST Font License
+- The other math fonts bundled by SwiftMath, SIL Open Font License

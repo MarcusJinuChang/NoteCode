@@ -192,7 +192,7 @@ code, see AGENTS.md › How a feature plugs in.
 | Feature | How it works | Status | Detail |
 |---|---|---|---|
 | App Store edition | `Pro/AppStoreEdition.swift` is the `@main`; it hands `NoteCodeScene` `AppExtensions.appStore` (Pro, Run, assistant, ads, tip jar) | built | `AGENTS.md`, `refactor/2X-seam.md` |
-| Open-source edition | `OpenSource/OpenSourceEdition.swift` is the `@main` with `AppExtensions.none`; the build is `NoteCode/` minus `Pro/`. Run opens a compiler site. Proved by `scripts/build-open-source.sh`; not yet published | built; the public repo is planned | `refactor/split.md` |
+| Open-source edition | `OpenSource/OpenSourceEdition.swift` is the `@main` with `AppExtensions.none`; the build is `NoteCode/` minus `Pro/`. Run opens a compiler site. Proved by `scripts/build-open-source.sh`; not yet published. `scripts/export-public.sh` copies what `scripts/public-paths.txt` allows into a folder and scans it; draft public docs in `OpenSource/docs-draft/` | built; the public repo is planned | `refactor/split.md` |
 | The seam | No file outside `Pro/` names a `Pro/` type; `check-seam.sh` counts breaches (0) | built | `AGENTS.md` |
 | Editor features | `EditorFeature` adds actions, a top-bar item, a side panel and Run to a note's editor; Run and the assistant are the two | built | `NotePage/EditorFeature.swift` |
 | Pure core | `Text/Core` compiles alone with `swift test` (`Package.swift`, `scripts/core-test.sh`) | built | `refactor/T11-core-package.md` |

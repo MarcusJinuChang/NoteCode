@@ -87,6 +87,8 @@ checks it.
      hits.
    - **A clean build.** A fresh clone of the export builds and its tests
      pass.
+   - **Status (7 Nov):** the allow-list, the export and its scans are in
+     (debt.md D19 has what the first run found); the clean build is not.
 2. **Public docs.**
    - A README for people who find the repo, and `LICENSE` (Apache-2.0).
    - `NOTICE`: "NoteCode" and the icon are not licensed. Third-party
