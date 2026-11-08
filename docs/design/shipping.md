@@ -37,22 +37,25 @@ What an upload checks before a person sees the app (4 Oct).
   Marcus Chang" certificate issued 8 Oct to 8 Oct 2027, and the app's
   team provisioning profile, made 8 Oct and valid a year. When an on-device
   build misbehaves, check which team signed it before reading any Swift.
-  - **Marcus's working tree carries an uncommitted `project.pbxproj` edit**,
-    and has since 8 Oct: Xcode set `CODE_SIGN_IDENTITY = "Apple Development"`
-    for every SDK, in place of ad-hoc `-` for macOS (`"CODE_SIGN_IDENTITY
-    [sdk=macosx*]" = "-"`), and added an empty `PROVISIONING_PROFILE_SPECIFIER`,
-    when the paid account came back. It is his local state: **leave it
-    unstaged, never commit or revert it, and don't mention it in summaries or
-    PRs** (he knows). Stage files by name, never `git add -A` or `-a`. If a
-    change needs `project.pbxproj` itself, stop and ask first.
+  - **The signing is committed** (8 Nov): `CODE_SIGN_IDENTITY = "Apple
+    Development"` for every SDK and an empty `PROVISIONING_PROFILE_SPECIFIER`,
+    which Xcode set on 8 Oct when the paid account came back, and which lived
+    only in Marcus's working tree until 1.2.0 (5) was archived from it.
 - **iPad and iPhone** (31 Oct, for 1.0.1). TestFlight 1 was iPad only: the
   NoteCode target had `TARGETED_DEVICE_FAMILY = 2` in Marcus's working tree
   (14 Oct, v3 phase 8), while the iPhone layout was designed and not built.
   It is built now (iphone-and-the-duo.md), so the target is `"1,2"`, as
   committed, and the App Store listing needs iPhone 6.9-inch screenshots
-  beside the 13-inch iPad's. macOS is a separate platform in
-  `SUPPORTED_PLATFORMS` and still builds. Bump the build number for every
-  upload.
+  beside the 13-inch iPad's. The app target lists no macOS platform
+  (`SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"`, as 1.2.0 shipped).
+- **The build number** (8 Nov). `Config/Version.xcconfig` holds
+  `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`, and is the base of the
+  NoteCode target's Debug and Release configurations, so a release edits that
+  file and not the project. Edit the file, not the target's General tab:
+  Xcode writes a Version or Build typed there back into the project, where it
+  overrides the file. Bump the build for every upload, archive from a clean
+  commit on `main`, and tag it `v<version>-<build>`. `xcodebuild
+  -showBuildSettings` gave the same settings before and after the move.
 - **Privacy and support pages** are drafted in `docs/site/privacy.md` and
   `support.md`; Marcus copies them to the `gh-pages` branch (`privacy.md` is
   the page at `AppInfo.privacyPolicy`, which is now always set, so the
