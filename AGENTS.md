@@ -60,7 +60,8 @@ cannot execute (see "Code: languages, the keys row…"). Those go to Programiz.
   see docs/archive/phase-drawing-layer.md.
 - **SwiftData** — persistence for documents (text content + serialized
   `PaperMarkup` data per page). iCloud sync is a later-stage concern, not MVP.
-- **Platforms** — iOS and macOS, each at the latest release (27.0). iPhone Duo
+- **Platforms** — iOS 27.0 (iPad and iPhone); the app target lists no macOS
+  platform since 1.2.0 (debt D14). iPhone Duo
   runs the same iOS; see docs/ROADMAP.md.
 
 ## Conventions
@@ -229,7 +230,7 @@ and result bundles go under `$TMPDIR/notecode-check/<worktree>-<hash>/`.
 
 | Script | Does |
 |---|---|
-| `scripts/check.sh [--full] [--coverage] [--only <Suite> …]` | Lint, seam, `swift test` of the core, then a build and the Fast plan (every unit test but `.perf`). `--full` adds the Full plan, the UI tests, the proxy's tests and the open-source build. Fails on a failing test, a build error or more warnings than `WARNINGS <n>` in baseline.md. The macOS build failing (the ad SDKs have no macOS slice) is expected |
+| `scripts/check.sh [--full] [--coverage] [--only <Suite> …]` | Lint, seam, `swift test` of the core, then a build and the Fast plan (every unit test but `.perf`). `--full` adds the Full plan, the UI tests, the proxy's tests and the open-source build. Fails on a failing test, a build error or more warnings than `WARNINGS <n>` in baseline.md. The macOS build failing (the ad SDKs have no macOS slice; the target is iOS-only, debt D14) is expected |
 | `scripts/lint-traps.sh` | Greps for the traps below (`.layoutManager`, `.inkType`, `MarkupOrderedSet` walks, UIKit in Core, test sleeps and the rest); exceptions in `scripts/lint-allow.txt` |
 | `scripts/check-seam.sh` | The seam count (above) |
 | `scripts/core-test.sh [--filter …]` | `swift test` on the Mac for `Text/Core` and its tests, no simulator |
@@ -261,9 +262,10 @@ Details (privacy manifest, encryption, signing, icons, the build number):
 [docs/design/shipping.md](docs/design/shipping.md). The rules:
 
 - **The release settings are committed** (8 Nov): version and build in
-  `Config/Version.xcconfig`, signing and platforms in `project.pbxproj`, and
-  every upload is tagged `v<version>-<build>` (`v1.2.0-5` is the build in
-  App Review). Stage files by name, never `git add -A` or `-a`. A change to
+  `Config/Version.xcconfig`, signing and platforms in `project.pbxproj`. Tag
+  the commit every upload is archived from `v<version>-<build>`. (`v1.2.0-5`
+  marks the source 1.2.0 (5) was archived from; its settings were then in a
+  working tree only, and are #251's first commit.) Stage files by name, never `git add -A` or `-a`. A change to
   `project.pbxproj` or `Info.plist` needs Marcus's go-ahead first.
 - Every required-reason API the app calls needs its reason in
   `PrivacyInfo.xcprivacy`, or the upload is rejected (`AppStoreReadinessTests`).

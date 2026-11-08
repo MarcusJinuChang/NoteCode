@@ -51,7 +51,9 @@ What an upload checks before a person sees the app (4 Oct).
 - **The build number** (8 Nov). `Config/Version.xcconfig` holds
   `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`, and is the base of the
   NoteCode target's Debug and Release configurations, so a release edits that
-  file and not the project. Bump the build for every upload, archive from a
+  file and not the project. Edit the file, not the target's General tab:
+  Xcode writes a Version or Build typed there back into the project, where it
+  overrides the file. Bump the build for every upload, archive from a clean
   commit on `main`, and tag it `v<version>-<build>`. `xcodebuild
   -showBuildSettings` gave the same settings before and after the move.
 - **Privacy and support pages** are drafted in `docs/site/privacy.md` and
