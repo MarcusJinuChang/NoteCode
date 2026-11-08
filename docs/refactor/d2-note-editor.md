@@ -18,7 +18,7 @@ they can wait until after the split.
 | 23-97 | Mode and ink tool | One-line forwarders to `EditorModeState`, plus two setting names |
 | 99-144 | Lock, undo, edit guard, typing style, text target | Stored state and forwarders |
 | **146-202** | **Feature plumbing** | `features`, `featuresInstalled`, `services`; `install`, `connectFeatures`, `blocksDidChange`, `feature(_:)`, `actions(for:in:)` |
-| 204-333 | The page: count, add, insert into ink, commit, PDF, print | Asks `PageView` |
+| 204-333 | The page: count, add, insert into ink, commit, PDF, print | Asks `PageView` (about 130 lines; the move below takes about 90) |
 | 335-381 | `attach`, `setTextLocked` | Wiring |
 | 383-605 | Find, formatting, the text options row | Text commands through `perform` |
 | 607-667 | Selection size, link, settle clock | Forwarders and the link alert's state |
@@ -26,7 +26,8 @@ they can wait until after the split.
 | 705-725 | Outline, scroll | Asks `PageView` |
 
 The feature plumbing is about 55 lines, with the doc comments. The text
-commands are about 220 and the page's requests about 130. The forwarders
+commands are about 220 and the page's requests about 130, of which
+about 90 can move (step 2 below). The forwarders
 to the four controllers are about 150 more. Those exist so that callers
 write `editor.setMode`, not `editor.modeState.setMode`.
 
@@ -49,7 +50,8 @@ write `editor.setMode`, not `editor.modeState.setMode`.
 - **Callers.** Ten general call sites use it: `PageDetailView` (3),
   `NoteHeader`, `TextOptionsRow`, `NoteMoreMenu`, `CodeFenceDisplay`,
   `DocumentTextView+Styling` and `CodeBlockCommands` (2). So do three Pro
-  test files (`RunFeatureTests`, `EditorLeakTests+Run`, `AIEditorTests`).
+  test files (`RunFeatureTests`, `EditorLeakTests+Run`, `AIEditorTests`),
+  and a general test, `KeyboardAndMenuTests`, calls `editor.actions(for:in:)`.
   The host would need forwarders on `NoteEditor` for all of them, or Pro
   tests would change for a general refactor.
 - **A move into `NoteEditor+Features.swift` loosens access.**
@@ -68,13 +70,15 @@ write `editor.setMode`, not `editor.modeState.setMode`.
    - `codeRanges`, `indent`, `setCodeBlockKind`, `addOutputBlock`,
      `setColour`, `recolourText` and `setHighlight`.
 
-   About 200 lines leave. **One access change:** the private
-   `perform(_: (String, NSRange) -> TextEdit)` becomes internal, because
-   `finishLink` stays behind and calls it (`MarkdownFormatting.link`
-   returns a `TextEdit`, not an optional). That opens nothing new. The
-   internal `perform` for an optional edit already does the same, and
-   `AssistantFeature` uses it. The other way, moving the link section too,
-   would loosen `linkTarget`'s setter, which is state the alert depends on.
+   About 200 lines leave. **No access change:** `finishLink` stays
+   behind and calls `perform` with a closure that returns a plain
+   `TextEdit` (`MarkdownFormatting.link`). Once the private
+   `perform(_: (String, NSRange) -> TextEdit)` is in another file, Swift
+   matches that closure to the internal `perform` for an optional edit by
+   wrapping the result, and the private overload only does that wrapping
+   (`Optional(makeEdit(...))`). The other way, moving the link section
+   too, would loosen `linkTarget`'s setter, which is state the alert
+   depends on.
    The stored properties `caretFormatting`,
    `rendersMarkdown` and `showsLineNumbers` stay, and so does
    `setCaretFormatting`, which assigns a `private(set)` property.
@@ -98,8 +102,7 @@ forwarders. Each move is one commit checked with
 ## Risk
 
 The moves themselves are low risk. An extension in another file sees the
-same members, apart from `private` ones. Apart from the one `perform` above,
-none of the moved members reads a private member, and none stays behind
+same members, apart from `private` ones. None of the moved members reads a private member, and none stays behind
 that needs a moved private one. The compiler and `verify-move.sh` would catch a mistake.
 `NoteEditor` is `@Observable`, and the macro only rewrites stored
 properties, all of which stay in the class body.
