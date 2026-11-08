@@ -23,7 +23,7 @@ Tests are listed after the app. The budget (lessons.md 4) is a question at
 
 | File | Lines | Reason, or follow-up |
 |---|---|---|
-| `Text/Editor/DocumentStyler.swift` | 845 | Follow-up D1. One `applyStyling` per block kind (2T8a) plus colour helpers; the colour half is a separate type |
+| `Text/Editor/DocumentStyler.swift` | 660 | D1 done (#255): the colour half moved to `DocumentStyler+Colour.swift`. What is left is one `applyStyling` per block kind (2T8a), fonts and typing attributes |
 | `NotePage/PageView.swift` | 740 | Reason: it is the one `UIScrollView` that owns the layers, and 2P1-2P3 took out the ink pipeline, scroll indicator, zoom, keyboard inset, bands and reading (seven host protocols). What is left is gestures, layout application and the layer hand-off, which share state. 1,611 lines at 4 Nov |
 | `NotePage/NoteEditor.swift` | 728 | Follow-up D2. Down from 1,386; the controllers took the typing style, typography, selection size and undo. The remainder is text commands (about 220 lines), requests to the page (130, about 90 of them movable), forwarders (150) and the feature plumbing (55); see [d2-note-editor.md](d2-note-editor.md) |
 | `Text/Core/InlineParser.swift` | 639 | Reason: one tokenizer and one delimiter resolver, pure, pinned by a snapshot (2T8b). Splitting it would put a seam through the resolver's shared state |
@@ -38,7 +38,7 @@ Tests are listed after the app. The budget (lessons.md 4) is a question at
 
 | # | Debt | Size | Cost if left | First step |
 |---|---|---|---|---|
-| D1 | `DocumentStyler.swift` 845 lines (above) | M | The largest app file; a styling change reads both halves | Move the colour helpers (`codeColors` :494, `inheritedCodeColor` :790, `TextColourCache` :833) to `DocumentStyler+Colour.swift`, as a pure move with `verify-move.sh` |
+| D1 | ~~`DocumentStyler.swift` 845 lines (above)~~ **Done, #255** | M | The largest app file; a styling change reads both halves | Moved the colour helpers (`codeColors`, `inheritedCodeColor`, `TextColourCache`, and `applyColors`, `syntaxFont`, `syntaxAttributes`, `textColour`, `highlightColour`) to `DocumentStyler+Colour.swift` as a pure move; 660 lines left |
 | D2 | `NoteEditor.swift` 728 lines | M | The editor is still the one place features, settings and controllers meet | **Done, #253 ([d2-note-editor.md](d2-note-editor.md)):** no. The plumbing is about 55 lines and features are made from the whole editor. Instead, two pure moves into `NoteEditor+Formatting.swift` and `NoteEditor+Page.swift` take it to about 440 lines; no access changes. Not needed before the split |
 | D3 | ~~`NoteList.swift` 613 lines~~ **Done (PR #254)**: 583 lines; the Empty states went to `NoteListEmptyStates.swift` as a pure move (the Menus section reads about eleven private members) | S | — | — |
 | D4 | ~~`RunPanel.swift` 610 lines, six views~~ **Done (PR #257)**: 383 lines; `RunDock` (with `RunDockWidth`), `NotesRunToggle`, `RunTopBarItem`, `RunSidePanel` and `RunPanelHost` each went to their own file in `Pro/Run/` as a pure move, no access changes. The panel's private output, input and chip views stay with it | S | — | — |
