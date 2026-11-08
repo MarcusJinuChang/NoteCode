@@ -15,6 +15,14 @@ import UIKit
 extension DocumentTextView.Coordinator {
 
     func textViewDidChange(_ textView: UITextView) {
+        // The keyboard's "." shortcut where nothing may rewrite: the two
+        // spaces go back, and that edit's own change does the rest.
+        if let edit = editRouter.periodShortcut.didChange(
+            textView.textStorage.mutableString, selection: textView.selectedRange
+        ), editRouter.isTyping(in: textView) {
+            apply(edit, to: textView)
+            return
+        }
         // Text just typed under a typing style is written with it, before
         // the restyle below, which then sees the note as it will be.
         editor?.typingTextDidChange(in: textView, isTyping: editRouter.isTyping(in: textView))
@@ -31,7 +39,12 @@ extension DocumentTextView.Coordinator {
     /// Turns away the keyboard's rewrites of code behind the caret
     /// (`EditRouter.shouldChange`).
     func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
-        editRouter.shouldChange(
+        let typing = editRouter.isTyping(in: textView) && textView.markedTextRange == nil
+        editRouter.periodShortcut.willChange(
+            range, to: text, in: textView.textStorage.mutableString,
+            rewrites: !typing || rewritingPolicy == .prose
+        )
+        return editRouter.shouldChange(
             in: textView, range: range, replacementText: text, editor: editor, context: editContext(in: textView),
             apply: { [weak self] edit in self?.apply(edit, to: textView) },
             rewriteChangesCode: { [weak self] in

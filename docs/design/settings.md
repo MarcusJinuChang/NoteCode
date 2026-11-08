@@ -72,6 +72,17 @@ the version string, the licence text, the palette reset) are `AppSettings.swift`
     by the app in `shouldChangeTextIn`, so the keyboard never sees a `--` to
     turn into a dash, and `---` typed there stays hyphens and becomes a rule.
     `--` between words is still a dash (`TypedRuleUITests`).
+  - **The "." shortcut, measured 7 Nov** (same simulator, soft keyboard).
+    Two quick spaces become ". " whatever the traits say: it is the
+    reader's Settings › General › Keyboard › "." Shortcut, and no
+    `UITextInputTraits` property reaches it. The delegate sees the second
+    space as an ordinary insert; the keyboard then replaces both spaces
+    with "." and inserts a space, neither through `shouldChangeTextIn`. So
+    where the policy isn't `.prose` (code, or Autocorrect off),
+    `PeriodShortcut` arms on that second space and, when the ". " has
+    landed, `textViewDidChange` puts the two spaces back as an edit of the
+    app's own (`TextRewritingPolicyTests`, `PeriodShortcutUITests`). With
+    Autocorrect on, prose keeps the shortcut, as Notes does.
 - **Appearance is applied at the root of the scene** (`AppearanceModifier`,
   `preferredColorScheme`, on both the note view and the storage-unavailable
   view), so every window, the sheet and UIKit controllers presented from it

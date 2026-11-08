@@ -415,6 +415,72 @@ extension TextRewritingPolicyTests {
         let caret = (source as NSString).range(of: "lo").location
         #expect(TextRewritingPolicy.at(caret, in: source, blocks: DocumentParser.parse(source)) == .code)
     }
+    // MARK: The "." shortcut
+
+    /// Two quick spaces on the on-screen keyboard, as it makes them
+    /// (measured 7 Nov): the second space through the delegate, then "."
+    /// over both spaces and a space after it, neither through the delegate
+    /// (or, `spaceThroughDelegate`, the last one through it).
+    static func doubleSpace(
+        _ source: String, at caret: Int, rewritesProse: Bool, spaceThroughDelegate: Bool = false
+    ) -> (text: String, binding: String) {
+        final class Box { var value = "" }
+        let box = Box()
+        let coordinator = DocumentTextView.Coordinator(text: Binding(get: { box.value }, set: { box.value = $0 }))
+        let textView = DocumentTextView.makeConfiguredTextView()
+        textView.delegate = coordinator
+        // As in the app, an edit drops the coordinator's snapshot of the text.
+        coordinator.observeEdits(of: textView)
+        textView.text = source
+        coordinator.setRewritesProse(rewritesProse, in: textView)
+
+        func keyboard(_ location: Int, _ length: Int, _ text: String, delegate: Bool) {
+            let range = NSRange(location: location, length: length)
+            if delegate {
+                guard coordinator.textView(textView, shouldChangeTextIn: range, replacementText: text) else { return }
+            }
+            textView.textStorage.replaceCharacters(in: range, with: text)
+            textView.selectedRange = NSRange(location: location + (text as NSString).length, length: 0)
+            coordinator.textViewDidChange(textView)
+        }
+
+        textView.selectedRange = NSRange(location: caret, length: 0)
+        coordinator.textViewDidChangeSelection(textView)
+        keyboard(caret, 0, " ", delegate: true)
+        keyboard(caret + 1, 0, " ", delegate: true)
+        keyboard(caret, 2, ".", delegate: false)
+        keyboard(caret + 1, 0, " ", delegate: spaceThroughDelegate)
+        return (textView.text, box.value)
+    }
+
+    @Test("Two spaces stay two in prose with Autocorrect off, and in code",
+          arguments: [false, true])
+    func periodShortcutTakenBack(spaceThroughDelegate: Bool) {
+        let prose = Self.doubleSpace("ab", at: 2, rewritesProse: false, spaceThroughDelegate: spaceThroughDelegate)
+        #expect(prose.text == "ab  ")
+        #expect(prose.binding == "ab  ", "the page wasn't given the spaces back")
+
+        let code = Self.doubleSpace("```cpp\nint x\n```\n", at: 12, rewritesProse: true,
+                                    spaceThroughDelegate: spaceThroughDelegate)
+        #expect(code.text == "```cpp\nint x  \n```\n")
+    }
+
+    @Test("With Autocorrect on, prose keeps the keyboard's \". \"")
+    func periodShortcutInProse() {
+        #expect(Self.doubleSpace("ab", at: 2, rewritesProse: true).text == "ab. ")
+    }
+
+    @Test("A period typed after two spaces is left alone")
+    func periodTypedByHand() {
+        var shortcut = PeriodShortcut()
+        let source = NSMutableString(string: "ab ")
+        shortcut.willChange(NSRange(location: 3, length: 0), to: " ", in: source, rewrites: false)
+        source.append(" ")
+        #expect(shortcut.didChange(source, selection: NSRange(location: 4, length: 0)) == nil)
+        shortcut.willChange(NSRange(location: 4, length: 0), to: ".", in: source, rewrites: false)
+        source.append(".")
+        #expect(shortcut.didChange(source, selection: NSRange(location: 5, length: 0)) == nil)
+    }
 }
 
 #endif

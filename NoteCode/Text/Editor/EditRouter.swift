@@ -24,6 +24,9 @@ final class EditRouter {
     /// The re-entrancy flags (`EditGuard`).
     var editGuard = EditGuard()
 
+    /// The keyboard's "." shortcut, watched for where it may not rewrite.
+    var periodShortcut = PeriodShortcut()
+
     /// What a decision about an edit reads from the Coordinator, as closures
     /// so only what a path needs is worked out.
     struct Context {

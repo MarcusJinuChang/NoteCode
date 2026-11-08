@@ -217,6 +217,68 @@ nonisolated enum TextRewritingPolicy: Equatable, Sendable {
     }
 }
 
+/// The keyboard's "." shortcut, taken back where the keyboard may not
+/// rewrite: in code, and in prose with Settings › Writing › Autocorrect off.
+///
+/// Two spaces typed quickly on the on-screen keyboard become ". ". No text
+/// input trait turns that off (it is the reader's Settings › General ›
+/// Keyboard › "." Shortcut), and the delegate can't refuse it: measured 7
+/// Nov on the soft keyboard, the second space comes through
+/// `shouldChangeTextIn` as an ordinary insert, then the keyboard replaces
+/// both spaces with "." and inserts a space, neither through the delegate.
+/// So this watches for that sequence after a second space and answers the
+/// last step with the edit that puts the two spaces back.
+nonisolated struct PeriodShortcut: Equatable, Sendable {
+    /// Where the first of the two spaces is, while the sequence may follow.
+    private var space: Int?
+    /// The note's length with both spaces in.
+    private var length = 0
+
+    /// The keyboard is about to replace `range` of `source` with `text`.
+    /// A second space typed where nothing may rewrite starts the watch;
+    /// anything else ends it.
+    mutating func willChange(_ range: NSRange, to text: String, in source: NSString, rewrites: Bool) {
+        // The shortcut's own space, if it comes through the delegate.
+        if let space, text == " ", range == NSRange(location: space + 1, length: 0),
+           source.length == length - 1, source.character(at: space) == UTF16Unit.period {
+            return
+        }
+        if !rewrites, text == " ", range.length == 0, range.location > 0, range.location <= source.length,
+           source.character(at: range.location - 1) == UTF16Unit.space {
+            space = range.location - 1
+            length = source.length + 1
+        } else {
+            space = nil
+        }
+    }
+
+    /// The note is now `source`. Returns the edit that turns the shortcut's
+    /// ". " back into the two spaces typed, once the keyboard has made it.
+    mutating func didChange(_ source: NSString, selection: NSRange) -> TextEdit? {
+        guard let space else { return nil }
+        let caret = selection.length == 0 ? selection.location : -1
+        func at(_ offset: Int) -> unichar { offset < source.length ? source.character(at: offset) : 0 }
+        switch (source.length - length, caret - space, at(space), at(space + 1)) {
+        case (0, 2, UTF16Unit.space, UTF16Unit.space):
+            // The second space is in.
+            return nil
+        case (-1, 1, UTF16Unit.period, _):
+            // The keyboard replaced the two spaces with ".".
+            return nil
+        case (0, 2, UTF16Unit.period, UTF16Unit.space):
+            // And typed its space after it.
+            self.space = nil
+            return TextEdit(
+                range: NSRange(location: space, length: 2), replacement: "  ",
+                selection: NSRange(location: space + 2, length: 0)
+            )
+        default:
+            self.space = nil
+            return nil
+        }
+    }
+}
+
 #if canImport(UIKit)
 
 @MainActor
