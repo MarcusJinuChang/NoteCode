@@ -173,19 +173,33 @@ struct StubRunner: CodeRunning {
 actor GatedRunner: CodeRunning {
     private var waiting: [CheckedContinuation<Void, Never>] = []
     private var answers: [String] = []
+    /// Tests waiting for a number of jobs to arrive.
+    private var watchers: [(count: Int, resume: CheckedContinuation<Void, Never>)] = []
 
     func run(_ job: RunJob) async throws -> RunResult {
-        await withCheckedContinuation { waiting.append($0) }
+        await withCheckedContinuation {
+            waiting.append($0)
+            let due = watchers.filter { $0.count <= waiting.count }
+            watchers.removeAll { $0.count <= waiting.count }
+            due.forEach { $0.resume.resume() }
+        }
         return RunResult(status: .ok, stdout: job.code, runsLeft: nil)
     }
 
     var pending: Int { waiting.count }
 
+    /// Returns once `count` jobs are waiting to be released. By suspending,
+    /// not by polling.
+    func untilPending(_ count: Int) async {
+        if waiting.count >= count { return }
+        await withCheckedContinuation { watchers.append((count, $0)) }
+    }
+
     func release(_ index: Int) { waiting[index].resume() }
 }
 
 @MainActor
-@Suite(.tags(.pro)) struct RunSessionInFlightTests {
+@Suite(.tags(.pro), .timeLimit(.minutes(1))) struct RunSessionInFlightTests {
     private func target(_ ordinal: Int, _ code: String) -> CodeBlockTarget {
         CodeBlockTarget(
             id: CodeBlockID(ordinal: ordinal, code: code),
@@ -195,12 +209,7 @@ actor GatedRunner: CodeRunning {
     }
 
     private func waitForPending(_ gate: GatedRunner, _ count: Int) async throws {
-        for _ in 0..<2000 {
-            if await gate.pending >= count { return }
-            try await Task.sleep(for: .milliseconds(5))
-        }
-        Issue.record("the runner was never asked for job \(count)")
-        throw CancellationError()
+        await gate.untilPending(count)
     }
 
     /// The running block is deleted and another takes its place; the first

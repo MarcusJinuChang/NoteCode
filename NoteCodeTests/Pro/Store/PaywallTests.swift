@@ -7,7 +7,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Paywall and the AI gate", .serialized, .tags(.pro))
+@Suite("Paywall and the AI gate", .serialized, .tags(.pro), .timeLimit(.minutes(1)))
 @MainActor
 struct PaywallTests {
 
@@ -45,10 +45,7 @@ struct PaywallTests {
         let ai = AIAssistant(client: model, isPro: { pro.isPro })
 
         ai.begin(job())
-        for _ in 0..<200 {
-            if case .done = ai.state { break }
-            try? await Task.sleep(for: .milliseconds(10))
-        }
+        await ai.settled()
 
         #expect(!ai.needsPro)
         #expect(ai.job != nil)

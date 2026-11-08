@@ -13,6 +13,9 @@ final class StubProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var handler: (@Sendable (URLRequest) throws -> (Int, [String: String], Data))?
     nonisolated(unsafe) static var lastBody: Data?
     nonisolated(unsafe) static var hang = false
+    /// Called once a hanging request has arrived, so a test knows it is in
+    /// flight. Cleared after the call.
+    nonisolated(unsafe) static var onHang: (@Sendable () -> Void)?
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -30,7 +33,12 @@ final class StubProtocol: URLProtocol, @unchecked Sendable {
         } else {
             Self.lastBody = request.httpBody
         }
-        if Self.hang { return }
+        if Self.hang {
+            let arrived = Self.onHang
+            Self.onHang = nil
+            arrived?()
+            return
+        }
         do {
             let (code, headers, data) = try Self.handler!(request)
             let r = HTTPURLResponse(url: request.url!, statusCode: code, httpVersion: nil, headerFields: headers)!
@@ -44,7 +52,7 @@ final class StubProtocol: URLProtocol, @unchecked Sendable {
     override func stopLoading() {}
 }
 
-@Suite(.serialized, .tags(.pro))
+@Suite(.serialized, .tags(.pro), .timeLimit(.minutes(1)))
 struct CodeRunnerTests {
     static let url = URL(string: "https://run.example.test")!
 
@@ -158,8 +166,12 @@ struct CodeRunnerTests {
     @Test func cancellation() async throws {
         let c = client()
         StubProtocol.hang = true
-        let task = Task { try await c.run(job()) }
-        try await Task.sleep(for: .milliseconds(150))
+        var started: Task<RunResult, any Error>?
+        await withCheckedContinuation { (arrived: CheckedContinuation<Void, Never>) in
+            StubProtocol.onHang = { arrived.resume() }
+            started = Task { try await c.run(job()) }
+        }
+        let task = try #require(started)
         task.cancel()
         await #expect(throws: CancellationError.self) { try await task.value }
     }

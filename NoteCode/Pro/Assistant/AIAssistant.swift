@@ -145,7 +145,13 @@ final class AIAssistant {
     private func stop() {
         generation += 1
         task?.cancel()
-        task = nil
+    }
+
+    /// Returns once the last run started has ended: answered, failed, or
+    /// unwound after a stop. A `begin` that stops early (no Pro, or the model
+    /// unavailable) starts no run, so this then waits for the one before. For tests.
+    func settled() async {
+        await task?.value
     }
 
     private func run(_ job: AIJob, generation mine: Int) async {

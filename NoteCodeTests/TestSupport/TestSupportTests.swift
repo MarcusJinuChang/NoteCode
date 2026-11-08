@@ -36,7 +36,9 @@ struct TestSupportTests {
             name = store.suiteName
             store.defaults.set("kept", forKey: "TestDefaults.key")
             #expect(store.defaults.string(forKey: "TestDefaults.key") == "kept")
-            #expect(UserDefaults.standard.object(forKey: "TestDefaults.key") == nil)
+            // The app's own settings, read through a fresh instance on the
+            // same search list as the shared one, which tests leave alone.
+            #expect(UserDefaults().object(forKey: "TestDefaults.key") == nil)
         }
         let suite = try #require(name)
         let reopened = try #require(UserDefaults(suiteName: suite))

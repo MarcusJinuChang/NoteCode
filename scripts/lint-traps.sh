@@ -17,7 +17,7 @@
 #  4 import SwiftUI/UIKit in a file under any NoteCode/**/Core/ folder (the tests may)
 #  5 #filePath near deletingLastPathComponent in tests (use TestPaths.repoRoot)
 #  6 two Swift files with one basename in one target's folder
-#  7 UserDefaults.standard in NoteCodeTests/, as a count that may only fall
+#  7 UserDefaults.standard or UserDefaults() in NoteCodeTests/, as a count that may only fall
 #  8 reportPerf in a test without .perf on itself or its suite (perf.sh runs
 #    only the Perf plan, so its PERF line would never be read). The test is
 #    the last @Test above the call, and the suite the last @Suite
@@ -83,10 +83,10 @@ for dir in NoteCode NoteCodeTests NoteCodeUITests; do
 done
 
 # 7
-count=$(code_lines NoteCodeTests | grep -c 'UserDefaults\.standard')
+count=$(code_lines NoteCodeTests | grep -cE 'UserDefaults\.standard|UserDefaults\(\)')
 limit=$(awk '$1 == "limit" && $2 == 7 { print $3 }' $allow 2>/dev/null)
 if [[ -z $limit ]]; then limit=0; fi
-(( count > limit )) && hits+=("NoteCodeTests rule 7: UserDefaults.standard $count times, limit $limit (the count may only fall)")
+(( count > limit )) && hits+=("NoteCodeTests rule 7: UserDefaults.standard or UserDefaults() $count times, limit $limit (the count may only fall)")
 
 # 9
 sleeps=$(code_lines NoteCodeTests | grep -cE 'Task\.sleep|RunLoop\.(main|current)\.run|usleep|Thread\.sleep')

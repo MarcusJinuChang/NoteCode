@@ -184,8 +184,8 @@ struct CodeEditingInTheEditorTests {
         #expect(row(of: harness) != nil)
 
         HardwareKeyboard.isConnected = { true }
+        // Observers on `.main`, posted on the main queue, run inside `post`.
         NotificationCenter.default.post(name: .GCKeyboardDidConnect, object: nil)
-        try await Task.sleep(for: .milliseconds(100))
         #expect(row(of: harness) == nil, "attached")
 
         // And a caret move in code with it attached doesn't put it back.
@@ -194,7 +194,6 @@ struct CodeEditingInTheEditorTests {
 
         HardwareKeyboard.isConnected = { false }
         NotificationCenter.default.post(name: .GCKeyboardDidDisconnect, object: nil)
-        try await Task.sleep(for: .milliseconds(100))
         #expect(row(of: harness) != nil, "detached")
     }
 

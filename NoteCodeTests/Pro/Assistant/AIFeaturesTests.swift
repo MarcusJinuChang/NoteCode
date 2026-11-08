@@ -233,7 +233,7 @@ struct AIPromptTests {
     }
 }
 
-@Suite("Assistant state machine", .tags(.pro))
+@Suite("Assistant state machine", .tags(.pro), .timeLimit(.minutes(1)))
 @MainActor
 struct AIAssistantTests {
 
@@ -312,7 +312,8 @@ struct AIAssistantTests {
 
         ai.cancel()
         #expect(ai.state == .idle)
-        try? await Task.sleep(for: .milliseconds(400))
+        // Once the stopped run has unwound, nothing is left to change it.
+        await ai.settled()
         #expect(ai.state == .idle)
         #expect(ai.job != nil)
     }

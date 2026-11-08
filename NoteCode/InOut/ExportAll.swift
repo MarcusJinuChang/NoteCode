@@ -100,8 +100,13 @@ final class NoteExportJob {
     func cancel() {
         generation += 1
         task?.cancel()
-        task = nil
         cleanUp()
+    }
+
+    /// Returns once the newest run has ended: finished, failed, or unwound
+    /// after a cancel. For tests.
+    func settled() async {
+        await task?.value
     }
 
     /// Removes the temporary folder, once the exporter has copied it or the
