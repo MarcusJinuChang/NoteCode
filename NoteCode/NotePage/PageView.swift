@@ -57,7 +57,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
     private let sidewaysFling = SidewaysFling()
     /// The page's edge: a hairline and a soft shadow behind the text view
     /// in the continuous modes (print layout's sheets have their own).
-    private let pageEdge = PageEdgeView()
+    let pageEdge = PageEdgeView()
 
     /// The pages' orientation and how they are shown.
     ///

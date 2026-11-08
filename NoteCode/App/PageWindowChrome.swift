@@ -90,7 +90,18 @@ final class PageEdgeView: UIView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     override var frame: CGRect {
-        didSet { layer.shadowPath = UIBezierPath(rect: bounds).cgPath }
+        didSet { placeShadow() }
+    }
+
+    /// Whether the edge is animating with the page. A shadow path is set
+    /// once, at the end of the move, so while it moves the shadow is drawn
+    /// from the view's own shape and moves with it.
+    var isMoving = false {
+        didSet { placeShadow() }
+    }
+
+    private func placeShadow() {
+        layer.shadowPath = isMoving ? nil : UIBezierPath(rect: bounds).cgPath
     }
 
     /// CALayer colours are plain CGColors and don't follow dark mode alone.

@@ -9,6 +9,7 @@ import UIKit
 protocol PageKeyboardInsetHost: UIScrollView {
     var textView: DocumentUITextView { get }
     var displayScale: CGFloat { get }
+    var pageEdge: PageEdgeView { get }
 }
 
 /// The room the page keeps for the keyboard and the hotbar, and the page's
@@ -172,9 +173,16 @@ final class PageKeyboardInset {
     /// The view stops clipping while it moves: the page starts partly outside
     /// its new area and slides in, which clipped would have lost a strip of
     /// it at once.
+    ///
+    /// The page's edge, page-coloured behind the text view, moves with it.
+    /// Left where this layout pass put it, it painted the page at its new
+    /// size at once: leaving a side dock, the page snapped wide and only the
+    /// text slid (device pass, 7 Nov). Arriving, the old page overhung the
+    /// narrower edge, so that looked right.
     func movePage(from old: (center: CGPoint, scale: CGFloat, size: CGSize), with animation: Animation) {
         guard let host, host.window != nil else { return }
         let textView = host.textView
+        let edge = host.pageEdge
         let start = host.convert(old.center, from: nil)
         let end = (transform: textView.transform, size: textView.bounds.size, center: textView.center)
         guard abs(start.x - end.center.x) > 0.5 || abs(start.y - end.center.y) > 0.5 || old.scale != host.displayScale
@@ -184,14 +192,18 @@ final class PageKeyboardInset {
             textView.transform = CGAffineTransform(scaleX: old.scale, y: old.scale)
             textView.bounds.size = old.size
             textView.center = start
+            edge.frame = textView.frame
         }
         host.clipsToBounds = false
+        edge.isMoving = true
         UIView.animate(animation) {
             textView.transform = end.transform
             textView.bounds.size = end.size
             textView.center = end.center
+            edge.frame = textView.frame
         } completion: {
             host.clipsToBounds = true
+            edge.isMoving = false
         }
     }
 }
