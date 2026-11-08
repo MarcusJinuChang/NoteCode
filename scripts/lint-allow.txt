@@ -8,4 +8,4 @@ limit 9 49
 2 NoteCode/Ink/InkCapture.swift:363 PKInkReference is the Objective-C ink; its inkType is a string, the safe read
 3 NoteCode/Ink/InkObjects.swift:216 `elements` is a [any Markup] array, not a MarkupOrderedSet
 3 NoteCode/Text/Core/MarkdownFormatting+Markers.swift:94 `markup` is an Optional<Bool> kind, not a MarkupOrderedSet
-3 NoteCode/Ink/PageInkPipeline.swift:412 looked up by id, not by position, once per piece cut at a border (few); PageViewTests.redrawCost
+3 NoteCode/Ink/PageInkPipeline.swift:412 looked up by id, not by position, once per piece cut at a border (few); PageViewTests.Cost.redrawCost

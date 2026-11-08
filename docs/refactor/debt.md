@@ -14,7 +14,7 @@ step. Nothing here blocks 1.2.0.
 | Core tests (`core-test.sh`) | 263 tests in 31 suites pass |
 | Fast plan (`check.sh`) | CHECK OK: 2,040 tests, 2,039 passed (1 expected failure), 0 failed; macOS build fails as expected |
 | Warnings | 2, both the compiler's, listed in baseline.md |
-| Files over 600 lines | 12 (below; 11 since D5); no app file is over 850 |
+| Files over 600 lines | 11 (below); no app file is over 850 |
 
 ## Files over 600 lines
 

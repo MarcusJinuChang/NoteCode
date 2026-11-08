@@ -91,7 +91,7 @@ this PR's.
 | 14.7 | Text size: re-flowing keeps the reader's place › A size change keeps the line the reader was on at the top, as a note l (`TextSizeReflowTests/keepsTheTopLine(mode:size:)`) |
 | 10.7 | Page settling › After a mode switch the note settles at whole pages, with nothing forc (`PageSettlingTests/settlesAtWholePages(target:)`) |
 | 9.1 | Caret anywhere: a tap below the text › A tap k lines below the end puts the caret on that line, at the end of (`CaretAnywhereTests/reachesTheTap(_:lines:)`) |
-| 8.9 | Page view › However long the note, the canvas is no taller than the screen (`PageViewTests/canvasStaysScreenSized()`) |
+| 8.9 | Page view › However long the note, the canvas is no taller than the screen (`PageViewTests/Canvas/canvasStaysScreenSized()`) |
 | 8.0 | Return and Backspace through the coordinator › A Return moves the text below it by exactly one line, in code and out (`ReturnAndBackspaceTests/returnAddsOneLine(_:)`) |
 | 7.9 | Hotbar layout › The buffer leaves the text container at the pages' own width in every  (`HotbarLayoutTests/bufferLeavesTheLayoutAlone(mode:dock:)`) |
 | 7.9 | Return and Backspace through the coordinator › Every held Return and Backspace changes the text and moves the caret (`ReturnAndBackspaceTests/everyPressRegisters(_:)`) |
