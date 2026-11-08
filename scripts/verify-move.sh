@@ -7,7 +7,8 @@
 # removed and every added line in *.swift is collected, skipping blank lines,
 # `}`, `import …` (with any `@testable`-style attribute), comment-only lines
 # (`//`, `/*`, `*`, which includes `// MARK:`), `extension … {` headers and #if/#else/#endif.
-# A leading private/fileprivate/internal is stripped from both sides, and a
+# A leading private/fileprivate/internal (after any attributes, `@Environment(…)`
+# and `@AppStorage(…)` included) is stripped from both sides, and a
 # line where that was the only difference is listed as "access loosened".
 # The two sides are sorted and compared as multisets: anything left over means
 # the change is not a pure move. Prints the leftovers and exits 1.
@@ -31,7 +32,7 @@ awk '
     print sign "\t" file "\t" t
   }' $tmp/diff > $tmp/lines
 
-strip() { sed -E 's/^((@[A-Za-z]+[[:space:]]+|static[[:space:]]+|final[[:space:]]+|override[[:space:]]+|lazy[[:space:]]+|nonisolated[[:space:]]+|mutating[[:space:]]+)*)(private|fileprivate|internal)(\(set\))?[[:space:]]+/\1/; s/[[:space:]]+/ /g'; }
+strip() { sed -E 's/^((@[A-Za-z]+(\([^)]*\))?[[:space:]]+|static[[:space:]]+|final[[:space:]]+|override[[:space:]]+|lazy[[:space:]]+|nonisolated[[:space:]]+|mutating[[:space:]]+)*)(private|fileprivate|internal)(\(set\))?[[:space:]]+/\1/; s/[[:space:]]+/ /g'; }
 for s in - +; do
   awk -F'\t' -v s=$s '$1 == s { print $3 }' $tmp/lines | strip | sort > $tmp/$s.norm
   awk -F'\t' -v s=$s '$1 == s { print $3 }' $tmp/lines | sort > $tmp/$s.raw
