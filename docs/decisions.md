@@ -27,7 +27,7 @@ A decision that needs more than a line gets an entry under
 | 30 Oct 2026 | No choice of where code runs; a compiler site is only the panel's way out | One path to verify; the choice confused the privacy story (#118) | standing |
 | 31 Oct 2026 | Paper styles removed; text alignment later instead | Built 13 Oct and 24 Oct, removed 15 Oct and 31 Oct; the offset in compressed and print layout was never explained (`design/paper-styles.md`) | standing; see the queue |
 | 31 Oct 2026 | iPhone and the Duo in the first release | Device family widened; the layouts existed since 17 Oct | standing |
-| 2 Nov 2026 | Two updates (1.1.1, 1.2.0), then a public Apache-2.0 `NoteCode` with fresh history and a private `NoteCode-AppStore` | `refactor/README.md` › Decisions | standing |
+| 2 Nov 2026 | Two updates (1.1.1, 1.2.0), then a public Apache-2.0 `NoteCode` with fresh history and a private `NoteCode-AppStore` | `refactor/README.md` › Decisions | standing; the two updates became one, 7 Nov |
 | 3 Nov 2026 | Friend and own Pro access through App Store subscription offer codes (free, up to a year per code), not a key in the app | No code, no review risk, `ProStatus` already honours the subscription; re-issue yearly. A key in the proxy only if that proves annoying | proposed |
 | 3 Nov 2026 | Apple accounts (Sign in with Apple) wait for a feature that needs a server (group notes, comments) | iCloud sync needs no sign-in and gives the user what "an account" feels like | proposed |
 | 3 Nov 2026 | One live plan at a time, with an appetite and a cut line; a weekly check (`/weekly`) | `retrospective-2026-11.md` | proposed |
@@ -35,6 +35,7 @@ A decision that needs more than a line gets an entry under
 | 6 Nov 2026 | 2P4 gets an app seam (`NoteNavigation`), not a UI test | Unit tests in the Fast plan; a UI test runs only under `--full` ([entry](#6-nov-2026-2p4-gets-an-app-seam-not-a-ui-test)) | standing |
 | 7 Nov 2026 | In print layout, ink stays clipped to each sheet's body | Print layout previews paper; the PDF matches ([entry](#7-nov-2026-in-print-layout-ink-stays-clipped-to-each-sheets-body)) | standing |
 | 7 Nov 2026 | Page breaks push whole paragraphs; existing ink may drift | Typing ~100ms → ~5ms a keystroke; few notes affected a day after launch ([entry](#7-nov-2026-page-breaks-push-whole-paragraphs-existing-ink-may-drift)) | standing; release-notes line |
+| 7 Nov 2026 | The next upload is 1.2.0, build 5; 1.1.1 is never released | 1.1.1 never shipped alone, and everything planned for 1.1.1 and 1.2.0 is on `main`, so one update carries both. The live build is tagged `v1.1.0-4` | standing |
 
 ## Entries
 
