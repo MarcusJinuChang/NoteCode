@@ -350,17 +350,16 @@ struct KeyboardAndMenuTests {
     }
 
     @Test("It follows UIKit's own begin and end notifications")
-    func textInputNotifications() async throws {
+    func textInputNotifications() {
         let activity = TextInputActivity()
         activity.start()
         let field = UITextField()
 
+        // Observers on `.main`, posted on the main queue, run inside `post`.
         NotificationCenter.default.post(name: UITextField.textDidBeginEditingNotification, object: field)
-        try await Task.sleep(for: .milliseconds(50))
         #expect(activity.isEditing)
 
         NotificationCenter.default.post(name: UITextField.textDidEndEditingNotification, object: field)
-        try await Task.sleep(for: .milliseconds(50))
         #expect(!activity.isEditing)
     }
 

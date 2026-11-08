@@ -509,14 +509,22 @@ struct ToastTests {
 
     @Test("A toast goes by itself after its time, and a newer one gets its own full time")
     func goesAway() async throws {
-        let center = ToastCenter(duration: .milliseconds(150))
+        let clock = ManualClock()
+        let center = ToastCenter(duration: .milliseconds(150), clock: clock)
         center.show("First")
-        try await Task.sleep(for: .milliseconds(90))
+        await clock.untilSleeping()
+        clock.advance(by: .milliseconds(90))
         center.show("Second")
-        try await Task.sleep(for: .milliseconds(90))
+        await clock.untilSleeping()
+        // Past the first toast's 150ms, not yet the second's.
+        clock.advance(by: .milliseconds(90))
+        // A sleep that time woke resumes on the main actor; one turn of it
+        // lets the first toast's clock act, if it still could.
+        await Task.yield()
         #expect(center.current?.message == "Second", "the first toast's clock didn't take the second away")
 
-        try await Task.sleep(for: .milliseconds(150))
+        clock.advance(by: .milliseconds(150))
+        await center.settled()
         #expect(center.current == nil)
     }
 

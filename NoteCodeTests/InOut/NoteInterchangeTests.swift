@@ -415,11 +415,8 @@ struct NoteExportJobTests {
     /// Runs a job to the end and answers where its folder is.
     private func run(_ job: NoteExportJob, pages: [Page], folders: [Folder], pdfs: Bool = false) async throws -> URL {
         job.start(pages: pages, folders: folders, includePDFs: pdfs)
-        for _ in 0..<2000 {
-            if case .ready = job.state { break }
-            if case .failed(let message) = job.state { Issue.record("failed: \(message)"); break }
-            try await Task.sleep(for: .milliseconds(10))
-        }
+        await job.settled()
+        if case .failed(let message) = job.state { Issue.record("failed: \(message)") }
         guard case .ready = job.state else { throw CocoaError(.fileNoSuchFile) }
         return try #require(await Self.root(of: job))
     }
@@ -507,8 +504,8 @@ struct NoteExportJobTests {
         job.cancel()
         #expect(job.state == .idle)
 
-        // Give the unwound run time to finish; it must not report anything.
-        try await Task.sleep(for: .milliseconds(300))
+        // The unwound run must not report anything when it ends.
+        await job.settled()
         #expect(job.state == .idle)
     }
 

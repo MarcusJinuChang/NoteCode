@@ -145,7 +145,12 @@ final class AIAssistant {
     private func stop() {
         generation += 1
         task?.cancel()
-        task = nil
+    }
+
+    /// Returns once the newest run has ended: answered, failed, or unwound
+    /// after a stop. For tests.
+    func settled() async {
+        await task?.value
     }
 
     private func run(_ job: AIJob, generation mine: Int) async {
