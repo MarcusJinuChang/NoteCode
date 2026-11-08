@@ -188,10 +188,10 @@ struct DocumentTextView: UIViewRepresentable {
         }
 
         /// Settings › Code › Indent Width.
-        var indentWidth = CodeIndent.defaultWidth
+        var indentWidth = SettingKeys.Code.indentWidth.defaultValue
 
         /// Settings › Code › Line Numbers.
-        private(set) var showsLineNumbers = LineNumbers.enabledByDefault
+        private(set) var showsLineNumbers = SettingKeys.Code.lineNumbers.defaultValue
 
         /// Whether the note lays its Markdown markers out at zero width.
         /// See `MarkdownLayout`. Set through `setRendersMarkdown`.

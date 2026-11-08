@@ -21,10 +21,10 @@ struct MarkerDimmingTests {
 
     @Test("The keys are stable, and the default is today's look")
     func keysAndDefault() {
-        #expect(MarkerDimming.headingsKey == "markerDimming.headings")
-        #expect(MarkerDimming.bulletsKey == "markerDimming.bullets")
-        #expect(MarkerDimming.checkboxesKey == "markerDimming.checkboxes")
-        #expect(MarkerDimming.fencesKey == "markerDimming.fences")
+        #expect(SettingKeys.Writing.headingMarkers.name == "markerDimming.headings")
+        #expect(SettingKeys.Writing.bulletMarkers.name == "markerDimming.bullets")
+        #expect(SettingKeys.Writing.checkboxMarkers.name == "markerDimming.checkboxes")
+        #expect(SettingKeys.Writing.fenceMarkers.name == "markerDimming.fences")
         #expect(MarkerLevel.allCases.map(\.rawValue) == ["off", "dim", "full"])
 
         let standard = MarkerDimming.standard

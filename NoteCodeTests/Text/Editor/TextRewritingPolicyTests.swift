@@ -264,8 +264,8 @@ struct TextRewritingPolicyTests {
         #expect(textView.inlinePredictionType == .no)
         #expect(textView.spellCheckingType == .no)
 
-        #expect(TextRewritingPolicy.proseDefaultsKey == "autocorrectInProse")
-        #expect(TextRewritingPolicy.proseEnabledByDefault)
+        #expect(SettingKeys.Writing.autocorrectInProse.name == "autocorrectInProse")
+        #expect(SettingKeys.Writing.autocorrectInProse.defaultValue)
         // Not code, so no row of code keys.
         #expect(CodeKeys.keys(for: .proseWithoutRewriting).isEmpty)
     }

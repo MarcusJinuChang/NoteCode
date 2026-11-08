@@ -91,8 +91,6 @@ struct RunDock: View {
 
 /// The dock's width, app-wide: 360pt to start, 280pt to half the window.
 nonisolated enum RunDockWidth {
-    static let key = SettingKeys.Run.panelWidth.name
-    static let initial = SettingKeys.Run.panelWidth.defaultValue
     static let minimum = 280.0
 
     static func clamped(_ width: Double, available: CGFloat) -> CGFloat {

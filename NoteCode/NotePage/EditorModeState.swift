@@ -186,7 +186,7 @@ final class EditorModeState {
     /// make people reach for the Pencil to leave a mark. On, a finger scrolls
     /// and selects instead — what you want with the Pencil in hand and a palm
     /// resting on the page. After the first change it is whatever the reader
-    /// last chose on this device (`fingerDrawsKey`).
+    /// last chose on this device (`SettingKeys.Drawing.fingerDraws`).
     var isPencilOnly: Bool {
         get { !inkTools.fingerDraws }
         set { inkTools.fingerDraws = !newValue }

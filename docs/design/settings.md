@@ -15,13 +15,14 @@ the version string, the licence text, the palette reset) are `AppSettings.swift`
   (`AdConsent.privacyOptionsRequired`). Not built, per the brief: Account, iCloud, Templates, Recently
   Deleted, Storage, Rate, What's New, code keys, indent, line numbers.
   (Export All Notes… came with v3 phase 7; see "Notes in and out".)
-- **Every row binds the key its owner already uses**, through the owner's
-  constant (`HotbarDock.defaultsKey`, `NoteSort.defaultsKey`,
-  `NoteEditor.fingerDrawsKey`, …),
-  never a second spelling. `SettingsTests.keysAreStable` pins the stored
-  names, since renaming one orphans what a device saved. Finger Draws needed
-  no new key: `fingerDraws` was already per device (10 Oct, before this phase),
-  so the row and the hotbar's hand button are one setting.
+- **Every row binds the key the rest of the app already uses**, through
+  its entry in `SettingKeys` (`SettingKeys.General.hotbarDock`,
+  `SettingKeys.Notes.sort`, `SettingKeys.Drawing.fingerDraws`, …), never a
+  second spelling (the owners' forwarding names went 8 Nov, debt D6).
+  `SettingsTests.keysAreStable` pins the stored names, since renaming one
+  orphans what a device saved. Finger Draws needed no new key:
+  `fingerDraws` was already per device (10 Oct, before this phase), so the
+  row and the hotbar's hand button are one setting.
 - **Opening it.** The gear was an inset bar at the foot of the list until
   16 Oct (a `.bottomBar` toolbar item had put it at the centre of the screen
   with the list hidden, and it wasn't there in portrait). Now Settings is in
@@ -36,7 +37,7 @@ the version string, the licence text, the palette reset) are `AppSettings.swift`
   `showsSettings`; `HotbarUITests.testSettingsFromTheNoteMenu` taps it and
   looks for the sheet). Not checked by hand on an iPhone.
 - **Open Note After Creating** (21 Oct, Settings › Notes beside New Notes; key
-  `openNoteAfterCreating`, `NewNotes.opensAfterCreatingKey`, **on by default
+  `openNoteAfterCreating`, `SettingKeys.Notes.opensAfterCreating`, **on by default
   since 31 Oct**: a "+" that made a note and showed nothing read as broken).
   Off, the list's "+" tap, its hold menu (Portrait/Landscape Pages and From
   Template), a folder's New Note menu and the empty list's New Note button
@@ -49,7 +50,7 @@ the version string, the licence text, the palette reset) are `AppSettings.swift`
   Import: those are explicit "make me a note and show it" commands made from a
   place where nothing visible would otherwise happen, so they still open.
 - **Autocorrect** (21 Oct, Settings › Writing; key `autocorrectInProse`,
-  `TextRewritingPolicy.proseDefaultsKey`, on by default). Off turns every
+  `SettingKeys.Writing.autocorrectInProse`, on by default). Off turns every
   rewriting trait off in prose too (autocorrect, capitals, smart quotes and
   dashes, smart insert/delete, inline predictions), as code always has them.
   It is a third `TextRewritingPolicy` case, `.proseWithoutRewriting`, so the

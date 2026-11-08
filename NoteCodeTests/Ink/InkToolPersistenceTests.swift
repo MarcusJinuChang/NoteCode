@@ -61,7 +61,7 @@ struct InkToolPersistenceTests {
         #expect(!note.editor.returnsToPreviousTool)
         // Opening a note writes nothing.
         #expect(string(InkingSettings.defaultsKey(for: .pen)) == nil)
-        #expect(string(EraserSettings.defaultsKey) == nil)
+        #expect(string(SettingKeys.Drawing.eraser.name) == nil)
     }
 
     @Test("What the hotbar sets in one note is stored, and the next note opens with it")
@@ -80,9 +80,9 @@ struct InkToolPersistenceTests {
         // The keys Settings › Drawing reads, in the form it reads them.
         #expect(string(InkingSettings.defaultsKey(for: .pen)) == InkingSettings(color: Self.red, width: .bold).rawValue)
         #expect(string(InkingSettings.defaultsKey(for: .highlighter)) == InkingSettings(color: Self.green, width: .fine).rawValue)
-        #expect(string(EraserSettings.defaultsKey).flatMap(EraserSettings.init(rawValue:)) == eraser)
-        #expect(string(SelectionKind.defaultsKey) == SelectionKind.rectangle.rawValue)
-        #expect(device.defaults.object(forKey: NoteEditor.fingerDrawsKey) as? Bool == false)
+        #expect(string(SettingKeys.Drawing.eraser.name).flatMap(EraserSettings.init(rawValue:)) == eraser)
+        #expect(string(SettingKeys.Drawing.selectionKind.name) == SelectionKind.rectangle.rawValue)
+        #expect(device.defaults.object(forKey: SettingKeys.Drawing.fingerDraws.name) as? Bool == false)
 
         let second = openNote()
         let tool = second.editor.inkTool
@@ -99,7 +99,7 @@ struct InkToolPersistenceTests {
         first.editor.inkTool.kind = .eraser
         // Something that is stored, to know the store has had its turn.
         first.editor.fingerDraws = false
-        #expect(device.defaults.object(forKey: NoteEditor.fingerDrawsKey) as? Bool == false)
+        #expect(device.defaults.object(forKey: SettingKeys.Drawing.fingerDraws.name) as? Bool == false)
 
         let second = openNote()
         #expect(second.editor.inkTool.kind == .pen)
@@ -112,12 +112,12 @@ struct InkToolPersistenceTests {
         var eraser = EraserSettings()
         eraser.mode = .wholeStroke
         eraser.size = .large
-        device.defaults.set(eraser.rawValue, forKey: EraserSettings.defaultsKey)
-        device.defaults.set(true, forKey: NoteEditor.returnToPreviousToolKey)
+        device.defaults.set(eraser.rawValue, forKey: SettingKeys.Drawing.eraser.name)
+        device.defaults.set(true, forKey: SettingKeys.Drawing.returnToPreviousTool.name)
         // A colour set rewrites the highlighter's remembered colour.
         let highlighter = InkingSettings(color: Self.green, width: .medium)
         device.defaults.set(highlighter.rawValue, forKey: InkingSettings.defaultsKey(for: .highlighter))
-        device.defaults.set(false, forKey: NoteEditor.fingerDrawsKey)
+        device.defaults.set(false, forKey: SettingKeys.Drawing.fingerDraws.name)
         // And a reset, or a set, rewrites the palettes.
         let palette = InkPalette([Self.red])
         device.defaults.set(palette.rawValue, forKey: InkPalette.defaultsKey(for: .pen))
@@ -138,9 +138,9 @@ struct InkToolPersistenceTests {
         let note = openNote()
 
         device.defaults.set(InkingSettings(color: Self.red, width: .bold).rawValue, forKey: InkingSettings.defaultsKey(for: .pen))
-        device.defaults.set(SelectionKind.rectangle.rawValue, forKey: SelectionKind.defaultsKey)
+        device.defaults.set(SelectionKind.rectangle.rawValue, forKey: SettingKeys.Drawing.selectionKind.name)
         // Written with them, and pushed: once it lands, the others had their chance.
-        device.defaults.set(false, forKey: NoteEditor.fingerDrawsKey)
+        device.defaults.set(false, forKey: SettingKeys.Drawing.fingerDraws.name)
         let landed = await waitFor { !note.editor.fingerDraws }
         try #require(landed)
 
@@ -164,9 +164,9 @@ struct InkToolPersistenceTests {
         #expect(!note.fingerDraws)
         #expect(note.returnsToPreviousTool)
         #expect(note.inkTool.eraser == eraser)
-        #expect(device.defaults.object(forKey: NoteEditor.fingerDrawsKey) as? Bool == false)
-        #expect(device.defaults.object(forKey: NoteEditor.returnToPreviousToolKey) as? Bool == true)
-        #expect(string(EraserSettings.defaultsKey).flatMap(EraserSettings.init(rawValue:)) == eraser)
+        #expect(device.defaults.object(forKey: SettingKeys.Drawing.fingerDraws.name) as? Bool == false)
+        #expect(device.defaults.object(forKey: SettingKeys.Drawing.returnToPreviousTool.name) as? Bool == true)
+        #expect(string(SettingKeys.Drawing.eraser.name).flatMap(EraserSettings.init(rawValue:)) == eraser)
     }
 
     @Test("A palette the swatches change is stored, and the next note has it")
@@ -174,9 +174,9 @@ struct InkToolPersistenceTests {
         let first = openNote()
         let palette = InkPalette([Self.red, Self.green])
         first.editor.inkTools[palette: .highlighter] = palette
-        #expect(string(InkPalette.highlighterDefaultsKey) == palette.rawValue)
+        #expect(string(SettingKeys.Drawing.highlighterPalette.name) == palette.rawValue)
         // The pen's is untouched.
-        #expect(string(InkPalette.defaultsKey) == nil)
+        #expect(string(SettingKeys.Drawing.penPalette.name) == nil)
 
         let second = openNote()
         #expect(second.editor.inkTools[palette: .highlighter] == palette)

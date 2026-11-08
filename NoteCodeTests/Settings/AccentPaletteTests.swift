@@ -41,9 +41,9 @@ struct AccentPaletteTests {
     @Test("A stored colour is read back, and orange stored is the default")
     func roundTrip() {
         let defaults = scratchDefaults()
-        defaults.set(AccentPalette.string(for: 0x066EE5), forKey: AccentPalette.defaultsKey)
+        defaults.set(AccentPalette.string(for: 0x066EE5), forKey: SettingKeys.General.accent.name)
         #expect(AccentPalette.customHex(in: defaults) == 0x066EE5)
-        defaults.set(AccentPalette.string(for: 0xFA8500), forKey: AccentPalette.defaultsKey)
+        defaults.set(AccentPalette.string(for: 0xFA8500), forKey: SettingKeys.General.accent.name)
         #expect(AccentPalette.customHex(in: defaults) == nil)
     }
 
@@ -51,13 +51,13 @@ struct AccentPaletteTests {
           arguments: ["", "FA85", "FA85000", "ZZZZZZ", "#FA8500"])
     func badValues(stored: String) {
         let defaults = scratchDefaults()
-        defaults.set(stored, forKey: AccentPalette.defaultsKey)
+        defaults.set(stored, forKey: SettingKeys.General.accent.name)
         #expect(AccentPalette.hex(in: defaults) == AccentPalette.defaultHex)
     }
 
     @Test("The key is pinned: renaming it orphans what a device saved")
     func keyIsStable() {
-        #expect(AccentPalette.defaultsKey == "accentColor")
+        #expect(SettingKeys.General.accent.name == "accentColor")
     }
 
     // MARK: Links stay readable
@@ -104,7 +104,7 @@ struct AccentPaletteTests {
 
     @Test("The link colour is read from the stored accent as it is drawn")
     func linkFollowsStore() {
-        let key = AccentPalette.defaultsKey
+        let key = SettingKeys.General.accent.name
         let link = DocumentStyler.makeLinkColor(reading: store.defaults)
 
         func resolved(_ style: UIUserInterfaceStyle) -> [Int] {
@@ -125,7 +125,7 @@ struct AccentPaletteTests {
     @Test("A checked box is filled with the stored accent")
     func checkboxUsesStore() throws {
         let defaults = scratchDefaults()
-        defaults.set("066EE5", forKey: AccentPalette.defaultsKey)
+        defaults.set("066EE5", forKey: SettingKeys.General.accent.name)
         var (r, g, b, a): (CGFloat, CGFloat, CGFloat, CGFloat) = (0, 0, 0, 0)
         AccentPalette.drawingColor(in: defaults).getRed(&r, green: &g, blue: &b, alpha: &a)
         #expect([r, g, b].map { Int(($0 * 255).rounded()) } == [0x06, 0x6E, 0xE5])

@@ -46,8 +46,8 @@ struct HotbarLayoutTests {
         init(dock: HotbarDock, size: CGSize = HotbarLayoutTests.window, mode: PageViewMode? = nil) throws {
             window = HotbarLayoutTests.makeWindow(size: size)
             // The page reads its dock and view mode from the device's settings.
-            device.defaults.set(dock.rawValue, forKey: HotbarDock.defaultsKey)
-            if let mode { device.defaults.set(mode.rawValue, forKey: PageViewMode.defaultsKey) }
+            device.defaults.set(dock.rawValue, forKey: SettingKeys.General.hotbarDock.name)
+            if let mode { device.defaults.set(mode.rawValue, forKey: SettingKeys.Notes.viewMode.name) }
 
             container = try ModelContainer(
                 for: NoteSchema.current,

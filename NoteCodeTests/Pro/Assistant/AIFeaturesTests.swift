@@ -491,9 +491,9 @@ struct AISettingsTests {
 
     @Test("The stored names are pinned: renaming one orphans what a device saved")
     func keys() {
-        #expect(AIFeatureSettings.enabledKey == "aiEnabled")
-        #expect(AIFeatureSettings.lengthKey == "aiAnswerLength")
-        #expect(AIFeatureSettings.insertStyleKey == "aiInsertStyle")
+        #expect(SettingKeys.Assistant.enabled.name == "aiEnabled")
+        #expect(SettingKeys.Assistant.answerLength.name == "aiAnswerLength")
+        #expect(SettingKeys.Assistant.insertStyle.name == "aiInsertStyle")
     }
 
     @Test("Stored values read back; ones the pickers couldn't write read as the defaults")
@@ -501,13 +501,13 @@ struct AISettingsTests {
         let suite = UserDefaults(suiteName: "AISettingsTests-\(UUID().uuidString)")!
         #expect(AIFeatureSettings(defaults: suite) == AIFeatureSettings())
 
-        suite.set(false, forKey: AIFeatureSettings.enabledKey)
-        suite.set("detailed", forKey: AIFeatureSettings.lengthKey)
-        suite.set("output", forKey: AIFeatureSettings.insertStyleKey)
+        suite.set(false, forKey: SettingKeys.Assistant.enabled.name)
+        suite.set("detailed", forKey: SettingKeys.Assistant.answerLength.name)
+        suite.set("output", forKey: SettingKeys.Assistant.insertStyle.name)
         #expect(AIFeatureSettings(defaults: suite) == AIFeatureSettings(isEnabled: false, length: .detailed, insertStyle: .output))
 
-        suite.set("huge", forKey: AIFeatureSettings.lengthKey)
-        suite.set("???", forKey: AIFeatureSettings.insertStyleKey)
+        suite.set("huge", forKey: SettingKeys.Assistant.answerLength.name)
+        suite.set("???", forKey: SettingKeys.Assistant.insertStyle.name)
         #expect(AIFeatureSettings(defaults: suite) == AIFeatureSettings(isEnabled: false))
     }
 

@@ -386,7 +386,7 @@ struct LineNumbersTests {
         #expect(harness.coordinator.indentWidth == 4)
         #expect(!harness.coordinator.showsLineNumbers)
         #expect(harness.coordinator.codeKeysEnabled)
-        #expect(LineNumbers.enabledByDefault == false)
+        #expect(SettingKeys.Code.lineNumbers.defaultValue == false)
     }
 }
 

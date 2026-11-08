@@ -17,19 +17,13 @@ import Foundation
 nonisolated struct CodeEditorSettings: Equatable, Sendable {
 
     /// Spaces in one level: 2 or 4.
-    var indentWidth = CodeIndent.defaultWidth
+    var indentWidth = SettingKeys.Code.indentWidth.defaultValue
 
     /// The row of keys above the on-screen keyboard while the caret is in code.
-    var codeKeys = CodeKeys.enabledByDefault
+    var codeKeys = SettingKeys.Code.codeKeys.defaultValue
 
     /// Numbers beside each line of code, in the page's margin.
-    var lineNumbers = LineNumbers.enabledByDefault
-}
-
-/// Settings › Code › Line Numbers.
-nonisolated enum LineNumbers {
-    static let defaultsKey = SettingKeys.Code.lineNumbers.name
-    static let enabledByDefault = SettingKeys.Code.lineNumbers.defaultValue
+    var lineNumbers = SettingKeys.Code.lineNumbers.defaultValue
 }
 
 #if canImport(UIKit)

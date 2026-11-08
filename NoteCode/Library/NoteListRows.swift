@@ -304,7 +304,7 @@ enum RowSelectionTint {
         isDark ? 0.22 : 0.18
     }
 
-    /// - Parameter accent: the stored accent (`AccentPalette.defaultsKey`).
+    /// - Parameter accent: the stored accent (`SettingKeys.General.accent.name`).
     static func color(isDark: Bool, accent: String) -> Color {
         Color.accent(stored: accent).opacity(opacity(isDark: isDark))
     }

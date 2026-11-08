@@ -105,7 +105,7 @@ Laid out from the 12 September mockup.
 - **Ink tools** (`InkToolbar.swift`), shared by the hotbar and the palette
   the Pencil's squeeze brings up (`InkToolPopover`: the tools, then the selected
   tool's options under them), so the two can't disagree.
-  - **Two palettes** (10 Oct): the pen keeps `InkPalette.defaultsKey`
+  - **Two palettes** (10 Oct): the pen keeps `SettingKeys.Drawing.penPalette`
     (`inkPalette`), so a palette a device saved before stays its pen's, and the
     highlighter has `highlighterPalette`. The defaults are the design's: seven
     pen inks (Ink, Red, Orange, Yellow, Green, Blue, Purple) and five

@@ -157,7 +157,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
 
     /// Whether a stroke the reader ends in the last page's foot adds a page
     /// (`InkPageGrowth`). Seamless keeps a blank page below ink regardless.
-    var addsPagesWhileDrawing = InkPageGrowth.defaultEnabled
+    var addsPagesWhileDrawing = SettingKeys.Drawing.addPagesWhileDrawing.defaultValue
 
     /// The note's ink, in print layout's coordinates: where each stroke sits
     /// on its sheet, which is also where it prints.

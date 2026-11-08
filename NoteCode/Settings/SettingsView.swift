@@ -4,9 +4,9 @@
 //
 //  Settings: a form sheet with a list of sections, each opening a page of its
 //  own. Every row reads and writes the key the rest of the app already uses,
-//  through the type that owns it (`HotbarDock.defaultsKey`,
-//  `NoteSort.defaultsKey`, …), so there is no second copy of a preference to
-//  drift from the first. A row appears only when it does something.
+//  through its entry in `SettingKeys` (`SettingKeys.General.hotbarDock`,
+//  `SettingKeys.Notes.sort`, …), so there is no second copy of a preference
+//  to drift from the first. A row appears only when it does something.
 //
 
 import SwiftUI

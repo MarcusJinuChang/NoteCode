@@ -86,16 +86,6 @@ final class NoteEditor {
     /// asked for (`Hotbar.showsTextRow`). Ignored in a regular width.
     var wantsTextRow = false
 
-    /// Where the device keeps `fingerDraws`, so it carries over from note to
-    /// note and across launches (`InkToolStore`). Stored the way the
-    /// button says it, so a device that has never set it reads `true`.
-    static let fingerDrawsKey = SettingKeys.Drawing.fingerDraws.name
-
-    /// Settings › Drawing › After a Selection: back to the tool before the
-    /// Select tool once the selection ends by the reader's choice. Off
-    /// unless chosen.
-    static let returnToPreviousToolKey = SettingKeys.Drawing.returnToPreviousTool.name
-
     /// Whether the note's text is locked (`Page.isTextLocked`), so text mode
     /// reads rather than edits: no keyboard, no formatting, no undo. The page
     /// holds the setting; this is the copy the text view and the hotbar

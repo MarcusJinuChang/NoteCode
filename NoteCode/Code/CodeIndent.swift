@@ -17,20 +17,16 @@ nonisolated enum CodeIndent {
 
     // MARK: The setting
 
-    /// Settings › Code › Indent Width. Per device.
-    static let widthKey = SettingKeys.Code.indentWidth.name
-
     static let widths = [2, 4]
-    static let defaultWidth = SettingKeys.Code.indentWidth.defaultValue
 
     /// A stored width, or 4 for one the picker can't have made.
     static func validWidth(_ stored: Int?) -> Int {
-        guard let stored, widths.contains(stored) else { return defaultWidth }
+        guard let stored, widths.contains(stored) else { return SettingKeys.Code.indentWidth.defaultValue }
         return stored
     }
 
     static func width(from defaults: UserDefaults = .standard) -> Int {
-        validWidth(defaults.object(forKey: widthKey) as? Int)
+        validWidth(defaults.object(forKey: SettingKeys.Code.indentWidth.name) as? Int)
     }
 
     /// One level of indentation. A line already indented with a tab gets

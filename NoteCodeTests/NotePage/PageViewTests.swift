@@ -1999,8 +1999,8 @@ struct PageViewTests {
 
     @Test("The setting's key is stable and the feature is on until turned off")
     func growthSettingKey() {
-        #expect(InkPageGrowth.defaultsKey == "addPagesWhileDrawing")
-        #expect(InkPageGrowth.defaultEnabled)
+        #expect(SettingKeys.Drawing.addPagesWhileDrawing.name == "addPagesWhileDrawing")
+        #expect(SettingKeys.Drawing.addPagesWhileDrawing.defaultValue)
         #expect(PageHarness(text: "x").page.addsPagesWhileDrawing)
     }
 }

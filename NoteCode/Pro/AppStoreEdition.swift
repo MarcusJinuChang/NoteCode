@@ -97,7 +97,7 @@ extension AppExtensions {
         extensions.editorFeatures = [RunFeature.factory(), AssistantFeature.factory()]
 #endif
 #if DEBUG
-        extensions.debugResetKeys = [RunDisclosure.key]
+        extensions.debugResetKeys = [SettingKeys.Run.disclosureAccepted.name]
         extensions.debugRoot = { AnyView($0.modifier(DebugPaywall())) }
 #endif
         return extensions

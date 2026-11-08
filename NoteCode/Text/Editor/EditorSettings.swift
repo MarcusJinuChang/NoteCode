@@ -32,7 +32,7 @@ struct EditorSettings: Equatable {
 
     /// Settings › Writing › Autocorrect: whether prose is autocorrected and
     /// given smart punctuation (code never is).
-    var rewritesProse = TextRewritingPolicy.proseEnabledByDefault
+    var rewritesProse = SettingKeys.Writing.autocorrectInProse.defaultValue
 
     /// Hands the settings to the coordinator in the order they have always
     /// been applied: rendering, typography, code, rewriting, markers. Each

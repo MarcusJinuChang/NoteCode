@@ -29,12 +29,8 @@ struct ProSettingKeysTests {
         #expect(SettingKeys.Ads.homeVisits.defaultValue == 0)
     }
 
-    @Test("The owners' old names forward to the table")
-    func oldNamesForward() {
-        #expect(AIFeatureSettings.enabledKey == SettingKeys.Assistant.enabled.name)
+    @Test("The assistant's settings start from the table's default")
+    func ownerDefaultsComeFromTheTable() {
         #expect(AIFeatureSettings().isEnabled == SettingKeys.Assistant.enabled.defaultValue)
-        #expect(RunDockWidth.key == SettingKeys.Run.panelWidth.name)
-        #expect(RunDockWidth.initial == SettingKeys.Run.panelWidth.defaultValue)
-        #expect(RunDisclosure.key == SettingKeys.Run.disclosureAccepted.name)
     }
 }

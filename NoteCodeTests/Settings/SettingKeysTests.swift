@@ -89,8 +89,8 @@ struct SettingKeysTests {
         #expect(D.highlighterPalette.defaultValue.rawValue == InkPalette(InkColor.highlighterShades.map(\.color)).rawValue)
     }
 
-    @Test("The owners' old names forward to the tables")
-    func oldNamesForward() {
+    @Test("The owners' defaults come from the tables")
+    func ownerDefaultsComeFromTheTables() {
         #expect(AppAppearance.default == SettingKeys.General.appearance.defaultValue)
         #expect(HotbarDock.default == SettingKeys.General.hotbarDock.defaultValue)
         #expect(PageViewMode.default == SettingKeys.Notes.viewMode.defaultValue)
@@ -98,7 +98,6 @@ struct SettingKeysTests {
         #expect(InkPalette.standard(for: .pen) == SettingKeys.Drawing.penPalette.defaultValue)
         #expect(InkPalette.standard(for: .highlighter) == SettingKeys.Drawing.highlighterPalette.defaultValue)
         #expect(InkingSettings.standard(for: .highlighter) == SettingKeys.Drawing.highlighterSettings.defaultValue)
-        #expect(CodeIndent.defaultWidth == SettingKeys.Code.indentWidth.defaultValue)
     }
 
     @Test("An @AppStorage from an entry reads its default, then what is stored")

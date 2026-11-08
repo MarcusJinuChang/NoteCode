@@ -100,6 +100,6 @@ struct NoteIconTests {
         #expect(IconStyle(isDrawn: true, weight: .light).increased.weight == .regular)
         #expect(IconStyle(isDrawn: true, weight: .regular).increased.weight == .bold)
         #expect(IconStyle(isDrawn: true, weight: .bold).increased.weight == .bold)
-        #expect(IconStyle.defaultsKey == "iconStyle")
+        #expect(SettingKeys.General.iconStyle.name == "iconStyle")
     }
 }

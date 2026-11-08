@@ -16,40 +16,40 @@ struct SettingsTests {
 
     @Test("Every stored key keeps the name devices have already saved under")
     func keysAreStable() {
-        #expect(AppAppearance.defaultsKey == "appearance")
-        #expect(SnapHaptic.defaultsKey == "hapticOnSnap")
-        #expect(HotbarDock.defaultsKey == "hotbarDock")
-        #expect(PageViewMode.defaultsKey == "pageViewMode")
-        #expect(NoteSort.defaultsKey == "noteSort")
+        #expect(SettingKeys.General.appearance.name == "appearance")
+        #expect(SettingKeys.General.hapticOnSnap.name == "hapticOnSnap")
+        #expect(SettingKeys.General.hotbarDock.name == "hotbarDock")
+        #expect(SettingKeys.Notes.viewMode.name == "pageViewMode")
+        #expect(SettingKeys.Notes.sort.name == "noteSort")
         #expect(ShowMarkdown.defaultsKey == "showMarkdown")
-        #expect(NoteEditor.fingerDrawsKey == "fingerDraws")
-        #expect(NoteEditor.returnToPreviousToolKey == "returnToPreviousTool")
-        #expect(SelectionKind.defaultsKey == "selectionKind")
-        #expect(EraserSettings.defaultsKey == "eraser")
+        #expect(SettingKeys.Drawing.fingerDraws.name == "fingerDraws")
+        #expect(SettingKeys.Drawing.returnToPreviousTool.name == "returnToPreviousTool")
+        #expect(SettingKeys.Drawing.selectionKind.name == "selectionKind")
+        #expect(SettingKeys.Drawing.eraser.name == "eraser")
         #expect(InkPalette.defaultsKey(for: .pen) == "inkPalette")
         #expect(InkPalette.defaultsKey(for: .highlighter) == "highlighterPalette")
-        #expect(CodeIndent.widthKey == "indentWidth")
-        #expect(CodeKeys.enabledKey == "codeKeys")
-        #expect(LineNumbers.defaultsKey == "lineNumbers")
-        #expect(IconStyle.defaultsKey == "iconStyle")
-        #expect(NewNotes.defaultsKey == "newNoteOrientation")
-        #expect(NewNotes.opensAfterCreatingKey == "openNoteAfterCreating")
-        #expect(TextRewritingPolicy.proseDefaultsKey == "autocorrectInProse")
-        #expect(MarkerDimming.headingsKey == "markerDimming.headings")
-        #expect(MarkerDimming.bulletsKey == "markerDimming.bullets")
-        #expect(MarkerDimming.checkboxesKey == "markerDimming.checkboxes")
-        #expect(MarkerDimming.fencesKey == "markerDimming.fences")
+        #expect(SettingKeys.Code.indentWidth.name == "indentWidth")
+        #expect(SettingKeys.Code.codeKeys.name == "codeKeys")
+        #expect(SettingKeys.Code.lineNumbers.name == "lineNumbers")
+        #expect(SettingKeys.General.iconStyle.name == "iconStyle")
+        #expect(SettingKeys.Notes.newNoteOrientation.name == "newNoteOrientation")
+        #expect(SettingKeys.Notes.opensAfterCreating.name == "openNoteAfterCreating")
+        #expect(SettingKeys.Writing.autocorrectInProse.name == "autocorrectInProse")
+        #expect(SettingKeys.Writing.headingMarkers.name == "markerDimming.headings")
+        #expect(SettingKeys.Writing.bulletMarkers.name == "markerDimming.bullets")
+        #expect(SettingKeys.Writing.checkboxMarkers.name == "markerDimming.checkboxes")
+        #expect(SettingKeys.Writing.fenceMarkers.name == "markerDimming.fences")
     }
 
     @Test("The keys keysAreStable does not cover keep their names too")
     func moreKeysAreStable() {
-        #expect(AccentPalette.defaultsKey == "accentColor")
-        #expect(InkPalette.highlighterDefaultsKey == "highlighterPalette")
-        #expect(InkPalette.defaultsKey == "inkPalette")
+        #expect(SettingKeys.General.accent.name == "accentColor")
+        #expect(SettingKeys.Drawing.highlighterPalette.name == "highlighterPalette")
+        #expect(SettingKeys.Drawing.penPalette.name == "inkPalette")
         #expect(InkingSettings.defaultsKey(for: .pen) == "penSettings")
         #expect(InkingSettings.defaultsKey(for: .highlighter) == "highlighterSettings")
-        #expect(InkPaletteSet.defaultsKey == "inkPaletteSet")
-        #expect(InkPageGrowth.defaultsKey == "addPagesWhileDrawing")
+        #expect(SettingKeys.Drawing.paletteSet.name == "inkPaletteSet")
+        #expect(SettingKeys.Drawing.addPagesWhileDrawing.name == "addPagesWhileDrawing")
         #expect(LastCodeLanguage.defaultsKey == "lastCodeLanguage")
         #expect(WelcomeNote.madeKey == "welcomeNoteMade")
         #expect(WelcomeScreen.shownKey == "welcomeScreenShown")
@@ -64,19 +64,19 @@ struct SettingsTests {
     @Test("Each setting's default is what a fresh install shows")
     func defaultsAreStable() {
         #expect(AppAppearance.default.rawValue == "system")
-        #expect(SnapHaptic.isOnByDefault == true)
+        #expect(SettingKeys.General.hapticOnSnap.defaultValue == true)
         #expect(HotbarDock.default.rawValue == "bottom")
         #expect(PageViewMode.default.rawValue == "seamless")
         #expect(NoteSort.default.rawValue == "modified;descending")
         #expect(ShowMarkdown.whileEditing.rawValue == "whileEditing")
-        #expect(NewNotes.opensAfterCreatingByDefault == true)
+        #expect(SettingKeys.Notes.opensAfterCreating.defaultValue == true)
         #expect(PageOrientation.default.rawValue == "portrait")
         #expect(IconStyle().rawValue == "drawn.regular")
-        #expect(CodeKeys.enabledByDefault == true)
-        #expect(CodeIndent.defaultWidth == 4)
-        #expect(LineNumbers.enabledByDefault == false)
-        #expect(TextRewritingPolicy.proseEnabledByDefault == true)
-        #expect(InkPageGrowth.defaultEnabled == true)
+        #expect(SettingKeys.Code.codeKeys.defaultValue == true)
+        #expect(SettingKeys.Code.indentWidth.defaultValue == 4)
+        #expect(SettingKeys.Code.lineNumbers.defaultValue == false)
+        #expect(SettingKeys.Writing.autocorrectInProse.defaultValue == true)
+        #expect(SettingKeys.Drawing.addPagesWhileDrawing.defaultValue == true)
         #expect(EraserSettings().rawValue == "partial;small;40.0")
         #expect(SelectionKind.lasso.rawValue == "lasso")
         #expect(InkingSettings.standard(for: .pen).rawValue == "0.0,0.0,0.0,1.0;medium")
@@ -153,7 +153,7 @@ struct SettingsTests {
         let custom = InkPalette([.red, .blue])
         defaults.set(custom.rawValue, forKey: InkPalette.defaultsKey(for: .pen))
         defaults.set(custom.rawValue, forKey: InkPalette.defaultsKey(for: .highlighter))
-        defaults.set("dark", forKey: AppAppearance.defaultsKey)
+        defaults.set("dark", forKey: SettingKeys.General.appearance.name)
 
         InkPalette.resetStoredPalettes(to: set, in: defaults)
 
@@ -162,7 +162,7 @@ struct SettingsTests {
         #expect(pen == set.palette(for: .pen))
         #expect(marker == set.palette(for: .highlighter))
         #expect(pen != custom)
-        #expect(defaults.string(forKey: AppAppearance.defaultsKey) == "dark")
+        #expect(defaults.string(forKey: SettingKeys.General.appearance.name) == "dark")
     }
 
     @Test("Reset Colours with no set named goes to the device's own set")
@@ -171,7 +171,7 @@ struct SettingsTests {
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
 
-        defaults.set(InkPaletteSet.original.rawValue, forKey: InkPaletteSet.defaultsKey)
+        defaults.set(InkPaletteSet.original.rawValue, forKey: SettingKeys.Drawing.paletteSet.name)
         InkPalette.resetStoredPalettes(in: defaults)
 
         let marker = defaults.string(forKey: InkPalette.defaultsKey(for: .highlighter)).flatMap(InkPalette.init(rawValue:))
@@ -203,7 +203,7 @@ struct AppearanceSettingTests {
 
     @Test("The window follows the stored appearance, live, in both directions")
     func followsLive() {
-        let key = AppAppearance.defaultsKey
+        let key = SettingKeys.General.appearance.name
 
         device.defaults.set(AppAppearance.light.rawValue, forKey: key)
         let window = HotbarLayoutTests.makeWindow()
@@ -232,7 +232,7 @@ struct AppearanceSettingTests {
 
     @Test("A sheet over the window follows Light and then System, as the page does")
     func sheetFollowsSystemAfterAnOverride() throws {
-        let key = AppAppearance.defaultsKey
+        let key = SettingKeys.General.appearance.name
 
         let window = HotbarLayoutTests.makeWindow()
         device.defaults.set(AppAppearance.system.rawValue, forKey: key)
