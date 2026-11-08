@@ -419,6 +419,49 @@ struct NotePDFTests {
         #expect(!(pdf.string ?? "").contains("$$"))
     }
 
+    /// How many raster images a PDF page draws.
+    private static func imageCount(on page: PDFPage?) -> Int {
+        guard let dictionary = page?.pageRef?.dictionary else { return -1 }
+        var resources: CGPDFDictionaryRef?
+        guard CGPDFDictionaryGetDictionary(dictionary, "Resources", &resources), let resources else { return 0 }
+        var objects: CGPDFDictionaryRef?
+        guard CGPDFDictionaryGetDictionary(resources, "XObject", &objects), let objects else { return 0 }
+        var count = 0
+        CGPDFDictionaryApplyBlock(objects, { _, object, _ in
+            var stream: CGPDFStreamRef?
+            var subtype: UnsafePointer<CChar>?
+            if CGPDFObjectGetValue(object, .stream, &stream), let stream,
+               let info = CGPDFStreamGetDictionary(stream),
+               CGPDFDictionaryGetName(info, "Subtype", &subtype), let subtype,
+               String(cString: subtype) == "Image" {
+                count += 1
+            }
+            return true
+        }, nil)
+        return count
+    }
+
+    /// A formula is only its vectors on paper. Its attachment drew TextKit's
+    /// placeholder, a grey page with a folded corner, behind a display
+    /// formula and a faint box behind an inline one (device pass, export-4):
+    /// light grey, so the dark-pixel counts above never saw it.
+    @Test("Nothing is drawn behind a formula", arguments: [
+        "Text above\n$$\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}$$",
+        "Inline $x^2$ and $\\frac{a}{b}$ here.",
+    ])
+    func nothingBehindAFormula(text: String) async throws {
+        let pdf = try await Self.pdf(text, rendersMarkdown: true)
+        #expect(Self.imageCount(on: pdf.page(at: 0)) == 0, "a picture under the formula")
+        let bitmap = try #require(Bitmap(pdfPage: pdf.page(at: 0)))
+        var grey = 0
+        for y in 0..<400 { for x in 0..<Int(CGFloat(bitmap.width) / bitmap.scale) {
+            let luminance = bitmap.luminance(at: CGPoint(x: x, y: y))
+            if luminance >= 0.5, luminance < 0.97 { grey += 1 }
+        } }
+        // The text's and the formula's own edges come to about 110.
+        #expect(grey < 400, "\(grey) light grey pixels")
+    }
+
     @Test("Thumbnails are cached afresh for notes drawn before formulas were")
     func thumbnailVersion() {
         #expect(NoteThumbnail.version >= 8)

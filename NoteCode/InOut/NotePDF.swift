@@ -436,13 +436,17 @@ final class PrintedNote {
     /// one (measured: 15 dark pixels of a fraction), and two copies would
     /// show as a heavier formula.
     ///
+    /// Blanked with an empty image, never nil: an attachment with no image
+    /// and no contents draws TextKit's placeholder, a grey page with a
+    /// folded corner, which printed behind every formula (device pass,
+    /// export-4). An empty image draws nothing and puts no picture in the PDF.
     private func blankFormulaImages(on line: NSTextLineFragment) {
         let string = line.attributedString
         let range = NSIntersectionRange(line.characterRange, NSRange(location: 0, length: string.length))
         guard range.length > 0 else { return }
         string.enumerateAttribute(.attachment, in: range) { value, at, _ in
             guard string.attribute(FormulaAttachment.sourceKey, at: at.location, effectiveRange: nil) != nil else { return }
-            (value as? NSTextAttachment)?.image = nil
+            (value as? NSTextAttachment)?.image = UIImage()
         }
     }
 

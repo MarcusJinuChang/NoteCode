@@ -321,7 +321,10 @@ spike found no required-reason API in SwiftMath's sources).
 - `MarkdownLayout.laidOut` puts a `FormulaAttachment.Source` (tex, text point
   size, display) under `FormulaAttachment.sourceKey` on each formula's U+FFFC.
   `PrintedNote.draw` reads it after each line: it blanks the attachment's
-  bitmap first (so the line's own draw can't add a second, heavier copy) and
+  bitmap first (so the line's own draw can't add a second, heavier copy),
+  with an empty `UIImage`, not nil: an attachment with no image draws
+  TextKit's placeholder, a grey folded page, which printed behind every
+  formula until 7 Nov (export-4), and
   calls `FormulaAttachment.drawVector`, which typesets the formula again and
   draws the display list into the context (y flipped, baseline `descent` below
   the label's origin). Concrete black; a coloured span prints black, as paper is
