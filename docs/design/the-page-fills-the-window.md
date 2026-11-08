@@ -54,6 +54,12 @@ Roadmap step 5 (16 Oct, branch `claude/page-fills-window`, off `claude/drag-fold
   keeps the area; the first fails without the move. Seen in the simulator
   in a screen recording, left to bottom and bottom to left, on the 13-inch
   in portrait. Not seen: the 11-inch, landscape, zoomed in, the iPad.
+  **The page's edge moves too** (7 Nov, device pass): `PageEdgeView`,
+  page-coloured behind the text view, was left where the layout pass put
+  it, so leaving a side dock painted the wider page at once and only the
+  text slid (moving onto a side looked right, as the old page overhung).
+  `movePage` now starts and animates it with the text view, with no shadow
+  path while it moves. `PageMotionTests` watches where the edge is put.
 - **`Hotbar` owns the numbers** (`margin`, `barFootprint`, `footprint`) that
   `PageDetailView`, `keyboardClearance` and `ContentView.pageToastInset` each
   spelled as a 12 before.
