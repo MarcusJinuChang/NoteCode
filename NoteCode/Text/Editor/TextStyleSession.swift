@@ -48,17 +48,32 @@ final class TextStyleSession {
     /// blocks that actually changed get restyled.
     private var signatures: [DocumentStyler.BlockSignature] = []
 
-    /// The note's characters were edited: the snapshot is stale.
-    func textDidEdit() {
+    /// The line the last edit left half-typed as a fence, held open until
+    /// the caret leaves it (`DocumentParser.heldFence`).
+    private(set) var heldFence: NSRange?
+
+    /// The note's characters were edited: the snapshot is stale. `edited`
+    /// is the storage's edited range in `text`, which decides `heldFence`.
+    func textDidEdit(_ edited: NSRange? = nil, in text: NSString? = nil) {
         currentSnapshot = nil
         editCount += 1
+        heldFence = edited.flatMap { edited in text.flatMap { DocumentParser.heldFence(afterEditing: edited, in: $0) } }
+    }
+
+    /// Lets go of `heldFence` once the caret is anywhere but its line's end.
+    /// Returns whether it did, so the caller restyles.
+    func releaseHeldFence(selection: NSRange) -> Bool {
+        guard let heldFence, selection != NSRange(location: NSMaxRange(heldFence), length: 0) else { return false }
+        self.heldFence = nil
+        currentSnapshot = nil
+        return true
     }
 
     /// The note as it stands, made once per edit. `text` is read, and
     /// converted with `nativeUTF8`, only when no snapshot is held.
     func snapshot(of text: @autoclosure () -> String) -> DocumentSnapshot {
         if let currentSnapshot { return currentSnapshot }
-        let snapshot = DocumentSnapshot(text: text(), editCount: editCount)
+        let snapshot = DocumentSnapshot(text: text(), editCount: editCount, heldFence: heldFence?.location)
         currentSnapshot = snapshot
         snapshotCount += 1
         return snapshot

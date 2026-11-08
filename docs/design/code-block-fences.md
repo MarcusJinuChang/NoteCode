@@ -53,6 +53,17 @@ phase 5 of `docs/archive/ui-design-v2-implementation.md`). Pure rules are in
   the undo step. Found by the retag's undo test.
 - The panel reaches 14pt past the text column into each margin, and the
   code starts on the column (see "Code blocks: room around and inside").
+- **A fence being typed inside a block doesn't close it yet** (7 Nov, the
+  device pass's code-3). Typing ```swift on a line inside a block passes
+  through a bare ```, which closes the block: for one keystroke the code
+  below became prose and the old closing fence opened a block that took the
+  prose below. The edit that leaves its line a bare fence, with the caret at
+  the line's end and no line break typed, holds that line
+  (`DocumentParser.heldFence`, kept by `TextStyleSession`); the parse reads
+  it as code, as it did a key earlier. Return, or the caret leaving the
+  line, lets go and the block closes there. Only the editor's snapshot holds
+  a line; every other parse (search, outline, export) reads it as CommonMark
+  does. `FenceTypingTests`, `HeldFenceTests`.
 - **Not checked:** a real tap on the name, the menu on the iPad, fast typing
   into a new block, a paste, a block scrolled out of view while its state
   changes (it draws its state when it returns, since it asks at draw time),

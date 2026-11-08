@@ -268,7 +268,7 @@ struct DocumentTextView: UIViewRepresentable {
             guard let storage = notification.object as? NSTextStorage,
                   storage.editedMask.contains(.editedCharacters)
             else { return }
-            styleSession.textDidEdit()
+            styleSession.textDidEdit(storage.editedRange, in: storage.mutableString)
         }
 
         /// The note as it stands, made once per edit. `text` is read, and
