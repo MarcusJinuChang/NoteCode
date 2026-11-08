@@ -6,8 +6,9 @@
 #
 # The folder must be empty or absent; the default is
 # $TMPDIR/notecode-public/<worktree>-<hash>/export, emptied first. Only
-# committed files are read (`git archive HEAD`), so commit a change before
-# exporting it. What goes is scripts/public-paths.txt; its header has the
+# committed files are copied (`git archive HEAD`), so commit a change before
+# exporting it. What goes is scripts/public-paths.txt, read from the working
+# tree so a rule can be tried before it is committed; its header has the
 # rule syntax. Whatever that file says, nothing under NEVER (below) is
 # exported: a rule that would do so fails the run.
 #
