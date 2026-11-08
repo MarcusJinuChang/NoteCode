@@ -33,7 +33,7 @@ final class InlineCodeTypingUITests: XCTestCase {
     @MainActor
     private func launch(_ extra: [String] = []) -> (XCUIApplication, XCUIElement) {
         let app = XCUIApplication()
-        app.launchArguments = ["-debug-note", "empty", "-debug-mode", "seamless", "-fingerDraws", "YES", "-hotbarDock", "bottom"] + extra
+        app.launchArguments = ["-debug-note", "empty", "-debug-mode", "seamless", "-hotbarDock", "bottom"] + extra
         app.launch()
         let text = app.textViews.firstMatch
         XCTAssertTrue(text.waitForExistence(timeout: 15), "the note never opened")

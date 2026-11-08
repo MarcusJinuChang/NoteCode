@@ -176,8 +176,10 @@ struct MidEditRenderTests {
 
         type("a `code` b", in: textView)
 
-        // The crossings happened, inside the keystrokes that made them.
-        #expect(hosted.delegate.crossings.count >= 2, "\(hosted.delegate.crossings)")
+        // Recorded mid-keystroke: into code at the first backtick, out at
+        // the space after the closing one, the two characters the device
+        // pass lost.
+        #expect(hosted.delegate.crossings == ["a `", "a `code` "])
         #expect(textView.text == "a `code` b")
         #expect(hosted.note.text == "a `code` b")
 
