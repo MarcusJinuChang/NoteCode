@@ -1,0 +1,10 @@
+// The app's version and build number, and nothing else.
+//
+// Bump CURRENT_PROJECT_VERSION for every upload, and MARKETING_VERSION for
+// each release; then tag the archived commit v<version>-<build>
+// (docs/design/shipping.md › The build number). The NoteCode target's Debug
+// and Release configurations are based on this file, so the project file
+// itself never changes for a release.
+
+MARKETING_VERSION = 1.2.0
+CURRENT_PROJECT_VERSION = 5

@@ -260,17 +260,18 @@ before changing a stored attribute. The rules:
 Details (privacy manifest, encryption, signing, icons, the build number):
 [docs/design/shipping.md](docs/design/shipping.md). The rules:
 
-- **Marcus's working tree carries uncommitted `project.pbxproj` and
-  `Info.plist` edits.** Leave them unstaged, never commit or revert them,
-  and don't mention them in summaries or PRs. Stage files by name, never
-  `git add -A` or `-a`. If a change needs either file, stop and ask.
+- **The release settings are committed** (8 Nov): version and build in
+  `Config/Version.xcconfig`, signing and platforms in `project.pbxproj`, and
+  every upload is tagged `v<version>-<build>` (`v1.2.0-5` is the build in
+  App Review). Stage files by name, never `git add -A` or `-a`. A change to
+  `project.pbxproj` or `Info.plist` needs Marcus's go-ahead first.
 - Every required-reason API the app calls needs its reason in
   `PrivacyInfo.xcprivacy`, or the upload is rejected (`AppStoreReadinessTests`).
 - **The app icon is drawn by `scripts/make-icons.swift`**: edit the script,
   never the PNGs, and run `swift scripts/make-icons.swift`.
 - iPad and iPhone, the Duo included (`TARGETED_DEVICE_FAMILY = "1,2"`, since
   31 Oct); bump the build number for every upload (Marcus, in
-  `project.pbxproj`).
+  `Config/Version.xcconfig`).
 
 ## Build/test
 
