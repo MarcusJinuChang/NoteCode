@@ -147,8 +147,9 @@ final class AIAssistant {
         task?.cancel()
     }
 
-    /// Returns once the newest run has ended: answered, failed, or unwound
-    /// after a stop. For tests.
+    /// Returns once the last run started has ended: answered, failed, or
+    /// unwound after a stop. A `begin` that stops early (no Pro, or the model
+    /// unavailable) starts no run, so this then waits for the one before. For tests.
     func settled() async {
         await task?.value
     }

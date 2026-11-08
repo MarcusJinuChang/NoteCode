@@ -389,7 +389,7 @@ struct ImportFilesTests {
 
 // MARK: - Export All's files
 
-@Suite("Export All folder", .tags(.library))
+@Suite("Export All folder", .tags(.library), .timeLimit(.minutes(1)))
 @MainActor
 struct NoteExportJobTests {
 

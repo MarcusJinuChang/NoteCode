@@ -233,7 +233,7 @@ struct AIPromptTests {
     }
 }
 
-@Suite("Assistant state machine", .tags(.pro))
+@Suite("Assistant state machine", .tags(.pro), .timeLimit(.minutes(1)))
 @MainActor
 struct AIAssistantTests {
 

@@ -7,7 +7,7 @@ import Foundation
 import Testing
 @testable import NoteCode
 
-@Suite("Paywall and the AI gate", .serialized, .tags(.pro))
+@Suite("Paywall and the AI gate", .serialized, .tags(.pro), .timeLimit(.minutes(1)))
 @MainActor
 struct PaywallTests {
 

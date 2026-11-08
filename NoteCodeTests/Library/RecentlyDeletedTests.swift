@@ -470,7 +470,7 @@ struct RecentlyDeletedTests {
     }
 }
 
-@Suite("Toasts", .tags(.library))
+@Suite("Toasts", .tags(.library), .timeLimit(.minutes(1)))
 @MainActor
 struct ToastTests {
 
