@@ -117,6 +117,9 @@ struct TipJarTests {
     @Test("The jar asks for the products the configuration sells, and a tip is thanked and finished")
     func storeKitPurchase() async throws {
         let session = try await session()
+        // Cleared on every exit, a deadline's throw included, so a failed run
+        // leaves no transactions behind for the next test to count.
+        defer { session.clearTransactions() }
         let jar = TipJar(store: StoreKitTipStore())
         try await answered("the jar's products") {
             jar.load()
@@ -137,13 +140,13 @@ struct TipJarTests {
             return count
         }
         #expect(unfinished == 0)
-        session.clearTransactions()
     }
 
     @Test("With Ask to Buy on, a tip waits for approval")
     func storeKitAskToBuy() async throws {
         let session = try await session()
         session.askToBuyEnabled = true
+        defer { session.clearTransactions() }
         let jar = TipJar(store: StoreKitTipStore())
         try await answered("the jar's products") {
             jar.load()
@@ -153,7 +156,6 @@ struct TipJarTests {
         let tip = try #require(jar.tips.first)
         try await answered("the purchase") { await jar.buy(tip) }
         #expect(jar.phase == .pending)
-        session.clearTransactions()
     }
 
     @Test("A StoreKit call that never answers fails at its deadline, not at the run's allowance")
@@ -206,6 +208,7 @@ extension TipJarTests {
     @Test("The configuration sells the monthly product at $4.99, which buys, finishes, restores, and a refund ends it")
     func storeKitPurchaseAndRestore() async throws {
         let session = try await proSession()
+        defer { session.clearTransactions() }
         let pro = ProStatus(store: StoreKitProStore())
         try await answered("the product") { await pro.loadedProduct() }
         #expect(pro.product?.name == "NoteCode Pro")
@@ -231,6 +234,9 @@ extension TipJarTests {
         // The test session pushed no `Transaction.updates` for a refund (simulator,
         // 27 Oct), so this is the launch path: a refunded transaction is no
         // longer among the current entitlements. The live path is `revocation`.
+        // Each refresh has its own deadline, so this loop is bounded by 40
+        // refreshes of up to 20 s each, not by 40 x 50 ms; the first refresh
+        // that passes its deadline fails the test.
         for _ in 0..<40 where pro.isPro {
             try await answered("the entitlements") { await pro.refresh() }
             try await Task.sleep(for: .milliseconds(50))
@@ -242,7 +248,6 @@ extension TipJarTests {
         try await answered("finishing the refund") {
             for await case .verified(let revoked) in Transaction.unfinished { await revoked.finish() }
         }
-        session.clearTransactions()
     }
 }
 
