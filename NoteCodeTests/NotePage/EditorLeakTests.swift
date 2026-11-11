@@ -56,7 +56,7 @@ struct EditorLeakTests {
     @Test("A connected note's editor and coordinator are freed")
     func connectedNoteIsFreed() async throws {
         let refs = Self.openConnectedNote()
-        try await Task.sleep(for: .milliseconds(100))
+        await waitFor { refs.editor.value == nil && refs.coordinator.value == nil }
 
         #expect(refs.editor.value == nil, "NoteEditor still alive")
         #expect(refs.coordinator.value == nil, "Coordinator still alive")

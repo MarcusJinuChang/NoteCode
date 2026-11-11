@@ -9,6 +9,7 @@
 #if canImport(UIKit)
 
 import SwiftUI
+import Testing
 import UIKit
 @testable import NoteCode
 
@@ -161,9 +162,10 @@ final class EditorHarness {
     /// Each tap of a chip is its own turn of the run loop in the app, and
     /// so its own undo step: UIKit closes an undo group at the end of the
     /// turn. A test makes its edits back to back, in one turn, and a
-    /// single undo would take them all.
-    func nextTap() async {
-        try? await Task.sleep(for: .milliseconds(30))
+    /// single undo would take them all. So this waits for the turn's undo
+    /// groups to close (`undoGroupsClosed`), the text's and the ink's.
+    func nextTap(sourceLocation: SourceLocation = #_sourceLocation) async {
+        await undoGroupsClosed(textView.undoManager, page?.canvas.undoManager, sourceLocation: sourceLocation)
     }
 
     /// Returns once the sizes waiting for `NoteEditor.settleDelay` are applied.
