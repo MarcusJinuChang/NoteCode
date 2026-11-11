@@ -27,7 +27,7 @@ extension EditorLeakTests {
             feature = harness.editor.feature(RunFeature.self)
             #expect(feature != nil)
         }
-        try await Task.sleep(for: .milliseconds(100))
+        await waitFor { refs.editor.value == nil && refs.coordinator.value == nil && feature == nil }
 
         #expect(refs.editor.value == nil, "NoteEditor still alive")
         #expect(refs.coordinator.value == nil, "Coordinator still alive")
@@ -40,7 +40,7 @@ extension EditorLeakTests {
     @Test("The Run host lets its note's editor go")
     func runHostLetsEditorGo() async throws {
         let refs = try await openRunHost()
-        try await Task.sleep(for: .milliseconds(200))
+        await waitFor { refs.editor.value == nil && refs.feature.value == nil }
 
         #expect(refs.editor.value == nil, "NoteEditor still alive")
         #expect(refs.feature.value == nil, "RunFeature still alive")
@@ -66,14 +66,11 @@ extension EditorLeakTests {
             // Open the dock, so its `onShow` closure (which scrolls the
             // editor) is built too; the wait below covers it.
             feature.session.isOpen = true
-            for _ in 0..<100 where feature.onNeedsPro == nil {
-                try await Task.sleep(for: .milliseconds(20))
-            }
+            await waitFor({ feature.onNeedsPro != nil }, seconds: 2)
             #expect(feature.onNeedsPro != nil, "The host never set the paywall hook")
             refs = (Weak(editor), Weak(feature))
         }
         opener.editor = nil
-        try await Task.sleep(for: .milliseconds(200))
         return refs
     }
 

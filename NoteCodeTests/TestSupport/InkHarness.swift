@@ -2,8 +2,8 @@
 //  InkHarness.swift
 //  NoteCodeTests
 //
-//  The drawing canvas where the page puts it, and how a test waits for ink
-//  that is taken in off the main thread.
+//  The drawing canvas where the page puts it. A test waits for ink, which
+//  is taken in off the main thread, with `waitFor` (Waiting.swift).
 //
 
 #if canImport(UIKit)
@@ -40,22 +40,6 @@ final class InkHarness {
         }
         window.layoutIfNeeded()
     }
-}
-
-/// Waits for `condition`, up to `seconds`: for ink, which a page takes in on a
-/// detached task (`InkCapture`), so it reaches `onInkChanged` a moment after
-/// the stroke. False if it never did.
-///
-/// By suspending, not by turning the run loop: the work comes back to
-/// the main actor, and a test turning the run loop is still holding it
-/// (AGENTS.md › Implementation requirements, `PageViewTests.waitFor`).
-@MainActor
-func waitFor(_ condition: () -> Bool, seconds: TimeInterval = 3) async -> Bool {
-    let end = Date(timeIntervalSinceNow: seconds)
-    while !condition() && Date() < end {
-        try? await Task.sleep(for: .milliseconds(10))
-    }
-    return condition()
 }
 
 #endif

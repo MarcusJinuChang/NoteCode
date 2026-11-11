@@ -139,9 +139,9 @@ struct RunWiringTests {
         // Runs are seconds apart, so a turn of the run loop apart (undo groups
         // what happens in one).
         editor.run?.keepInNote?(0, "1")
-        try await Task.sleep(for: .milliseconds(100))
+        await undoGroupsClosed(textView.undoManager)
         editor.run?.keepInNote?(0, "2")
-        try await Task.sleep(for: .milliseconds(200))
+        await undoGroupsClosed(textView.undoManager)
         #expect(textView.text == "Intro\n```python\nprint(1)\n```\n```output\n2\n```\nAfter\n")
 
         textView.undoManager?.undo()

@@ -305,7 +305,7 @@ struct SearchRevealTests {
         page.layoutIfNeeded()
         textView.layoutIfNeeded()
         // The reveal runs after the layout pass that finds the page sized.
-        try await Task.sleep(for: .milliseconds(100))
+        await waitFor { textView.contentOffset.y > 0 }
 
         let top = try #require(page.lineTop(atCharacter: first.location))
         let visible = textView.contentOffset.y..<(textView.contentOffset.y + textView.bounds.height)

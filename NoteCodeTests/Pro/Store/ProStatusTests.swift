@@ -120,10 +120,10 @@ struct ProStatusTests {
         #expect(!pro.isPro)
 
         store.push(Self.entitlement())
-        try await waitFor { pro.isPro }
+        #expect(await waitFor({ pro.isPro }, seconds: 5, poll: .milliseconds(50)))
 
         store.push(Self.entitlement(revoked: true))
-        try await waitFor { !pro.isPro }
+        #expect(await waitFor({ !pro.isPro }, seconds: 5, poll: .milliseconds(50)))
     }
 
     @Test("The signed transaction is exposed for the proxy, and only to a Pro reader")
@@ -203,7 +203,7 @@ struct ProStatusTests {
             store.productThrows = false
             pro.loadProduct()
             #expect(!pro.productFailed, "Try Again goes back to loading at once")
-            try await waitFor { pro.product != nil }
+            #expect(await waitFor({ pro.product != nil }, seconds: 5, poll: .milliseconds(50)))
             #expect(!pro.productFailed)
             #expect(pro.product?.price == "$4.99")
         }
@@ -235,10 +235,5 @@ struct ProStatusTests {
         #expect(!off.isPro)
         await off.buy()
         #expect(off.isPro)
-    }
-
-    func waitFor(_ condition: () -> Bool) async throws {
-        for _ in 0..<100 where !condition() { try await Task.sleep(for: .milliseconds(50)) }
-        #expect(condition())
     }
 }

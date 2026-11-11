@@ -209,7 +209,7 @@ struct InkSelectionTests {
         for element in expected.subelements { want[element.elementID] = element.renderFrame }
 
         rig.selection.beginAdjusting()
-        for _ in 0..<500 where !rig.canvas.isShowingSnapshot { try? await Task.sleep(for: .milliseconds(10)) }
+        await waitFor({ rig.canvas.isShowingSnapshot }, seconds: 5)
         #expect(rig.canvas.isShowingSnapshot)
         rig.selection.previewScale(by: 1.2)
         rig.selection.previewScale(by: 1.5)
@@ -232,7 +232,7 @@ struct InkSelectionTests {
         rig.put(elements)
         rig.selection.select(.rectangle(CGRect(x: 0, y: 290, width: 100, height: 30)))
         rig.selection.beginAdjusting()
-        for _ in 0..<500 where !rig.canvas.isShowingSnapshot { try? await Task.sleep(for: .milliseconds(10)) }
+        await waitFor({ rig.canvas.isShowingSnapshot }, seconds: 5)
         #expect(rig.canvas.isShowingSnapshot, "the snapshot should be up within 5s")
         let clock = ContinuousClock()
         var total = Duration.zero
@@ -476,13 +476,7 @@ struct InkSelectionTests {
             controller.markupEditViewController(sender, insertNewShape: .rectangle)
         }
 
-        var settled = false
-        let end = Date(timeIntervalSinceNow: 3)
-        while Date() < end {
-            if !rig.selection.ids.isEmpty { settled = true; break }
-            try? await Task.sleep(for: .milliseconds(10))
-        }
-        #expect(settled, "the inserted shape is selected")
+        #expect(await waitFor { !rig.selection.ids.isEmpty }, "the inserted shape is selected")
         // PaperKit's undo and delegate callbacks arrive after the insert
         // returns; whatever they do must not take the selection away.
         try? await Task.sleep(for: .milliseconds(500))
@@ -506,8 +500,7 @@ struct InkSelectionTests {
 
         inserter.insert(photo: context.makeImage()!)
 
-        let end = Date(timeIntervalSinceNow: 3)
-        while rig.selection.isEmpty, Date() < end { try? await Task.sleep(for: .milliseconds(10)) }
+        await waitFor { !rig.selection.isEmpty }
         #expect(!rig.selection.isEmpty, "the photo is selected")
         #expect(rig.editor.inkTool.kind == .lasso)
         #expect(rig.selection.bounds != nil)

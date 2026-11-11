@@ -375,7 +375,7 @@ struct StyledLineEditorTests {
         #expect(harness.textView.text == "a **bo\(SpanStyle(size: SpanSize(em: 1.412)).openTag)ld</span>** b\n")
         #expect((harness.textView.text as NSString).substring(with: harness.textView.selectedRange) == "ld")
 
-        try? await Task.sleep(for: .milliseconds(50))
+        await harness.nextTap()
         harness.editor.undo()
         #expect(harness.textView.text == "a **bold** b\n")
     }

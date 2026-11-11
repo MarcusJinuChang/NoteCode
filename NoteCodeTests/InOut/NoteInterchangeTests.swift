@@ -519,10 +519,7 @@ struct NoteExportJobTests {
         job.start(pages: pages, folders: [], includePDFs: false)
         // Let the first run get into its loop, so it is suspended between
         // notes when it is cancelled and finds out only when it wakes.
-        for _ in 0..<500 {
-            if case .working(let done, _) = job.state, done >= 1 { break }
-            try await Task.sleep(for: .milliseconds(1))
-        }
+        await waitFor({ if case .working(let done, _) = job.state { done >= 1 } else { false } }, seconds: 0.5, poll: .milliseconds(1))
         job.cancel()
 
         let root = try await run(job, pages: pages, folders: [])

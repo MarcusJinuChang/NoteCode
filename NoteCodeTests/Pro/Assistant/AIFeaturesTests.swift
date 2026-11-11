@@ -68,14 +68,6 @@ final class FakeTextModel: TextModelClient, @unchecked Sendable {
     }
 }
 
-@MainActor
-private func wait(_ timeout: Double = 3, until condition: () -> Bool) async {
-    let end = Date().addingTimeInterval(timeout)
-    while !condition() && Date() < end {
-        try? await Task.sleep(for: .milliseconds(5))
-    }
-}
-
 private func job(
     _ action: AIAction = .explainBlock,
     chunks: [String] = ["int add(int a, int b) { return a + b; }"],
@@ -249,7 +241,7 @@ struct AIAssistantTests {
         #expect(ai.state == .idle)
 
         ai.begin(job())
-        await wait { if case .done = ai.state { true } else { false } }
+        await waitFor { if case .done = ai.state { true } else { false } }
 
         #expect(ai.state == .done(AIResult(text: "It adds two numbers.", wasTruncated: false)))
         #expect(model.requests.count == 1)
@@ -262,7 +254,7 @@ struct AIAssistantTests {
         model.script = { _ in .hang(["Partial answer"]) }
         let ai = assistant(model)
         ai.begin(job())
-        await wait { if case .generating(let p) = ai.state { p.partial == "Partial answer" } else { false } }
+        await waitFor { if case .generating(let p) = ai.state { p.partial == "Partial answer" } else { false } }
         #expect(ai.state == .generating(AIProgress(partial: "Partial answer", step: 1, of: 1)))
         ai.dismiss()
     }
@@ -308,7 +300,7 @@ struct AIAssistantTests {
         model.script = { _ in .late("Half", "Half an answer, arriving after Stop") }
         let ai = assistant(model)
         ai.begin(job())
-        await wait { if case .generating(let p) = ai.state { !p.partial.isEmpty } else { false } }
+        await waitFor { if case .generating(let p) = ai.state { !p.partial.isEmpty } else { false } }
 
         ai.cancel()
         #expect(ai.state == .idle)
@@ -340,7 +332,7 @@ struct AIAssistantTests {
         let ai = assistant(model)
         ai.begin(job())
         ai.begin(job())
-        await wait { if case .done = ai.state { true } else { false } }
+        await waitFor { if case .done = ai.state { true } else { false } }
         #expect(ai.state == .done(AIResult(text: "second", wasTruncated: false)))
     }
 
@@ -355,7 +347,7 @@ struct AIAssistantTests {
             model.script = { _ in .fail(["x"], error) }
             let ai = assistant(model)
             ai.begin(job())
-            await wait { if case .failed = ai.state { true } else { false } }
+            await waitFor { if case .failed = ai.state { true } else { false } }
             #expect(ai.state == .failed(failure))
         }
     }
@@ -366,7 +358,7 @@ struct AIAssistantTests {
         model.script = { _ in .answer([]) }
         let ai = assistant(model)
         ai.begin(job())
-        await wait { if case .failed = ai.state { true } else { false } }
+        await waitFor { if case .failed = ai.state { true } else { false } }
         #expect(ai.state == .failed(.empty))
     }
 
@@ -378,7 +370,7 @@ struct AIAssistantTests {
         }
         let ai = assistant(model)
         ai.begin(job(.summariseNote, chunks: ["piece one", "piece two", "piece three"], truncated: true))
-        await wait { if case .done = ai.state { true } else { false } }
+        await waitFor { if case .done = ai.state { true } else { false } }
 
         #expect(model.requests.count == 4)
         let combine = model.requests[3]
