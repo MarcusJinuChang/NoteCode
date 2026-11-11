@@ -21,9 +21,10 @@
 # the source excerpts the compiler prints under it are not counted. The count
 # is compared only by --full without --only, which cleans the build first;
 # otherwise it prints "warnings: incremental, not compared" (see Warnings
-# below). The logs are check.log (unit) and check-ui.log, the result bundles
-# beside them, in $TMPDIR/notecode-check/<worktree>-<hash>/, one directory
-# per worktree; the run's last lines name it.
+# below). The logs are check.log (unit), check-ui-keys.log (the soft-keyboard
+# UI tests, run first) and check-ui.log, the result bundles beside them, in
+# $TMPDIR/notecode-check/<worktree>-<hash>/, one directory per worktree;
+# the run's last lines name it.
 # NOTECODE_SIM picks the simulator (default iPad Pro 13-inch (M5)).
 
 set -uo pipefail
