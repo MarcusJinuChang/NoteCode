@@ -50,25 +50,48 @@ final class SmokeUITests: XCTestCase {
         menu.tap()
         let print = app.buttons["Print Layout"]
         XCTAssertTrue(print.waitForExistence(timeout: 5), "the view menu has no Print Layout")
-        print.tap()
-        XCTAssertTrue(print.waitForNonExistence(timeout: 5), "the menu stayed open")
+        choose(print)
         menu.tap()
         let seamless = app.buttons["Seamless"]
         XCTAssertTrue(seamless.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Print Layout"].isSelected, "the switch to Print Layout didn't take")
-        seamless.tap()
+        choose(seamless)
 
         // ••• › Settings, and Done.
         menu.tap()
         let settings = app.buttons["noteMenuSettings"]
-        XCTAssertTrue(settings.waitForExistence(timeout: 5))
-        settings.tap()
+        XCTAssertTrue(settings.waitForExistence(timeout: 5), "the note's menu has no Settings entry")
+        choose(settings)
+        // 8s, as NotePageSheetUITests gives the same sheet over a note.
         let sheet = app.navigationBars["Settings"]
-        XCTAssertTrue(sheet.waitForExistence(timeout: 5), "the Settings sheet never opened")
+        XCTAssertTrue(sheet.waitForExistence(timeout: 8), "the Settings sheet never opened")
         sheet.buttons["Done"].tap()
-        XCTAssertTrue(sheet.waitForNonExistence(timeout: 5), "the Settings sheet never closed")
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: 8), "the Settings sheet never closed")
         XCTAssertTrue(toggle.exists, "not back on the note")
         app.terminate()
+    }
+
+    /// Taps an item of the open ••• menu and waits for the menu to close.
+    ///
+    /// The menu lists its items before it takes touches: under load the tap
+    /// on Seamless landed while the menu was still opening, did nothing, and
+    /// left the menu open with Print Layout selected (11 Nov, seen in the
+    /// hierarchy at the failure). The next tap on ••• then closed that menu,
+    /// the query for Settings found it on its way out, and "the Settings sheet
+    /// never opened". So a tap the menu swallowed is made once more; whether
+    /// the item did what it says is still checked by the caller.
+    @MainActor
+    private func choose(_ item: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
+        let hittable = expectation(for: NSPredicate(format: "hittable == true"), evaluatedWith: item)
+        if XCTWaiter().wait(for: [hittable], timeout: 5) != .completed {
+            XCTFail("\(item) never took a tap", file: file, line: line)
+            return
+        }
+        item.tap()
+        if !item.waitForNonExistence(timeout: 5), item.isHittable {
+            item.tap()
+            XCTAssertTrue(item.waitForNonExistence(timeout: 5), "the menu stayed open after \(item.label)", file: file, line: line)
+        }
     }
 
     /// Waits for `element`'s accessibility value to be `value`: a tap's
