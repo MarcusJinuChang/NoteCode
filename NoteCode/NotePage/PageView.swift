@@ -505,9 +505,9 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
     /// the note sits (the text view's offset and height, this view's
     /// offset). The offsets count because an animated scroll, such as the
     /// one to the caret, moves them in a window with no scene
-    /// (`makeSceneLessTestWindow`) without a layout pass. Checked a frame at
-    /// a time, so the run loop turns and Core Animation commits in between;
-    /// nothing is laid out by force. A pass asked for runs at the next
+    /// (`makeSceneLessTestWindow`) without a layout pass. Polled every 16ms
+    /// by suspending (`Task.sleep`), so the run loop turns and Core
+    /// Animation commits in between; nothing is laid out by force. A pass asked for runs at the next
     /// commit, well inside `quiet`, so a pending one isn't checked for: in a
     /// window with no scene it would never run. False if layout was still
     /// moving after `limit`. For tests, which await this rather than sleep

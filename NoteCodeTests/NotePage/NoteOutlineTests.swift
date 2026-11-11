@@ -98,7 +98,7 @@ extension NoteOutlineEntriesTests {
 
 import UIKit
 
-@Suite("Outline: going to a heading", .serialized, .tags(.layout))
+@Suite("Outline: going to a heading", .serialized, .tags(.layout), .timeLimit(.minutes(1)))
 @MainActor
 struct NoteOutlineScrollTests {
 

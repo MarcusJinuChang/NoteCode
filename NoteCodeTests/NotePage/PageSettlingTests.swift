@@ -17,7 +17,7 @@ import UIKit
 /// hand. A test that spins the main run loop holds the main actor for as long
 /// as it spins, and other suites' main-actor tests that poll against a
 /// deadline time out.
-@Suite("Page settling", .serialized, .tags(.layout))
+@Suite("Page settling", .serialized, .tags(.layout), .timeLimit(.minutes(1)))
 @MainActor
 struct PageSettlingTests {
 
@@ -66,6 +66,27 @@ struct PageSettlingTests {
         textView.scrollRangeToVisible(textView.selectedRange)
         await settle(page)
         return (window, coordinator, page)
+    }
+
+    /// The hook every wait here rests on. In a window with no scene an
+    /// animated scroll moves the offset with no layout pass to count, so a
+    /// hook that only counted passes returned mid-scroll (simulator, 11
+    /// November: the sheet-top test's offset was taken back to the note's
+    /// end by the scroll to the caret, still running).
+    @Test("Layout settled waits for an animated scroll to land")
+    func settledWaitsForAScroll() async throws {
+        let (window, coordinator, page) = await Self.openNote(layout: PageLayout(mode: .print))
+        let textView = page.textView
+        textView.resignFirstResponder()
+        await Self.settle(page)
+
+        let target = textView.contentOffset.y > 2000 ? 600 : textView.contentOffset.y + 1500
+        textView.setContentOffset(CGPoint(x: textView.contentOffset.x, y: target), animated: true)
+        try #require(abs(textView.contentOffset.y - target) > 1, "the scroll landed at once, so there was nothing to wait for")
+
+        await Self.settle(page)
+        #expect(abs(textView.contentOffset.y - target) < 0.5, "settled at \(textView.contentOffset.y), scrolling to \(target)")
+        withExtendedLifetime((window, coordinator)) {}
     }
 
     @Test("After a mode switch the note settles at whole pages, with nothing forcing layout", arguments: PageViewMode.allCases)

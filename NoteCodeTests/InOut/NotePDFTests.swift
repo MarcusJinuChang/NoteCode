@@ -12,7 +12,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Note as a PDF", .tags(.library))
+@Suite("Note as a PDF", .tags(.library), .timeLimit(.minutes(1)))
 @MainActor
 struct NotePDFTests {
 

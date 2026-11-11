@@ -12,7 +12,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Text size: what a change costs", .serialized, .tags(.editor, .perf))
+@Suite("Text size: what a change costs", .serialized, .tags(.editor, .perf), .timeLimit(.minutes(1)))
 @MainActor
 struct TextSizeCostTests {
 

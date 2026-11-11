@@ -234,7 +234,7 @@ struct TextSizeStylingTests {
     }
 }
 
-@Suite("Text size: re-flowing keeps the reader's place", .serialized, .tags(.editor))
+@Suite("Text size: re-flowing keeps the reader's place", .serialized, .tags(.editor), .timeLimit(.minutes(1)))
 @MainActor
 struct TextSizeReflowTests {
 

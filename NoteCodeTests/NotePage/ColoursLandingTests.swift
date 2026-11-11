@@ -24,7 +24,7 @@ import UIKit
 /// asks for the fragment at the top edge's point instead, and that kept
 /// answering the right line while the screen showed one 30 lines on, so the
 /// reopening and text size tests never saw this.
-@Suite("Colours landing above the screen keep the reader's place", .serialized, .tags(.layout))
+@Suite("Colours landing above the screen keep the reader's place", .serialized, .tags(.layout), .timeLimit(.minutes(1)))
 @MainActor
 struct ColoursLandingTests {
 

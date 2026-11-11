@@ -13,7 +13,7 @@ import UIKit
 
 extension PageViewTests {
 
-    @Suite("Ink across modes, drawing and saving")
+    @Suite("Ink across modes, drawing and saving", .timeLimit(.minutes(1)))
     @MainActor
     struct Ink: PageViewSuite {
 

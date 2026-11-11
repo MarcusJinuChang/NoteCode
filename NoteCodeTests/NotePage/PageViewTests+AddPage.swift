@@ -13,7 +13,7 @@ import UIKit
 
 extension PageViewTests {
 
-    @Suite("Adding pages")
+    @Suite("Adding pages", .timeLimit(.minutes(1)))
     @MainActor
     struct AddPage: PageViewSuite {
 
