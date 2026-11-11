@@ -270,13 +270,13 @@ extension HotbarUITests {
         XCTAssertTrue(keyboard.waitForExistence(timeout: 5), "no soft keyboard")
         let hyphen = keyboard.keys["-"]
         XCTAssertTrue(hyphen.waitForExistence(timeout: 3), "no hyphen key")
-        // The simulator can show only the keyboard's bar, its keys below the
-        // screen (iPad Pro 13-inch, 4 Nov: the hyphen at y 1381 of 1376),
-        // probably for a connected hardware keyboard; nothing the app does.
         // `typeText` is no stand-in: smart dashes leave typed keys alone, so
-        // "---" stays three with autocorrect on too (measured 4 Nov).
+        // "---" stays three with autocorrect on too (measured 4 Nov). With the
+        // keyboard minimised its keys sit below the screen (the hyphen at
+        // y 1381 of 1376); `SoftKeyboard.minimisedMessage` says why and how.
         guard hyphen.isHittable else {
-            throw XCTSkip("the simulator's soft keyboard keys are off screen; typed keys skip smart dashes, so this can't be checked")
+            XCTFail(SoftKeyboard.minimisedMessage)
+            return
         }
         hyphen.tap(); hyphen.tap(); hyphen.tap()
         XCTAssertEqual(text.value as? String, "---")

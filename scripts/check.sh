@@ -21,9 +21,10 @@
 # the source excerpts the compiler prints under it are not counted. The count
 # is compared only by --full without --only, which cleans the build first;
 # otherwise it prints "warnings: incremental, not compared" (see Warnings
-# below). The logs are check.log (unit) and check-ui.log, the result bundles
-# beside them, in $TMPDIR/notecode-check/<worktree>-<hash>/, one directory
-# per worktree; the run's last lines name it.
+# below). The logs are check.log (unit), check-ui-keys.log (the soft-keyboard
+# UI tests, run first) and check-ui.log, the result bundles beside them, in
+# $TMPDIR/notecode-check/<worktree>-<hash>/, one directory per worktree;
+# the run's last lines name it.
 # NOTECODE_SIM picks the simulator (default iPad Pro 13-inch (M5)).
 
 set -uo pipefail
@@ -156,11 +157,41 @@ logs+=($log)
 summarise $log $bundle unit
 (( code == 0 )) || rc=1
 
-# UI tests: their own invocation, reported on their own. Not with --only.
+# UI tests: their own invocations, reported on their own. Not with --only.
+#
+# The soft keyboard (debt D11, NoteCodeUITests/SoftKeyboard.swift). The tests
+# in soft_keys tap keys on the on-screen keyboard, which the simulator
+# minimises, its keys off screen, once a hardware key has been pressed with
+# the keyboard preference AutomaticMinimizationEnabled on; the first `typeKey`
+# of a boot turns it on, and it outlives a reboot. So it is turned off here,
+# and soft_keys run in an xcodebuild run of their own before the rest, which
+# presses hardware keys. `simctl spawn … defaults` needs the simulator
+# booted: bootstatus -b boots it and waits, and costs nothing when booted.
+soft_keys=(
+  HotbarUITests/testAutocorrectOffKeepsThreeHyphens
+  TypedRuleUITests/testHyphensTappedOnTheOnScreenKeyboardStayHyphens
+)
+soft_keyboard_shown() {
+  local udid
+  udid=$(warm_udid) && [[ -n $udid ]] \
+    && xcrun simctl bootstatus $udid -b > /dev/null 2>&1 \
+    && xcrun simctl spawn $udid defaults write com.apple.keyboard.preferences \
+         AutomaticMinimizationEnabled -bool NO
+}
 if (( full )) && [[ -d NoteCodeUITests ]] && (( ! ${#suites} )); then
+  soft_keyboard_shown || print "ui: could not turn keyboard minimisation off on $sim; the soft keyboard tests may fail"
+  klog=$tmp/check-ui-keys.log kbundle=$tmp/check-ui-keys.xcresult
+  start=$SECONDS
+  xcode_test $klog $kbundle -only-testing:NoteCodeUITests/${^soft_keys}
+  kcode=$?
+  print "ui (soft keyboard): xcodebuild exit $kcode in $(( SECONDS - start ))s  (log: $klog)"
+  logs+=($klog)
+  summarise $klog $kbundle "ui (soft keyboard)"
+  (( kcode == 0 )) || rc=1
+
   uilog=$tmp/check-ui.log uibundle=$tmp/check-ui.xcresult
   start=$SECONDS
-  xcode_test $uilog $uibundle -only-testing:NoteCodeUITests
+  xcode_test $uilog $uibundle -only-testing:NoteCodeUITests -skip-testing:NoteCodeUITests/${^soft_keys}
   uicode=$?
   print "ui: xcodebuild exit $uicode in $(( SECONDS - start ))s  (log: $uilog)"
   logs+=($uilog)
