@@ -183,8 +183,19 @@ note's text and styles are untouched, as with pushes.
     (CodeBlockLayoutFragment.swift:493). Code lines are paragraphs of their
     own and are never tall, so nothing changes for them. The read becomes
     dead code once nothing sets paths. Remove it in a separate step.
-  - *The PDF* draws from the same layout, so it follows. `NotePDFTests` and a
-    look at a printed tall paragraph confirm it.
+  - *The PDF* draws text from the same layout, so the glyphs follow. But
+    `NotePDF.drawFormulas` (NotePDF.swift:463) reads `.baselineOffset` from
+    the line fragment's `attributedString`, which is the layout copy, and
+    subtracts it from the glyph origin to place a formula. With the gap in
+    that attribute, a formula on the first line after a break would be drawn
+    about the gap's height away from its glyphs. Stage 1 has to settle this.
+    TextKit only moves glyphs by `.baselineOffset`, so the gap has to be in
+    it, but the copy can also carry the gap under a key of its own on the
+    same characters, and readers like this one subtract that. The other way
+    is for each reader to subtract the gap from `PagePushTable`. Grep for
+    every reader of the copy's `.baselineOffset` when building it.
+    `NotePDFTests`, with a formula on a gap line, and a look at a printed
+    tall paragraph confirm it.
   - *Fence detection, `.layoutManager`, `nativeUTF8`*: not touched. The gap is
     an attribute in a paragraph copy, applied where pushes already are.
 
@@ -239,7 +250,10 @@ follow-up for very long notes.
    `PagePushTable`, shifted with edits like pushes. `BlankLineLayout` adds
    them to the copy's `.baselineOffset`. `applyBands` and the paths go.
    `caretRect(for:)` and a new `selectionRects(for:)` take the gap from the
-   table and keep the caret and highlight to the glyphs. Add a perf test,
+   table and keep the caret and highlight to the glyphs. Readers of the
+   copy's `.baselineOffset` that place things by it (`NotePDF.drawFormulas`)
+   must not count the gap: record it under its own key in the copy and
+   subtract it there (risk *The PDF*, above). Add a perf test,
    `PageViewTests.Cost.typingCostTallParagraph`, with a PERF line in
    baseline.md, and a test that the line tops match a stored path layout.
 2. **Tidy (refactor step).** Remove the exclusion-path readers that nothing
@@ -263,14 +277,23 @@ Measured as `PageViewTests.Cost` measures, in the same run:
   that font, and its top is not above the glyphs' line.
 - `PageSettlingTests`, `ReopenTests`, `NotePDFTests` and the code-panel tests
   pass as they are.
+- **PDF formulas**: a new `NotePDFTests` case puts an inline formula on the
+  first line after a break in a tall paragraph and checks it is drawn on its
+  glyphs' baseline, within 0.5pt, not a gap's height away.
 - After F (if built): the paginate share at 198 pages under 2ms, from 24ms.
 
 ## Finding outside D9
 
 `UITextView.replace` on the configured view costs 4.0ms at 1,500 lines and
 24ms at 7,500, with or without pages. The same edit made on the text storage
-directly costs 0.2ms. So it is the edit path (the text view's delegate, the
-styler and the parser), not TextKit's layout, and it grows with the note.
-F5's measurements did not separate it out. It was not investigated further
-here. It is worth a debt row of its own, since at 198 pages it is half of the
+directly costs 0.2ms. The evidence points at UIKit's own edit and caret
+path rather than at our code: a bare `UITextView(usingTextLayoutManager:
+true)` with none of our delegate, styler or parser costs 4.9ms a keystroke
+at 1,500 lines, the configured view with no pages 4.7ms, and its `replace`
+alone 4.4ms. UIKit also lays out at once inside `replace` to place the caret
+(above). So most of it is probably UIKit laying out to the caret, and it
+grows with the note. How much of it, if any, is ours was not measured: the
+probe did not time the delegate, the styler and the parser on their own.
+F5's measurements did not separate it out either. It is worth a debt row of
+its own, starting with that split, since at 198 pages it is half of the
 keystroke.
