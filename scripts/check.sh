@@ -224,10 +224,13 @@ else
   fi
 fi
 
-# macOS only if the scheme lists it. Informational: the Google Mobile Ads
-# and UMP xcframeworks have no macOS slice, so this fails on main today
-# (docs/refactor: a finding for the split, whose public build has no ads).
-if xcodebuild -showdestinations -project NoteCode.xcodeproj -scheme NoteCode 2>/dev/null | grep -q "platform:macOS"; then
+# macOS only if the app target supports native macOS (macosx in its
+# SUPPORTED_PLATFORMS). -showdestinations isn't enough: an iOS-only target
+# still lists "My Mac (Designed for iPad)". 1.2.0 is iOS-only (#251, debt
+# D14), and the ad SDKs have no macOS slice, so this is skipped on main.
+platforms=$(xcodebuild -showBuildSettings -project NoteCode.xcodeproj -scheme NoteCode 2>/dev/null \
+  | awk -F' = ' '/^ *SUPPORTED_PLATFORMS = / { print $2; exit }')
+if [[ " $platforms " == *" macosx "* ]]; then
   if xcodebuild build -project NoteCode.xcodeproj -scheme NoteCode -destination "platform=macOS" \
       -clonedSourcePackagesDirPath "$packages" > $tmp/check-mac.log 2>&1; then
     print "macOS build: ok"
@@ -236,7 +239,7 @@ if xcodebuild -showdestinations -project NoteCode.xcodeproj -scheme NoteCode 2>/
     grep -E "^/.*: error: |^error: " $tmp/check-mac.log | sed -E 's/^.*: error: //' | sort -u | head -2 | cut -c1-160
   fi
 else
-  print "macOS: not a destination, skipped"
+  print "macOS: not a supported platform, skipped"
 fi
 
 if (( full )) && [[ -d server/run-proxy/node_modules ]]; then
