@@ -100,6 +100,7 @@ Read the one that matches the area you are changing; do not read them all.
 | iPhone and the Duo | [docs/design/iphone-and-the-duo.md](docs/design/iphone-and-the-duo.md) |
 | The page fills the window | [docs/design/the-page-fills-the-window.md](docs/design/the-page-fills-the-window.md) |
 | Pages | [docs/design/pages.md](docs/design/pages.md) |
+| Typing cost in long paged notes (D9, proposal) | [docs/design/paged-typing-cost.md](docs/design/paged-typing-cost.md) |
 | The note page | [docs/design/the-note-page.md](docs/design/the-note-page.md) |
 | Keyboard, edit menu, pointer, Dynamic Type | [docs/design/keyboard-edit-menu-pointer-dynamic-type.md](docs/design/keyboard-edit-menu-pointer-dynamic-type.md) |
 | Recently Deleted and folder faces | [docs/design/recently-deleted-and-folder-faces.md](docs/design/recently-deleted-and-folder-faces.md) |
