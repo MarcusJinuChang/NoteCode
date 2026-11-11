@@ -82,16 +82,18 @@ docs/archive/
 !docs/archive/release-1.0/R-run.md
 !docs/archive/release-1.0/README.md
 # check.sh, check-seam.sh and perf.sh read their WARNINGS, SEAM and PERF
-# lines here; the rest of docs/refactor/ stays private.
+# lines here. lessons.md goes public too (decided 10 Nov, split.md › S3);
+# the rest of docs/refactor/ stays private.
 docs/refactor/baseline.md
+docs/refactor/lessons.md
 
 # Left out on purpose, not by omission:
 #   AGENTS.md, README.md     private rules; public versions still to write
 #   .claude/                 the refactor's and the weekly skills and agents
 #   docs/NOW.md, docs/ROADMAP.md, docs/timeline.md, docs/ipad-test-checklist.md,
-#   docs/retrospective-2026-11.md, docs/process.md
+#   docs/retrospective-2026-11.md, docs/process.md (private, decided 10 Nov)
 #                            pricing, App Review, the queue; public versions
 #                            of the roadmap, timeline and checklist are S3.2
-#   docs/refactor/ (but baseline.md), docs/release-1.0/, docs/site/
+#   docs/refactor/ (but baseline.md and lessons.md), docs/release-1.0/, docs/site/
 #   server/                  the run proxy
 #   OpenSource/ itself       only through the => lines above

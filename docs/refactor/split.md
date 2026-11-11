@@ -75,11 +75,13 @@ checks it.
    - **The allow-list.** `scripts/public-paths.txt` lists what goes public.
      Everything else stays:
      - `Pro/`, `AppStore/`, `ProTests/` and `server/`;
-     - `docs/release-1.0/`, `docs/site/` and `docs/refactor/`;
+     - `docs/release-1.0/`, `docs/site/` and `docs/refactor/` (but
+       `baseline.md` and `lessons.md`);
      - `shipping.md`, `run-proxy-contract.md`,
        `the-list-s-foot-and-the-tip-jar.md` and `ai-features.md`;
      - the archived P and R streams.
-     - `lessons.md` may go public; Marcus decides.
+     - `lessons.md` goes public and `docs/process.md` stays private
+       (Marcus, 10 Nov).
    - **The export.** `scripts/export-public.sh` copies the allow-list into
      an empty directory.
    - **The scans.** Run `gitleaks detect --no-git` on it, then grep for the
@@ -89,6 +91,8 @@ checks it.
      pass.
    - **Status (7 Nov):** the allow-list, the export and its scans are in
      (debt.md D19 has what the first run found); the clean build is not.
+     10 Nov: gitleaks ran on the export of 7835b58 (536 files) and found
+     no leaks.
 2. **Public docs.**
    - A README for people who find the repo, and `LICENSE` (Apache-2.0).
    - `NOTICE`: "NoteCode" and the icon are not licensed. Third-party

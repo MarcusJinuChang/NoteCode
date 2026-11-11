@@ -108,70 +108,53 @@ Google's test ids (`AdConfig.units(forRelease:)`, pinned in `AdTests`).
 `Info.plist` carries `GADApplicationIdentifier`, the ATT reason and Google's
 `SKAdNetworkItems` (50 ids as of 28 Oct 2026; refresh when the SDK is updated).
 
-- **Order**: Home's first visit runs the UMP consent flow, then starts the SDK;
-  no ad is requested before. The ATT prompt is asked from the second Home visit
-  on, never at launch. A "visit" is Home in front of the reader
-  (`ConsentGate`): not its first appearance on a first launch, which comes
-  before the launch has decided about the title screen and then sits under it
-  (31 Oct; Google's form and the system's tracking prompt showed over the title
-  screen). `HomeView.consentMayStart` is false until the launch task has
-  claimed the title screen and while it is up. Without ATT consent the
-  request carries `npa=1`.
-  That order is the app's own. While the AdMob console publishes an IDFA
-  explainer message for this app, Google's flow puts ATT on the first visit
-  outside the EEA and UK (next bullet).
-- **UMP's IDFA explainer asks for tracking on the first visit** (found 8 Nov,
-  device pass home-4). The sequence was a fresh install in the US (en_US,
-  simulator, the real `GADApplicationIdentifier`), Get Started, and then
-  Google's "Our app wants to stay free for you" on the first Home visit.
-  One Continue and the system ATT alert appeared half a second later, with
-  Google's card still behind it.
-  `adHomeVisits` was 0 going in, so `AdConsent`'s `visits >= 1` gate did not
-  fire and the app never called `requestTracking()`. The defaults showed
-  `IABTCF_gdprApplies` = 0, so no GDPR form was due, and
-  `IABTCF_idfaFlowControl` = 5. What the reader saw was not a consent form.
-  It was the **IDFA explainer message** published under AdMob › Privacy &
-  messaging › IDFA. Google shows that message "immediately before the iOS
-  ATT alert", and Continue on it raises ATT itself
+- **Order** (decided 10 Nov, `decisions.md`): Home's first visit runs the
+  UMP consent flow, then starts the SDK; no ad is requested before, and
+  nothing is asked at launch. What that first visit shows depends on the
+  region, because `ConsentForm.loadAndPresentIfRequired` presents whichever
+  message UMP says is due:
+  - Outside the EEA and UK: Google's **IDFA explainer** ("Our app wants to
+    stay free for you", published in AdMob › Privacy & messaging › IDFA),
+    and its Continue raises the system ATT alert. So ATT comes on the first
+    visit, from Google's flow, not from the app.
+  - In the EEA or UK with no answer yet: the GDPR form, and no ATT. ATT
+    comes on the second Home visit ever (`AdConsent`'s `visits >= 1` gate;
+    `adHomeVisits` is saved). If that visit is in the same launch, it is
+    the app's own prompt, bare. If it is a later launch's first, consent is
+    gathered again first (`canRequestAds` is kept only in memory), the GDPR
+    answer is in and ATT is not determined, so UMP most likely shows the
+    explainer, whose Continue raises ATT; the app's call then finds it
+    answered. Inferred from the code; not yet seen in an EEA region.
+  - In the EEA or UK once ATT is answered: nothing new. UMP loads the
+    explainer only while the status is not determined.
+
+  The app's second-visit prompt is the fallback: for the EEA and UK, and
+  for whenever the explainer isn't published. A "visit" is Home in front of
+  the reader (`ConsentGate`): not its first appearance on a first launch,
+  which comes before the launch has decided about the title screen and then
+  sits under it (31 Oct; Google's form and the system's tracking prompt
+  showed over the title screen). `HomeView.consentMayStart` is false until
+  the launch task has claimed the title screen and while it is up. Without
+  ATT consent the request carries `npa=1`. The rating prompt waits for
+  tracking to be answered (`mayAskForReview` in `Pro/AppStoreEdition.swift`,
+  checked by `ContentView`), so it never lands beside either prompt.
+- **Why Google's flow** (found 8 Nov in device pass home-4, decided 10 Nov):
+  on a fresh US install the explainer and then ATT appeared on the first
+  Home visit while `adHomeVisits` was 0 and the app never called
+  `requestTracking()` (`IABTCF_gdprApplies` = 0, `IABTCF_idfaFlowControl`
+  = 5). Google shows the message "immediately before the iOS ATT alert" and
+  says it raises opt-in
   ([AdMob help 10115027](https://support.google.com/admob/answer/10115027),
   [10115331](https://support.google.com/admob/answer/10115331),
   [UMP iOS IDFA guide](https://developers.google.com/admob/ios/privacy/idfa)).
-  `ConsentForm.loadAndPresentIfRequired` in `SystemAdPlatform.gatherConsent`
-  presents whichever message UMP says is due, and the SDK has no parameter
-  to leave out one type. Which message is due (Google's help says EEA readers
-  may see the GDPR message instead; the split below is a Google forum answer,
-  not yet checked in an EEA region):
-  - Outside the EEA and UK: the IDFA explainer, so ATT comes on the first visit.
-  - In the EEA or UK with no answer yet: the GDPR form, and no ATT. The
-    app's own ATT prompt comes on the second Home visit ever (`adHomeVisits`
-    is saved, so that may be a later launch's first), without the explainer.
-  - In the EEA or UK after an answer: UMP would show the explainer on a
-    later launch's first visit, but by then ATT has usually been answered,
-    and UMP loads that form only while the status is not determined.
-
-  The code could keep its own order only by not presenting the form on the
-  first visit when `IABTCF_gdprApplies` is not 1, and presenting it on the
-  second visit instead. GDPR would not wait, but the change leans on an
-  IAB key UMP writes rather than on UMP's API. It would also still show
-  the explainer, one visit later. Which way to go is Marcus's choice; no
-  code changed:
-  - **Accept it** (no change in the build). The first visit outside the EEA
-    is Google's explainer and then ATT. The app's second-visit prompt stays
-    as the fallback for the EEA and UK, and for when the explainer isn't
-    published. The rating prompt already waits for tracking to be answered
-    (`mayAskForReview` in `Pro/AppStoreEdition.swift`, checked by
-    `ContentView`), so it is unaffected. Change the Order bullet above,
-    features.md › Ads, the App Review notes
-    (`release-1.0/R5-submission.md`, "on a later visit to Home") and the
-    P3 line of `ipad-test-checklist.md` to say so.
-  - **Turn it off** in the console: admob.google.com › Privacy & messaging
-    › IDFA (Manage on its card) › the NoteCode message's row › Unpublish,
-    then confirm. Google says the message can keep showing for up to 10
-    minutes. After that the first visit outside the EEA shows nothing and
-    ATT comes, bare, on the second visit, as designed. Readers who already
-    answered are unaffected. To check, run a fresh install with
-    `simctl privacy reset all` and look for no alert on the first Home
-    visit (home-4).
+  Keeping it needs no code or build change. Keeping the app's own order
+  instead would mean skipping the form on the first visit when
+  `IABTCF_gdprApplies` is not 1, which leans on an IAB key rather than
+  UMP's API and still shows the explainer, one visit later. The EEA split
+  above is from a Google forum answer, not yet checked in an EEA region.
+  To reverse it: admob.google.com › Privacy & messaging › IDFA (Manage) ›
+  the NoteCode message › Unpublish (live within about 10 minutes); ATT then
+  comes, bare, on the second visit everywhere.
 - **Size**: the standard anchored adaptive size (`AdSizing`, 31 Oct), for the
   width the slot is given, measured on a placeholder the banner lies over.
   It was the large anchored size, up to 150pt tall: a seventh of an iPad

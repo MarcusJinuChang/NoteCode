@@ -25,9 +25,10 @@ as it should be) and `docs/site/support.md`.
 > the panel beside the page.
 >
 > Free users see Google AdMob banner ads (at the foot of Home and of the note
-> list). Pro removes them. We show Google's consent form where required, then the App
-> Tracking Transparency prompt on a later visit to Home. Declining still shows
-> non-personalised ads.
+> list). Pro removes them. We show Google's consent form where required, then
+> the App Tracking Transparency prompt: outside the EEA and UK right after
+> Google's explainer on the first visit to Home, in the EEA and UK on a later
+> visit. Declining still shows non-personalised ads.
 >
 > Subscription: NoteCode Pro, $4.99/month, auto-renewing. Terms of Use (Apple
 > standard EULA) and the Privacy Policy are linked on the paywall.

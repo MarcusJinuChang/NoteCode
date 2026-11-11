@@ -20,9 +20,9 @@
 - **Then the upload:** bump the build, archive, submit. The release notes
   need a line on F5: existing ink beside paragraphs that crossed a page
   break may sit lower than its text (`decisions.md`, 7 Nov).
-- **Your call: UMP's IDFA explainer** puts ATT on the first Home visit
-  outside the EEA (found 8 Nov, home-4). Accept it, or unpublish it in
-  AdMob › Privacy & messaging › IDFA (`design/shipping.md` › Ads).
+- **Settled 10 Nov: UMP's IDFA explainer** stays (home-4): outside the
+  EEA/UK, ATT comes on the first Home visit from Google's flow
+  (`design/shipping.md` › Ads, `decisions.md`).
 - **Version decided 7 Nov:** the upload is **1.2.0 (5)**, carrying 1.1.1's
   and 1.2.0's work (`decisions.md`). 1.1.0 (4) is live and tagged `v1.1.0-4`.
 
