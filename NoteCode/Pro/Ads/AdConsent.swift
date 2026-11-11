@@ -4,8 +4,9 @@
 //
 //  Consent before any ad request: Google's UMP flow, then App Tracking
 //  Transparency. The SDK starts only after the first. Outside the EEA/UK,
-//  UMP's IDFA explainer raises ATT on the first Home visit; the app's own
-//  prompt, from the second visit, covers the EEA/UK (shipping.md › Ads).
+//  UMP's IDFA explainer raises ATT on the first Home visit. In the EEA/UK
+//  ATT waits for the second: the app's own prompt within the same launch,
+//  likely the explainer on a later launch's first (shipping.md › Ads).
 //
 
 import Foundation

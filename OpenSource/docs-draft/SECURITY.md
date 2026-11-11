@@ -10,8 +10,8 @@ Please report a vulnerability privately, not in a public issue: use GitHub's
 notecodesupport@gmail.com with "Security" in the subject.
 
 Say what is affected, how to reproduce it, and what an attacker could do with
-it. You should usually hear back within a week. A fix goes into the next release,
-and you are credited in it unless you would rather not be.
+it. You should usually hear back within a week. A fix goes into the next
+release, and you are credited in it unless you would rather not be.
 
 ## What is in scope
 

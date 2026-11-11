@@ -117,13 +117,16 @@ Google's test ids (`AdConfig.units(forRelease:)`, pinned in `AdTests`).
     stay free for you", published in AdMob › Privacy & messaging › IDFA),
     and its Continue raises the system ATT alert. So ATT comes on the first
     visit, from Google's flow, not from the app.
-  - In the EEA or UK with no answer yet: the GDPR form, and no ATT. The
-    app's own ATT prompt comes on the second Home visit ever
-    (`AdConsent`'s `visits >= 1` gate; `adHomeVisits` is saved, so that may
-    be a later launch's first), without the explainer.
-  - In the EEA or UK after an answer: UMP would show the explainer on a
-    later launch's first visit, but by then ATT has usually been answered,
-    and UMP loads that form only while the status is not determined.
+  - In the EEA or UK with no answer yet: the GDPR form, and no ATT. ATT
+    comes on the second Home visit ever (`AdConsent`'s `visits >= 1` gate;
+    `adHomeVisits` is saved). If that visit is in the same launch, it is
+    the app's own prompt, bare. If it is a later launch's first, consent is
+    gathered again first (`canRequestAds` is kept only in memory), the GDPR
+    answer is in and ATT is not determined, so UMP most likely shows the
+    explainer, whose Continue raises ATT; the app's call then finds it
+    answered. Inferred from the code; not yet seen in an EEA region.
+  - In the EEA or UK once ATT is answered: nothing new. UMP loads the
+    explainer only while the status is not determined.
 
   The app's second-visit prompt is the fallback: for the EEA and UK, and
   for whenever the explainer isn't published. A "visit" is Home in front of
