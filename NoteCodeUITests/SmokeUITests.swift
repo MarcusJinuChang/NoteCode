@@ -78,7 +78,8 @@ final class SmokeUITests: XCTestCase {
     /// left the menu open with Print Layout selected (11 Nov, seen in the
     /// hierarchy at the failure). The next tap on ••• then closed that menu,
     /// the query for Settings found it on its way out, and "the Settings sheet
-    /// never opened". So a tap the menu swallowed is made once more; whether
+    /// never opened". So a tap the menu swallowed is made once more, and a
+    /// menu still open after that fails here, not at the next step; whether
     /// the item did what it says is still checked by the caller.
     @MainActor
     private func choose(_ item: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
@@ -88,8 +89,8 @@ final class SmokeUITests: XCTestCase {
             return
         }
         item.tap()
-        if !item.waitForNonExistence(timeout: 5), item.isHittable {
-            item.tap()
+        if !item.waitForNonExistence(timeout: 5) {
+            if item.isHittable { item.tap() }
             XCTAssertTrue(item.waitForNonExistence(timeout: 5), "the menu stayed open after \(item.label)", file: file, line: line)
         }
     }
