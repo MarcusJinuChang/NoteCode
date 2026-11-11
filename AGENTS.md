@@ -134,6 +134,10 @@ What the app contains: [docs/features.md](docs/features.md) — every feature by
 works, and what is missing or planned. Read it before reading code to find out whether
 something exists, and update its rows in the same PR that adds, changes or removes a feature.
 
+Private things (marketing, keys, friends' names) live outside the repo, in
+`/Users/Marcus/Documents/NoteCode-private/`; docs/README.md only says they
+exist, since it goes into the public repo and this file does not.
+
 Start at [docs/README.md](docs/README.md) (where every kind of fact lives)
 and [docs/NOW.md](docs/NOW.md) (this week, the queue, what is parked). How a
 feature is shaped, planned and built, and the skills for it:

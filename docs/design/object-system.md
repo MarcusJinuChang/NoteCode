@@ -453,20 +453,21 @@ Steps 1 and 2 are file-disjoint from every other stream. Step 3 touches
 - **Built** for `generic/platform=iOS` (Debug, signed, `BUILD SUCCEEDED`), so the
   loop below works as written; the simulator run of `NoteEditorTests` passes.
 - **Run it** (the iPad must be plugged in; `devicectl list devices` shows it
-  `available`):
+  `available` and its `<udid>`; `<bundle id>` is the app's bundle id, the app
+  target's `PRODUCT_BUNDLE_IDENTIFIER`):
 
       xcodebuild build -project NoteCode.xcodeproj -scheme NoteCode -configuration Debug \
         -destination 'generic/platform=iOS' -allowProvisioningUpdates
-      xcrun devicectl device install app --device 00008142-000C28EA2109401C <path to NoteCode.app>
-      xcrun devicectl device process launch --terminate-existing --device 00008142-000C28EA2109401C \
-        com.marcus.NoteCode -debug-selection-probe
+      xcrun devicectl device install app --device <udid> <path to NoteCode.app>
+      xcrun devicectl device process launch --terminate-existing --device <udid> \
+        <bundle id> -debug-selection-probe
 
   Then: (1) in ink mode with the pen, tap a few strokes close together (the
   cluster highlight), then with the lasso, select and move something, then tap
   empty space; (2) switch lasso → pen with a selection up (should now let go);
   (3) watch the hotbar after the lasso move. Pull the log with
   `xcrun devicectl device copy from --device <udid> --domain-type appDataContainer
-  --domain-identifier com.marcus.NoteCode --source tmp/selectionprobe.log
+  --domain-identifier <bundle id> --source tmp/selectionprobe.log
   --destination <file>`.
 - **Reading it:** a `selection changed` line with `pkSelection > 0` after a pen
   tap says the pen selects; the line before it has the touch and its view chain.

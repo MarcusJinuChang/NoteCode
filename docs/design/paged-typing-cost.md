@@ -246,6 +246,63 @@ follow-up for very long notes.
    wrap is the same; and a keystroke at the top falls to the no-tall cost.
    If the line tops can't be matched, stop. C would then move ink, which
    needs a decision like F5's.
+
+   **Done 11 Nov: it passes** (`PagedGapProbeTests`, iPad Pro 13-inch (M5)
+   simulator, Debug). The gap is laid in by a test-only content storage
+   delegate that wraps the view's `BlankLineLayout` and adds a negative
+   `.baselineOffset` to the copy of the first line after each break, of the
+   height `linePlacement`'s rule gives; no app code changed. The push table
+   is frozen while it runs (`isApplying`), so the walk neither runs nor puts
+   the paths back, since teaching the walk the gaps is stage 1.
+
+   | Mode | Breaks | Gap | Line feet moved | Glyphs drawn moved | Wrap |
+   |---|---|---|---|---|---|
+   | seamless | 6 | 11pt | 0.000pt | 0.00pt | same (298 lines) |
+   | compressed | 6 | 34pt | 0.000pt | 0.00pt | same |
+   | print | 6 | 178pt | 0.000pt | 0.00pt | same |
+
+   The note is a 228-line paragraph between prose. The gap is the break's
+   band (1, 24 and 168pt) plus the 10pt foot of the page the line would have
+   straddled, so both branches of the rule are used: a line starting in the
+   band and a line crossing into it. "Glyphs drawn" is the
+   first inked row of each of its lines, with the paragraph's layout fragment
+   drawn at 2 pixels a point, with paths and with gaps. Every line of the note
+   below the paragraph also stays put. A gap line's typographic bounds grow
+   by the gap, upwards, as the bare-view probe found. One reader to watch:
+   `NSTextLineFragment.glyphOrigin` leaves `.baselineOffset` out, so on a gap
+   line it reads exactly the gap high while the glyphs are drawn where the
+   paths drew them. Anything placed from it needs the gap taken off, as
+   risk *The PDF* says for `.baselineOffset`.
+
+   The cost, a keystroke at the top of the 40-page note with a
+   10,000-character paragraph at line 60. Each number is the best of three
+   batches, each batch the median of nine keystrokes on a monotonic clock.
+   The gaps are timed on a harness of their own. Two runs, in ms:
+
+   | | Run 1 | Run 2 |
+   |---|---|---|
+   | No tall paragraph | 5.5 | 5.2 |
+   | No tall paragraph, table frozen | 5.1 | 5.2 |
+   | Tall, exclusion paths | 76.4 | 76.8 |
+   | Tall, exclusion paths, table frozen | 76.3 | 77.2 |
+   | Tall, gaps, table frozen | 5.0 | 5.0 |
+
+   So with gaps a keystroke costs what one in a note without a tall
+   paragraph does, and freezing the table is not what saves the time. The
+   walk (about 0.12ms a page) comes back on top in stage 1, as for any note.
+   Earlier runs, with a single batch timed on `Date()`, gave gaps 5.2-5.6ms
+   against 5.1-6.3ms without a tall paragraph and 78-91ms with paths.
+
+   *Frozen* means more than "no walk". The table ignores the edits, so it
+   neither lowers `through` nor shifts its pushes, and after a frozen run its
+   keys past the edit are out by the characters typed. The comparison is
+   still fair. The edits are at offset 120, in a paragraph with no push, and
+   TextKit asks the content storage's delegate again only for the paragraph
+   edited, so no stale key is read while the run is timed. Every frozen run
+   is frozen the same way, and none is laid out again afterwards.
+
+   The test's bounds are loose: gaps under a third of paths, and under twice
+   the frozen note without a tall paragraph plus 2ms.
 1. **Build C.** `PagePaginator`'s `.tall` case records gaps per line start in
    `PagePushTable`, shifted with edits like pushes. `BlankLineLayout` adds
    them to the copy's `.baselineOffset`. `applyBands` and the paths go.
@@ -253,9 +310,13 @@ follow-up for very long notes.
    table and keep the caret and highlight to the glyphs. Readers of the
    copy's `.baselineOffset` that place things by it (`NotePDF.drawFormulas`)
    must not count the gap: record it under its own key in the copy and
-   subtract it there (risk *The PDF*, above). Add a perf test,
+   subtract it there (risk *The PDF*, above). `PageBreakRule.linePlacement`
+   should return each line's gap, so the paginator and its tests use one
+   rule (the stage 0 probe has a copy of it). Add a perf test,
    `PageViewTests.Cost.typingCostTallParagraph`, with a PERF line in
-   baseline.md, and a test that the line tops match a stored path layout.
+   baseline.md, that types above the tall paragraph and inside it (D9's
+   symptom is a slow keystroke anywhere in the note; stage 0 timed only
+   above it), and a test that the line tops match a stored path layout.
 2. **Tidy (refactor step).** Remove the exclusion-path readers that nothing
    feeds any more: `CodeBlockLayoutFragment`'s `breaks` from the container,
    and `PageBands`' clearing. Then update `exclusionPathsAreTheCost` so it
