@@ -486,6 +486,30 @@ show "nothing more than 10% worse" by itself. After each run two
 one likely source. Not changed here: `perf.sh`'s threshold, and how many times
 a cost test measures before it reports.
 
+**`--compare` re-runs a flagged row (11 Nov 2026, PR #273).** So `perf.sh`
+now measures a row over budget again before it counts: only the tests behind
+the flagged rows (the Perf plan with `-only-testing`), up to twice more; each
+row keeps its best run, and only a row still over budget fails. The 10% and
+5 ms rules are unchanged. On the same Mac, "NoteCode Lane P" simulator (iPad
+Pro 13-inch (M5), iOS 27.0), each run started with no other xcodebuild or
+test process and a 1-minute load average under 3 (2.3 to 2.7). ms, each run
+of a re-run row in order, best in bold:
+
+| Run | Exit | Rows re-run (first run, re-runs) |
+|---|---|---|
+| A, unchanged | 0 | `firstFrame` 55.2, **37.1** |
+| B, unchanged | 0 | `printingCost` 1,450.0, 2,576.2, **1,105.6**; `openingCost.switch` 410.7, 459.1, **349.8**; `NoteListFetchCost/everything` 59.3, **47.7**; `/live-only` 34.7, **33.0**; `/warmup` 67.1, **50.0**; `typingCost.legacy` 9.2, **8.5**; `keystrokeCost.off` 9.5, **7.7**; `fullPassCost` 7.0, **6.5** |
+| C, 50 ms `usleep` in `PageView.setInk` | 1 | `openingCost.open` 245.9, 269.5, **233.3**: +22% over 191.9, WORSE |
+
+A and B pass on an unchanged build; without the re-runs both would have
+failed, B on eight rows. C is the check that it still catches a real
+regression: the sleep was added to what `openingCost.open` times, only that
+row was flagged, it stayed over budget in all three runs, and the script
+exited 1. The sleep was reverted and never committed. Run B also shows the
+noise is not only the first run: printing's second run was the highest of
+all, so the best of three is what makes the check pass, and a row that is
+high on three runs in a row still fails.
+
 ## Findings (recorded, not fixed)
 
 1. **A StoreKit test hung for 11.5 hours.** In the first unit run,
