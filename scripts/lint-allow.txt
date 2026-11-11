@@ -3,9 +3,9 @@
 # Rule 7 is a count that may only fall: `limit 7 <n>`. Since D12 it counts `UserDefaults()` too, which reads the same settings as `.standard`; the one left is TestSupportTests reading (never writing) the app domain to prove TestDefaults stays out of it.
 # Lines starting with # are ignored.
 limit 7 1
-# Rule 9 too: `limit 9 <n>`. What stays: simulated service latency in test doubles, StoreKit's own polls (TipJarTests, ProStatusTests' answer delay), spins for UIKit and SwiftUI layout (Settings, FingerDraws, CompactLayout, NoteTopBar, HotbarLayout, TextRewritingPolicy, HotbarIconPixel, AdTests, PageSettlingTests' settle), PaperKit (RenderingSnapshotTests tiling the second sheet, InkSelectionTests' wait for its callbacks), the leak tests' deferred window teardown, and the one poll every condition wait shares (`waitFor`, TestSupport/Waiting.swift). Since D12 a run-loop turn that closes an undo group is `undoGroupsClosed`, which waits on the undo manager's grouping level.
-limit 9 18
+# Rule 9 too: `limit 9 <n>`. What stays: simulated service latency in test doubles, StoreKit's own polls (TipJarTests, ProStatusTests' answer delay), spins for UIKit and SwiftUI layout (Settings, FingerDraws, CompactLayout, NoteTopBar, HotbarLayout, TextRewritingPolicy, HotbarIconPixel, AdTests), PaperKit (RenderingSnapshotTests tiling the second sheet, InkSelectionTests' wait for its callbacks), the leak tests' deferred window teardown, and the one poll every condition wait shares (`waitFor`, TestSupport/Waiting.swift). Since D12 a run-loop turn that closes an undo group is `undoGroupsClosed`, which waits on the undo manager's grouping level. It counts `waitFor({ false }` too, in either closure form, a fixed delay dressed as a wait (none left): a page's layout settling is `PageView.layoutSettled()`, its ink being taken in `PageView.inkSettled()`.
+limit 9 17
 2 NoteCode/Ink/InkCapture.swift:363 PKInkReference is the Objective-C ink; its inkType is a string, the safe read
 3 NoteCode/Ink/InkObjects.swift:216 `elements` is a [any Markup] array, not a MarkupOrderedSet
 3 NoteCode/Text/Core/MarkdownFormatting+Markers.swift:94 `markup` is an Optional<Bool> kind, not a MarkupOrderedSet
-3 NoteCode/Ink/PageInkPipeline.swift:412 looked up by id, not by position, once per piece cut at a border (few); PageViewTests.Cost.redrawCost
+3 NoteCode/Ink/PageInkPipeline.swift:424 looked up by id, not by position, once per piece cut at a border (few); PageViewTests.Cost.redrawCost

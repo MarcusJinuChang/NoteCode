@@ -24,7 +24,7 @@ import UIKit
 /// asks for the fragment at the top edge's point instead, and that kept
 /// answering the right line while the screen showed one 30 lines on, so the
 /// reopening and text size tests never saw this.
-@Suite("Colours landing above the screen keep the reader's place", .serialized, .tags(.layout))
+@Suite("Colours landing above the screen keep the reader's place", .serialized, .tags(.layout), .timeLimit(.minutes(1)))
 @MainActor
 struct ColoursLandingTests {
 
@@ -63,7 +63,7 @@ struct ColoursLandingTests {
         page.frame = CGRect(x: 76, y: 137, width: 872, height: 1100)
         window.addSubview(page)
         window.makeKeyAndVisible()
-        await ReopenTests.layOut(page, over: 0.4)
+        await ReopenTests.layOut(page)
         return Opened(window: window, coordinator: coordinator, box: box, page: page, clock: clock)
     }
 
@@ -72,7 +72,7 @@ struct ColoursLandingTests {
         await opened.clock.untilSleeping()
         opened.clock.advance(by: .seconds(1))
         await opened.coordinator.highlightingFinished()
-        await ReopenTests.layOut(opened.page, over: 0.4)
+        await ReopenTests.layOut(opened.page)
     }
 
     /// Page `index`'s first character in the note opened at its top and laid

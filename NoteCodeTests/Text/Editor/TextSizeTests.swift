@@ -234,7 +234,7 @@ struct TextSizeStylingTests {
     }
 }
 
-@Suite("Text size: re-flowing keeps the reader's place", .serialized, .tags(.editor))
+@Suite("Text size: re-flowing keeps the reader's place", .serialized, .tags(.editor), .timeLimit(.minutes(1)))
 @MainActor
 struct TextSizeReflowTests {
 
@@ -283,12 +283,12 @@ struct TextSizeReflowTests {
         let opened = await ReopenTests.open(resumingAtPage: nil, layout: layout)
         let (coordinator, page) = (opened.coordinator, opened.page)
         page.textView.contentOffset.y = 4200
-        await ReopenTests.layOut(page, over: 0.4)
+        await ReopenTests.layOut(page)
         let before = try #require(PageSettlingTests.characterAtTop(of: page.textView))
         try #require(before > 1000, "the test should start deep in the note")
 
         page.reflow { coordinator.setTypography(NoteTypography(bodySize: size), in: page.textView) }
-        await ReopenTests.layOut(page, over: 0.8)
+        await ReopenTests.layOut(page)
 
         let expected = try #require(Self.lineStart(containing: before, at: size, layout: layout))
         let shown = try #require(PageSettlingTests.characterAtTop(of: page.textView))
@@ -301,7 +301,7 @@ struct TextSizeReflowTests {
         let opened = await ReopenTests.open(resumingAtPage: nil, layout: PageLayout())
         let (coordinator, page) = (opened.coordinator, opened.page)
         page.reflow { coordinator.setTypography(NoteTypography(bodySize: 21), in: page.textView) }
-        await ReopenTests.layOut(page, over: 0.5)
+        await ReopenTests.layOut(page)
         #expect(page.textView.contentOffset.y == 0, "offset \(page.textView.contentOffset.y), inset \(page.textView.contentInset), top char \(String(describing: page.topLineCharacter()))")
         withExtendedLifetime(opened) {}
     }
@@ -312,10 +312,10 @@ struct TextSizeReflowTests {
         let (coordinator, page) = (opened.coordinator, opened.page)
         let pagesAt17 = page.pageCount
         page.reflow { coordinator.setTypography(NoteTypography(bodySize: 23), in: page.textView) }
-        await ReopenTests.layOut(page, over: 0.8)
+        await ReopenTests.layOut(page)
         #expect(page.pageCount > pagesAt17, "\(page.pageCount) pages at 23 against \(pagesAt17) at 17")
         page.reflow { coordinator.setTypography(.standard, in: page.textView) }
-        await ReopenTests.layOut(page, over: 0.8)
+        await ReopenTests.layOut(page)
         #expect(page.pageCount == pagesAt17, "back at 17, the note has the pages it had: \(page.pageCount) against \(pagesAt17)")
         withExtendedLifetime(opened) {}
     }

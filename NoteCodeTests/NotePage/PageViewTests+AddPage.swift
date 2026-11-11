@@ -13,7 +13,7 @@ import UIKit
 
 extension PageViewTests {
 
-    @Suite("Adding pages")
+    @Suite("Adding pages", .timeLimit(.minutes(1)))
     @MainActor
     struct AddPage: PageViewSuite {
 
@@ -100,7 +100,7 @@ extension PageViewTests {
             harness.page.onMinimumPageCountChanged = { _ in told += 1 }
 
             Self.draw([Self.stroke(at: seamless.bodyTop(ofPage: 0) + 200)], on: harness)
-            _ = await waitFor({ false }, seconds: 0.5)
+            await harness.page.inkSettled()
 
             #expect(told == 0)
             #expect(harness.page.pageCount == 3)
@@ -114,7 +114,7 @@ extension PageViewTests {
             harness.page.onMinimumPageCountChanged = { _ in told += 1 }
 
             Self.draw([Self.stroke(at: layout.bodyTop(ofPage: 0) + 200)], on: harness)
-            _ = await waitFor({ false }, seconds: 0.5)
+            await harness.page.inkSettled()
 
             #expect(told == 0)
             #expect(harness.page.pageCount == 1)
@@ -143,7 +143,7 @@ extension PageViewTests {
             #expect(harness.page.pageCount == 2)
             // The page it added is the note's minimum, not ink: laying the note
             // out again for it saved nothing more.
-            _ = await waitFor({ false }, seconds: 0.5)
+            await harness.page.inkSettled()
             #expect(saved == 1)
         }
 
@@ -168,7 +168,7 @@ extension PageViewTests {
 
             let top = layout.growthBandTop(ofPage: 0)
             Self.draw([Self.stroke(at: top - 10)], on: harness)
-            _ = await waitFor({ false }, seconds: 0.5)
+            await harness.page.inkSettled()
             #expect(told == 0)
             #expect(harness.page.pageCount == 1)
 
@@ -176,7 +176,7 @@ extension PageViewTests {
             harness.page.minimumPageCount = 3
             harness.layOut()
             Self.draw([Self.stroke(at: Self.foot(of: layout))], on: harness)
-            _ = await waitFor({ false }, seconds: 0.5)
+            await harness.page.inkSettled()
             #expect(told == 0)
             #expect(harness.page.pageCount == 3)
         }
@@ -190,7 +190,7 @@ extension PageViewTests {
             harness.page.onMinimumPageCountChanged = { _ in told += 1 }
 
             Self.draw([Self.stroke(at: Self.foot(of: layout))], on: harness)
-            _ = await waitFor({ false }, seconds: 0.5)
+            await harness.page.inkSettled()
 
             #expect(told == 0)
             #expect(harness.page.pageCount == 1)
@@ -205,7 +205,7 @@ extension PageViewTests {
             let loaded = PageHarness(text: "One line.", layout: layout)
             loaded.page.onMinimumPageCountChanged = { _ in told += 1 }
             loaded.setInk(PKDrawing(strokes: [Self.stroke(at: Self.foot(of: layout))]))
-            _ = await waitFor({ false }, seconds: 0.5)
+            await loaded.page.inkSettled()
             #expect(told == 0)
 
             // Drawn above the foot, then moved into it by the lasso.
