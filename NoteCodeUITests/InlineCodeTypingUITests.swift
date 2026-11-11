@@ -74,7 +74,7 @@ final class InlineCodeTypingUITests: XCTestCase {
         let empty = NSPredicate { element, _ in
             ((element as? XCUIElement)?.value as? String ?? "").isEmpty
         }
-        for _ in 0..<4 where !value(text).isEmpty {
+        for _ in 0..<6 where !value(text).isEmpty {
             app.typeKey("a", modifierFlags: .command)
             text.typeText(XCUIKeyboardKey.delete.rawValue)
             let emptied = XCTNSPredicateExpectation(predicate: empty, object: text)
