@@ -23,9 +23,14 @@ wait=4
 bundle=${NOTECODE_BUNDLE_ID:-}
 while [[ $# -gt 0 && $1 != -- ]]; do
   case $1 in
-    --device) device=$2; shift 2 ;;
-    --wait)   wait=$2; shift 2 ;;
-    --bundle-id) bundle=$2; shift 2 ;;
+    --device|--wait|--bundle-id)
+      [[ $# -ge 2 ]] || { echo "$1 needs a value" >&2; exit 2; }
+      case $1 in
+        --device) device=$2 ;;
+        --wait) wait=$2 ;;
+        --bundle-id) bundle=$2 ;;
+      esac
+      shift 2 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done

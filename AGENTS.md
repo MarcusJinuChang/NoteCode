@@ -137,6 +137,7 @@ something exists, and update its rows in the same PR that adds, changes or remov
 Private things (marketing, keys, friends' names) live outside the repo, in
 `/Users/Marcus/Documents/NoteCode-private/`; docs/README.md only says they
 exist, since it goes into the public repo and this file does not.
+
 Start at [docs/README.md](docs/README.md) (where every kind of fact lives)
 and [docs/NOW.md](docs/NOW.md) (this week, the queue, what is parked). How a
 feature is shaped, planned and built, and the skills for it:
