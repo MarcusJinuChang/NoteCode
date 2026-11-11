@@ -68,15 +68,17 @@ final class TypedRuleUITests: XCTestCase {
         let (app, text) = openEmptyNote()
         let keyboard = app.keyboards.firstMatch
         guard keyboard.waitForExistence(timeout: 5) else {
-            throw XCTSkip("no on-screen keyboard (a hardware keyboard is connected)")
+            XCTFail("no on-screen keyboard. " + SoftKeyboard.minimisedMessage)
+            return
         }
         if !keyboard.keys["-"].exists { keyboard.keys["more"].firstMatch.tap() }
         let hyphen = keyboard.keys["-"].firstMatch
         XCTAssertTrue(hyphen.waitForExistence(timeout: 3), "no - key")
-        // With a hardware keyboard connected the keyboard still exists, its
-        // keys below the screen's edge, so a tap could never reach them.
+        // Minimised, the keyboard still exists, its keys below the screen's
+        // edge, so a tap could never reach them.
         guard hyphen.isHittable else {
-            throw XCTSkip("no on-screen keyboard (a hardware keyboard is connected)")
+            XCTFail(SoftKeyboard.minimisedMessage)
+            return
         }
         for _ in 0..<3 {
             hyphen.tap()

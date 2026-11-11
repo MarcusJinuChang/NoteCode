@@ -22,7 +22,7 @@ final class ListDragUITests: XCTestCase {
     @MainActor
     private func launch() throws -> XCUIApplication {
 #if targetEnvironment(simulator)
-        throw XCTSkip("the simulator doesn't deliver drops; run on a device")
+        throw XCTSkip("device only: the simulator never delivers a drop (a drag lifts and follows the touch, and the list sees no drop session; read 24 Oct)")
 #else
         let app = XCUIApplication()
         app.launchArguments = ["-debug-home", "-debug-keep-defaults", "-debug-probe"]
