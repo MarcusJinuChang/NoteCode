@@ -461,12 +461,14 @@ process to be under 30% CPU). ms:
 | `PageViewTests/redrawCost` | 40.7 | 40.7 | 40.3 | 40.7 | 41.7 | **48.2** | 40.8 |
 | `PageViewTests/typingCostLongNote` | 5.2 | 5.5 | 4.6 | 5.2 | 5.7 | 5.0 | 4.8 |
 | `StylingPerformanceTests/fullPassCost` | 6.6 | 6.3 | 6.2 | 6.3 | 6.3 | **15.1** | 6.6 |
-| `StylingPerformanceTests/parseCost` | 3.4 | 3.1 | 3.1 | 3.1 | 2.9 | 3.0 | 5.8 |
+| `StylingPerformanceTests/parseCost` | 3.4 | 3.1 | 3.1 | 3.1 | 2.9 | 3.0 | **5.8** |
 | `TextSizeCostTests/firstFrame` | 42.3 | 37.2 | 56.5 | 42.3 | 42.6 | **50.6** | **57.5** |
 
 Rows under 5 ms everywhere (the caret moves, `longBlockCost`, `.paged`,
 `.without`, `keystrokeCost`, `cost.empty`) are left out; they are in §3.
-Bold is more than 10% over the new base, which `--compare` flags.
+In runs 4 to 6, bold is every value more than 10% over the new base and
+above 5 ms, which `--compare` flags (checked cell by cell, 11 Nov); runs 1
+to 3 made the base and are not marked.
 
 **What changed.** The four rows D8 found flagged on every run (printing,
 opening, a switch, a full pass) are now measured like with like: in runs

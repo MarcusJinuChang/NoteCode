@@ -236,7 +236,7 @@ and result bundles go under `$TMPDIR/notecode-check/<worktree>-<hash>/`.
 | `scripts/check-seam.sh` | The seam count (above) |
 | `scripts/core-test.sh [--filter …]` | `swift test` on the Mac for `Text/Core` and its tests, no simulator |
 | `scripts/build-open-source.sh` | Builds the public edition in a temporary worktree of HEAD (committed files only) and runs its unit tests |
-| `scripts/perf.sh [--compare docs/refactor/baseline.md]` | The cost tests; fails if any is more than 10% worse than its `PERF` line |
+| `scripts/perf.sh [--compare docs/refactor/baseline.md]` | The cost tests (the Perf plan); fails if any is more than 10% worse than its `PERF` line (under 5ms not judged). A row over budget is re-run first: only its test, up to twice more, and it fails only if its best run is still over |
 | `scripts/verify-move.sh [base]` | Checks that a commit only moves code, and lists access that was loosened |
 | `scripts/debug-launch.sh` | Relaunches the Debug build with the `-debug-` arguments below and prints the report |
 | `scripts/make-icons.swift` | Draws the app icons |
