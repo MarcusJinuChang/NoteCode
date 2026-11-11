@@ -36,6 +36,7 @@ A decision that needs more than a line gets an entry under
 | 7 Nov 2026 | In print layout, ink stays clipped to each sheet's body | Print layout previews paper; the PDF matches ([entry](#7-nov-2026-in-print-layout-ink-stays-clipped-to-each-sheets-body)) | standing |
 | 7 Nov 2026 | Page breaks push whole paragraphs; existing ink may drift | Typing ~100ms → ~5ms a keystroke; few notes affected a day after launch ([entry](#7-nov-2026-page-breaks-push-whole-paragraphs-existing-ink-may-drift)) | standing; release-notes line |
 | 7 Nov 2026 | The next upload is 1.2.0, build 5; 1.1.1 is never released | 1.1.1 never shipped alone, and everything planned for 1.1.1 and 1.2.0 is on `main`, so one update carries both. The live build is tagged `v1.1.0-4` | standing |
+| 10 Nov 2026 | Keep Google's IDFA explainer: outside the EEA/UK, ATT comes on the first Home visit from UMP's flow; the app's own prompt stays on the second visit for the EEA/UK | Google says the explainer raises opt-in; it needs no code or build change; reversible by unpublishing it in AdMob › Privacy & messaging (`design/shipping.md` › Ads) | standing |
 
 ## Entries
 

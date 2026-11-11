@@ -2,8 +2,10 @@
 //  AdConsent.swift
 //  NoteCode
 //
-//  Consent before any ad request: Google's UMP form, then App Tracking
-//  Transparency on a later Home visit. The SDK starts only after the first.
+//  Consent before any ad request: Google's UMP flow, then App Tracking
+//  Transparency. The SDK starts only after the first. Outside the EEA/UK,
+//  UMP's IDFA explainer raises ATT on the first Home visit; the app's own
+//  prompt, from the second visit, covers the EEA/UK (shipping.md › Ads).
 //
 
 import Foundation
@@ -82,9 +84,10 @@ final class AdConsent {
     }
 
     /// Home appeared. The first visit gathers consent and starts the SDK; the
-    /// tracking prompt waits for a later one, so it is never the first thing
-    /// the reader sees and never at launch. Free readers only: Pro never
-    /// hears from the ad stack.
+    /// app's own tracking prompt waits for a later one, and nothing is asked
+    /// at launch. (Outside the EEA/UK, UMP's IDFA explainer on the first
+    /// visit raises ATT itself, by design: docs/design/shipping.md › Ads.)
+    /// Free readers only: Pro never hears from the ad stack.
     func homeAppeared(isPro: Bool) async {
         guard !isPro, !gathering else { return }
         gathering = true
