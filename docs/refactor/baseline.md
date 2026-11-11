@@ -127,28 +127,59 @@ table is `Suite/function`, so rows are unique.)
 
 ## 3. Perf
 
-Taken at `main` 8767927.
-
-Command: `scripts/perf.sh`, run after the full run, no coverage. The `PERF` lines are
-what `--compare` reads (seconds).
+**Retaken 11 Nov 2026 at `main` b18d33b with the Perf test plan** (see
+"The base retaken with the Perf plan" below). The `PERF` lines are what
+`--compare` reads (seconds): the median of three `scripts/perf.sh` runs on an
+idle Mac. They are the only `PERF` lines in this file.
 
 ```
-PERF CodeFenceCostTests/caretMoveCost.into 0.0018
-PERF CodeFenceCostTests/caretMoveCost.keystroke 0.0420
-PERF CodeFenceCostTests/caretMoveCost.out 0.0019
-PERF LineNumbersTests/keystrokeCost.off 0.0347
-PERF LineNumbersTests/keystrokeCost.on 0.0341
-PERF LineNumbersTests/longBlockCost 0.0049
-PERF MarkdownLayoutCostTests/typingCost.legacy 0.0394
-PERF MarkdownLayoutCostTests/typingCost.rendered 0.0394
-PERF NotePDFTests/printingCost 0.8737
+PERF CodeFenceCostTests/caretMoveCost.into 0.0004
+PERF CodeFenceCostTests/caretMoveCost.keystroke 0.0079
+PERF CodeFenceCostTests/caretMoveCost.out 0.0005
+PERF LineNumbersTests/keystrokeCost.off 0.0076
+PERF LineNumbersTests/keystrokeCost.on 0.0074
+PERF LineNumbersTests/longBlockCost 0.0018
+PERF MarkdownLayoutCostTests/typingCost.legacy 0.0082
+PERF MarkdownLayoutCostTests/typingCost.rendered 0.0093
+PERF NoteListFetchCost/everything 0.0464
+PERF NoteListFetchCost/live-only 0.0313
+PERF NoteListFetchCost/warmup 0.0533
+PERF NotePDFTests/printingCost 1.0673
 PERF NoteSearchResultsTests/cost.empty 0.0000
-PERF PageViewTests/openingCost.open 0.1475
-PERF PageViewTests/openingCost.switch 0.3195
-PERF StylingPerformanceTests/fullPassCost 0.0062
+PERF PageViewTests/exclusionPathsAreTheCost.paged 0.0053
+PERF PageViewTests/exclusionPathsAreTheCost.with 0.1054
+PERF PageViewTests/exclusionPathsAreTheCost.without 0.0008
+PERF PageViewTests/openingCost.open 0.1919
+PERF PageViewTests/openingCost.switch 0.3658
+PERF PageViewTests/redrawCost 0.0407
+PERF PageViewTests/typingCostLongNote 0.0052
+PERF StylingPerformanceTests/fullPassCost 0.0063
 PERF StylingPerformanceTests/keystrokeCost 0.0006
-PERF StylingPerformanceTests/parseCost 0.0030
-PERF TextSizeCostTests/firstFrame 0.0920
+PERF StylingPerformanceTests/parseCost 0.0031
+PERF TextSizeCostTests/firstFrame 0.0423
+```
+
+The first base, taken at `main` 8767927 by the old `perf.sh` (whole suites,
+after the full run, no coverage), kept for the record; `--compare` no longer
+reads it:
+
+```
+was CodeFenceCostTests/caretMoveCost.into 0.0018
+was CodeFenceCostTests/caretMoveCost.keystroke 0.0420
+was CodeFenceCostTests/caretMoveCost.out 0.0019
+was LineNumbersTests/keystrokeCost.off 0.0347
+was LineNumbersTests/keystrokeCost.on 0.0341
+was LineNumbersTests/longBlockCost 0.0049
+was MarkdownLayoutCostTests/typingCost.legacy 0.0394
+was MarkdownLayoutCostTests/typingCost.rendered 0.0394
+was NotePDFTests/printingCost 0.8737
+was NoteSearchResultsTests/cost.empty 0.0000
+was PageViewTests/openingCost.open 0.1475
+was PageViewTests/openingCost.switch 0.3195
+was StylingPerformanceTests/fullPassCost 0.0062
+was StylingPerformanceTests/keystrokeCost 0.0006
+was StylingPerformanceTests/parseCost 0.0030
+was TextSizeCostTests/firstFrame 0.0920
 ```
 
 NotePDFTests/printingCost (0.87 s) and PageViewTests/openingCost.switch
@@ -195,13 +226,14 @@ bounds"); it does so on `main` before this change too.
 
 `scripts/perf.sh --compare` of this branch against `main` just before, ms,
 same simulator, run back to back with other lanes on the machine. The
-`PERF` lines the new budget is:
+`PERF` lines the new budget was (superseded 11 Nov by §3's lines, which
+cover these rows):
 
 ```
-PERF PageViewTests/typingCostLongNote 0.0051
-PERF PageViewTests/exclusionPathsAreTheCost.paged 0.0050
-PERF PageViewTests/exclusionPathsAreTheCost.with 0.1007
-PERF PageViewTests/exclusionPathsAreTheCost.without 0.0008
+was PageViewTests/typingCostLongNote 0.0051
+was PageViewTests/exclusionPathsAreTheCost.paged 0.0050
+was PageViewTests/exclusionPathsAreTheCost.with 0.1007
+was PageViewTests/exclusionPathsAreTheCost.without 0.0008
 ```
 
 | Test | before | after |
@@ -400,6 +432,57 @@ idle Mac, not by `perf.sh`'s own output; the rows above 10% are the plan's
 warm-up, not the code. Left as is: the `PERF` lines still read as a whole-suite run, so
 `perf.sh --compare` flags these four rows on every machine until the plan
 warms up or the base is retaken with it.
+(Retaken with the plan the same day; see the next section.)
+
+### The base retaken with the Perf plan (11 Nov 2026, `main` b18d33b)
+
+Follow-up to D8: §3's `PERF` lines are now taken the way `perf.sh --compare`
+runs, with the Perf test plan (only the `.perf` tests, cold), instead of whole
+suites. Same Mac and setup as D8 (a fresh "NoteCode Lane Perf" simulator,
+iPad Pro 13-inch (M5), iOS 27.0). Before each run: no other xcodebuild or
+simulator process, 1-minute load average under 3 (1.8 to 2.9 at each start), 60 GB+ disk
+and 25%+ memory free. `perf.sh --compare` three times (runs 1 to 3); §3's
+lines are each row's median of those three. Then three more `--compare`
+runs against the new lines (4 to 6; before run 6 also waited for every
+process to be under 30% CPU). ms:
+
+| Test | 1 | 2 | 3 | Base (median) | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|---|
+| `CodeFenceCostTests/caretMoveCost.keystroke` | 7.9 | 7.9 | 7.2 | 7.9 | 7.5 | 7.3 | 7.7 |
+| `LineNumbersTests/keystrokeCost.on` / `.off` | 8.2 / 7.8 | 7.4 / 7.6 | 7.0 / 6.7 | 7.4 / 7.6 | 7.3 / 6.9 | 6.7 / 6.6 | 7.5 / 6.9 |
+| `MarkdownLayoutCostTests/typingCost.rendered` | 9.3 | 9.3 | 8.3 | 9.3 | 9.2 | 8.5 | 8.2 |
+| `NoteListFetchCost/everything` | 46.4 | 55.8 | 43.6 | 46.4 | 44.0 | 45.5 | **58.1** |
+| `NoteListFetchCost/live-only` | 31.3 | 34.8 | 30.6 | 31.3 | 31.9 | 31.9 | **44.3** |
+| `NoteListFetchCost/warmup` | 53.3 | 62.7 | 45.9 | 53.3 | **69.5** | 48.7 | **80.6** |
+| `NotePDFTests/printingCost` | 1,067.3 | 1,070.7 | 1,039.7 | 1,067.3 | **1,402.0** | 963.7 | **1,482.3** |
+| `PageViewTests/exclusionPathsAreTheCost.with` | 105.4 | 109.4 | 102.6 | 105.4 | 111.0 | 103.4 | **117.0** |
+| `PageViewTests/openingCost.open` | 191.9 | 200.2 | 180.7 | 191.9 | 202.3 | **267.3** | 195.3 |
+| `PageViewTests/openingCost.switch` | 365.8 | 370.8 | 329.8 | 365.8 | 380.4 | **449.3** | 393.5 |
+| `PageViewTests/redrawCost` | 40.7 | 40.7 | 40.3 | 40.7 | 41.7 | **48.2** | 40.8 |
+| `PageViewTests/typingCostLongNote` | 5.2 | 5.5 | 4.6 | 5.2 | 5.7 | 5.0 | 4.8 |
+| `StylingPerformanceTests/fullPassCost` | 6.6 | 6.3 | 6.2 | 6.3 | 6.3 | **15.1** | 6.6 |
+| `StylingPerformanceTests/parseCost` | 3.4 | 3.1 | 3.1 | 3.1 | 2.9 | 3.0 | 5.8 |
+| `TextSizeCostTests/firstFrame` | 42.3 | 37.2 | 56.5 | 42.3 | 42.6 | **50.6** | **57.5** |
+
+Rows under 5 ms everywhere (the caret moves, `longBlockCost`, `.paged`,
+`.without`, `keystrokeCost`, `cost.empty`) are left out; they are in §3.
+Bold is more than 10% over the new base, which `--compare` flags.
+
+**What changed.** The four rows D8 found flagged on every run (printing,
+opening, a switch, a full pass) are now measured like with like: in runs
+1 to 3 all four sit within 10% of their median. In runs 4 to 6 printing is
+over twice, opening and a switch once (the same run) and a full pass once.
+
+**What did not.** `perf.sh --compare` still exited 1 in all three of runs 4
+to 6, each time on different rows, by 11% to 140%, on the same build and
+with nothing else of ours running. Every flagged value is one run high
+while the runs around it are at the base (printing 1,040 to 1,071 in five
+runs, 1,402 and 1,482 in two). So one run of the cost tests on this Mac
+varies by more than the 10% budget, and a single `--compare` run cannot
+show "nothing more than 10% worse" by itself. After each run two
+`ReportCrash` processes took 100% CPU each for a minute or more, which is
+one likely source. Not changed here: `perf.sh`'s threshold, and how many times
+a cost test measures before it reports.
 
 ## Findings (recorded, not fixed)
 
