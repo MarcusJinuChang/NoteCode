@@ -343,6 +343,64 @@ in the two runs. Run 2 against this file (ms; base in parentheses):
   98.8 to 111.1 ms, `.without` 0.8 ms and `PageViewTests/typingCostLongNote`
   96.6 to 98.4 ms (F5).
 
+### D8: perf on an idle Mac (11 Nov 2026, `main` 3096763)
+
+Mac17,2 (Apple M5, 10 cores, 32 GB), macOS 27.3, Xcode 27.2; a fresh
+simulator ("NoteCode Lane Perf", iPad Pro 13-inch (M5), iOS 27.0). No other
+xcodebuild or simulator on the Mac; each run started with the 1-minute load
+average under 3 (2.2 to 3.0). Our own build and simulator raise it to about
+55 during a run, as they did for the base. `perf.sh --compare` three times on
+`main`, and once on `8767927` (the commit §3 was taken at) as a control, ms:
+
+| Test | Run 1 | Run 2 | Run 3 | `8767927` | Base |
+|---|---|---|---|---|---|
+| `CodeFenceCostTests/caretMoveCost.into` / `.out` | 0.4 / 0.5 | 0.4 / 0.5 | 0.4 / 0.5 | 1.8 / 1.9 | 1.8 / 1.9 |
+| `CodeFenceCostTests/caretMoveCost.keystroke` | 7.6 | 7.8 | 8.2 | 50.0 | 42.0 |
+| `LineNumbersTests/keystrokeCost.on` / `.off` | 7.2 / 7.3 | 7.3 / 7.8 | 7.3 / 7.4 | 36.7 / 38.7 | 34.1 / 34.7 |
+| `LineNumbersTests/longBlockCost` | 1.7 | 1.8 | 3.7 | - | 4.9 |
+| `MarkdownLayoutCostTests/typingCost.legacy` / `.rendered` | 8.0 / 9.3 | 7.9 / 8.7 | 7.9 / 9.2 | 43.5 / 43.5 | 39.4 |
+| `NotePDFTests/printingCost` | 1,123.5 | 978.2 | 1,004.5 | 945.8 | 873.7 |
+| `PageViewTests/openingCost.open` | 159.2 | 187.6 | 186.8 | 180.2 | 147.5 |
+| `PageViewTests/openingCost.switch` | 311.6 | 340.3 | 356.8 | 354.2 | 319.5 |
+| `PageViewTests/typingCostLongNote` | 5.3 | 5.1 | 5.0 | - | 5.1 |
+| `StylingPerformanceTests/fullPassCost` | 6.2 | 7.0 | 7.8 | 6.3 | 6.2 |
+| `StylingPerformanceTests/parseCost` / `keystrokeCost` | 3.1 / 0.6 | 3.0 / 0.6 | - / 0.6 | 3.1 / 0.6 | 3.0 / 0.6 |
+| `TextSizeCostTests/firstFrame` | 34.7 | 35.3 | 35.5 | 76.3 | 92.0 |
+
+Run 1 followed this worktree's first (full) build. The `exclusionPathsAreTheCost`
+rows are within 4% of their F5 base in runs 1 and 2. New rows with no base yet:
+`NoteListFetchCost/everything` 45 to 47, `/live-only` 32 to 34, `/warmup` 51,
+`PageViewTests/redrawCost` 35 to 40.
+
+**What `--compare` flags.** `printingCost` (+12% to +29%), `openingCost.open`
+(+27% in runs 2 and 3), `openingCost.switch` (+12% in run 3) and
+`fullPassCost` (+13%, +26%). The control reads `printingCost` +8%,
+`openingCost.open` +22% and `.switch` +11% on an idle Mac, so the base is not
+met by the commit it was taken from either.
+
+**Why: the Perf plan runs the cost tests cold.** §3 was taken by the old
+`perf.sh`, which ran whole suites, so each cost test ran after its suite's
+other tests; the Perf plan (T3) runs only the `.perf` ones. The three suites
+run alone, as whole suites, the same way on both commits, back to back (ms):
+
+| Test | `main` (Full plan) | | `8767927` | | `main` (Perf plan) | |
+|---|---|---|---|---|---|---|
+| `NotePDFTests/printingCost` | 883.9 | 993.7 | 995.9 | 876.8 | 1,625.7 | 1,740.6 |
+| `PageViewTests/openingCost.open` | 151.8 | 151.9 | 151.8 | 152.5 | 211.3 | 214.2 |
+| `PageViewTests/openingCost.switch` | 289.2 | 291.3 | 311.0 | 308.4 | 377.9 | 387.3 |
+| `StylingPerformanceTests/fullPassCost` | 6.0 | 5.9 | 6.3 | 6.3 | 10.3 | 14.5 |
+
+Running the same tests, `main` matches `8767927` (printing within the two
+commits' own spread, opening equal, a switch 6% faster, a full pass 5%
+faster). The same tests in the Perf plan alone are 30% to 145% slower, on the
+same build. **No regression is shown.** The keystroke, caret-move and
+first-frame gains (F5, 2T1, the 4A fix) hold in every run. Release QA item 1
+("nothing more than 10% worse") is met when like is compared with like on an
+idle Mac, not by `perf.sh`'s own output; the rows above 10% are the plan's
+warm-up, not the code. Left as is: the `PERF` lines still read as a whole-suite run, so
+`perf.sh --compare` flags these four rows on every machine until the plan
+warms up or the base is retaken with it.
+
 ## Findings (recorded, not fixed)
 
 1. **A StoreKit test hung for 11.5 hours.** In the first unit run,
