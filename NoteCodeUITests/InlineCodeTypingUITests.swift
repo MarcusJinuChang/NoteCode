@@ -57,12 +57,30 @@ final class InlineCodeTypingUITests: XCTestCase {
         XCTAssertEqual(value(text), expected, what, file: file, line: line)
     }
 
-    /// Empties the note.
+    /// Empties the note: ⌘A and a delete, again until it is empty.
+    ///
+    /// The simulator drops a `typeKey` ⌘A now and then, and the first of a
+    /// launch always: never reaching the app (no `pressesBegan`, no
+    /// `selectAll`), while every one that arrived selected all. A fresh app
+    /// given `a code b`, then ⌘A and X, kept `a code bX` 40 times in 40,
+    /// prose or inline code, a 3s wait or none; after one earlier ⌘A the
+    /// next worked 7 times in 12 (11 Nov, iOS 27.0). So waiting doesn't
+    /// help and trying again does. A dropped one leaves the caret where it
+    /// was and the delete takes one character, so a try is told apart by
+    /// whether the note emptied, and the tries stop well short of the text.
     @MainActor
-    private func clear(_ app: XCUIApplication, _ text: XCUIElement) {
-        app.typeKey("a", modifierFlags: .command)
-        text.typeText(XCUIKeyboardKey.delete.rawValue)
-        assertSettles(text, on: "", "the note did not empty")
+    private func clear(_ app: XCUIApplication, _ text: XCUIElement,
+                       file: StaticString = #filePath, line: UInt = #line) {
+        let empty = NSPredicate { element, _ in
+            ((element as? XCUIElement)?.value as? String ?? "").isEmpty
+        }
+        for _ in 0..<4 where !value(text).isEmpty {
+            app.typeKey("a", modifierFlags: .command)
+            text.typeText(XCUIKeyboardKey.delete.rawValue)
+            let emptied = XCTNSPredicateExpectation(predicate: empty, object: text)
+            _ = XCTWaiter.wait(for: [emptied], timeout: 2)
+        }
+        XCTAssertEqual(value(text), "", "the note did not empty", file: file, line: line)
     }
 
     @MainActor
