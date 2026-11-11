@@ -269,9 +269,10 @@ struct PagedGapProbeTests {
         let tallStart = try #require(Dictionary(grouping: paths, by: \.paragraph).max { $0.value.count < $1.value.count }?.key)
         var tallFoot: CGFloat = 0, tallBaseline: CGFloat = 0, tallTop: CGFloat = 0, noteFoot: CGFloat = 0
         var gapHeights: [CGFloat] = []
-        var drawnShift: CGFloat = 0, drawnLines = 0
+        var drawnShift: CGFloat = 0, drawnLines = 0, tallLines = 0, gapLinesDrawn = 0
         for (path, gap) in zip(paths, gapped) {
             if path.paragraph == tallStart {
+                tallLines += 1
                 // Where the glyphs are drawn: the first inked row of the line,
                 // looked for from above the gap.
                 let window = (path.line.bounds.minY - 2)...(path.line.bounds.maxY)
@@ -279,6 +280,7 @@ struct PagedGapProbeTests {
                 if let inPath = Self.firstInk(in: window, of: pathDrawing), let inGap = Self.firstInk(in: wide, of: gapDrawing) {
                     drawnShift = max(drawnShift, abs(inGap - inPath))
                     drawnLines += 1
+                    if gap.line.bounds.height - path.line.bounds.height > 0.5 { gapLinesDrawn += 1 }
                 }
             }
             let foot = abs(gap.line.bounds.maxY - path.line.bounds.maxY)
@@ -300,7 +302,10 @@ struct PagedGapProbeTests {
         #expect(tallFoot <= 0.5, "a tall paragraph's line moved \(tallFoot)pt at its foot")
         #expect(tallTop <= 0.5, "a tall paragraph's glyphs moved \(tallTop)pt at their top")
         // Drawn, which is what the reader and the ink see.
-        #expect(drawnLines > 100)
+        // Every line of the paragraph was found drawn, the gap lines (the
+        // only ones that can draw differently) among them.
+        #expect(drawnLines == tallLines, "\(drawnLines) of the paragraph's \(tallLines) lines found drawn")
+        #expect(gapLinesDrawn == gapCount, "\(gapLinesDrawn) of \(gapCount) gap lines found drawn")
         #expect(drawnShift <= 0.5, "a tall paragraph's glyphs are drawn \(drawnShift)pt from where the paths put them")
         // `glyphOrigin` leaves `.baselineOffset` out: on a gap line it reads
         // the gap high, while the glyphs are drawn where the paths drew them
@@ -312,17 +317,42 @@ struct PagedGapProbeTests {
     // MARK: 3: what a keystroke costs
 
     /// The median of nine one-character edits near the top, as
-    /// `PageViewTests.Cost` takes it.
-    private static func keystrokeMedian(in textView: UITextView) -> TimeInterval {
-        var times: [TimeInterval] = []
-        for index in 0..<9 {
-            let position = textView.position(from: textView.beginningOfDocument, offset: 120 + index)!
-            let start = Date()
-            textView.replace(textView.textRange(from: position, to: position)!, withText: "z")
-            textView.layoutIfNeeded()
-            times.append(Date().timeIntervalSince(start))
+    /// `PageViewTests.Cost` takes it, on a monotonic clock, and the best of
+    /// three such batches, so a loaded machine is less likely to trip it.
+    private static func keystrokeTime(in textView: UITextView) -> TimeInterval {
+        let clock = ContinuousClock()
+        var batches: [TimeInterval] = []
+        for batch in 0..<3 {
+            var times: [TimeInterval] = []
+            for index in 0..<9 {
+                let position = textView.position(from: textView.beginningOfDocument, offset: 120 + batch * 9 + index)!
+                let elapsed = clock.measure {
+                    textView.replace(textView.textRange(from: position, to: position)!, withText: "z")
+                    textView.layoutIfNeeded()
+                }
+                times.append(Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18)
+            }
+            batches.append(times.sorted()[4])
         }
-        return times.sorted()[4]
+        return batches.min()!
+    }
+
+    /// Times keystrokes with the push table frozen (`isApplying`).
+    ///
+    /// Frozen means more than "no walk": the table ignores the edits, so it
+    /// neither lowers `through` nor shifts its pushes, and after the run its
+    /// keys past the edit are out by the characters typed. That is fair for
+    /// a comparison. The edits are at offset 120, in a paragraph with no
+    /// push, and TextKit asks the content storage's delegate again only for
+    /// the paragraph edited, so no stale key is read while it times. And
+    /// every frozen run here is frozen the same way. A frozen table is not
+    /// used again for layout: each frozen run is the last on its harness,
+    /// and the gaps get a harness of their own.
+    private static func frozenKeystrokeTime(in harness: PageHarness) throws -> TimeInterval {
+        let table = try #require(harness.page.textView.blankLineLayout?.pushes)
+        table.isApplying = true
+        defer { table.isApplying = false }
+        return keystrokeTime(in: harness.page.textView)
     }
 
     /// The gap's cost, in the same run as the notes it is set against. The
@@ -335,32 +365,31 @@ struct PagedGapProbeTests {
         let plain = PageHarness(text: StylingPerformanceTests.document(lines: 1500))
         #expect(plain.page.pageCount >= 40)
         #expect(plain.page.textView.textContainer.exclusionPaths.isEmpty)
-        let noTall = Self.keystrokeMedian(in: plain.page.textView)
+        let noTall = Self.keystrokeTime(in: plain.page.textView)
         plain.layOut()
         plain.page.paginate()
-        let plainTable = try #require(plain.page.textView.blankLineLayout?.pushes)
-        plainTable.isApplying = true
-        let noTallFrozen = Self.keystrokeMedian(in: plain.page.textView)
-        plainTable.isApplying = false
+        let noTallFrozen = try Self.frozenKeystrokeTime(in: plain)
         plain.page.removeFromSuperview()
 
-        let tall = PageHarness(text: Self.longNoteWithTallParagraph)
-        tall.page.paginate()
-        tall.layOut()
-        #expect(!tall.page.textView.textContainer.exclusionPaths.isEmpty)
-        let withPaths = Self.keystrokeMedian(in: tall.page.textView)
-        tall.layOut()
-        tall.page.paginate()
-        let tallTable = try #require(tall.page.textView.blankLineLayout?.pushes)
-        tallTable.isApplying = true
-        let withPathsFrozen = Self.keystrokeMedian(in: tall.page.textView)
-        tallTable.isApplying = false
-        tall.layOut()
+        let paths = PageHarness(text: Self.longNoteWithTallParagraph)
+        paths.page.paginate()
+        paths.layOut()
+        #expect(!paths.page.textView.textContainer.exclusionPaths.isEmpty)
+        let withPaths = Self.keystrokeTime(in: paths.page.textView)
+        paths.layOut()
+        paths.page.paginate()
+        let withPathsFrozen = try Self.frozenKeystrokeTime(in: paths)
+        paths.page.removeFromSuperview()
 
-        let (gapLayout, gapCount) = try Self.replacePathsWithGaps(in: tall)
+        // A harness of its own, so the gaps are worked out from a table that
+        // has seen every edit.
+        let gapped = PageHarness(text: Self.longNoteWithTallParagraph)
+        gapped.page.paginate()
+        gapped.layOut()
+        let (gapLayout, gapCount) = try Self.replacePathsWithGaps(in: gapped)
         defer { withExtendedLifetime(gapLayout) {} }
-        #expect(tall.page.textView.textContainer.exclusionPaths.isEmpty)
-        let withGaps = Self.keystrokeMedian(in: tall.page.textView)
+        #expect(gapped.page.textView.textContainer.exclusionPaths.isEmpty)
+        let withGaps = Self.keystrokeTime(in: gapped.page.textView)
 
         let ms = { (seconds: TimeInterval) in String(format: "%.1f", seconds * 1000) }
         print("PROBE gapCost ms: no tall \(ms(noTall)), no tall frozen \(ms(noTallFrozen)), paths \(ms(withPaths)), paths frozen \(ms(withPathsFrozen)), gaps frozen \(ms(withGaps)) (\(gapCount) gaps)")
