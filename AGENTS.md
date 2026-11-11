@@ -230,7 +230,7 @@ and result bundles go under `$TMPDIR/notecode-check/<worktree>-<hash>/`.
 
 | Script | Does |
 |---|---|
-| `scripts/check.sh [--full] [--coverage] [--only <Suite> …]` | Lint, seam, `swift test` of the core, then a build and the Fast plan (every unit test but `.perf`); on a new or erased simulator, one StoreKit test first, as a warm-up (debt D10). `--full` adds the Full plan, the UI tests, the proxy's tests and the open-source build. Fails on a failing test, a build error or more warnings than `WARNINGS <n>` in baseline.md. The macOS build failing (the ad SDKs have no macOS slice; the target is iOS-only, debt D14) is expected |
+| `scripts/check.sh [--full] [--coverage] [--only <Suite> …]` | Lint, seam, `swift test` of the core, then a build and the Fast plan (every unit test but `.perf`); on a new or erased simulator, one StoreKit test first, as a warm-up (debt D10). `--full` adds the Full plan, the UI tests, the proxy's tests and the open-source build. Fails on a failing test, a build error or more warnings than `WARNINGS <n>` in baseline.md. The macOS build runs only if the app target's `SUPPORTED_PLATFORMS` includes `macosx`; 1.2.0 is iOS-only, so it prints "macOS: not a supported platform, skipped" (debt D14) |
 | `scripts/lint-traps.sh` | Greps for the traps below (`.layoutManager`, `.inkType`, `MarkupOrderedSet` walks, UIKit in Core, test sleeps and the rest); exceptions in `scripts/lint-allow.txt` |
 | `scripts/check-seam.sh` | The seam count (above) |
 | `scripts/core-test.sh [--filter …]` | `swift test` on the Mac for `Text/Core` and its tests, no simulator |
