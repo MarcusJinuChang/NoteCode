@@ -191,9 +191,12 @@ struct TypingStyleRuleTests {
     }
 
     /// What each keystroke costs while a style is on: the line without the run
-    /// read once and the stretch written and read once. The loose bound is for a
-    /// busy machine; the measured figure is in AGENTS.md.
-    @Test("A keystroke under a typing style costs well under a millisecond")
+    /// read once and the stretch written and read once. Measured against
+    /// reading that line once (`StyledLine`), timed in the same run, so a busy
+    /// machine slows both alike; each is the fastest of several batches, so a
+    /// batch the scheduler interrupted doesn't count. It is about 8 readings
+    /// (Mac, debug, 11 Nov); reading the line again per glyph would be about 100.
+    @Test("A keystroke under a typing style costs a handful of readings of its line", .tags(.perf))
     func cost() {
         let line = "A fairly long line of ordinary prose with some **bold words** and `code` in it, then more text |"
         let caret = (line as NSString).range(of: "|").location
@@ -201,16 +204,27 @@ struct TypingStyleRuleTests {
         let text = (before as NSString).replacingCharacters(in: NSRange(location: caret, length: 0), with: "w")
         let run = NSRange(location: caret, length: 1)
         let clock = ContinuousClock()
-        let rounds = 2000
+        let rounds = 500
         var edits = 0
-        let elapsed = clock.measure {
+        var reads = 0
+        func fastest(of batches: Int, _ body: () -> Void) -> Duration {
+            (0..<batches).map { _ in clock.measure(body) }.min()!
+        }
+        let keystrokes = fastest(of: 7) {
             for _ in 0..<rounds {
                 if MarkdownFormatting.typed(Self.bold, run: run, in: text as NSString, blockSizes: StyledLineTests.blockSizes, codeRanges: []) != nil { edits += 1 }
             }
         }
-        #expect(edits == rounds)
-        let perCall = elapsed / rounds
-        #expect(perCall < .milliseconds(1), "\(perCall) a keystroke")
+        let readings = fastest(of: 7) {
+            for _ in 0..<rounds {
+                if StyledLine(before) != nil { reads += 1 }
+            }
+        }
+        #expect(edits == rounds * 7)
+        #expect(reads == rounds * 7)
+        let ratio = keystrokes / readings
+        print("TYPINGSTYLECOST a keystroke \(keystrokes / rounds), a reading of the line \(readings / rounds), \(ratio)x")
+        #expect(ratio < 20, "a keystroke costs \(ratio) readings of its line")
     }
 
     static func characters(of text: String) -> [String] {
