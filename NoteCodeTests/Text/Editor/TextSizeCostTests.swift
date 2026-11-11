@@ -52,7 +52,7 @@ struct TextSizeCostTests {
         opened.page.textView.text = Self.note
         opened.coordinator.invalidateStyling()
         opened.coordinator.restyle(opened.page.textView)
-        await ReopenTests.layOut(opened.page, over: 0.8)
+        await ReopenTests.layOut(opened.page)
 
         var report: [String] = []
         var worst = 0.0
@@ -60,7 +60,7 @@ struct TextSizeCostTests {
             let (restyle, layout) = Self.change(to: size, opened)
             worst = max(worst, restyle + layout)
             report.append("\(size)pt: restyle \(Int(restyle))ms, layout \(Int(layout))ms")
-            await ReopenTests.layOut(opened.page, over: 0.4)
+            await ReopenTests.layOut(opened.page)
         }
         print("TEXTSIZE-COST lines=\(Self.note.split(separator: "\n", omittingEmptySubsequences: false).count)\n" + report.joined(separator: "\n"))
         // Measured 26 Oct on the simulator: 55 to 100ms, four fifths of it layout,

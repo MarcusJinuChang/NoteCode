@@ -232,13 +232,16 @@ final class PageInkPipeline {
         startCapture()
     }
 
+    /// The capture running now, for `settled()`.
+    private var captureTask: Task<Void, Never>?
+
     private func startCapture() {
         guard !isCapturing, let snapshot = newestSnapshot else { return }
         isCapturing = true
         let state = state
         let generation = generation
         let (markup, layout, pageCount) = (snapshot.markup, snapshot.layout, snapshot.pageCount)
-        Task { [weak self] in
+        captureTask = Task { [weak self] in
             let result = await Task.detached(priority: .userInitiated) {
                 InkCapture.capture(markup, into: state, layout: layout, pageCount: pageCount)
             }.value
@@ -249,6 +252,15 @@ final class PageInkPipeline {
                 apply(result)
             }
             startCapture()
+        }
+    }
+
+    /// Returns once no capture is running: every snapshot waiting has been
+    /// taken in and told onward, or dropped as stale. Each capture starts
+    /// the next before it ends, so this follows the chain. For tests.
+    func settled() async {
+        while isCapturing, let captureTask {
+            await captureTask.value
         }
     }
 

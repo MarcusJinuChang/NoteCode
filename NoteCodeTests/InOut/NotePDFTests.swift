@@ -51,7 +51,7 @@ struct NotePDFTests {
         manager.ensureLayout(for: manager.documentRange)
         textView.setNeedsLayout()
         textView.layoutIfNeeded()
-        await PageSettlingTests.settle(0.5)
+        await PageSettlingTests.settle(page)
         manager.ensureLayout(for: manager.documentRange)
 
         var expected: [Int: Int] = [:]

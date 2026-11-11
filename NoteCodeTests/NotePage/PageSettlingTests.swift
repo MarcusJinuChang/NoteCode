@@ -13,9 +13,10 @@ import UIKit
 /// What the page looks like once layout settles on its own, the way it does
 /// in the app — no layout passes forced by the test.
 ///
-/// Waits with `Task.sleep`, never by running the run loop by hand. A test that
-/// spins the main run loop holds the main actor for as long as it spins, and
-/// other suites' main-actor tests that poll against a deadline time out.
+/// Waits for `PageView.layoutSettled()`, never by running the run loop by
+/// hand. A test that spins the main run loop holds the main actor for as long
+/// as it spins, and other suites' main-actor tests that poll against a
+/// deadline time out.
 @Suite("Page settling", .serialized, .tags(.layout))
 @MainActor
 struct PageSettlingTests {
@@ -32,8 +33,10 @@ struct PageSettlingTests {
         return ["Line \(index): the loop invariant holds before and after every iteration gjpqy."]
     }.joined(separator: "\n")
 
-    static func settle(_ seconds: Double) async {
-        try? await Task.sleep(for: .seconds(seconds))
+    /// Waits for the page's layout to settle on its own (`PageView.layoutSettled`).
+    static func settle(_ page: PageView, sourceLocation: SourceLocation = #_sourceLocation) async {
+        let settled = await page.layoutSettled()
+        #expect(settled, "layout was still moving", sourceLocation: sourceLocation)
     }
 
     /// Wired the way DocumentTextView wires it, editing at the note's end —
@@ -56,12 +59,12 @@ struct PageSettlingTests {
         page.frame = CGRect(x: 76, y: 137, width: 872, height: 1100)
         window.addSubview(page)
         window.makeKeyAndVisible()
-        await settle(0.3)
+        await settle(page)
 
         textView.becomeFirstResponder()
         textView.selectedRange = NSRange(location: (text as NSString).length, length: 0)
         textView.scrollRangeToVisible(textView.selectedRange)
-        await settle(0.3)
+        await settle(page)
         return (window, coordinator, page)
     }
 
@@ -71,7 +74,7 @@ struct PageSettlingTests {
             let (window, coordinator, page) = await Self.openNote(layout: PageLayout(mode: start))
 
             page.pageLayout = PageLayout(mode: target)
-            await Self.settle(1)
+            await Self.settle(page)
 
             let expected = page.pageLayout.noteHeight(pageCount: page.pageCount)
             #expect(abs(page.textView.contentSize.height - expected) < 0.5,
@@ -92,7 +95,7 @@ struct PageSettlingTests {
         let (window, coordinator, page) = await Self.openNote(layout: print)
         let textView = page.textView
         textView.resignFirstResponder()
-        await Self.settle(0.5)
+        await Self.settle(page)
         try #require(page.pageCount > 3)
 
         // Inside the third sheet's top margin, above its first line. Checked
@@ -100,12 +103,12 @@ struct PageSettlingTests {
         // back to the note's end, and the switch then had nothing to test.
         let intended = print.sheet(ofPage: 2).minY + 20
         textView.contentOffset.y = intended
-        await Self.settle(0.5)
+        await Self.settle(page)
         let before = textView.contentOffset.y
         try #require(abs(before - intended) < 1, "\(orientation): setup scrolled to \(before), not \(intended)")
 
         page.pageLayout = seamless
-        await Self.settle(1)
+        await Self.settle(page)
 
         let expected = seamless.scrollTop(forPage: 2)
         #expect(abs(textView.contentOffset.y - expected) < 0.5,
@@ -153,7 +156,7 @@ struct PageSettlingTests {
         page.frame = CGRect(x: 76, y: 137, width: 872, height: 1100)
         window.addSubview(page)
         window.makeKeyAndVisible()
-        await Self.settle(0.5)
+        await Self.settle(page)
 
         // Down to the fourth sheet's top margin in steps, the way a finger gets there.
         let target = print.sheet(ofPage: 3).minY + 30
@@ -161,13 +164,12 @@ struct PageSettlingTests {
         while y < target {
             y = min(y + 400, target)
             textView.contentOffset.y = y
-            await Self.settle(0.05)
+            await Self.settle(page)
         }
-        await Self.settle(0.5)
         try #require(abs(textView.contentOffset.y - target) < 1, "\(orientation): setup scrolled to \(textView.contentOffset.y), not \(target)")
 
         page.pageLayout = seamless
-        await Self.settle(1)
+        await Self.settle(page)
 
         let shownAtTop = try #require(Self.characterAtTop(of: textView))
         if let manager = textView.textLayoutManager {
@@ -209,23 +211,22 @@ struct PageSettlingTests {
         page.frame = CGRect(x: 76, y: 137, width: 872, height: 1100)
         window.addSubview(page)
         window.makeKeyAndVisible()
-        await Self.settle(0.5)
+        await Self.settle(page)
 
         page.pageLayout = print
-        await Self.settle(0.5)
+        await Self.settle(page)
 
         let target = print.sheet(ofPage: 3).minY + 30
         var y = textView.contentOffset.y
         while y < target {
             y = min(y + 400, target)
             textView.contentOffset.y = y
-            await Self.settle(0.05)
+            await Self.settle(page)
         }
-        await Self.settle(0.5)
         try #require(abs(textView.contentOffset.y - target) < 1, "\(orientation): setup scrolled to \(textView.contentOffset.y), not \(target)")
 
         page.pageLayout = seamless
-        await Self.settle(1)
+        await Self.settle(page)
 
         let shownAtTop = try #require(Self.characterAtTop(of: textView))
         if let manager = textView.textLayoutManager {
@@ -297,7 +298,7 @@ struct PageSettlingTests {
         page.frame = CGRect(x: 76, y: 137, width: 872, height: 1100)
         window.addSubview(page)
         window.makeKeyAndVisible()
-        await Self.settle(0.5)
+        await Self.settle(page)
 
         #expect(textView.contentOffset.y == 0, "\(mode): opened at \(textView.contentOffset.y)")
         withExtendedLifetime((window, coordinator, box)) {}
@@ -316,7 +317,7 @@ struct PageSettlingTests {
         // is where TextKit's layout happens in the first place.
         textView.setNeedsLayout()
         textView.layoutIfNeeded()
-        await Self.settle(0.5)
+        await Self.settle(page)
 
         // The last line's bottom, from TextKit's own layout rather than from
         // anything PageView worked out.

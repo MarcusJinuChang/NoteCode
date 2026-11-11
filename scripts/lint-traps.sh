@@ -22,7 +22,8 @@
 #    only the Perf plan, so its PERF line would never be read). The test is
 #    the last @Test above the call, and the suite the last @Suite
 #  9 a sleep or run-loop spin in NoteCodeTests/ (Task.sleep, RunLoop.main.run,
-#    RunLoop.current.run, usleep, Thread.sleep), as a count that may only
+#    RunLoop.current.run, usleep, Thread.sleep, and a fixed delay written as
+#    a wait for a condition that never holds, `waitFor({ false }`), as a count that may only
 #    fall (T6). A test awaits the work's hook, or moves a ManualClock
 
 set -uo pipefail
@@ -89,7 +90,7 @@ if [[ -z $limit ]]; then limit=0; fi
 (( count > limit )) && hits+=("NoteCodeTests rule 7: UserDefaults.standard or UserDefaults() $count times, limit $limit (the count may only fall)")
 
 # 9
-sleeps=$(code_lines NoteCodeTests | grep -cE 'Task\.sleep|RunLoop\.(main|current)\.run|usleep|Thread\.sleep')
+sleeps=$(code_lines NoteCodeTests | grep -cE 'Task\.sleep|RunLoop\.(main|current)\.run|usleep|Thread\.sleep|waitFor *\( *\{ *false *\}')
 sleepLimit=$(awk '$1 == "limit" && $2 == 9 { print $3 }' $allow 2>/dev/null)
 if [[ -z $sleepLimit ]]; then sleepLimit=0; fi
 (( sleeps > sleepLimit )) && hits+=("NoteCodeTests rule 9: $sleeps sleeps or run-loop spins, limit $sleepLimit (the count may only fall)")

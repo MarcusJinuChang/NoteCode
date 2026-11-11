@@ -114,7 +114,7 @@ struct NoteOutlineScrollTests {
             page.scroll(toLineAt: entry.location)
             // Layout passes come only when asked for: a window made outside
             // the test host's scene has no display link.
-            await ReopenTests.layOut(page, over: 0.2)
+            await ReopenTests.layOut(page)
             let top = try #require(PageSettlingTests.characterAtTop(of: page.textView))
             #expect(top == entry.location, "\(mode): \(entry.title) should be at the top; the top line starts at \(top)")
         }
@@ -128,7 +128,7 @@ struct NoteOutlineScrollTests {
         let entry = try #require(NoteOutline.entries(in: short).last)
 
         page.scroll(toLineAt: entry.location)
-        await PageSettlingTests.settle(0.1)
+        await PageSettlingTests.settle(page)
 
         let maxOffset = max(page.textView.contentSize.height - page.textView.bounds.height, 0)
         #expect(page.textView.contentOffset.y <= maxOffset + 0.5)

@@ -135,7 +135,7 @@ extension PageViewTests {
             Self.draw([Self.stroke(at: drawnAt)], on: harness)
             harness.switchTo(PageLayout(mode: mode))
             // Let the capture that was running finish; its result is stale.
-            _ = await waitFor({ false }, seconds: 0.5)
+            await harness.page.inkSettled()
 
             let stored = harness.page.ink.subelements.strokes
             #expect(stored.count == 1)
