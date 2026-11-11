@@ -142,6 +142,8 @@ struct TipJarTests {
         #expect(unfinished == 0)
     }
 
+    // scripts/check.sh runs this test by name to warm a new simulator's
+    // StoreKit (its "storekit warm-up"); rename it there too.
     @Test("With Ask to Buy on, a tip waits for approval")
     func storeKitAskToBuy() async throws {
         let session = try await session()

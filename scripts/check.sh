@@ -77,6 +77,59 @@ export NOTECODE_COVERAGE=$cov
 only=(${(f)"$(only_args $suites)"})
 logs=()
 
+# StoreKit warm-up (debt.md D10). On a simulator that has never run a
+# StoreKit test session (just made or erased), the first test process's
+# purchases go to the real App Store, whose daemon waits on a "Sign in to
+# Apple Account" alert nobody answers, and TipJarTests fail at their
+# deadlines; every later process on that simulator passes. So a new
+# simulator first runs one StoreKit test, whose result is ignored, in a
+# process of its own. Its build is the plan's: same plan, flags and
+# DerivedData, so the run after it builds nothing.
+#
+# Whether a simulator is warm is a marker file in the simulator's own data
+# folder (CoreSimulator/Devices/<udid>/data), which `simctl erase` empties and
+# `simctl clone` copies, so the marker lives and dies with the state it
+# stands for and a warm simulator costs one `simctl list`. A marker under
+# $tmp or the lock folder would outlive an erase and stay on a simulator that
+# was deleted and made again under the same name.
+#
+# The udid is that of the newest-OS device with $sim's name, which is the one
+# xcodebuild's `name=` destination runs on: older ones are below the 27.0
+# deployment target and xcodebuild lists them as ineligible. (Two devices
+# with one name on one OS are ambiguous to xcodebuild too.) The test id
+# below is named in TipJarTests.swift; renaming it repeats the warm-up on
+# every run, with "no test ran" printed. Skipped where TipJarTests is not (the
+# open-source edition, which has no Pro/), and when no test ran (a build
+# error), so the next run tries again.
+warm_udid() {
+  xcrun simctl list devices available -j 2>/dev/null | python3 -I -c '
+import json,re,sys
+best=None
+for rt,devs in json.load(sys.stdin).get("devices",{}).items():
+    m=re.search(r"\.iOS-(\d+)-(\d+)(?:-(\d+))?$",rt)
+    if not m: continue
+    v=tuple(int(x or 0) for x in m.groups())
+    for d in devs:
+        if d.get("name")==sys.argv[1] and (best is None or v>best[0]): best=(v,d["udid"])
+if best: print(best[1])
+' "$sim"
+}
+if [[ -f NoteCodeTests/Pro/Store/TipJarTests.swift ]] && udid=$(warm_udid) && [[ -n $udid ]] \
+    && warm=~/Library/Developer/CoreSimulator/Devices/$udid/data/.notecode-storekit-warm \
+    && [[ ! -e $warm ]]; then
+  wlog=$tmp/check-warmup.log wbundle=$tmp/check-warmup.xcresult
+  start=$SECONDS
+  xcode_test $wlog $wbundle '-only-testing:NoteCodeTests/TipJarTests/storeKitAskToBuy()'
+  logs+=($wlog)  # it did the build, so its log holds the warnings
+  wrun=$(grep -E "^(✔|✘) Test run with [1-9]" $wlog | tail -1)
+  if [[ -n $wrun ]]; then
+    touch $warm
+    print "storekit warm-up: new simulator, ran one StoreKit test ($(print -r -- $wrun | grep -oE '[0-9.]+ seconds' | tail -1)) in $(( SECONDS - start ))s with the build (log: $wlog)"
+  else
+    print "storekit warm-up: no test ran, simulator not marked warm (log: $wlog)"
+  fi
+fi
+
 # summarise <log> <bundle> <label>: errors, failing tests and the totals.
 summarise() {
   local log=$1 bundle=$2 label=$3
