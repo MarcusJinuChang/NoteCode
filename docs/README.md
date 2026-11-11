@@ -25,8 +25,8 @@ Five minutes a week keep this true: `/weekly`, Mondays.
 | Finished plans and old reasoning | `archive/` | `/weekly` moves them | |
 | The privacy and support pages | `site/` | with the release | |
 
-Private things (marketing, keys, friends' names) never go here:
-`/Users/Marcus/Documents/NoteCode-private/`.
+Private things (marketing, keys, friends' names) never go here: they live
+in a private folder outside this repository, on the maintainer's Mac.
 
 ## Rules
 
