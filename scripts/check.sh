@@ -93,8 +93,12 @@ logs=()
 # $tmp or the lock folder would outlive an erase and stay on a simulator that
 # was deleted and made again under the same name.
 #
-# xcodebuild's `name=` destination takes the newest OS among devices with
-# that name, so the udid is that one's. Skipped where TipJarTests is not (the
+# The udid is that of the newest-OS device with $sim's name, which is the one
+# xcodebuild's `name=` destination runs on: older ones are below the 27.0
+# deployment target and xcodebuild lists them as ineligible. (Two devices
+# with one name on one OS are ambiguous to xcodebuild too.) The test id
+# below is named in TipJarTests.swift; renaming it repeats the warm-up on
+# every run, with "no test ran" printed. Skipped where TipJarTests is not (the
 # open-source edition, which has no Pro/), and when no test ran (a build
 # error), so the next run tries again.
 warm_udid() {
