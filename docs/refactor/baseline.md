@@ -130,7 +130,9 @@ table is `Suite/function`, so rows are unique.)
 **Retaken 11 Nov 2026 at `main` b18d33b with the Perf test plan** (see
 "The base retaken with the Perf plan" below). The `PERF` lines are what
 `--compare` reads (seconds): the median of three `scripts/perf.sh` runs on an
-idle Mac. They are the only `PERF` lines in this file.
+idle Mac. They are the only `PERF` lines in this file. `TextSizeCostTests/firstFrame`
+was retaken on 12 Nov at `main` 7d6d1aa (see "firstFrame's base retaken"
+below).
 
 ```
 PERF CodeFenceCostTests/caretMoveCost.into 0.0004
@@ -156,7 +158,7 @@ PERF PageViewTests/typingCostLongNote 0.0052
 PERF StylingPerformanceTests/fullPassCost 0.0063
 PERF StylingPerformanceTests/keystrokeCost 0.0006
 PERF StylingPerformanceTests/parseCost 0.0031
-PERF TextSizeCostTests/firstFrame 0.0423
+PERF TextSizeCostTests/firstFrame 0.0470
 ```
 
 The first base, taken at `main` 8767927 by the old `perf.sh` (whole suites,
@@ -509,6 +511,51 @@ exited 1. The sleep was reverted and never committed. Run B also shows the
 noise is not only the first run: printing's second run was the highest of
 all, so the best of three is what makes the check pass, and a row that is
 high on three runs in a row still fails.
+
+### firstFrame's base retaken (12 Nov 2026, `main` 7d6d1aa)
+
+`TextSizeCostTests/firstFrame` read about 62 ms on `main` after #278, against
+its line of 42.3 ms, while the other rows held. #278 is the only change to
+code between b18d33b (where the base was taken) and 7d6d1aa: #276 and #280
+touch scripts and docs, #277 adds a test file of another suite, #279 UI tests.
+#278 replaced the test's fixed waits (`layOut(_:over:)`) with
+`PageView.layoutSettled()`, and counts layout passes in two
+`layoutSubviews`. It is not a regression, and the test still times what it
+meant to:
+
+- **The timed region did not change.** `change(to:_:)` (the restyle and
+  `reflow`) is the same code; the waits are between changes, outside it.
+- **It does the same work.** Printed before each of the six changes, at
+  both commits: the same text view offset (0), content height (10,150 to
+  13,802 pt) and caret (7,505), so `reflow` takes the same path (the top line
+  is 0, nothing laid out down to an anchor).
+- **The same cost per change.** Each run's six changes, at both commits run
+  in turn on one simulator ("NoteCode Lane E14", iPad Pro 13-inch (M5),
+  iOS 27.0), `check.sh --only TextSizeCostTests`, 7 runs of b18d33b and 6 of
+  7d6d1aa: restyle plus layout per change, median 36 ms and 39 ms, upper
+  quartile 44 ms at both.
+- **The row is the worst of six, so one stall sets it.** The reported value
+  (ms) in those runs, in order:
+
+  | Commit | Runs | Median |
+  |---|---|---|
+  | b18d33b (the base) | 62.8, 51.1, 39.0, 44.4, 52.9, 45.4, 52.5, 51.6 | 51.4 |
+  | 7d6d1aa (`main`) | 62.0, 44.7, 43.8, 79.3, 45.0, 68.0, 67.7 | 62.0 |
+
+  Each high value is one change of the six (a 65 ms layout where the others
+  are 30 to 40), not every change being slower. The two medians are 0.9
+  standard deviations apart on a rank test, which is noise. The Mac was not
+  idle (1-minute load 50 to 500, other sessions' simulators running), which
+  widens both rows alike since the commits alternated.
+
+So the line was low, not `main` high: of b18d33b's own 8 Perf-plan runs
+recorded above (42.3, 37.2, 56.5, 42.6, 50.6, 57.5, 55.2, 37.1, median 46.6)
+and these 8, 42.3 is in the lowest quarter. Retaken as the median of three
+`scripts/perf.sh` runs at 7d6d1aa: 47.0, 60.1, 42.7, so **47.0 ms**. In
+those three runs (without `--compare`, so no re-runs) no other row was more
+than 10% over its line in more than one run: `redrawCost` in run 1,
+`fullPassCost` in run 2, and five rows in run 3, started at a 1-minute load
+of 295. The other lines are unchanged.
 
 ## Findings (recorded, not fixed)
 
