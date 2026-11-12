@@ -41,8 +41,8 @@ final class HotbarUITests: XCTestCase {
         app.launch()
         app.buttons["modeToggle"].tap()
         XCTAssertTrue(app.buttons["Medium Pen"].waitForExistence(timeout: 5), "the options row never came out")
-        // Past the row's slide in.
-        Thread.sleep(forTimeInterval: 0.8)
+        // Past the row's slide in, which reports no end.
+        UIWait.pace(0.8, .animation)
         return app
     }
 
@@ -219,7 +219,7 @@ final class HotbarUITests: XCTestCase {
         case .right: inGap = CGPoint(x: bar.minX - 6, y: frame.midY)
         }
         tap(inGap, in: app)
-        Thread.sleep(forTimeInterval: 0.5)
+        UIWait.pace(0.5, .nothingHappens)
         XCTAssertTrue(undo.isEnabled, "a touch in the gap beside Undo undid the stroke")
         XCTAssertEqual(app.buttons["modeToggle"].value as? String, "Draw mode")
         app.terminate()
