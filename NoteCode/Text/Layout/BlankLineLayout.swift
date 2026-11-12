@@ -121,10 +121,12 @@ final class BlankLineLayout: NSObject, NSTextContentStorageDelegate {
         return result
     }
 
-    /// Whether a paragraph starts at `offset`.
+    /// Whether a paragraph starts at `offset`, by the rule TextKit splits
+    /// paragraphs with (`paragraphRange`): after a newline, a carriage
+    /// return, U+2029 or U+0085, which a plain paste can bring in.
     static func startsParagraph(_ offset: Int, in text: NSString) -> Bool {
         guard offset >= 0, offset < text.length else { return false }
-        return offset == 0 || text.character(at: offset - 1) == UTF16Unit.newline
+        return offset == 0 || text.paragraphRange(for: NSRange(location: offset, length: 0)).location == offset
     }
 
     /// Whether the character at `offset` is a blank line: a newline that

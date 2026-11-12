@@ -87,6 +87,7 @@ final class PagePaginator {
         var started = false
         var edits: [(range: NSRange, push: CGFloat, gaps: [Int: PageLineGap])] = []
         var tall: [(range: NSRange, pages: [Int]?)] = []
+        let bands = textView.textContainer.exclusionPaths.map(\.bounds)
 
         manager.enumerateTextLayoutFragments(from: startLocation, options: [.ensuresLayout]) { fragment in
             let frame = fragment.layoutFragmentFrame
@@ -109,7 +110,10 @@ final class PagePaginator {
                 layout: layout
             ) == .tall ? measure(fragment) : nil
             let growth = measured.map { measure in lines.indices.map { lines[$0].typographicBounds.height - measure.natural[$0] } } ?? []
-            let gapTotal = growth.reduce(0, +)
+            // And the room TextKit skipped for the container's paths, in a
+            // paragraph that has them: its lines are moved, not grown.
+            let crossed = !bands.isEmpty && bands.contains { $0.minY < frame.maxY && $0.maxY > frame.minY }
+            let gapTotal = growth.reduce(0, +) + (crossed ? Self.skipped(in: fragment) : 0)
             let naturalHeight = frame.height - applied - gapTotal
             guard let last = lines.last else {
                 cursor += naturalHeight
@@ -201,6 +205,30 @@ final class PagePaginator {
         return CGFloat(push)
     }
 
+    /// The room TextKit left between a paragraph's lines to keep them out of
+    /// the container's exclusion paths: each gap between two lines beyond the
+    /// smallest one (line spacing), and any above the first beyond its
+    /// spacing before (which holds the push). Main counted it in a tall
+    /// paragraph's height, which was harmless while the paragraph stayed tall
+    /// (only its line heights placed it) but misplaced it for a pass once it
+    /// was cut below a page. Only for a paragraph a band crosses.
+    static func skipped(in fragment: NSTextLayoutFragment) -> CGFloat {
+        let lines = fragment.textLineFragments
+        guard let first = lines.first else { return 0 }
+        let string = (fragment.textElement as? NSTextParagraph)?.attributedString
+        let style = (string?.length ?? 0) > 0 ? string?.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle : nil
+        let before = style?.paragraphSpacingBefore ?? 0
+        var spaces: [CGFloat] = []
+        for (above, below) in zip(lines, lines.dropFirst()) {
+            spaces.append(below.typographicBounds.minY - above.typographicBounds.maxY)
+        }
+        let normal = max(spaces.min() ?? 0, 0)
+        var skipped = max(first.typographicBounds.minY - before, 0)
+        if skipped < 0.5 { skipped = 0 }
+        for space in spaces where space - normal > 0.5 { skipped += space - normal }
+        return skipped
+    }
+
     /// Whether a paragraph's lines are a fixed height (a code line, a display
     /// formula's source): a baseline offset can't make them taller.
     static func hasFixedLineHeight(_ fragment: NSTextLayoutFragment) -> Bool {
@@ -237,7 +265,8 @@ final class PagePaginator {
     /// the middle of one (a join the walk has not reached yet) is dropped, so
     /// its band cannot outlive it.
     private func applyBands(layout: PageLayout, table: PagePushTable, to textView: DocumentUITextView) -> Bool {
-        table.dropTall { !BlankLineLayout.startsParagraph($0, in: textView.textStorage.string as NSString) }
+        let text = textView.textStorage.string as NSString
+        table.dropTall { !BlankLineLayout.startsParagraph($0, in: text) }
         let pages = Set(table.tall.values.flatMap { $0 }).sorted()
         let rects = pages.map { layout.exclusionBand(afterPage: $0, containerTop: textView.textContainerInset.top) }
         let current = textView.textContainer.exclusionPaths.map(\.bounds)
@@ -247,11 +276,9 @@ final class PagePaginator {
     }
 
     /// A tall paragraph's lines as laid out now: each one's height without a
-    /// gap, and how much further than the gap an offset must move its glyphs
-    /// for the line to grow by exactly the gap.
+    /// gap (the slack is `slack(of:in:)`, for the lines that get one).
     struct LineMeasure {
         var natural: [CGFloat]
-        var slack: [CGFloat]
     }
 
 
@@ -273,13 +300,13 @@ final class PagePaginator {
         let string = (fragment.textElement as? NSTextParagraph)?.attributedString ?? NSAttributedString()
         let style = string.length > 0 ? string.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle : nil
         if (style?.maximumLineHeight ?? 0) > 0 {
-            return LineMeasure(natural: heights, slack: heights.map { _ in 0 })
+            return LineMeasure(natural: heights)
         }
         var natural: [CGFloat] = []
         for (index, line) in lines.enumerated() {
             natural.append(line.pageLineShift > 0 ? alone(line, style: style).natural : heights[index])
         }
-        return LineMeasure(natural: natural, slack: [])
+        return LineMeasure(natural: natural)
     }
 
     /// How much more than the gap the offset on `line` must be.
@@ -309,8 +336,11 @@ final class PagePaginator {
             if let value = value as? Double, value > 0 { shifts.append((run, CGFloat(value))) }
         }
         for (run, shift) in shifts { Self.offset(plain, in: run, by: shift) }
-        plain.removeAttribute(.pageLineGap, range: whole)
-        plain.removeAttribute(.pageLineShift, range: whole)
+        // Nor anything else of ours, which changes no line's height alone:
+        // a push changing would otherwise measure every gap line again.
+        for key in [NSAttributedString.Key.pageLineGap, .pageLineShift, .pagePush, .pageGap] {
+            plain.removeAttribute(key, range: whole)
+        }
         // Laid out as its paragraph's first line, which it isn't: no spacing
         // around it, and its paragraph's indent.
         let own = (style ?? .default).mutableCopy() as! NSMutableParagraphStyle

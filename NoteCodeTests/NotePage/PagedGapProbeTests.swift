@@ -484,11 +484,11 @@ struct PagedGapProbeTests {
     /// glyphs of without making taller. So it keeps exclusion paths.
     /// A note with one code line of 9,600 characters between prose, styled
     /// as a code line, its pagination not yet worked out.
-    static func longCodeLineNote(mode: PageViewMode) -> (harness: PageHarness, code: NSRange) {
+    static func longCodeLineNote(mode: PageViewMode, separator: String = "\n") -> (harness: PageHarness, code: NSRange) {
         let before = (0..<12).map { "Before \($0): the loop invariant holds before and after every iteration." }.joined(separator: "\n")
         let code = String(repeating: "aGVsbG8gd29ybGQgaGVsbG8gd29ybGQ=", count: 300)
         let after = (0..<20).map { "After \($0): the loop invariant holds before and after every iteration." }.joined(separator: "\n")
-        let harness = PageHarness(text: before + "\n" + code + "\n" + after, layout: PageLayout(mode: mode))
+        let harness = PageHarness(text: before + separator + code + separator + after, layout: PageLayout(mode: mode))
         let storage = harness.page.textView.textStorage
         let codeRange = (storage.string as NSString).range(of: code)
         styleAsCode(NSRange(location: codeRange.location, length: codeRange.length + 1), in: harness)
@@ -568,10 +568,41 @@ struct PagedGapProbeTests {
         try Self.checkBreaks(of: harness, "joined")
     }
 
-    /// An entry for paths left inside a paragraph, which is no paragraph
-    /// start (an edit the walk has not reached, or one whose edited range
-    /// did not cover it): its band must not outlive it.
-    @Test("An entry for paths left inside a paragraph is dropped, with its band")
+    /// An entry above where the walk starts that is no paragraph start: the
+    /// walk never reaches it, so only `applyBands` can drop it.
+    @Test("An entry for paths the walk does not reach, which starts no paragraph, is dropped with its band")
+    func staleTallEntryAboveTheWalk() throws {
+        let (harness, codeRange) = Self.longCodeLineNote(mode: .print)
+        #expect(try Self.changingPassesFromScratch(in: harness) == 1)
+        harness.layOut()
+        let textView = harness.page.textView
+        let table = try #require(textView.blankLineLayout?.pushes)
+        let bands = textView.textContainer.exclusionPaths.map(\.bounds)
+        // Inside "Before 0", far above the code line, with a page of its own.
+        table.set(tall: [harness.page.pageCount + 3], inParagraph: NSRange(location: 5, length: 0))
+        table.edited(NSRange(location: codeRange.location, length: 0), changeInLength: 0)
+        #expect(try Self.changingPasses(in: harness) <= 1)
+        #expect(table.tall.keys.sorted() == [codeRange.location], "entries: \(table.tall.keys.sorted())")
+        #expect(textView.textContainer.exclusionPaths.map(\.bounds) == bands)
+    }
+
+    /// A paragraph that starts after a carriage return or U+2029, which a
+    /// plain paste can bring in, is a paragraph to TextKit: its entry stays.
+    @Test("A long code line after a paragraph separator other than a newline keeps its paths", arguments: ["\r", "\u{2029}"])
+    func otherParagraphSeparators(separator: String) throws {
+        let (harness, codeRange) = Self.longCodeLineNote(mode: .print, separator: separator)
+        _ = try Self.changingPassesFromScratch(in: harness)
+        harness.layOut()
+        let textView = harness.page.textView
+        let table = try #require(textView.blankLineLayout?.pushes)
+        #expect(table.tall.keys.contains(codeRange.location), "entries: \(table.tall.keys.sorted())")
+        #expect(!textView.textContainer.exclusionPaths.isEmpty)
+        Self.checkCodeLines(of: harness, "after \(separator.unicodeScalars.first!.value)")
+    }
+
+    /// An entry for paths left inside a paragraph the walk goes through: the
+    /// walk clears it.
+    @Test("An entry for paths left inside a walked paragraph is cleared, with its band")
     func staleTallEntry() throws {
         let (harness, codeRange) = Self.longCodeLineNote(mode: .print)
         #expect(try Self.changingPassesFromScratch(in: harness) == 1)
@@ -588,8 +619,43 @@ struct PagedGapProbeTests {
     }
 
     /// Return in the middle of a long code line and then Undo: the split's
-    /// second half had an entry of its own, which the join moves into the
+    /// second half had an entry of its own, which the undo moves into the
     /// middle of the line.
+    @Test("Return in a long code line and Undo leave one entry, and its bands")
+    func splittingAndUndoingALongCodeLine() throws {
+        let (harness, codeRange) = Self.longCodeLineNote(mode: .print)
+        #expect(try Self.changingPassesFromScratch(in: harness) == 1)
+        harness.layOut()
+        let textView = harness.page.textView
+        let table = try #require(textView.blankLineLayout?.pushes)
+        let bands = textView.textContainer.exclusionPaths.map(\.bounds)
+        let undo = try #require(textView.undoManager)
+        undo.removeAllActions()
+
+        let middle = codeRange.location + codeRange.length / 2
+        textView.selectedRange = NSRange(location: middle, length: 0)
+        textView.insertText("\n")
+        harness.layOut()
+        harness.page.paginate()
+        #expect(table.tall.keys.contains(middle + 1), "the split's second half has no entry: \(table.tall.keys.sorted())")
+        try #require(undo.canUndo)
+        undo.undo()
+        harness.layOut()
+        #expect(textView.textStorage.length == (Self.longCodeLineNoteLength))
+        #expect(try Self.changingPasses(in: harness) <= 1)
+        #expect(table.tall.keys.sorted() == [codeRange.location], "entries: \(table.tall.keys.sorted())")
+        #expect(textView.textContainer.exclusionPaths.map(\.bounds) == bands)
+        Self.checkCodeLines(of: harness, "split and undone")
+    }
+
+    /// The length of `longCodeLineNote`'s text.
+    static let longCodeLineNoteLength: Int = {
+        let before = (0..<12).map { "Before \($0): the loop invariant holds before and after every iteration." }.joined(separator: "\n")
+        let after = (0..<20).map { "After \($0): the loop invariant holds before and after every iteration." }.joined(separator: "\n")
+        return ((before + "\n" + String(repeating: "aGVsbG8gd29ybGQgaGVsbG8gd29ybGQ=", count: 300) + "\n" + after) as NSString).length
+    }()
+
+    /// The same, joined again with a replace through the text view.
     @Test("Splitting a long code line and joining it again leaves one entry, and its bands")
     func splittingAndJoiningALongCodeLine() throws {
         let (harness, codeRange) = Self.longCodeLineNote(mode: .print)
@@ -643,7 +709,7 @@ struct PagedGapProbeTests {
         storage.addAttributes([.font: font, .paragraphStyle: style], range: NSRange(location: 0, length: storage.length))
     }
 
-    @Test("Changing line spacing and text size with a tall paragraph open settles in one pass, where a fresh layout puts the lines", arguments: PageViewMode.allCases)
+    @Test("Changing line spacing and text size with a tall paragraph open settles in one pass, with the glyphs where paths put them", arguments: PageViewMode.allCases)
     func restylingWithGaps(mode: PageViewMode) throws {
         let harness = Self.settled(Self.tallParagraph, mode: mode)
         let size = (harness.page.textView.textStorage.attribute(.font, at: 0, effectiveRange: nil) as? UIFont)?.pointSize ?? 17
@@ -654,16 +720,21 @@ struct PagedGapProbeTests {
             harness.layOut()
             try Self.checkBreaks(of: harness, label)
 
-            let fresh = PageHarness(text: Self.tallParagraph, layout: PageLayout(mode: mode))
-            Self.restyle(fresh, size: points, spacing: spacing)
-            _ = try Self.changingPassesFromScratch(in: fresh)
-            fresh.layOut()
-            let now = Self.lines(of: harness.page).map(\.line), expected = Self.lines(of: fresh.page).map(\.line)
-            try #require(now.count == expected.count, "\(label): \(now.count) lines, \(expected.count) fresh")
+            // Against the same note laid out by paths from the page geometry
+            // (`layOutWithPaths`), by where the glyphs are: baselines.
+            let reference = PageHarness(text: Self.tallParagraph, layout: PageLayout(mode: mode))
+            Self.restyle(reference, size: points, spacing: spacing)
+            _ = try Self.changingPassesFromScratch(in: reference)
+            reference.layOut()
+            _ = try Self.layOutWithPaths(reference)
+            let now = Self.lines(of: harness.page).map(\.line), expected = Self.lines(of: reference.page).map(\.line)
+            try #require(now.count == expected.count, "\(label): \(now.count) lines, \(expected.count) with paths")
             #expect(now.map(\.range) == expected.map(\.range), "\(label): another wrap")
-            let moved = zip(now, expected).map { abs($0.glyphTop - $1.glyphTop) }.max() ?? 0
-            #expect(moved <= 0.5, "\(label): a line is \(moved)pt from where a fresh layout puts it")
-            fresh.page.removeFromSuperview()
+            let baseline = zip(now, expected).map { abs($0.baseline - $1.baseline) }.max() ?? 0
+            let top = zip(now, expected).map { abs($0.glyphTop - $1.bounds.minY) }.max() ?? 0
+            #expect(baseline <= 0.5, "\(label): a baseline is \(baseline)pt from where paths put it")
+            #expect(top <= 0.5, "\(label): a line is \(top)pt from where paths put it")
+            reference.page.removeFromSuperview()
         }
     }
 
@@ -672,8 +743,9 @@ struct PagedGapProbeTests {
     /// both where a path does: a tall paragraph with one keeps paths. Under
     /// line spacing, with an attachment taller than the minimum line height
     /// on every line, so the lines after each break have one.
-    @Test("With line spacing on, a tall paragraph with tall inline attachments keeps paths, with no line in a break", arguments: PageViewMode.allCases)
-    func tallAttachmentWithLineSpacing(mode: PageViewMode) throws {
+    /// `tallParagraph` with a 44pt attachment every 60 characters of its
+    /// tall paragraph, so every line of it has one.
+    static func attachmentNote(mode: PageViewMode) -> PageHarness {
         let harness = PageHarness(text: Self.tallParagraph, layout: PageLayout(mode: mode))
         let storage = harness.page.textView.textStorage
         let range = (storage.string as NSString).range(of: "word0 of one very long")
@@ -685,6 +757,12 @@ struct PagedGapProbeTests {
             storage.replaceCharacters(in: NSRange(location: at, length: 1), with: NSAttributedString(attachment: attachment))
             at += 60
         }
+        return harness
+    }
+
+    @Test("With line spacing on, a tall paragraph with tall inline attachments keeps paths, with no line in a break", arguments: PageViewMode.allCases)
+    func tallAttachmentWithLineSpacing(mode: PageViewMode) throws {
+        let harness = Self.attachmentNote(mode: mode)
         Self.setLineSpacing(8, in: harness)
         #expect(try Self.changingPassesFromScratch(in: harness) == 1)
         harness.layOut()
@@ -692,6 +770,80 @@ struct PagedGapProbeTests {
         #expect(textView.blankLineLayout?.pushes.gaps.isEmpty == true)
         #expect(!textView.textContainer.exclusionPaths.isEmpty)
         Self.checkCodeLines(of: harness, "\(mode.rawValue) attachments")
+    }
+
+    /// Where the paths put a pathed paragraph's breaks, checked against the
+    /// page geometry alone: every band is a page's break, the line after it
+    /// starts at the next body's top, and the paragraph below starts where
+    /// the last line ended or at a body's top.
+    private static func checkPathBreaks(of harness: PageHarness, paragraph range: NSRange, _ comment: String) {
+        let page = harness.page
+        let layout = page.pageLayout
+        let top = page.textView.textContainerInset.top
+        let bands = page.textView.textContainer.exclusionPaths.map(\.bounds)
+        let all = lines(of: page).map(\.line)
+        for band in bands {
+            let afterPage = Int(((band.minY + top - layout.firstBodyTop) / layout.pitch).rounded(.down))
+            #expect(band == layout.exclusionBand(afterPage: afterPage, containerTop: top), "\(comment): a band at \(band.minY) is no page's break")
+            let next = layout.bodyTop(ofPage: afterPage + 1)
+            let below = all.first { $0.bounds.minY >= band.minY + top - 0.5 }
+            #expect(below.map { abs($0.bounds.minY - next) < 0.5 } == true, "\(comment): the line after the break at page \(afterPage) starts at \(below?.bounds.minY ?? -1), not \(next)")
+        }
+        let inside = all.filter { NSLocationInRange($0.range.location, range) }
+        if let last = inside.last, let after = all.first(where: { $0.range.location >= NSMaxRange(range) }) {
+            let atBody = abs(after.bounds.minY - layout.bodyTop(ofPage: layout.pageIndex(atY: after.bounds.minY + 1))) < 0.5
+            #expect(abs(after.bounds.minY - last.bounds.maxY) < 1 || atBody, "\(comment): the paragraph below starts \(after.bounds.minY - last.bounds.maxY)pt below the last line")
+        }
+    }
+
+    @Test("A long code line and a tall paragraph with attachments break at the page edges, in one pass", arguments: PageViewMode.allCases)
+    func pathParagraphsBreakAtPageEdges(mode: PageViewMode) throws {
+        let (code, codeRange) = Self.longCodeLineNote(mode: mode)
+        #expect(try Self.changingPassesFromScratch(in: code) == 1)
+        code.layOut()
+        #expect(!code.page.textView.textContainer.exclusionPaths.isEmpty)
+        Self.checkPathBreaks(of: code, paragraph: codeRange, "\(mode.rawValue) code")
+        code.page.removeFromSuperview()
+
+        let attached = Self.attachmentNote(mode: mode)
+        #expect(try Self.changingPassesFromScratch(in: attached) == 1)
+        attached.layOut()
+        #expect(!attached.page.textView.textContainer.exclusionPaths.isEmpty)
+        Self.checkPathBreaks(of: attached, paragraph: try Self.tallRange(of: attached.page), "\(mode.rawValue) attachments")
+    }
+
+    /// Cut to just under a page's body, a long code line still crosses a
+    /// break, so TextKit lays it out around the band it had. Its height then
+    /// includes the room the band left, and counted in, it read as taller
+    /// than a page and kept its band for good, where it should start the
+    /// next page whole. Compressed and print, whose bands are wide enough.
+    @Test("A long code line cut to just under a page is pushed whole, with no paths, in one pass", arguments: [PageViewMode.compressed, .print])
+    func codeLineCutBelowAPage(mode: PageViewMode) throws {
+        let (harness, codeRange) = Self.longCodeLineNote(mode: mode)
+        #expect(try Self.changingPassesFromScratch(in: harness) == 1)
+        harness.layOut()
+        let textView = harness.page.textView
+        let table = try #require(textView.blankLineLayout?.pushes)
+        try #require(!textView.textContainer.exclusionPaths.isEmpty)
+        let layout = harness.page.pageLayout
+        let codeLines = Self.lines(of: harness.page).filter { NSLocationInRange($0.line.range.location, codeRange) }.map(\.line)
+        let perLine = codeRange.length / max(codeLines.count, 1)
+        let height = codeLines.first?.bounds.height ?? 20
+        // Under the body by less than the band, so the band's room tips it over.
+        let keep = Int(((layout.bodyHeight - layout.gap / 2) / height).rounded(.down)) * perLine - perLine / 2
+        let storage = textView.textStorage
+        storage.beginEditing()
+        storage.replaceCharacters(in: NSRange(location: codeRange.location + keep, length: codeRange.length - keep), with: "")
+        storage.endEditing()
+        #expect(try Self.changingPasses(in: harness) <= 1)
+        harness.layOut()
+        #expect(table.tall.isEmpty, "entries: \(table.tall)")
+        #expect(textView.textContainer.exclusionPaths.isEmpty, "\(textView.textContainer.exclusionPaths.count) bands")
+        Self.checkCodeLines(of: harness, "\(mode.rawValue) cut")
+        // Whole on one page.
+        let cut = Self.lines(of: harness.page).filter { NSLocationInRange($0.line.range.location, NSRange(location: codeRange.location, length: keep)) }.map(\.line)
+        let pages = Set(cut.map { layout.pageIndex(atY: $0.bounds.midY) })
+        #expect(pages.count == 1, "the cut line spans pages \(pages.sorted())")
     }
 
     // MARK: The table

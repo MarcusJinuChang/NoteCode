@@ -462,13 +462,10 @@ final class PrintedNote {
         string.enumerateAttribute(FormulaAttachment.sourceKey, in: range) { value, at, _ in
             guard let source = value as? FormulaAttachment.Source else { return }
             let x = origin.x + line.locationForCharacter(at: at.location).x
-            // On the first line after a break in a tall paragraph the copy's
-            // offset also holds the break (`.pageLineShift`), which moves the
-            // whole line's glyphs and not the formula's alone, and
-            // `glyphOrigin` reads that much too high.
-            let shift = CGFloat((string.attribute(.pageLineShift, at: at.location, effectiveRange: nil) as? Double) ?? 0)
-            let lift = ((string.attribute(.baselineOffset, at: at.location, effectiveRange: nil) as? CGFloat) ?? 0) + shift
-            let baseline = origin.y + line.glyphOrigin.y + shift - lift
+            // No page break's offset is ever in it: a tall paragraph with a
+            // formula keeps exclusion paths (`PagePaginator.hasAttachment`).
+            let lift = (string.attribute(.baselineOffset, at: at.location, effectiveRange: nil) as? CGFloat) ?? 0
+            let baseline = origin.y + line.glyphOrigin.y - lift
             FormulaAttachment.drawVector(source, at: CGPoint(x: x, y: baseline), room: source.display ? room : nil, in: context)
         }
     }

@@ -153,9 +153,9 @@ PERF PageViewTests/openingCost.open 0.1919
 PERF PageViewTests/openingCost.switch 0.3658
 PERF PageViewTests/redrawCost 0.0407
 PERF PageViewTests/typingCostLongNote 0.0052
-PERF PageViewTests/typingCostTallParagraph.above 0.0052
-PERF PageViewTests/typingCostTallParagraph.below 0.0051
-PERF PageViewTests/typingCostTallParagraph.inside 0.0155
+PERF PageViewTests/typingCostTallParagraph.above 0.0049
+PERF PageViewTests/typingCostTallParagraph.below 0.0050
+PERF PageViewTests/typingCostTallParagraph.inside 0.0156
 PERF StylingPerformanceTests/fullPassCost 0.0063
 PERF StylingPerformanceTests/keystrokeCost 0.0006
 PERF StylingPerformanceTests/parseCost 0.0031

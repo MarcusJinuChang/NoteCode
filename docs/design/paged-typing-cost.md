@@ -350,10 +350,16 @@ follow-up for very long notes.
        the text was drawn 6.19pt low. No one offset puts both where a path
        does.
      - A note with either pays the paths' cost. The paginator drops a
-       paths entry that no longer starts a paragraph, so its band can't
-       outlive it.
+       paths entry that no longer starts a paragraph (by TextKit's own
+       paragraph rule, `\r` and U+2029 included), so its band can't outlive
+       it.
+     - The walk takes out of such a paragraph's height the room TextKit
+       left for its bands (`PagePaginator.skipped`). Main counted it in,
+       which was harmless while the paragraph stayed tall, but a long line
+       cut to just under a page then read as tall and kept its band for
+       good.
    - **The readers that take the gap off:** `NotePDF` (which sheet a line
-     is on, and `drawFormulas`), `caretRect(for:)`, `selectionRects(for:)`
+     is on; `drawFormulas` needs nothing, since no formula is on a gap line), `caretRect(for:)`, `selectionRects(for:)`
      and `firstRect(for:)` (each rect cut where it crosses a gap), the taps
      on links and formulas, `PageReading.lineTop`, the quote bars,
      `TextRegion.visibleLines` and the debug report.
@@ -364,19 +370,23 @@ follow-up for very long notes.
      `NotePDFTests.gapLinePrintsOnItsSheet` and `formulasInTallParagraph`, and
      `PageViewTests.Cost.typingCostTallParagraph`.
 
-   **Measured** (iPad Pro 13-inch (M5) simulator, Debug, on a loaded Mac),
-   each keystroke timed with the page's layout pass after it:
+   **Measured** (iPad Pro 13-inch (M5) simulator, Debug, on a loaded Mac,
+   the last three runs of the touched suites), each keystroke timed with the
+   page's layout pass after it:
 
    | | ms | against the note without a tall paragraph |
    |---|---|---|
-   | Without a tall paragraph | 4.1-8.3 | |
-   | Above it | 4.1-6.1 | 0.6-1.2x |
-   | Below it | 3.8-5.4 | 0.65-1.0x |
-   | Inside it | 12.7-16.7 | 1.9-3.3x |
+   | Without a tall paragraph | 3.9-4.1 | |
+   | Above it | 4.1-4.2 | 1.01-1.04x |
+   | Below it | 3.7-3.9 | 0.93-0.95x |
+   | Inside it | 12.9-13.2 | 3.2-3.3x |
+
+   The PERF lines (the median of three `perf.sh` runs) are above 4.9ms,
+   below 5.0ms and inside 15.6ms.
 
    Above and below meet the acceptance. **Inside does not**, and the gaps
    are not why: with the gaps taken out of the paragraph it costs the same
-   (12.8-15.6ms). Two things make it up:
+   (13.1-13.3ms). Two things make it up:
    - **About 8-10ms is the walk run inside `replace`.** An edit inside the
      tall paragraph makes UIKit set the content size twice per keystroke,
      and each time `PageBands.noteHeight` runs `settledTextHeight()`: the
@@ -386,7 +396,7 @@ follow-up for very long notes.
    - **About 4-6ms is TextKit's own.** A paragraph that changes height
      costs more in a note laid out to its end than in one laid out lazily.
      A bare configured view holding the same text, laid out to its end,
-     costs 5.8-8.4ms for the same keystroke.
+     costs 5.8-5.9ms for the same keystroke.
 
    So the test holds inside to the same paragraph without gaps, and under
    30ms. Option F (stage 3) is what would bring it down.
