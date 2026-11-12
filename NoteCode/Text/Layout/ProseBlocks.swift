@@ -48,6 +48,14 @@ nonisolated enum ProseBlockMetrics {
     /// From the lines, never from the fragment's frame: a line pushed past a
     /// break stays in a fragment whose frame begins above it, so the frame
     /// spans the gap (AGENTS.md, Pages).
+    /// Each line's span of y, in its fragment's coordinates, from its glyphs:
+    /// a line after a page break inside a paragraph taller than a page holds
+    /// the break above them (`pageLineGap`), so a tall quote's bar stops at
+    /// the break.
+    static func glyphSpans(of lines: [NSTextLineFragment]) -> [ClosedRange<CGFloat>] {
+        lines.map { ($0.typographicBounds.minY + $0.pageLineGap)...$0.typographicBounds.maxY }
+    }
+
     static func barRuns(of lines: [ClosedRange<CGFloat>]) -> [ClosedRange<CGFloat>] {
         var runs: [ClosedRange<CGFloat>] = []
         for line in lines.sorted(by: { $0.lowerBound < $1.lowerBound }) {
@@ -99,7 +107,7 @@ final class BlockquoteLayoutFragment: NSTextLayoutFragment {
     /// themselves. The PDF draws a page's lines one at a time and calls this
     /// with the ones on the sheet.
     func drawBars(of lines: [NSTextLineFragment], at point: CGPoint, in context: CGContext) {
-        let runs = ProseBlockMetrics.barRuns(of: lines.map { $0.typographicBounds.minY...$0.typographicBounds.maxY })
+        let runs = ProseBlockMetrics.barRuns(of: ProseBlockMetrics.glyphSpans(of: lines))
         guard !runs.isEmpty else { return }
 
         context.saveGState()

@@ -263,7 +263,7 @@ final class PageReading {
         let line = fragment.textLineFragments.first { NSLocationInRange(within, $0.characterRange) }
             ?? fragment.textLineFragments.first
         guard let line else { return nil }
-        return fragment.layoutFragmentFrame.minY + line.typographicBounds.minY + textView.textContainerInset.top
+        return fragment.layoutFragmentFrame.minY + line.typographicBounds.minY + line.pageLineGap + textView.textContainerInset.top
     }
 }
 

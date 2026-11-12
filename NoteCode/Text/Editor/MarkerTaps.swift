@@ -164,6 +164,20 @@ final class MarkerGestures: NSObject, UIGestureRecognizerDelegate, UIEditMenuInt
 
 extension DocumentTextView.Coordinator {
 
+    /// The page breaks above the lines of a run, in the text container's
+    /// coordinates: a segment on the first line after a break inside a
+    /// paragraph taller than a page spans the break, and a tap there is not
+    /// on the run (D9).
+    private func gapBands(in textView: DocumentUITextView, from start: Int, length: Int) -> [ClosedRange<CGFloat>] {
+        let top = textView.textContainerInset.top
+        return textView.pageGapBands(from: start, to: start + length).map { ($0.lowerBound - top)...($0.upperBound - top) }
+    }
+
+    /// `segment` less the breaks it crosses.
+    private static func segment(_ segment: CGRect, outOf breaks: [ClosedRange<CGFloat>]) -> [CGRect] {
+        breaks.isEmpty ? [segment] : GapClippedSelectionRect.clip(segment, outOf: breaks)
+    }
+
     /// What is at a point in the text view, if it's a box or a link and the
     /// text view is the one taking touches.
     func markerTapTarget(at point: CGPoint, in textView: DocumentUITextView) -> MarkerTapTarget? {
@@ -198,9 +212,10 @@ extension DocumentTextView.Coordinator {
                   let end = contentManager.location(start, offsetBy: span.range.length),
                   let range = NSTextRange(location: start, end: end)
             else { continue }
+            let breaks = gapBands(in: textView, from: span.start, length: span.range.length)
             var hit = false
             layoutManager.enumerateTextSegments(in: range, type: .standard, options: []) { _, segment, _, _ in
-                if segment.insetBy(dx: -4, dy: -4).contains(container) { hit = true }
+                if Self.segment(segment, outOf: breaks).contains(where: { $0.insetBy(dx: -4, dy: -4).contains(container) }) { hit = true }
                 return !hit
             }
             if hit { return .formula(span) }
@@ -215,9 +230,10 @@ extension DocumentTextView.Coordinator {
                   let range = NSTextRange(location: start, end: end)
             else { continue }
 
+            let breaks = gapBands(in: textView, from: link.text.location, length: link.text.length)
             var hit = false
             layoutManager.enumerateTextSegments(in: range, type: .standard, options: []) { _, segment, _, _ in
-                if segment.insetBy(dx: -4, dy: -3).contains(container) { hit = true }
+                if Self.segment(segment, outOf: breaks).contains(where: { $0.insetBy(dx: -4, dy: -3).contains(container) }) { hit = true }
                 return !hit
             }
             if hit { return .link(url: url, destination: link.destination) }

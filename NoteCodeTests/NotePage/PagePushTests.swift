@@ -69,19 +69,19 @@ struct PageBreakRuleTests {
             let layout = PageLayout(mode: mode)
             let top = layout.bodyTop(ofPage: 0) + 300
             let placed = PageBreakRule.linePlacement(top: top, lineHeights: heights, layout: layout)
-            #expect(placed.pages == Array(0..<placed.pages.count))
-            #expect(placed.pages.count >= 4)
-            // Replay it: every line ends inside its page's body.
+            #expect(placed.gaps.count >= 4)
+            // Replay it with its gaps: every line ends inside its page's
+            // body, and each gap puts its line at the top of the next one.
             var y = top
-            for height in heights {
+            for (index, height) in heights.enumerated() {
+                if let gap = placed.gaps[index] {
+                    y += gap
+                    #expect(abs(y - layout.bodyTop(ofPage: layout.pageIndex(atY: y + 1))) < 0.01, "line \(index) is not at a body's top")
+                }
                 let offset = y - layout.firstBodyTop
                 let page = (offset / layout.pitch).rounded(.down)
-                var into = offset - page * layout.pitch
-                if into + height > layout.bodyHeight + 0.01 || into >= layout.bodyHeight {
-                    y += layout.pitch - into
-                    into = 0
-                }
-                #expect(into + height <= layout.bodyHeight + 0.02)
+                let into = offset - page * layout.pitch
+                #expect(into + height <= layout.bodyHeight + 0.02, "line \(index) crosses a break")
                 y += height
             }
             #expect(abs(y - placed.bottom) < 0.5)
@@ -113,8 +113,12 @@ struct PagePushTests {
         manager.enumerateTextLayoutFragments(from: content.documentRange.location, options: [.ensuresLayout]) { fragment in
             let start = content.offset(from: content.documentRange.location, to: fragment.rangeInElement.location)
             let origin = fragment.layoutFragmentFrame.origin
+            // Each line's glyphs: a line after a break in a tall paragraph
+            // holds the break above them.
             result.append(Placed(start: start, lines: fragment.textLineFragments.map {
-                $0.typographicBounds.offsetBy(dx: origin.x, dy: origin.y + top)
+                let bounds = $0.typographicBounds.offsetBy(dx: origin.x, dy: origin.y + top)
+                let gap = $0.pageLineGap
+                return CGRect(x: bounds.minX, y: bounds.minY + gap, width: bounds.width, height: bounds.height - gap)
             }))
             return true
         }
@@ -207,8 +211,9 @@ struct PagePushTests {
         let height = tall.lines.last!.maxY - tall.lines.first!.minY
         #expect(height > layout.bodyHeight * 2, "the paragraph should be taller than two bodies, was \(height)")
 
-        let paths = harness.page.textView.textContainer.exclusionPaths
-        #expect(paths.count >= 2)
+        // By a gap above each line after a break (D9), not by exclusion paths.
+        #expect(harness.page.textView.textContainer.exclusionPaths.isEmpty)
+        #expect(harness.page.textView.blankLineLayout!.pushes.gaps.count >= 2)
         let breaks = layout.exclusionBands(pageCount: harness.page.pageCount, containerTop: layout.firstBodyTop)
             .map { $0.offsetBy(dx: 0, dy: layout.firstBodyTop) }
         let intruding = placed.flatMap(\.lines).filter { line in breaks.contains { $0.intersects(line.insetBy(dx: 0, dy: 0.5)) } }

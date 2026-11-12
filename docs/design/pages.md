@@ -59,12 +59,29 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
     reads a complete one. `ReopenTests` "The first place reported is the page
     it opened at" is what failed without it.
   - **A paragraph taller than a page's body** can't start a page and fit it, so
-    it stays where it is and its lines are pushed one at a time, the old way:
-    exclusion paths for the breaks it crosses, and only those
-    (`PageBreakRule.linePlacement` works out which, from the lines' heights).
-    A note with one pays the old cost on every keystroke, since the container
-    has paths again. Code lines are paragraphs of their own, so a code block
-    taller than a page is not this case; one long paragraph of prose is.
+    it stays where it is and its lines are pushed one at a time: the first
+    line after each break it crosses gets a gap above it in the layout's
+    copy, a negative `.baselineOffset` of the break's height, kept in
+    `PagePushTable.gaps` by line start and marked `.pageLineGap` in the copy
+    (`PageBreakRule.linePlacement` works out which lines, and how far, from
+    their heights). It puts every line where exclusion paths did until D9
+    (11 Nov, docs/design/paged-typing-cost.md › C), at no cost: with any path
+    in the container TextKit laid out everything below an edit again. Such a
+    line's typographic bounds start where the line above it ended, and its
+    `glyphOrigin` leaves the gap out, so whatever places things by a line's
+    top or baseline adds `NSTextLineFragment.pageLineGap` (the PDF, the
+    caret and the selection, quote bars, `PageReading.lineTop`, taps on
+    links and formulas); with line spacing on, the glyphs move by a little
+    more than the gap (`.pageLineShift`), since the minimum line height
+    takes part of the offset up. **Lines of a fixed height, and paragraphs
+    with an attachment, keep exclusion paths** (`PagePushTable.tall`): a
+    baseline offset moves a code line's or a display formula's source line's
+    glyphs without making the line taller, and moves a line's words but not
+    its inline formula. So one code line wrapped past a page (minified,
+    base64), or a paragraph taller than a page with a formula in it, is
+    broken by paths, and a note with one pays their cost. Code lines are
+    otherwise paragraphs of their own, so a code block taller than a page
+    is not this case; one long paragraph of prose is.
   - **Breaks moved against 1.1.0** (a product decision, approved for F5). A
     paragraph used to be split by a break, its later lines pushed; now it moves
     whole, so a page can end earlier by up to a paragraph and the next begins
@@ -335,8 +352,7 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
   breaks — print layout's band holds about seven, seamless's none — and text
   after a blank run paginated differently by mode, which ink can't survive.
   Since F5 a break is paragraph spacing, which an empty paragraph may not
-  honour either, and a paragraph taller than a page still uses paths, so the
-  swap stays.
+  honour either, so the swap stays.
   The content storage's delegate swaps each "\n" paragraph for "\u{200B}", the
   same length, for layout only; the note keeps its newlines. The cost is on
   taps: UIKit snaps a tap's caret to a word boundary, and a run of zero-width
