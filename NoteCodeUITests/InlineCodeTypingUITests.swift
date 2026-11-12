@@ -148,7 +148,7 @@ final class InlineCodeTypingUITests: XCTestCase {
         let (app, text) = launch()
         UIPasteboard.general.string = "```cpp\nint x;\n```\nend"
         // The first ⌘V after launch can land nowhere on the simulator.
-        for _ in 0..<4 where value(text).isEmpty {
+        for _ in 0..<8 where value(text).isEmpty {
             app.typeKey("v", modifierFlags: .command)
             let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow Paste"]
             if allow.waitForExistence(timeout: 1) { allow.tap() }
