@@ -44,13 +44,16 @@ extension PageViewTests {
 
         /// F5. The median of nine one-character edits near the top of a note, as
         /// `typingCost` takes it, or from `offset`.
-        private func keystrokeMedian(in textView: UITextView, from offset: Int = 120) -> TimeInterval {
+        private func keystrokeMedian(in textView: UITextView, from offset: Int = 120, page: UIView? = nil) -> TimeInterval {
             var times: [TimeInterval] = []
             for index in 0..<9 {
                 let position = textView.position(from: textView.beginningOfDocument, offset: offset + index)!
                 let start = Date()
                 textView.replace(textView.textRange(from: position, to: position)!, withText: "z")
                 textView.layoutIfNeeded()
+                // With `page`, its layout pass too, where the paginator's walk
+                // runs after an edit it did not run inside.
+                page?.layoutIfNeeded()
                 times.append(Date().timeIntervalSince(start))
             }
             return times.sorted()[4]
@@ -76,20 +79,21 @@ extension PageViewTests {
         /// paragraph (simulator, 11 Nov). Its breaks are now gaps in the layout's
         /// copy of the paragraph (docs/design/paged-typing-cost.md › C).
         ///
-        /// Above and below it a keystroke costs what one in the same note without
-        /// the paragraph does (the design note's acceptance is 1.5 times; the
-        /// bound here is looser, for a loaded machine). Inside it a keystroke
-        /// costs about three times that, 12-16ms, and the gaps are not why: the
-        /// same keystroke with the table frozen, or with the gaps taken out,
-        /// costs the same, nearly all of it inside `UITextView.replace`, against
-        /// 3ms in a bare configured view holding the same text. So inside is
-        /// held to the same paragraph without gaps, which shows the gaps cost
-        /// nothing, and to an absolute bound well under the paths' cost.
-        @Test("Typing above, inside and below a tall paragraph in a 40-page note costs what it would without the page breaks in it", .tags(.perf))
+        /// Each keystroke is timed with the page's layout pass after it, which
+        /// is where the paginator's walk to the end of the note runs after an
+        /// edit above or below the paragraph. An edit inside it makes UIKit set
+        /// the content size within `replace`, which runs that walk and lays the
+        /// whole note out there and then (`PageBands.noteHeight`), and a
+        /// paragraph that changes height costs TextKit more in a note laid out
+        /// to its end than in one laid out lazily. So "inside" is held to the
+        /// same keystroke with the gaps taken out (the gaps cost nothing) and to
+        /// an absolute bound well under the paths' cost; the fully laid-out
+        /// bare view is printed beside it. Stopping the walk early (option F)
+        /// is the next step.
+        @Test("Typing above, inside and below a tall paragraph in a 40-page note costs what it would without the page breaks in it", .tags(.perf), .timeLimit(.minutes(3)))
         func typingCostTallParagraph() throws {
             let plain = PageHarness(text: StylingPerformanceTests.document(lines: 1500))
-            let without = keystrokeMedian(in: plain.page.textView)
-            plain.page.removeFromSuperview()
+            let without = keystrokeMedian(in: plain.page.textView, page: plain.page)
 
             let harness = PageHarness(text: PagedGapProbeTests.longNoteWithTallParagraph)
             harness.page.paginate()
@@ -105,9 +109,9 @@ extension PageViewTests {
             }
             #expect(tall().length > 9000)
 
-            let above = keystrokeMedian(in: textView)
-            let inside = keystrokeMedian(in: textView, from: tall().location + tall().length / 2)
-            let below = keystrokeMedian(in: textView, from: NSMaxRange(tall()) + 2000)
+            let above = keystrokeMedian(in: textView, page: harness.page)
+            let inside = keystrokeMedian(in: textView, from: tall().location + tall().length / 2, page: harness.page)
+            let below = keystrokeMedian(in: textView, from: NSMaxRange(tall()) + 2000, page: harness.page)
 
             // The same keystroke inside, with the gaps taken out and the table
             // frozen so the paginator neither walks nor puts them back. The
@@ -117,16 +121,29 @@ extension PageViewTests {
             table.set(gaps: [:], in: tall())
             textView.textStorage.edited(.editedAttributes, range: tall(), changeInLength: 0)
             harness.layOut()
-            let insideWithoutGaps = keystrokeMedian(in: textView, from: tall().location + tall().length / 2 + 40)
+            let insideWithoutGaps = keystrokeMedian(in: textView, from: tall().location + tall().length / 2 + 40, page: harness.page)
             table.isApplying = false
             harness.page.removeFromSuperview()
+
+            // A bare configured view with the same text, laid out to its end
+            // as a paged note is: what the same keystroke costs TextKit alone.
+            let bare = DocumentTextView.makeConfiguredTextView()
+            bare.frame = textView.frame
+            plain.window.addSubview(bare)
+            bare.text = PagedGapProbeTests.longNoteWithTallParagraph
+            bare.layoutIfNeeded()
+            if let manager = bare.textLayoutManager { manager.ensureLayout(for: manager.documentRange) }
+            let bareStart = (bare.text as NSString).range(of: "word0 of one very long").location
+            let bareInside = keystrokeMedian(in: bare, from: bareStart + 5000)
+            bare.removeFromSuperview()
+            plain.page.removeFromSuperview()
 
             reportPerf("PageViewTests/typingCostTallParagraph.above", seconds: above)
             reportPerf("PageViewTests/typingCostTallParagraph.inside", seconds: inside)
             reportPerf("PageViewTests/typingCostTallParagraph.below", seconds: below)
-            print(String(format: "D9 keystroke ms: no tall paragraph %.1f, above %.1f (%.2fx), inside %.1f (%.2fx; without its gaps %.1f), below %.1f (%.2fx)",
+            print(String(format: "D9 keystroke ms: no tall paragraph %.1f, above %.1f (%.2fx), inside %.1f (%.2fx; without its gaps %.1f; bare view laid out to the end %.1f), below %.1f (%.2fx)",
                          without * 1000, above * 1000, above / without, inside * 1000, inside / without,
-                         insideWithoutGaps * 1000, below * 1000, below / without))
+                         insideWithoutGaps * 1000, bareInside * 1000, below * 1000, below / without))
             for (name, time) in [("above", above), ("below", below)] {
                 #expect(time < without * 2 + 0.002, "\(name) the tall paragraph \(time)s, without one \(without)s")
             }

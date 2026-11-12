@@ -463,12 +463,12 @@ final class PrintedNote {
             guard let source = value as? FormulaAttachment.Source else { return }
             let x = origin.x + line.locationForCharacter(at: at.location).x
             // On the first line after a break in a tall paragraph the copy's
-            // offset also holds the break (`.pageLineGap`), which moves the
+            // offset also holds the break (`.pageLineShift`), which moves the
             // whole line's glyphs and not the formula's alone, and
             // `glyphOrigin` reads that much too high.
-            let gap = CGFloat((string.attribute(.pageLineGap, at: at.location, effectiveRange: nil) as? Double) ?? 0)
-            let lift = ((string.attribute(.baselineOffset, at: at.location, effectiveRange: nil) as? CGFloat) ?? 0) + gap
-            let baseline = origin.y + line.glyphOrigin.y + gap - lift
+            let shift = CGFloat((string.attribute(.pageLineShift, at: at.location, effectiveRange: nil) as? Double) ?? 0)
+            let lift = ((string.attribute(.baselineOffset, at: at.location, effectiveRange: nil) as? CGFloat) ?? 0) + shift
+            let baseline = origin.y + line.glyphOrigin.y + shift - lift
             FormulaAttachment.drawVector(source, at: CGPoint(x: x, y: baseline), room: source.display ? room : nil, in: context)
         }
     }

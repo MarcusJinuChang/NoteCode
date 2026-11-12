@@ -23,6 +23,10 @@ extension NSAttributedString.Key {
     /// this says how much of that offset is the break, for whatever places
     /// things by the offset or by the line's top. Never in the text storage.
     static let pageLineGap = NSAttributedString.Key("NoteCode.pageLineGap")
+    /// How far that line's glyphs were moved down: the whole of the offset
+    /// laid in, which is the gap plus what the line's minimum height took up
+    /// (`BlankLineLayout.slack`), and the gap alone without line spacing.
+    static let pageLineShift = NSAttributedString.Key("NoteCode.pageLineShift")
 }
 
 extension NSTextLineFragment {
@@ -33,16 +37,23 @@ extension NSTextLineFragment {
     /// glyphs, where the line before it ended, and `glyphOrigin` leaves the
     /// gap out, so it reads that much too high (stage 0's finding). The
     /// glyphs' line top is `typographicBounds.minY + pageLineGap`, and their
-    /// baseline `typographicBounds.minY + glyphOrigin.y + pageLineGap`.
-    var pageLineGap: CGFloat {
+    /// baseline `typographicBounds.minY + glyphOrigin.y + pageLineShift`.
+    var pageLineGap: CGFloat { largest(.pageLineGap) }
+
+    /// How far this line's glyphs were moved down from where `glyphOrigin`
+    /// puts them (`.pageLineShift`): the gap, and with line spacing on a
+    /// little more.
+    var pageLineShift: CGFloat { largest(.pageLineShift) }
+
+    private func largest(_ key: NSAttributedString.Key) -> CGFloat {
         let string = attributedString
         let range = NSIntersectionRange(characterRange, NSRange(location: 0, length: string.length))
         guard range.length > 0 else { return 0 }
-        var gap: CGFloat = 0
-        string.enumerateAttribute(.pageLineGap, in: range) { value, _, _ in
-            if let value = value as? Double { gap = max(gap, CGFloat(value)) }
+        var largest: CGFloat = 0
+        string.enumerateAttribute(key, in: range) { value, _, _ in
+            if let value = value as? Double { largest = max(largest, CGFloat(value)) }
         }
-        return gap
+        return largest
     }
 }
 
@@ -89,12 +100,14 @@ nonisolated enum PageBreakRule {
     /// Where a tall paragraph's lines end up when each is pushed past the
     /// breaks it would cross, from the paragraph's top.
     ///
-    /// - Returns: the bottom of the last line, and the gap laid in above each
+    /// - Returns: the bottom of the last line; the gap laid in above each
     ///   line that is pushed, by the line's index: the distance from where it
-    ///   would start to the top of the next page's body.
-    static func linePlacement(top: CGFloat, lineHeights: [CGFloat], layout: PageLayout) -> (bottom: CGFloat, gaps: [Int: CGFloat]) {
+    ///   would start to the top of the next page's body; and the pages whose
+    ///   breaks the paragraph crosses.
+    static func linePlacement(top: CGFloat, lineHeights: [CGFloat], layout: PageLayout) -> (bottom: CGFloat, gaps: [Int: CGFloat], pages: [Int]) {
         var y = top
         var gaps: [Int: CGFloat] = [:]
+        var pages: [Int] = []
         for (index, height) in lineHeights.enumerated() {
             let offset = y - layout.firstBodyTop
             let page = (offset / layout.pitch).rounded(.down)
@@ -102,19 +115,26 @@ nonisolated enum PageBreakRule {
             if into >= layout.bodyHeight - tolerance
                 || (into + height > layout.bodyHeight + tolerance && height <= layout.bodyHeight) {
                 gaps[index] = layout.pitch - into
+                pages.append(Int(page))
                 y += layout.pitch - into
             }
             y += height
         }
-        return (y, gaps)
+        return (y, gaps, pages)
     }
 }
 
-/// One line's page break, in `PagePushTable`: the line's length, and the gap
-/// above it.
+/// One line's page break, in `PagePushTable`: the line's length, the gap
+/// above it, and the line's height without it.
 struct PageLineGap: Equatable {
     var length: Int
     var gap: CGFloat
+    /// The line's height as TextKit laid it out with no gap, when the gap was
+    /// decided. A gap line's own height can't give it back: with line
+    /// spacing on, the paragraph's minimum line height takes up part of the
+    /// offset (`BlankLineLayout.gapped`), so the line grows by a little less
+    /// than the offset, by an amount the walk would have to guess.
+    var natural: CGFloat
 
     func matches(_ other: PageLineGap) -> Bool {
         length == other.length && abs(gap - other.gap) <= PageBreakRule.tolerance
@@ -135,6 +155,14 @@ final class PagePushTable: NSObject {
     /// paragraphs taller than a page (`PageBreakRule.linePlacement`). A
     /// handful in a note that has any, and none in most.
     private(set) var gaps: [Int: PageLineGap] = [:]
+
+    /// Paragraph start to the pages whose breaks run through it, for the
+    /// paragraphs taller than a page whose lines are a fixed height: a code
+    /// line or a display formula's source that wraps past a page. A baseline
+    /// offset moves a fixed-height line's glyphs without making it taller, so
+    /// a gap can't break them, and these keep the exclusion paths (with
+    /// their cost) that every tall paragraph had before D9.
+    private(set) var tall: [Int: [Int]] = [:]
 
     /// Everything before this offset is known to be paginated. `Int.max`: the
     /// whole note.
@@ -170,6 +198,10 @@ final class PagePushTable: NSObject {
         return wanted.allSatisfy { offset, gap in current[offset]?.matches(gap) == true }
     }
 
+    func set(tall pages: [Int]?, at offset: Int) {
+        tall[offset] = pages
+    }
+
     /// Replaces the gaps of the lines starting in `range`.
     func set(gaps wanted: [Int: PageLineGap], in range: NSRange) {
         for offset in gaps(in: range).keys { gaps[offset] = nil }
@@ -185,6 +217,7 @@ final class PagePushTable: NSObject {
     func reset() {
         pushes = [:]
         gaps = [:]
+        tall = [:]
         layout = nil
         restart()
     }
@@ -212,18 +245,22 @@ final class PagePushTable: NSObject {
         changingPasses = 0
         guard delta != 0 else { return }
         let oldEnd = range.location + range.length - delta
+        // What starts at the old end of the edited range, or past it, is
+        // intact and moves with the text; only what started inside the range
+        // is gone.
         func moved<T>(_ table: [Int: T]) -> [Int: T] {
             var result: [Int: T] = [:]
             for (offset, value) in table {
                 if offset <= range.location {
                     result[offset] = value
-                } else if offset > oldEnd {
+                } else if offset >= oldEnd {
                     result[offset + delta] = value
                 }
             }
             return result
         }
         pushes = moved(pushes)
+        tall = moved(tall)
         guard !gaps.isEmpty else { return }
         // A line's gap covers its characters, so a line the edit is inside
         // grows or shrinks with it. The paginator puts the gaps right once
@@ -236,7 +273,7 @@ final class PagePushTable: NSObject {
                                      + max(offset + gap.length - oldEnd, 0), 0)
                 }
                 result[offset] = gap
-            } else if offset > oldEnd {
+            } else if offset >= oldEnd {
                 result[offset + delta] = gap
             }
         }

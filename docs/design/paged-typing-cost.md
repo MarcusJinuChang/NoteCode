@@ -320,35 +320,67 @@ follow-up for very long notes.
    **As built.** `linePlacement` returns each pushed line's gap by its
    index, and a gap above a paragraph's first line becomes its push, so
    markers and boxes, drawn from the first line, never sit on a gap line.
-   The table keeps a gap per line start with the line's length, and an edit
-   inside a gap line stretches it with the text; a rewrap is put right by
-   the next pass, which re-reads each line's applied gap
-   (`NSTextLineFragment.pageLineGap`) to find its natural height. The
-   readers that take the gap off: `NotePDF` (which sheet a line is on, and
-   `drawFormulas`, where the gap in the offset and the gap `glyphOrigin`
-   leaves out cancel), `caretRect(for:)`, `selectionRects(for:)` (each rect
-   cut where it crosses a gap), `PageReading.lineTop`, the quote bars,
-   `TextRegion.visibleLines` and the debug report. The tests are
-   `PagedGapProbeTests` (the stage 0 probe, now against the app's own gaps
-   and a path layout set by hand, with its copy of the rule gone),
-   `NotePDFTests.formulaOnGapLine` and `PageViewTests.Cost.typingCostTallParagraph`.
-   **Measured** (iPad Pro 13-inch (M5) simulator, Debug, same run): without
-   a tall paragraph 4.0-5.5ms; with one, above it 1.01-1.06 times that and
-   below it 0.76-0.96 times, which meets the acceptance. **Inside it, 12.5-16.5ms,
-   2.4-3.1 times, which does not**, and the gaps are not why: with the table
-   frozen (no walk) it is the same, and with the gaps taken out of the
-   paragraph too it is the same (16.2 against 16.6). Nearly all of it is in
-   `UITextView.replace` (15.4ms of 16.2), against 3.0ms for the same
-   keystroke in a bare configured view holding the same text at the same
-   width. So a paged view pays about 13ms more than a bare one for an edit
-   inside a 10,000-character paragraph, gaps or not; what in the paged view
-   costs it is not yet known (a new debt item). The test holds inside to the
-   same paragraph without gaps, and under 30ms.
+   The table keeps, per line start, the line's length, its gap and its
+   height without the gap (`PageLineGap.natural`), which the walk uses
+   for that line from then on. An edit inside a gap line stretches it with
+   the text, and a rewrap is put right by the next pass.
+   - **Line spacing.** A line's minimum height (`NoteTypography.lineStyle`)
+     takes up part of a baseline offset before the line grows (17pt text,
+     spacing 8, an offset of -100 grew the line 91.98pt). So the offset is
+     the gap plus that slack (`BlankLineLayout.slack`), the copy carries
+     the whole offset as `.pageLineShift`, and anything placed from
+     `glyphOrigin` adds the shift, while anything placed from a line's top
+     adds the gap (`.pageLineGap`).
+   - **Lines of a fixed height keep exclusion paths** (`PagePushTable.tall`).
+     An offset moves a fixed-height line's glyphs without making the line
+     taller, so one code line or display formula source wrapped past a page
+     is broken by paths, as every tall paragraph was before, and a note
+     with one pays their cost.
+   - **The readers that take the gap off:** `NotePDF` (which sheet a line
+     is on, and `drawFormulas`), `caretRect(for:)`, `selectionRects(for:)`
+     and `firstRect(for:)` (each rect cut where it crosses a gap), the taps
+     on links and formulas, `PageReading.lineTop`, the quote bars,
+     `TextRegion.visibleLines` and the debug report.
+   - **Tests.** `PagedGapProbeTests` (the stage 0 probe, now against the
+     app's own gaps and a path layout set up by hand on every break the
+     paragraph reaches, with its copy of the rule gone; also line spacing,
+     a long code line, edits and each reader),
+     `NotePDFTests.formulaOnGapLine` and
+     `PageViewTests.Cost.typingCostTallParagraph`.
+
+   **Measured** (iPad Pro 13-inch (M5) simulator, Debug, on a loaded Mac),
+   each keystroke timed with the page's layout pass after it:
+
+   | | ms | against the note without a tall paragraph |
+   |---|---|---|
+   | Without a tall paragraph | 4.1-8.3 | |
+   | Above it | 4.1-6.1 | 0.6-1.2x |
+   | Below it | 3.8-5.4 | 0.65-1.0x |
+   | Inside it | 12.7-16.7 | 1.9-3.3x |
+
+   Above and below meet the acceptance. **Inside does not**, and the gaps
+   are not why: with the gaps taken out of the paragraph it costs the same
+   (12.8-15.6ms). Two things make it up:
+   - **About 8-10ms is the walk run inside `replace`.** An edit inside the
+     tall paragraph makes UIKit set the content size twice per keystroke,
+     and each time `PageBands.noteHeight` runs `settledTextHeight()`: the
+     walk to the end of the note and `ensureLayout` for the whole of it,
+     there and then. Above and below, the walk waits for the next layout
+     pass.
+   - **About 4-6ms is TextKit's own.** A paragraph that changes height
+     costs more in a note laid out to its end than in one laid out lazily.
+     A bare configured view holding the same text, laid out to its end,
+     costs 5.8-8.4ms for the same keystroke.
+
+   So the test holds inside to the same paragraph without gaps, and under
+   30ms. Option F (stage 3) is what would bring it down.
 2. **Tidy (refactor step).** Remove the exclusion-path readers that nothing
    feeds any more: `CodeBlockLayoutFragment`'s `breaks` from the container,
    and `PageBands`' clearing. Then update `exclusionPathsAreTheCost` so it
    still shows the old cost on a plain view of its own, as it does now.
-3. **F**, as above, if a long note still feels slow on the iPad.
+3. **F**, as above. It is next, after stage 1, as a PR of its own: it is
+   also most of what a keystroke inside a tall paragraph still costs (the
+   walk inside `replace`, above).
 
 ### Acceptance numbers
 

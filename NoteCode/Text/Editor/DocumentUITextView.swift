@@ -181,17 +181,28 @@ final class DocumentUITextView: UITextView {
     /// two sheets' margins. Each rect is cut where it crosses a break.
     override func selectionRects(for range: UITextRange) -> [UITextSelectionRect] {
         let rects = super.selectionRects(for: range)
-        guard let table = blankLineLayout?.pushes, !table.gaps.isEmpty else { return rects }
-        let bands = gapBands(from: offset(from: beginningOfDocument, to: range.start),
-                             to: offset(from: beginningOfDocument, to: range.end), in: table)
+        let bands = pageGapBands(from: offset(from: beginningOfDocument, to: range.start),
+                                 to: offset(from: beginningOfDocument, to: range.end))
         guard !bands.isEmpty else { return rects }
         return rects.flatMap { GapClippedSelectionRect.clip($0, outOf: bands) }
     }
 
+    /// The first rect of a range, which popovers are anchored to (the
+    /// formula editor's), kept below a page break above its line.
+    override func firstRect(for range: UITextRange) -> CGRect {
+        let rect = super.firstRect(for: range)
+        guard !rect.isNull, !rect.isEmpty else { return rect }
+        let bands = pageGapBands(from: offset(from: beginningOfDocument, to: range.start),
+                                 to: offset(from: beginningOfDocument, to: range.end))
+        return GapClippedSelectionRect.clip(rect, outOf: bands).first ?? rect
+    }
+
     /// The page breaks above the lines from `start` to `end`, as spans of y in
-    /// this view's coordinates. Only lines the selection already laid out.
-    private func gapBands(from start: Int, to end: Int, in table: PagePushTable) -> [ClosedRange<CGFloat>] {
-        guard let manager = textLayoutManager, let content = manager.textContentManager else { return [] }
+    /// this view's coordinates; none in a note without a paragraph taller
+    /// than a page. Only lines the caller already laid out.
+    func pageGapBands(from start: Int, to end: Int) -> [ClosedRange<CGFloat>] {
+        guard let table = blankLineLayout?.pushes, !table.gaps.isEmpty,
+              let manager = textLayoutManager, let content = manager.textContentManager else { return [] }
         let documentStart = content.documentRange.location
         var bands: [ClosedRange<CGFloat>] = []
         for (lineStart, line) in table.gaps where lineStart <= end && lineStart + line.length >= start {
@@ -249,8 +260,7 @@ final class DocumentUITextView: UITextView {
                 )
                 if y >= bounds.minY, y < bounds.maxY {
                     // `glyphOrigin` leaves a page break's gap out.
-                    let gap = line.pageLineGap
-                    found = (bounds, bounds.minY + line.glyphOrigin.y + gap, gap)
+                    found = (bounds, bounds.minY + line.glyphOrigin.y + line.pageLineShift, line.pageLineGap)
                     return false
                 }
             }
@@ -548,10 +558,6 @@ final class DocumentUITextView: UITextView {
     }
 }
 
-/// Where a caret stands for a font on a baseline: as UIKit draws one on a
-/// line that is the font's own height, from a point above the ascender to
-/// half a point below the leading. Measured on 17pt prose and a 34pt heading,
-/// whose UIKit carets this reproduces exactly.
 /// A selection rect with the page breaks it crossed cut out
 /// (`DocumentUITextView.selectionRects(for:)`).
 final class GapClippedSelectionRect: UITextSelectionRect {
@@ -583,6 +589,20 @@ final class GapClippedSelectionRect: UITextSelectionRect {
         guard !rect.isNull, !rect.isEmpty,
               bands.contains(where: { $0.lowerBound < rect.maxY && $0.upperBound > rect.minY })
         else { return [original] }
+        let pieces = clip(rect, outOf: bands)
+        return pieces.enumerated().map { index, piece in
+            GapClippedSelectionRect(
+                piece,
+                from: original,
+                containsStart: original.containsStart && index == 0,
+                containsEnd: original.containsEnd && index == pieces.count - 1
+            )
+        }
+    }
+
+    /// `rect` less every span of y in `bands` it crosses, top to bottom.
+    static func clip(_ rect: CGRect, outOf bands: [ClosedRange<CGFloat>]) -> [CGRect] {
+        guard !rect.isNull, !rect.isEmpty else { return [rect] }
         var pieces = [rect.minY...rect.maxY]
         for band in bands {
             pieces = pieces.flatMap { piece -> [ClosedRange<CGFloat>] in
@@ -593,17 +613,14 @@ final class GapClippedSelectionRect: UITextSelectionRect {
                 return kept
             }
         }
-        return pieces.enumerated().map { index, piece in
-            GapClippedSelectionRect(
-                CGRect(x: rect.minX, y: piece.lowerBound, width: rect.width, height: piece.upperBound - piece.lowerBound),
-                from: original,
-                containsStart: original.containsStart && index == 0,
-                containsEnd: original.containsEnd && index == pieces.count - 1
-            )
-        }
+        return pieces.map { CGRect(x: rect.minX, y: $0.lowerBound, width: rect.width, height: $0.upperBound - $0.lowerBound) }
     }
 }
 
+/// Where a caret stands for a font on a baseline: as UIKit draws one on a
+/// line that is the font's own height, from a point above the ascender to
+/// half a point below the leading. Measured on 17pt prose and a 34pt heading,
+/// whose UIKit carets this reproduces exactly.
 nonisolated enum CaretHeight {
 
     static let above: CGFloat = 1

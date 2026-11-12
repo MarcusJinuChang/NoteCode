@@ -125,8 +125,9 @@ extension DebugStateReport {
         }
     }
 
+    /// Internal rather than private for `PagedGapProbeTests`.
     @MainActor
-    private static func visibleLinesAcrossBreaks(in page: PageView) -> Int {
+    static func visibleLinesAcrossBreaks(in page: PageView) -> Int {
         let textView = page.textView
         guard let manager = textView.textLayoutManager,
               let content = manager.textContentManager

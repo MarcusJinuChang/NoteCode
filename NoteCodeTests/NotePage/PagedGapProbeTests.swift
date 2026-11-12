@@ -15,7 +15,7 @@ import Testing
 import UIKit
 @testable import NoteCode
 
-@Suite("Tall paragraph gaps (D9)", .tags(.layout))
+@Suite("Tall paragraph gaps (D9)", .tags(.layout), .timeLimit(.minutes(3)))
 @MainActor
 struct PagedGapProbeTests {
 
@@ -29,7 +29,8 @@ struct PagedGapProbeTests {
         /// The break above its glyphs (`pageLineGap`).
         let gap: CGFloat
         /// The first glyph's baseline, in note coordinates, as the app reads
-        /// it: `glyphOrigin`, which leaves the gap out, plus the gap.
+        /// it: `glyphOrigin`, which leaves the gap out, plus how far the
+        /// glyphs were moved (`pageLineShift`).
         let baseline: CGFloat
 
         /// Where its glyphs' line starts.
@@ -47,12 +48,11 @@ struct PagedGapProbeTests {
             let origin = fragment.layoutFragmentFrame.origin
             for line in fragment.textLineFragments {
                 let bounds = line.typographicBounds.offsetBy(dx: origin.x, dy: origin.y + top)
-                let gap = line.pageLineGap
                 result.append((start, Line(
                     range: NSRange(location: start + line.characterRange.location, length: line.characterRange.length),
                     bounds: bounds,
-                    gap: gap,
-                    baseline: bounds.minY + line.glyphOrigin.y + gap
+                    gap: line.pageLineGap,
+                    baseline: bounds.minY + line.glyphOrigin.y + line.pageLineShift
                 )))
             }
             return true
@@ -122,33 +122,40 @@ struct PagedGapProbeTests {
     }
 
     /// The layout the gaps replaced, by hand: the gaps taken out of the tall
-    /// paragraph and an exclusion path on the break after each page it
-    /// crosses, as `PagePaginator.applyBands` set them until D9. The push
-    /// table is frozen from here on (`isApplying`), so the paginator neither
-    /// walks nor puts the gaps back; the harness is not used again after it.
+    /// paragraph and an exclusion path on every page break the paragraph's
+    /// frame reaches, from the page geometry and not from where the app put
+    /// gaps, so a break the gaps missed is not missed here too. (A path on
+    /// every break of the note would also move the paragraphs pushed to a
+    /// body's top: their spacing lies in the break above them.) The push table is frozen from here on
+    /// (`isApplying`), so the paginator neither walks nor puts the gaps
+    /// back; the harness is not used again after it.
     private static func layOutWithPaths(_ harness: PageHarness) throws -> Int {
         let page = harness.page
         let textView = page.textView
         let layout = page.pageLayout
         let table = try #require(textView.blankLineLayout?.pushes)
         let range = try tallRange(of: page)
-        let gapLines = lines(of: page).map(\.line).filter { $0.gap > 0 }
-        let pages = Set(gapLines.map { layout.pageIndex(atY: $0.glyphTop + 1) - 1 }).sorted()
-        try #require(!pages.isEmpty)
 
         let content = try #require(textView.textLayoutManager?.textContentManager as? NSTextContentStorage)
         table.isApplying = true
         table.set(gaps: [:], in: range)
-        textView.textContainer.exclusionPaths = pages.map {
-            UIBezierPath(rect: layout.exclusionBand(afterPage: $0, containerTop: textView.textContainerInset.top))
-        }
+        // A gap above the first line is the paragraph's push; before D9 its
+        // path moved that line, with no push.
+        table.set(push: 0, at: range.location)
+        let fragment = try #require(tallFragment(of: page))
+        let top = textView.textContainerInset.top
+        let extent = fragment.layoutFragmentFrame.offsetBy(dx: 0, dy: top)
+        let bands = layout.exclusionBands(pageCount: page.pageCount, containerTop: top)
+            .filter { $0.offsetBy(dx: 0, dy: top).minY < extent.maxY && $0.offsetBy(dx: 0, dy: top).maxY > extent.minY }
+        try #require(!bands.isEmpty)
+        textView.textContainer.exclusionPaths = bands.map { UIBezierPath(rect: $0) }
         let storage = textView.textStorage
         storage.beginEditing()
         storage.edited(.editedAttributes, range: range, changeInLength: 0)
         storage.endEditing()
         harness.layOut()
         textView.textLayoutManager?.ensureLayout(for: content.documentRange)
-        return pages.count
+        return bands.count
     }
 
     private static func settled(_ text: String, mode: PageViewMode) -> PageHarness {
@@ -157,6 +164,47 @@ struct PagedGapProbeTests {
         harness.layOut()
         harness.page.paginate()
         return harness
+    }
+
+    /// Starts the note's pagination again from nothing, as a new layout
+    /// does (`PageBands.restartPagination`), and counts the passes that
+    /// change something before one changes nothing.
+    static func changingPassesFromScratch(in harness: PageHarness) throws -> Int {
+        let textView = harness.page.textView
+        let table = try #require(textView.blankLineLayout?.pushes)
+        let storage = textView.textStorage
+        table.reset()
+        table.isApplying = true
+        storage.edited(.editedAttributes, range: NSRange(location: 0, length: storage.length), changeInLength: 0)
+        table.isApplying = false
+        textView.textContainer.exclusionPaths = []
+        return try changingPasses(in: harness)
+    }
+
+    /// Passes of the paginator that change something, from where the table
+    /// left off, laying the note out between them as the PDF does.
+    static func changingPasses(in harness: PageHarness) throws -> Int {
+        let textView = harness.page.textView
+        let manager = try #require(textView.textLayoutManager)
+        let paginator = PagePaginator(textView: textView)
+        manager.ensureLayout(for: manager.documentRange)
+        var count = 0
+        while count <= PagePaginator.passLimit, paginator.paginate(layout: harness.page.pageLayout) {
+            count += 1
+            manager.ensureLayout(for: manager.documentRange)
+        }
+        return count
+    }
+
+    /// The whole note's text given a paragraph style, as line spacing does
+    /// (`NoteTypography.lineStyle`): a minimum line height of the font's own
+    /// plus `spacing`.
+    static func setLineSpacing(_ spacing: CGFloat, in harness: PageHarness) {
+        let storage = harness.page.textView.textStorage
+        let font = storage.attribute(.font, at: 0, effectiveRange: nil) as? UIFont ?? DocumentStyler.proseFont
+        let style = NSMutableParagraphStyle()
+        style.minimumLineHeight = font.lineHeight + spacing
+        storage.addAttribute(.paragraphStyle, value: style, range: NSRange(location: 0, length: storage.length))
     }
 
     // MARK: Fixtures
@@ -185,13 +233,36 @@ struct PagedGapProbeTests {
     /// where the paths did, or ink beside a tall paragraph would drift.
     @Test("The gaps put a tall paragraph's lines where exclusion paths did, with the same wrap, and use no path", arguments: PageViewMode.allCases)
     func gapMatchesPaths(mode: PageViewMode) throws {
-        let harness = Self.settled(Self.tallParagraph, mode: mode)
+        try Self.checkAgainstPaths(Self.settled(Self.tallParagraph, mode: mode), mode.rawValue)
+    }
+
+    /// With line spacing on, a line's minimum height takes up part of a
+    /// baseline offset, so the offset is a little more than the gap and the
+    /// walk keeps each gap line's own height (`PageLineGap.natural`).
+    @Test("With line spacing on, the gaps settle in one pass and still put the lines where paths did", arguments: PageViewMode.allCases)
+    func gapsWithLineSpacing(mode: PageViewMode) throws {
+        let harness = PageHarness(text: Self.tallParagraph, layout: PageLayout(mode: mode))
+        Self.setLineSpacing(8, in: harness)
+        #expect(try Self.changingPassesFromScratch(in: harness) == 1)
+        harness.layOut()
+        let textView = harness.page.textView
+        #expect(try #require(textView.blankLineLayout?.pushes.gaps.count) >= 2)
+        // Typed above: nothing to change.
+        let position = textView.position(from: textView.beginningOfDocument, offset: 10)!
+        textView.replace(textView.textRange(from: position, to: position)!, withText: "z")
+        #expect(try Self.changingPasses(in: harness) == 0)
+        try Self.checkBreaks(of: harness, "spacing 8")
+        try Self.checkAgainstPaths(harness, "\(mode.rawValue) spacing 8")
+    }
+
+    /// The app's layout of `harness` against the same note laid out by paths.
+    private static func checkAgainstPaths(_ harness: PageHarness, _ label: String) throws {
         let textView = harness.page.textView
         let table = try #require(textView.blankLineLayout?.pushes)
         #expect(textView.textContainer.exclusionPaths.isEmpty)
         #expect(table.through == Int.max, "the note had not settled")
-        let gapped = Self.lines(of: harness.page)
-        let gapDrawing = try Self.inkedRows(of: harness.page)
+        let gapped = lines(of: harness.page)
+        let gapDrawing = try inkedRows(of: harness.page)
         let gapCount = gapped.filter { $0.line.gap > 0 }.count
         #expect(gapCount >= 2)
         #expect(gapCount == table.gaps.count, "\(gapCount) lines laid out with a gap, \(table.gaps.count) in the table")
@@ -199,9 +270,9 @@ struct PagedGapProbeTests {
         let starts = Set(gapped.map(\.line.range.location))
         #expect(table.gaps.keys.allSatisfy { starts.contains($0) })
 
-        let pageCount = try Self.layOutWithPaths(harness)
-        let paths = Self.lines(of: harness.page)
-        let pathDrawing = try Self.inkedRows(of: harness.page)
+        let pageCount = try layOutWithPaths(harness)
+        let paths = lines(of: harness.page)
+        let pathDrawing = try inkedRows(of: harness.page)
         #expect(paths.allSatisfy { $0.line.gap == 0 })
 
         // The wrap: every line of the note holds the same characters.
@@ -212,7 +283,17 @@ struct PagedGapProbeTests {
         let tallStart = try #require(Dictionary(grouping: paths, by: \.paragraph).max { $0.value.count < $1.value.count }?.key)
         var top: CGFloat = 0, foot: CGFloat = 0, baseline: CGFloat = 0, drawn: CGFloat = 0
         var drawnLines = 0, tallLines = 0, wrongPage = 0
-        for (path, gap) in zip(paths, gapped) {
+        var reported = 0
+        for (index, (path, gap)) in zip(paths, gapped).enumerated() {
+            if abs(gap.line.glyphTop - path.line.bounds.minY) > 0.5, reported < 3 {
+                reported += 1
+                let before = index > 0 ? gapped[index - 1].line.bounds.maxY : 0
+                print(String(format: "GAPS %@ moved line %d (paragraph %d): gap %.2f, path top %.2f h %.2f, gap line from %.2f glyphs %.2f h %.2f, line above ends %.2f, page body %.2f-%.2f",
+                             label, index, path.paragraph, gap.line.gap, path.line.bounds.minY, path.line.bounds.height,
+                             gap.line.bounds.minY, gap.line.glyphTop, gap.line.bounds.height, before,
+                             layout.bodyTop(ofPage: layout.pageIndex(atY: path.line.bounds.minY + 1)),
+                             layout.bodyTop(ofPage: layout.pageIndex(atY: path.line.bounds.minY + 1)) + layout.bodyHeight))
+            }
             top = max(top, abs(gap.line.glyphTop - path.line.bounds.minY))
             foot = max(foot, abs(gap.line.bounds.maxY - path.line.bounds.maxY))
             baseline = max(baseline, abs(gap.line.baseline - path.line.baseline))
@@ -223,13 +304,13 @@ struct PagedGapProbeTests {
             // looked for from above the gap.
             let window = (path.line.bounds.minY - 2)...(path.line.bounds.maxY)
             let wide = (gap.line.bounds.minY - 2)...(gap.line.bounds.maxY)
-            if let inPath = Self.firstInk(in: window, of: pathDrawing), let inGap = Self.firstInk(in: wide, of: gapDrawing) {
+            if let inPath = firstInk(in: window, of: pathDrawing), let inGap = firstInk(in: wide, of: gapDrawing) {
                 drawn = max(drawn, abs(inGap - inPath))
                 drawnLines += 1
             }
         }
         print(String(format: "GAPS %@: %d gaps, %d paths, %d lines: top %.3f foot %.3f baseline %.3f drawn %.2f",
-                     mode.rawValue, gapCount, pageCount, paths.count, top, foot, baseline, drawn))
+                     label, gapCount, pageCount, paths.count, top, foot, baseline, drawn))
         #expect(top <= 0.5, "a line's glyphs start \(top)pt from where the paths put them")
         #expect(foot <= 0.5, "a line ends \(foot)pt from where the paths put it")
         #expect(baseline <= 0.5, "a baseline is \(baseline)pt from where the paths put it")
@@ -260,6 +341,10 @@ struct PagedGapProbeTests {
             #expect(line != nil, "\(comment): a gap at \(start) on no gap line")
             if let line {
                 #expect(line.range.length == gap.length && abs(line.gap - gap.gap) < 0.01, "\(comment): the gap at \(start) is not its line's")
+                // It puts its line at the top of a page's body: not a stale
+                // gap, nor one too big.
+                let body = layout.bodyTop(ofPage: layout.pageIndex(atY: line.glyphTop + 1))
+                #expect(abs(line.glyphTop - body) < 0.5, "\(comment): the line after the gap at \(start) starts \(line.glyphTop - body)pt into its page")
             }
         }
         #expect(laidOut.count == table.gaps.count, "\(comment): \(laidOut.count) gap lines, \(table.gaps.count) in the table")
@@ -392,6 +477,115 @@ struct PagedGapProbeTests {
         #expect(selection.filter(\.containsStart).count == 1)
         #expect(selection.filter(\.containsEnd).count == 1)
     }
+    // MARK: Lines of a fixed height
+
+    /// One code line too long for a page: its wrapped lines are a fixed
+    /// height (`CodeBlockRoom.codeLine`), which a baseline offset moves the
+    /// glyphs of without making taller. So it keeps exclusion paths.
+    @Test("A code line taller than a page settles in one pass, with no line in a break and none over another", arguments: PageViewMode.allCases)
+    func longCodeLine(mode: PageViewMode) throws {
+        let before = (0..<12).map { "Before \($0): the loop invariant holds before and after every iteration." }.joined(separator: "\n")
+        let code = String(repeating: "aGVsbG8gd29ybGQgaGVsbG8gd29ybGQ=", count: 300)
+        let after = (0..<20).map { "After \($0): the loop invariant holds before and after every iteration." }.joined(separator: "\n")
+        let harness = PageHarness(text: before + "\n" + code + "\n" + after, layout: PageLayout(mode: mode))
+        let textView = harness.page.textView
+        let storage = textView.textStorage
+        let codeRange = (storage.string as NSString).range(of: code)
+        let font = UIFont.monospacedSystemFont(ofSize: 15, weight: .regular)
+        storage.addAttributes([.font: font, .paragraphStyle: CodeBlockRoom.codeLine(height: 20)], range: NSRange(location: codeRange.location, length: codeRange.length + 1))
+
+        #expect(try Self.changingPassesFromScratch(in: harness) == 1)
+        harness.layOut()
+        let table = try #require(textView.blankLineLayout?.pushes)
+        #expect(table.gaps.isEmpty, "a fixed-height line was given a gap")
+        #expect(!textView.textContainer.exclusionPaths.isEmpty)
+        let position = textView.position(from: textView.beginningOfDocument, offset: 10)!
+        textView.replace(textView.textRange(from: position, to: position)!, withText: "z")
+        #expect(try Self.changingPasses(in: harness) == 0, "a keystroke above it changed the breaks")
+
+        let layout = harness.page.pageLayout
+        let all = Self.lines(of: harness.page)
+        let codeLines = all.filter { NSLocationInRange($0.line.range.location, NSRange(location: codeRange.location + 1, length: codeRange.length)) }
+        #expect(codeLines.count > Int(layout.bodyHeight / 20))
+        let breaks = layout.exclusionBands(pageCount: harness.page.pageCount, containerTop: layout.firstBodyTop)
+            .map { $0.offsetBy(dx: 0, dy: layout.firstBodyTop) }
+        let intruding = all.filter { line in breaks.contains { $0.intersects(line.line.bounds.insetBy(dx: 0, dy: 0.5)) } }
+        #expect(intruding.isEmpty, "\(intruding.count) lines in a break")
+        var overlaps = 0
+        for (above, below) in zip(all, all.dropFirst()) where below.line.bounds.minY < above.line.bounds.maxY - 0.5 { overlaps += 1 }
+        #expect(overlaps == 0, "\(overlaps) lines over the one above")
+    }
+
+    // MARK: The table
+
+    @Test("A gap or push starting where a deleted or replaced range ended moves with the text")
+    func editEndingAtAGap() {
+        let table = PagePushTable()
+        table.set(gaps: [100: PageLineGap(length: 50, gap: 10, natural: 20), 300: PageLineGap(length: 40, gap: 12, natural: 20)],
+                  in: NSRange(location: 0, length: 1000))
+        table.set(push: 5, at: 100)
+        // 40..<100 deleted: what started at 100 now starts at 40.
+        table.edited(NSRange(location: 40, length: 0), changeInLength: -60)
+        #expect(table.gaps[40] == PageLineGap(length: 50, gap: 10, natural: 20))
+        #expect(table.push(at: 40) == 5)
+        #expect(table.gaps[240]?.gap == 12)
+        // 10..<40 replaced by five characters: 40 is now 15.
+        table.edited(NSRange(location: 10, length: 5), changeInLength: -25)
+        #expect(table.gaps[15]?.length == 50)
+        #expect(table.push(at: 15) == 5)
+        // Typed inside a gap line: it grows with the text.
+        table.edited(NSRange(location: 20, length: 3), changeInLength: 3)
+        #expect(table.gaps[15]?.length == 53)
+        #expect(table.gaps[218]?.length == 40)
+        // A gap line deleted from inside: gone.
+        table.edited(NSRange(location: 200, length: 0), changeInLength: -30)
+        #expect(table.gaps.count == 1)
+    }
+
+    // MARK: What reads a line's top
+
+    /// The settled print note, a gap line, and the view scrolled to it.
+    private static func scrolledToGapLine() throws -> (harness: PageHarness, line: Line) {
+        let harness = settled(tallParagraph, mode: .print)
+        let (gapLine, _, _) = try gapLineAndOrdinary(of: harness.page)
+        harness.page.textView.contentOffset.y = gapLine.glyphTop - 200
+        harness.layOut()
+        return (harness, gapLine)
+    }
+
+    @Test("A gap line's top, for keeping the reader's place, is its glyphs'")
+    func lineTopOnGapLine() throws {
+        let (harness, line) = try Self.scrolledToGapLine()
+        let top = try #require(harness.page.lineTop(atCharacter: line.range.location + 2))
+        #expect(abs(top - line.glyphTop) < 0.5, "line top \(top), glyphs at \(line.glyphTop), the line from \(line.bounds.minY)")
+    }
+
+    @Test("A gap line on screen, for selecting a region, is its glyphs' line")
+    func visibleLinesOnGapLine() throws {
+        let (harness, line) = try Self.scrolledToGapLine()
+        let visible = TextRegion.visibleLines(in: harness.page.textView)
+        let found = try #require(visible.first { $0.range == line.range }, "the gap line is not among \(visible.count) visible lines")
+        #expect(abs(found.rect.minY - line.glyphTop) < 0.5, "from \(found.rect.minY), glyphs at \(line.glyphTop)")
+        #expect(abs(found.rect.maxY - line.bounds.maxY) < 0.5)
+    }
+
+    @Test("A tall quote's bar stops at each page break inside it")
+    func quoteBarStopsAtBreaks() throws {
+        let harness = Self.settled(Self.tallParagraph, mode: .print)
+        let fragment = try #require(Self.tallFragment(of: harness.page))
+        let gapCount = fragment.textLineFragments.filter { $0.pageLineGap > 0 }.count
+        #expect(gapCount >= 2)
+        let runs = ProseBlockMetrics.barRuns(of: ProseBlockMetrics.glyphSpans(of: fragment.textLineFragments))
+        #expect(runs.count == gapCount + 1, "\(runs.count) stretches of bar for \(gapCount) breaks")
+    }
+
+    #if DEBUG
+    @Test("The debug report counts no line across a break on a gap line")
+    func debugReportOnGapLine() throws {
+        let (harness, _) = try Self.scrolledToGapLine()
+        #expect(DebugStateReport.visibleLinesAcrossBreaks(in: harness.page) == 0)
+    }
+    #endif
 }
 
 #endif

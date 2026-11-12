@@ -70,9 +70,16 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
     line's typographic bounds start where the line above it ended, and its
     `glyphOrigin` leaves the gap out, so whatever places things by a line's
     top or baseline adds `NSTextLineFragment.pageLineGap` (the PDF, the
-    caret and the selection, quote bars, `PageReading.lineTop`). Code lines
-    are paragraphs of their own, so a code block taller than a page is not
-    this case; one long paragraph of prose is.
+    caret and the selection, quote bars, `PageReading.lineTop`, taps on
+    links and formulas); with line spacing on, the glyphs move by a little
+    more than the gap (`.pageLineShift`), since the minimum line height
+    takes part of the offset up. **Lines of a fixed height keep exclusion
+    paths** (`PagePushTable.tall`): a baseline offset moves a code line's
+    or a display formula's source line's glyphs without making the line
+    taller, so one code line wrapped past a page (minified, base64) is
+    broken by paths, and a note with one pays their cost. Code lines are
+    otherwise paragraphs of their own, so a code block taller than a page
+    is not this case; one long paragraph of prose is.
   - **Breaks moved against 1.1.0** (a product decision, approved for F5). A
     paragraph used to be split by a break, its later lines pushed; now it moves
     whole, so a page can end earlier by up to a paragraph and the next begins
