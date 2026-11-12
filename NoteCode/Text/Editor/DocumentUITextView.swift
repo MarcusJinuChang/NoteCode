@@ -153,7 +153,13 @@ final class DocumentUITextView: UITextView {
         else { return line }
         // A fence's glyphs are lifted inside their line (`CodeBlockRoom`).
         let raise = attributes[.baselineOffset] as? CGFloat ?? 0
-        let caret = CaretHeight.rect(onLine: line, baseline: laidOut.baseline - raise, font: font)
+        var caret = CaretHeight.rect(onLine: line, baseline: laidOut.baseline - raise, font: font)
+        // The first line after a page break in a paragraph taller than a
+        // page holds the break above its glyphs: the caret stays below it.
+        if laidOut.gap > 0 {
+            let glyphs = CGRect(x: line.minX, y: laidOut.bounds.minY + laidOut.gap - CaretHeight.above, width: line.width, height: .greatestFiniteMagnitude)
+            caret = caret.intersection(glyphs)
+        }
         // And a fence's caret stays on the panel, out of the gap beside it.
         guard let room = CodeBlockRoom.caretRoom(
             onFenceLine: laidOut.bounds,
@@ -162,6 +168,44 @@ final class DocumentUITextView: UITextView {
         ) else { return caret }
         let kept = caret.intersection(room)
         return kept.isNull || kept.height <= 0 ? caret : kept
+    }
+
+    // MARK: The selection across a page break
+
+    /// The selection, kept out of the page breaks inside a paragraph taller
+    /// than a page.
+    ///
+    /// The first line after such a break holds the break above its glyphs
+    /// (`PagePushTable.gaps`), and UIKit highlights the whole of a line, so a
+    /// selection through it ran across the break, and in print layout across
+    /// two sheets' margins. Each rect is cut where it crosses a break.
+    override func selectionRects(for range: UITextRange) -> [UITextSelectionRect] {
+        let rects = super.selectionRects(for: range)
+        guard let table = blankLineLayout?.pushes, !table.gaps.isEmpty else { return rects }
+        let bands = gapBands(from: offset(from: beginningOfDocument, to: range.start),
+                             to: offset(from: beginningOfDocument, to: range.end), in: table)
+        guard !bands.isEmpty else { return rects }
+        return rects.flatMap { GapClippedSelectionRect.clip($0, outOf: bands) }
+    }
+
+    /// The page breaks above the lines from `start` to `end`, as spans of y in
+    /// this view's coordinates. Only lines the selection already laid out.
+    private func gapBands(from start: Int, to end: Int, in table: PagePushTable) -> [ClosedRange<CGFloat>] {
+        guard let manager = textLayoutManager, let content = manager.textContentManager else { return [] }
+        let documentStart = content.documentRange.location
+        var bands: [ClosedRange<CGFloat>] = []
+        for (lineStart, line) in table.gaps where lineStart <= end && lineStart + line.length >= start {
+            guard let location = content.location(documentStart, offsetBy: lineStart),
+                  let fragment = manager.textLayoutFragment(for: location)
+            else { continue }
+            let within = lineStart - content.offset(from: documentStart, to: fragment.rangeInElement.location)
+            guard let laid = fragment.textLineFragments.first(where: { $0.characterRange.location == within }) else { continue }
+            let gap = laid.pageLineGap
+            guard gap > 0 else { continue }
+            let top = fragment.layoutFragmentFrame.minY + laid.typographicBounds.minY + textContainerInset.top
+            bands.append(top...(top + gap))
+        }
+        return bands
     }
 
     /// UIKit's caret, the height of its whole line. This view measures lines
@@ -185,16 +229,16 @@ final class DocumentUITextView: UITextView {
         return typingAttributes
     }
 
-    /// The laid-out line at `y`, its bounds and its baseline in this view's
-    /// coordinates, looked for in the paragraph around `offset` and the one
-    /// after it. Never lays out further than the caret already has: UIKit's
-    /// own caret rect came first.
-    private func laidOutLine(at offset: Int, containingY y: CGFloat) -> (bounds: CGRect, baseline: CGFloat)? {
+    /// The laid-out line at `y`, its bounds and its glyphs' baseline in this
+    /// view's coordinates, and the page break above its glyphs, looked for in
+    /// the paragraph around `offset` and the one after it. Never lays out
+    /// further than the caret already has: UIKit's own caret rect came first.
+    private func laidOutLine(at offset: Int, containingY y: CGFloat) -> (bounds: CGRect, baseline: CGFloat, gap: CGFloat)? {
         guard let manager = textLayoutManager,
               let content = manager.textContentManager,
               let location = content.location(content.documentRange.location, offsetBy: max(0, offset - 1))
         else { return nil }
-        var found: (bounds: CGRect, baseline: CGFloat)?
+        var found: (bounds: CGRect, baseline: CGFloat, gap: CGFloat)?
         var fragments = 0
         manager.enumerateTextLayoutFragments(from: location, options: [.ensuresLayout]) { fragment in
             let origin = fragment.layoutFragmentFrame.origin
@@ -204,7 +248,9 @@ final class DocumentUITextView: UITextView {
                     dy: origin.y + textContainerInset.top
                 )
                 if y >= bounds.minY, y < bounds.maxY {
-                    found = (bounds, bounds.minY + line.glyphOrigin.y)
+                    // `glyphOrigin` leaves a page break's gap out.
+                    let gap = line.pageLineGap
+                    found = (bounds, bounds.minY + line.glyphOrigin.y + gap, gap)
                     return false
                 }
             }
@@ -506,6 +552,58 @@ final class DocumentUITextView: UITextView {
 /// line that is the font's own height, from a point above the ascender to
 /// half a point below the leading. Measured on 17pt prose and a 34pt heading,
 /// whose UIKit carets this reproduces exactly.
+/// A selection rect with the page breaks it crossed cut out
+/// (`DocumentUITextView.selectionRects(for:)`).
+final class GapClippedSelectionRect: UITextSelectionRect {
+    private let clipped: CGRect
+    private let direction: NSWritingDirection
+    private let starts: Bool
+    private let ends: Bool
+    private let vertical: Bool
+
+    init(_ rect: CGRect, from original: UITextSelectionRect, containsStart: Bool, containsEnd: Bool) {
+        clipped = rect
+        direction = original.writingDirection
+        starts = containsStart
+        ends = containsEnd
+        vertical = original.isVertical
+        super.init()
+    }
+
+    override var rect: CGRect { clipped }
+    override var writingDirection: NSWritingDirection { direction }
+    override var containsStart: Bool { starts }
+    override var containsEnd: Bool { ends }
+    override var isVertical: Bool { vertical }
+
+    /// `original` less every span of y in `bands` it crosses: as it is if it
+    /// crosses none, and in two if one runs through its middle.
+    static func clip(_ original: UITextSelectionRect, outOf bands: [ClosedRange<CGFloat>]) -> [UITextSelectionRect] {
+        let rect = original.rect
+        guard !rect.isNull, !rect.isEmpty,
+              bands.contains(where: { $0.lowerBound < rect.maxY && $0.upperBound > rect.minY })
+        else { return [original] }
+        var pieces = [rect.minY...rect.maxY]
+        for band in bands {
+            pieces = pieces.flatMap { piece -> [ClosedRange<CGFloat>] in
+                guard band.lowerBound < piece.upperBound, band.upperBound > piece.lowerBound else { return [piece] }
+                var kept: [ClosedRange<CGFloat>] = []
+                if band.lowerBound - piece.lowerBound > 0.5 { kept.append(piece.lowerBound...band.lowerBound) }
+                if piece.upperBound - band.upperBound > 0.5 { kept.append(band.upperBound...piece.upperBound) }
+                return kept
+            }
+        }
+        return pieces.enumerated().map { index, piece in
+            GapClippedSelectionRect(
+                CGRect(x: rect.minX, y: piece.lowerBound, width: rect.width, height: piece.upperBound - piece.lowerBound),
+                from: original,
+                containsStart: original.containsStart && index == 0,
+                containsEnd: original.containsEnd && index == pieces.count - 1
+            )
+        }
+    }
+}
+
 nonisolated enum CaretHeight {
 
     static let above: CGFloat = 1

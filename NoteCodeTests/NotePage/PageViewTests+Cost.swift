@@ -43,11 +43,11 @@ extension PageViewTests {
         }
 
         /// F5. The median of nine one-character edits near the top of a note, as
-        /// `typingCost` takes it.
-        private func keystrokeMedian(in textView: UITextView) -> TimeInterval {
+        /// `typingCost` takes it, or from `offset`.
+        private func keystrokeMedian(in textView: UITextView, from offset: Int = 120) -> TimeInterval {
             var times: [TimeInterval] = []
             for index in 0..<9 {
-                let position = textView.position(from: textView.beginningOfDocument, offset: 120 + index)!
+                let position = textView.position(from: textView.beginningOfDocument, offset: offset + index)!
                 let start = Date()
                 textView.replace(textView.textRange(from: position, to: position)!, withText: "z")
                 textView.layoutIfNeeded()
@@ -70,13 +70,77 @@ extension PageViewTests {
             #expect(median < 0.03, "keystroke near the top of a 40-page note took \(median)s")
         }
 
+        /// D9. A paragraph taller than a page used to be broken by exclusion
+        /// paths, and with any path TextKit laid out everything below an edit
+        /// again: 55-90ms a keystroke anywhere in a 40-page note with one such
+        /// paragraph (simulator, 11 Nov). Its breaks are now gaps in the layout's
+        /// copy of the paragraph (docs/design/paged-typing-cost.md › C).
+        ///
+        /// Above and below it a keystroke costs what one in the same note without
+        /// the paragraph does (the design note's acceptance is 1.5 times; the
+        /// bound here is looser, for a loaded machine). Inside it a keystroke
+        /// costs about three times that, 12-16ms, and the gaps are not why: the
+        /// same keystroke with the table frozen, or with the gaps taken out,
+        /// costs the same, nearly all of it inside `UITextView.replace`, against
+        /// 3ms in a bare configured view holding the same text. So inside is
+        /// held to the same paragraph without gaps, which shows the gaps cost
+        /// nothing, and to an absolute bound well under the paths' cost.
+        @Test("Typing above, inside and below a tall paragraph in a 40-page note costs what it would without the page breaks in it", .tags(.perf))
+        func typingCostTallParagraph() throws {
+            let plain = PageHarness(text: StylingPerformanceTests.document(lines: 1500))
+            let without = keystrokeMedian(in: plain.page.textView)
+            plain.page.removeFromSuperview()
+
+            let harness = PageHarness(text: PagedGapProbeTests.longNoteWithTallParagraph)
+            harness.page.paginate()
+            harness.layOut()
+            let textView = harness.page.textView
+            #expect(harness.page.pageCount >= 40)
+            #expect(textView.textContainer.exclusionPaths.isEmpty)
+            #expect(try #require(textView.blankLineLayout?.pushes.gaps.count) >= 2)
+            func tall() -> NSRange {
+                let text = textView.textStorage.string as NSString
+                let start = text.range(of: "word0 of one very long").location
+                return NSRange(location: start, length: text.range(of: "\n", range: NSRange(location: start, length: text.length - start)).location - start)
+            }
+            #expect(tall().length > 9000)
+
+            let above = keystrokeMedian(in: textView)
+            let inside = keystrokeMedian(in: textView, from: tall().location + tall().length / 2)
+            let below = keystrokeMedian(in: textView, from: NSMaxRange(tall()) + 2000)
+
+            // The same keystroke inside, with the gaps taken out and the table
+            // frozen so the paginator neither walks nor puts them back. The
+            // harness is not laid out again after it.
+            let table = try #require(textView.blankLineLayout?.pushes)
+            table.isApplying = true
+            table.set(gaps: [:], in: tall())
+            textView.textStorage.edited(.editedAttributes, range: tall(), changeInLength: 0)
+            harness.layOut()
+            let insideWithoutGaps = keystrokeMedian(in: textView, from: tall().location + tall().length / 2 + 40)
+            table.isApplying = false
+            harness.page.removeFromSuperview()
+
+            reportPerf("PageViewTests/typingCostTallParagraph.above", seconds: above)
+            reportPerf("PageViewTests/typingCostTallParagraph.inside", seconds: inside)
+            reportPerf("PageViewTests/typingCostTallParagraph.below", seconds: below)
+            print(String(format: "D9 keystroke ms: no tall paragraph %.1f, above %.1f (%.2fx), inside %.1f (%.2fx; without its gaps %.1f), below %.1f (%.2fx)",
+                         without * 1000, above * 1000, above / without, inside * 1000, inside / without,
+                         insideWithoutGaps * 1000, below * 1000, below / without))
+            for (name, time) in [("above", above), ("below", below)] {
+                #expect(time < without * 2 + 0.002, "\(name) the tall paragraph \(time)s, without one \(without)s")
+            }
+            #expect(inside < insideWithoutGaps * 1.25 + 0.001, "inside \(inside)s, the same without its gaps \(insideWithoutGaps)s")
+            #expect(inside < 0.03, "inside the tall paragraph \(inside)s")
+        }
+
         /// F5's finding, kept as the guard: the cost was the exclusion paths. The
         /// same text in the same configured view costs 1ms a keystroke without
         /// them and about 100ms with them, because TextKit 2 lays out everything
         /// below an edit once line positions depend on where they fall. Page breaks
         /// are now paragraphs pushed down, so the paged note has none and costs
-        /// what the plain one does. `PageView` puts a note's paths back only for a
-        /// paragraph taller than a page, so this uses a view of its own for them.
+        /// what the plain one does. Since D9 no note has any, so this uses a view
+        /// of its own for them.
         @Test("A 40-page note has no exclusion paths, and costs a keystroke what unpaged text does", .tags(.perf))
         func exclusionPathsAreTheCost() {
             let harness = PageHarness(text: StylingPerformanceTests.document(lines: 1500))

@@ -303,7 +303,7 @@ follow-up for very long notes.
 
    The test's bounds are loose: gaps under a third of paths, and under twice
    the frozen note without a tall paragraph plus 2ms.
-1. **Build C.** `PagePaginator`'s `.tall` case records gaps per line start in
+1. **Build C.** **Done 11 Nov** (as built, at the end of this step). `PagePaginator`'s `.tall` case records gaps per line start in
    `PagePushTable`, shifted with edits like pushes. `BlankLineLayout` adds
    them to the copy's `.baselineOffset`. `applyBands` and the paths go.
    `caretRect(for:)` and a new `selectionRects(for:)` take the gap from the
@@ -317,6 +317,33 @@ follow-up for very long notes.
    baseline.md, that types above the tall paragraph and inside it (D9's
    symptom is a slow keystroke anywhere in the note; stage 0 timed only
    above it), and a test that the line tops match a stored path layout.
+   **As built.** `linePlacement` returns each pushed line's gap by its
+   index, and a gap above a paragraph's first line becomes its push, so
+   markers and boxes, drawn from the first line, never sit on a gap line.
+   The table keeps a gap per line start with the line's length, and an edit
+   inside a gap line stretches it with the text; a rewrap is put right by
+   the next pass, which re-reads each line's applied gap
+   (`NSTextLineFragment.pageLineGap`) to find its natural height. The
+   readers that take the gap off: `NotePDF` (which sheet a line is on, and
+   `drawFormulas`, where the gap in the offset and the gap `glyphOrigin`
+   leaves out cancel), `caretRect(for:)`, `selectionRects(for:)` (each rect
+   cut where it crosses a gap), `PageReading.lineTop`, the quote bars,
+   `TextRegion.visibleLines` and the debug report. The tests are
+   `PagedGapProbeTests` (the stage 0 probe, now against the app's own gaps
+   and a path layout set by hand, with its copy of the rule gone),
+   `NotePDFTests.formulaOnGapLine` and `PageViewTests.Cost.typingCostTallParagraph`.
+   **Measured** (iPad Pro 13-inch (M5) simulator, Debug, same run): without
+   a tall paragraph 4.0-5.5ms; with one, above it 1.01-1.06 times that and
+   below it 0.76-0.96 times, which meets the acceptance. **Inside it, 12.5-16.5ms,
+   2.4-3.1 times, which does not**, and the gaps are not why: with the table
+   frozen (no walk) it is the same, and with the gaps taken out of the
+   paragraph too it is the same (16.2 against 16.6). Nearly all of it is in
+   `UITextView.replace` (15.4ms of 16.2), against 3.0ms for the same
+   keystroke in a bare configured view holding the same text at the same
+   width. So a paged view pays about 13ms more than a bare one for an edit
+   inside a 10,000-character paragraph, gaps or not; what in the paged view
+   costs it is not yet known (a new debt item). The test holds inside to the
+   same paragraph without gaps, and under 30ms.
 2. **Tidy (refactor step).** Remove the exclusion-path readers that nothing
    feeds any more: `CodeBlockLayoutFragment`'s `breaks` from the container,
    and `PageBands`' clearing. Then update `exclusionPathsAreTheCost` so it

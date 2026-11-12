@@ -404,6 +404,43 @@ struct NotePDFTests {
         #expect(data.count < 250_000, "\(data.count) bytes")
     }
 
+    /// D9: the first line after a page break inside a paragraph taller than
+    /// a page holds the break as a negative baseline offset in the layout's
+    /// copy, which `drawFormulas` reads to place a formula. Counted as the
+    /// formula's own lift it would be drawn the break's height from its line,
+    /// off the sheet.
+    @Test("A formula on the first line after a break inside a tall paragraph is drawn on its line")
+    func formulaOnGapLine() async throws {
+        let before = (0..<12).map { "Line \($0): the loop invariant holds before and after." }.joined(separator: "\n")
+        let tall = Array(repeating: "a $x_1$ $y_2$ $z_3$ b", count: 300).joined(separator: " ")
+        let pdf = try await Self.pdf(before + "\n" + tall + "\nAfter.", pageCount: 3, rendersMarkdown: true)
+        try #require(pdf.pageCount >= 2)
+        let sheet = try #require(Bitmap(pdfPage: pdf.page(at: 1)))
+
+        // Dark pixels on each pixel row, and the runs of rows with any: lines.
+        let rows = (0..<sheet.height).map { row in
+            (0..<sheet.width).count { sheet.luminance(at: CGPoint(x: (CGFloat($0) + 0.5) / sheet.scale, y: (CGFloat(row) + 0.5) / sheet.scale)) < 0.5 }
+        }
+        var lines: [(top: Int, bottom: Int, ink: Int)] = []
+        for (row, ink) in rows.enumerated() where ink > 0 {
+            if let last = lines.last, last.bottom == row - 1 {
+                lines[lines.count - 1] = (last.top, row, last.ink + ink)
+            } else {
+                lines.append((row, row, ink))
+            }
+        }
+        try #require(lines.count >= 3, "\(lines.count) lines on the second sheet")
+        // The sheet's first line is the paragraph's line after the break. It
+        // has its formulas, drawn on its baseline: the same ink, and the same
+        // top and bottom in its line, as the ordinary line below it.
+        let first = lines[0], second = lines[1]
+        let ratio = Double(first.ink) / Double(second.ink)
+        print("GAPS PDF: first line rows \(first.top)-\(first.bottom) ink \(first.ink), second \(second.top)-\(second.bottom) ink \(second.ink)")
+        #expect(ratio > 0.8 && ratio < 1.25, "the first line has \(first.ink) dark pixels, the second \(second.ink)")
+        #expect(abs((first.bottom - first.top) - (second.bottom - second.top)) <= 1,
+                "the first line's ink is \(first.bottom - first.top) rows tall, the second's \(second.bottom - second.top)")
+    }
+
     @Test("A display formula is centred on the sheet and drawn once")
     func displayFormula() async throws {
         let pdf = try await Self.pdf("$$\\sum_{i=1}^{n} i$$", rendersMarkdown: true)

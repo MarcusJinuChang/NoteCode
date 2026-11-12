@@ -33,9 +33,14 @@ import UIKit
 /// TextKit do on every keystroke. Opening a note still lays out the whole
 /// note, as the paths did.
 ///
-/// **A paragraph taller than a page** keeps its place, and its page breaks
-/// are exclusion paths on the container, set only for those paragraphs. A
-/// note with one still pays for them on every keystroke.
+/// **A paragraph taller than a page** keeps its place, and each line of it
+/// that would cross a break gets a gap above it in the layout's copy of the
+/// paragraph (`PagePushTable.gaps`, laid in by `BlankLineLayout`), a
+/// negative baseline offset that puts its glyphs at the next body's top.
+/// They used to be exclusion paths on the container, and with any path at
+/// all TextKit laid out everything below an edit again: 55-90ms a keystroke
+/// in a 40-page note (D9, docs/design/paged-typing-cost.md). A gap changes
+/// no line's wrap and only its own paragraph's height.
 @MainActor
 final class PagePaginator {
 
@@ -71,15 +76,13 @@ final class PagePaginator {
         if table.through == Int.max { return false }
         if table.changingPasses >= Self.passLimit { return false }
 
-        let walkStart = table.through
         let containerTop = textView.textContainerInset.top
         let documentStart = content.documentRange.location
         guard let startLocation = content.location(documentStart, offsetBy: table.through) else { return false }
 
         var cursor: CGFloat = 0
         var started = false
-        var edits: [(range: NSRange, push: CGFloat)] = []
-        var tall: [(offset: Int, pages: [Int]?)] = []
+        var edits: [(range: NSRange, push: CGFloat, gaps: [Int: PageLineGap])] = []
 
         manager.enumerateTextLayoutFragments(from: startLocation, options: [.ensuresLayout]) { fragment in
             let frame = fragment.layoutFragmentFrame
@@ -93,34 +96,47 @@ final class PagePaginator {
             }
 
             let lines = fragment.textLineFragments
-            let naturalHeight = frame.height - applied
+            // The gaps it was laid out with, above some of its lines, are
+            // inside it too: its own height is without them.
+            let appliedGaps = Self.hasLineGaps(fragment) ? lines.map(\.pageLineGap) : []
+            let gapTotal = appliedGaps.reduce(0, +)
+            let naturalHeight = frame.height - applied - gapTotal
             guard let last = lines.last else {
                 cursor += naturalHeight
                 return true
             }
             let top = cursor + containerTop
-            let lastBottom = top + (last.typographicBounds.maxY - applied)
+            let lastBottom = top + (last.typographicBounds.maxY - applied - gapTotal)
 
             var push: CGFloat = 0
             var advance = naturalHeight
-            var pages: [Int]?
+            var gaps: [Int: PageLineGap] = [:]
             switch PageBreakRule.placement(top: top, lastLineBottom: lastBottom, layout: layout) {
             case .fits:
                 break
             case .push(let distance):
                 push = distance
             case .tall:
-                let heights = lines.map { $0.typographicBounds.height }
+                let heights = lines.enumerated().map { index, line in
+                    line.typographicBounds.height - (appliedGaps.isEmpty ? 0 : appliedGaps[index])
+                }
                 let placed = PageBreakRule.linePlacement(top: top, lineHeights: heights, layout: layout)
-                pages = placed.pages
+                for (index, gap) in placed.gaps {
+                    // A gap above the first line is the paragraph's own push:
+                    // the first line is where markers and boxes are drawn from.
+                    if index == 0 { push = gap; continue }
+                    let range = lines[index].characterRange
+                    gaps[start + range.location] = PageLineGap(length: range.length, gap: gap)
+                }
                 // What follows the last line (spacing after) is unchanged.
-                advance = (placed.bottom - top) + max(naturalHeight - (last.typographicBounds.maxY - applied), 0)
+                advance = (placed.bottom - top - push)
+                    + max(naturalHeight - (last.typographicBounds.maxY - applied - gapTotal), 0)
             }
-            tall.append((start, pages))
 
-            if abs(push - applied) > PageBreakRule.tolerance {
-                let end = content.offset(from: documentStart, to: fragment.rangeInElement.endLocation)
-                edits.append((NSRange(location: start, length: end - start), push))
+            let end = content.offset(from: documentStart, to: fragment.rangeInElement.endLocation)
+            let range = NSRange(location: start, length: end - start)
+            if abs(push - applied) > PageBreakRule.tolerance || !table.gaps(in: range, match: gaps) {
+                edits.append((range, push, gaps))
             }
             cursor += push + advance
             return true
@@ -133,25 +149,17 @@ final class PagePaginator {
             storage.beginEditing()
             for edit in edits {
                 table.set(push: edit.push, at: edit.range.location)
+                table.set(gaps: edit.gaps, in: edit.range)
                 storage.edited(.editedAttributes, range: edit.range, changeInLength: 0)
             }
             storage.endEditing()
             table.isApplying = false
         }
 
-        for entry in tall where table.tall[entry.offset] != entry.pages {
-            table.set(tall: entry.pages, at: entry.offset)
-        }
-        let bandsChanged = applyBands(layout: layout, table: table, to: textView)
-        if bandsChanged { changed = true }
-
         // Changed paragraphs are checked again from the first of them, once
-        // TextKit has laid them out with their new pushes. New exclusion paths
-        // change the height of the paragraphs they run through, wherever those
-        // are, so the whole pass is checked.
-        var next = edits.first?.range.location ?? Int.max
-        if bandsChanged { next = min(next, walkStart) }
-        table.through = next
+        // TextKit has laid them out with their new pushes and gaps. Neither
+        // changes how a paragraph wraps, nor the height of any other.
+        table.through = edits.first?.range.location ?? Int.max
         table.changingPasses = changed ? table.changingPasses + 1 : 0
         return changed
     }
@@ -165,15 +173,16 @@ final class PagePaginator {
         return CGFloat(push)
     }
 
-    /// The break after each page a tall paragraph crosses, as the container's
-    /// exclusion paths. Nothing else needs one.
-    private func applyBands(layout: PageLayout, table: PagePushTable, to textView: DocumentUITextView) -> Bool {
-        let pages = Set(table.tall.values.flatMap { $0 }).sorted()
-        let rects = pages.map { layout.exclusionBand(afterPage: $0, containerTop: textView.textContainerInset.top) }
-        let current = textView.textContainer.exclusionPaths.map(\.bounds)
-        guard current != rects else { return false }
-        textView.textContainer.exclusionPaths = rects.map { UIBezierPath(rect: $0) }
-        return true
+    /// Whether a paragraph was laid out with a gap above any of its lines:
+    /// one attribute run to read for a paragraph with none.
+    static func hasLineGaps(_ fragment: NSTextLayoutFragment) -> Bool {
+        guard let paragraph = fragment.textElement as? NSTextParagraph else { return false }
+        let string = paragraph.attributedString
+        let whole = NSRange(location: 0, length: string.length)
+        guard whole.length > 0 else { return false }
+        var run = NSRange()
+        return string.attribute(.pageLineGap, at: 0, longestEffectiveRange: &run, in: whole) != nil
+            || run.length < whole.length
     }
 }
 

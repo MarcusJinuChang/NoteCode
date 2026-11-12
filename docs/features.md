@@ -125,7 +125,7 @@ be seen on a real iPad is one ordered list: [ipad-test-checklist.md](ipad-test-c
 | A4, side-by-side pages, infinite canvas | | idea | ROADMAP |
 | Paper styles | Removed for the full release (31 Oct, Marcus): every note shows plain paper, with no menu, setting, template or debug argument for it. The drawing code is gone; `Page.paperStyle` stays in the model, unused, so version 1's hashes hold | removed | `paper-styles.md` |
 | Text alignment | A text alignment system (left, centre, right, justified) to come in place of paper styles | idea | ROADMAP |
-| Typing in a long note | Typing near the top of a 40-page note costs about 97ms a keystroke; the text view's exclusion paths for the pages are the cost (98.8 to 111.1 ms with them, 0.8 without) and no safe fix exists | measured, not fixed (F5) | `baseline.md` › Release QA 4A |
+| Typing in a long note | A keystroke in a 40-page note costs about 6ms (F5: breaks are pushed paragraphs, not exclusion paths). A paragraph taller than a page is broken by a gap above each line after a break, in the layout only, so typing above or below one costs what it does in a note without one (D9, 11 Nov; it was 55-90ms). Typing inside it costs about 16ms, three times that, for a reason not yet found (not the gaps: the same without them). The paginator still walks to the end of the note after each edit, about 0.12ms a page | built; typing feel on the iPad unchecked | `paged-typing-cost.md` |
 | Blank pages after moving between pages | Ink is absent about 130 to 200ms after a jump with 3,000 strokes while PaperKit draws the new region; not reproduced at "a few seconds" | measured, options in `pages.md` (feedback #27) | |
 
 ## 6. Interface

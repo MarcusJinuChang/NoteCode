@@ -116,11 +116,12 @@ extension TextRegion {
             if fragment.rangeInElement.location.compare(viewport.endLocation) != .orderedAscending { return false }
             let base = content.offset(from: content.documentRange.location, to: fragment.rangeInElement.location)
             for line in fragment.textLineFragments {
+                let gap = line.pageLineGap
                 let bounds = line.typographicBounds
                 let rect = CGRect(
                     x: origin.x + fragment.layoutFragmentFrame.minX + bounds.minX,
-                    y: origin.y + fragment.layoutFragmentFrame.minY + bounds.minY,
-                    width: bounds.width, height: bounds.height
+                    y: origin.y + fragment.layoutFragmentFrame.minY + bounds.minY + gap,
+                    width: bounds.width, height: bounds.height - gap
                 )
                 let range = NSRange(location: base + line.characterRange.location, length: line.characterRange.length)
                 let left = rect.minX, fragmentBase = base, line = line

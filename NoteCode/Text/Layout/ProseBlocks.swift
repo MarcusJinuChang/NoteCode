@@ -99,7 +99,8 @@ final class BlockquoteLayoutFragment: NSTextLayoutFragment {
     /// themselves. The PDF draws a page's lines one at a time and calls this
     /// with the ones on the sheet.
     func drawBars(of lines: [NSTextLineFragment], at point: CGPoint, in context: CGContext) {
-        let runs = ProseBlockMetrics.barRuns(of: lines.map { $0.typographicBounds.minY...$0.typographicBounds.maxY })
+        // From each line's glyphs, so a tall quote's bar stops at a page break.
+        let runs = ProseBlockMetrics.barRuns(of: lines.map { ($0.typographicBounds.minY + $0.pageLineGap)...$0.typographicBounds.maxY })
         guard !runs.isEmpty else { return }
 
         context.saveGState()

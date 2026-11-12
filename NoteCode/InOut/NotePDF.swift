@@ -419,7 +419,9 @@ final class PrintedNote {
             let frameTop = fragment.layoutFragmentFrame.minY + top
             var lines: [Int: [NSTextLineFragment]] = [:]
             for line in fragment.textLineFragments {
-                let index = min(layout.pageIndex(atY: frameTop + line.typographicBounds.minY), last)
+                // A line after a break in a tall paragraph starts where the
+                // line above it ended; its glyphs are below the break.
+                let index = min(layout.pageIndex(atY: frameTop + line.typographicBounds.minY + line.pageLineGap), last)
                 lines[index, default: []].append(line)
             }
             for (index, onPage) in lines.sorted(by: { $0.key < $1.key }) {
@@ -460,8 +462,13 @@ final class PrintedNote {
         string.enumerateAttribute(FormulaAttachment.sourceKey, in: range) { value, at, _ in
             guard let source = value as? FormulaAttachment.Source else { return }
             let x = origin.x + line.locationForCharacter(at: at.location).x
-            let lift = (string.attribute(.baselineOffset, at: at.location, effectiveRange: nil) as? CGFloat) ?? 0
-            let baseline = origin.y + line.glyphOrigin.y - lift
+            // On the first line after a break in a tall paragraph the copy's
+            // offset also holds the break (`.pageLineGap`), which moves the
+            // whole line's glyphs and not the formula's alone, and
+            // `glyphOrigin` reads that much too high.
+            let gap = CGFloat((string.attribute(.pageLineGap, at: at.location, effectiveRange: nil) as? Double) ?? 0)
+            let lift = ((string.attribute(.baselineOffset, at: at.location, effectiveRange: nil) as? CGFloat) ?? 0) + gap
+            let baseline = origin.y + line.glyphOrigin.y + gap - lift
             FormulaAttachment.drawVector(source, at: CGPoint(x: x, y: baseline), room: source.display ? room : nil, in: context)
         }
     }

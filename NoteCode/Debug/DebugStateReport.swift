@@ -145,8 +145,9 @@ extension DebugStateReport {
             for line in fragment.textLineFragments {
                 // Where TextKit actually has the line, with the inset it is
                 // actually drawn at.
-                let top = fragment.layoutFragmentFrame.minY + line.typographicBounds.minY + textView.textContainerInset.top
-                let bottom = top + line.typographicBounds.height
+                // The glyphs' line, without a tall paragraph's gap above it.
+                let top = fragment.layoutFragmentFrame.minY + line.typographicBounds.minY + line.pageLineGap + textView.textContainerInset.top
+                let bottom = fragment.layoutFragmentFrame.minY + line.typographicBounds.maxY + textView.textContainerInset.top
                 if top > visibleBottom { return false }
                 guard bottom > visibleTop else { continue }
                 if breaks.contains(where: { $0.minY < bottom - 0.25 && $0.maxY > top + 0.25 }) {

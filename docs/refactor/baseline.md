@@ -153,11 +153,18 @@ PERF PageViewTests/openingCost.open 0.1919
 PERF PageViewTests/openingCost.switch 0.3658
 PERF PageViewTests/redrawCost 0.0407
 PERF PageViewTests/typingCostLongNote 0.0052
+PERF PageViewTests/typingCostTallParagraph.above 0.0054
+PERF PageViewTests/typingCostTallParagraph.below 0.0049
+PERF PageViewTests/typingCostTallParagraph.inside 0.0163
 PERF StylingPerformanceTests/fullPassCost 0.0063
 PERF StylingPerformanceTests/keystrokeCost 0.0006
 PERF StylingPerformanceTests/parseCost 0.0031
 PERF TextSizeCostTests/firstFrame 0.0423
 ```
+
+The three `typingCostTallParagraph` lines were added by D9 stage 1 (11 Nov,
+one `perf.sh` run on a lane simulator, not the median of three): a keystroke
+above, inside and below a paragraph taller than a page in a 40-page note.
 
 The first base, taken at `main` 8767927 by the old `perf.sh` (whole suites,
 after the full run, no coverage), kept for the record; `--compare` no longer

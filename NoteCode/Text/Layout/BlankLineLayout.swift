@@ -40,7 +40,8 @@ final class BlankLineLayout: NSObject, NSTextContentStorageDelegate {
     var markerRuns: (() -> [MarkdownLayout.Run])?
 
     /// The pushes that keep each paragraph on one page (`PagePaginator`),
-    /// laid in as paragraph spacing on the copy TextKit lays out.
+    /// laid in as paragraph spacing on the copy TextKit lays out, and the
+    /// gaps above single lines of a paragraph taller than a page.
     let pushes = PagePushTable()
 
     func textContentStorage(_ textContentStorage: NSTextContentStorage, textParagraphWith range: NSRange) -> NSTextParagraph? {
@@ -65,7 +66,40 @@ final class BlankLineLayout: NSObject, NSTextContentStorageDelegate {
         if push > 0 {
             laidOut = Self.pushed(laidOut ?? storage.attributedSubstring(from: range), by: push, gap: pushes.layout?.gap ?? 0)
         }
+        let gaps = pushes.gaps(in: range)
+        if !gaps.isEmpty {
+            laidOut = Self.gapped(laidOut ?? storage.attributedSubstring(from: range), from: range.location, by: gaps)
+        }
         return laidOut.map { NSTextParagraph(attributedString: $0) }
+    }
+
+    /// `paragraph`, which starts at `location`, with a page break above each
+    /// line in `gaps` (a paragraph taller than a page, `PagePaginator`).
+    ///
+    /// The break is a negative `.baselineOffset` of its height on the line's
+    /// characters: TextKit makes the line that much taller, with the room
+    /// above its glyphs, and changes no line's wrap, since an offset changes
+    /// no glyph's width. Added to any offset already there (a fence's lift,
+    /// a superscript), never in place of it. `.pageLineGap` says how much of
+    /// the offset is the break. Only the layout's copy, as with pushes.
+    static func gapped(_ paragraph: NSAttributedString, from location: Int, by gaps: [Int: PageLineGap]) -> NSAttributedString {
+        let result = NSMutableAttributedString(attributedString: paragraph)
+        for (start, line) in gaps {
+            let local = NSIntersectionRange(
+                NSRange(location: start - location, length: line.length),
+                NSRange(location: 0, length: result.length)
+            )
+            guard local.length > 0 else { continue }
+            var runs: [(range: NSRange, offset: CGFloat)] = []
+            result.enumerateAttribute(.baselineOffset, in: local) { value, run, _ in
+                runs.append((run, CGFloat((value as? NSNumber)?.doubleValue ?? 0)))
+            }
+            for run in runs {
+                result.addAttribute(.baselineOffset, value: run.offset - line.gap, range: run.range)
+            }
+            result.addAttribute(.pageLineGap, value: Double(line.gap), range: local)
+        }
+        return result
     }
 
     /// `paragraph` with `push` more space above it. Only the layout's copy:
