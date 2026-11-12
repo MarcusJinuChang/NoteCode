@@ -11,6 +11,7 @@ import UIKit
 
 extension PageView {
 
+    /// Returns once layout has settled on its own: `quiet` has gone by with
     /// no layout pass of this view or its text view and no change to where
     /// the note sits (the text view's offset and height, this view's
     /// offset). The offsets count because an animated scroll, such as the
