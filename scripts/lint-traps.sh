@@ -21,11 +21,12 @@
 #  8 reportPerf in a test without .perf on itself or its suite (perf.sh runs
 #    only the Perf plan, so its PERF line would never be read). The test is
 #    the last @Test above the call, and the suite the last @Suite
-#  9 a sleep or run-loop spin in NoteCodeTests/ (Task.sleep, RunLoop.main.run,
-#    RunLoop.current.run, usleep, Thread.sleep, and a fixed delay written as
-#    a wait for a condition that never holds, `waitFor({ false }` or
-#    `waitFor(seconds: 0.5) { false }`), as a count that may only
-#    fall (T6). A test awaits the work's hook, or moves a ManualClock
+#  9 a sleep or run-loop spin in NoteCodeTests/ or NoteCodeUITests/ (Task.sleep,
+#    RunLoop.main.run, RunLoop.current.run, usleep, Thread.sleep, a bare sleep(,
+#    and a fixed delay written as a wait for a condition that never holds,
+#    `waitFor({ false }` or `waitFor(seconds: 0.5) { false }`), as a count that
+#    may only fall (T6). A line listed as `9 file:line reason` in lint-allow.txt
+#    is a pause on purpose and isn't counted (UIWait.pace in the UI tests). A test awaits the work's hook, or moves a ManualClock
 
 set -uo pipefail
 cd ${0:A:h:h}
@@ -91,10 +92,13 @@ if [[ -z $limit ]]; then limit=0; fi
 (( count > limit )) && hits+=("NoteCodeTests rule 7: UserDefaults.standard or UserDefaults() $count times, limit $limit (the count may only fall)")
 
 # 9
-sleeps=$(code_lines NoteCodeTests | grep -cE 'Task\.sleep|RunLoop\.(main|current)\.run|usleep|Thread\.sleep|waitFor[^{]*\{ *false *\}')
+sleeps=$(code_lines NoteCodeTests NoteCodeUITests \
+  | grep -E 'Task\.sleep|RunLoop\.(main|current)\.run|usleep|Thread\.sleep|(^|[^A-Za-z0-9_.])sleep\(|waitFor[^{]*\{ *false *\}' \
+  | grep -vE 'func sleep\(' \
+  | while IFS=: read -r f n _; do allowed 9 $f:$n || print $f:$n; done | grep -c .)
 sleepLimit=$(awk '$1 == "limit" && $2 == 9 { print $3 }' $allow 2>/dev/null)
 if [[ -z $sleepLimit ]]; then sleepLimit=0; fi
-(( sleeps > sleepLimit )) && hits+=("NoteCodeTests rule 9: $sleeps sleeps or run-loop spins, limit $sleepLimit (the count may only fall)")
+(( sleeps > sleepLimit )) && hits+=("NoteCodeTests, NoteCodeUITests rule 9: $sleeps sleeps or run-loop spins, limit $sleepLimit (the count may only fall)")
 
 # 8
 for f in $(grep -rl 'reportPerf(' NoteCodeTests --include='*.swift' | grep -v '/TestSupport/Perf\.swift$' | sort); do

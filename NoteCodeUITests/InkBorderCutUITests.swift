@@ -64,17 +64,19 @@ final class InkBorderCutUITests: XCTestCase {
         app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: x, dy: y))
     }
 
-    /// The screen, taken every quarter second until `settled` holds
-    /// of it or `timeout` passes, rather than once after a fixed wait: the
-    /// app redraws a cut stroke at times it can't report
-    /// (`PageInkPipeline.redrawTimes`), later on a busy machine.
-    private func screen(within timeout: TimeInterval, until settled: (Pixels) -> Bool) -> Pixels {
-        let end = Date(timeIntervalSinceNow: timeout)
-        while true {
-            Thread.sleep(forTimeInterval: 0.25)
-            let shot = Pixels(XCUIScreen.main.screenshot())
-            if settled(shot) || Date() >= end { return shot }
+    /// The screen, taken again and again until `settled` holds of it or
+    /// `timeout` passes, rather than once after a fixed wait: the app
+    /// redraws a cut stroke at times it can't report
+    /// (`PageInkPipeline.redrawTimes`), later on a busy machine. The last
+    /// shot taken is the one returned, settled or not.
+    @MainActor
+    private func screen(within timeout: TimeInterval, until settled: @escaping (Pixels) -> Bool) -> Pixels {
+        var shot = Pixels(XCUIScreen.main.screenshot())
+        UIWait.until(timeout: timeout) {
+            shot = Pixels(XCUIScreen.main.screenshot())
+            return settled(shot)
         }
+        return shot
     }
 
     /// The seeded note, scrolled so the border between pages 2 and 3 is on
@@ -96,10 +98,12 @@ final class InkBorderCutUITests: XCTestCase {
         if (toggle.value as? String) != "Draw mode" { toggle.tap() }
         XCTAssertTrue(app.buttons["Pen"].waitForExistence(timeout: 5), "no ink tools")
         // The scroll's deceleration and the hotbar's appearance finished:
-        // two screenshots a quarter second apart agree.
+        // two screenshots at least a quarter second apart agree.
         var last = Pixels(XCUIScreen.main.screenshot())
+        var lastTaken = Date()
         _ = screen(within: 5) { shot in
-            defer { last = shot }
+            guard Date().timeIntervalSince(lastTaken) >= 0.25 else { return false }
+            defer { last = shot; lastTaken = Date() }
             return shot.changed(from: last, in: CGRect(x: 0, y: 0, width: 1400, height: 1400)) == 0
         }
         return app

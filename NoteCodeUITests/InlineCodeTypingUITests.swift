@@ -50,10 +50,7 @@ final class InlineCodeTypingUITests: XCTestCase {
     @MainActor
     private func assertSettles(_ text: XCUIElement, on expected: String, _ what: String,
                                file: StaticString = #filePath, line: UInt = #line) {
-        let deadline = Date().addingTimeInterval(3)
-        while value(text) != expected, Date() < deadline {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        }
+        UIWait.until(timeout: 3) { self.value(text) == expected }
         XCTAssertEqual(value(text), expected, what, file: file, line: line)
     }
 
@@ -100,7 +97,7 @@ final class InlineCodeTypingUITests: XCTestCase {
             clear(app, text)
             for character in "a `code` b" {
                 text.typeText(String(character))
-                RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+                UIWait.pace(0.3, .readerTyping)
             }
             assertSettles(text, on: "a `code` b", "one key per 0.3s, round \(round)")
         }
@@ -127,8 +124,10 @@ final class InlineCodeTypingUITests: XCTestCase {
         text.typeText("a `code` b")
         assertSettles(text, on: "a `code` b", "typed")
         for _ in 0..<15 where !value(text).isEmpty {
+            let before = value(text)
             app.typeKey("z", modifierFlags: .command)
-            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+            // Each Undo takes something away, or the app quit on it.
+            UIWait.until(timeout: 2) { self.value(text) != before || app.state != .runningForeground }
         }
         XCTAssertEqual(app.state, .runningForeground, "the app quit on Undo")
         XCTAssertEqual(value(text), "", "Undo left text behind")
@@ -153,7 +152,7 @@ final class InlineCodeTypingUITests: XCTestCase {
             app.typeKey("v", modifierFlags: .command)
             let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow Paste"]
             if allow.waitForExistence(timeout: 1) { allow.tap() }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.6))
+            UIWait.until(timeout: 2) { !self.value(text).isEmpty }
         }
         assertSettles(text, on: "```cpp\nint x;\n```\nend", "the paste")
         // Mid-fence: to the end of `int x;` and type a line there.

@@ -25,7 +25,9 @@ final class TypedRuleUITests: XCTestCase {
         let text = app.textViews.firstMatch
         XCTAssertTrue(text.waitForExistence(timeout: 15), "the note never opened")
         text.tap()
-        Thread.sleep(forTimeInterval: 0.5)
+        // The caret is in the note once a keyboard is (minimised, under a
+        // hardware key, it still exists).
+        _ = app.keyboards.firstMatch.waitForExistence(timeout: 5)
         return (app, text)
     }
 
@@ -39,7 +41,7 @@ final class TypedRuleUITests: XCTestCase {
     private func press(_ keys: String, in app: XCUIApplication) {
         for key in keys {
             app.typeKey(String(key), modifierFlags: [])
-            Thread.sleep(forTimeInterval: 0.3)
+            UIWait.pace(0.3, .readerTyping)
         }
     }
 
@@ -47,18 +49,22 @@ final class TypedRuleUITests: XCTestCase {
     func testHyphensTypedAtALineStartStayHyphens() throws {
         let (app, text) = openEmptyNote()
         press("---", in: app)
-        Thread.sleep(forTimeInterval: 0.6)
+        UIWait.until(timeout: 3) { self.value(of: text) == "---" }
         XCTAssertEqual(value(of: text), "---", "the first line")
 
         text.typeText("\n")
         press("  ---", in: app)
-        Thread.sleep(forTimeInterval: 0.6)
+        UIWait.until(timeout: 3) { self.value(of: text) == "---\n  ---" }
         XCTAssertEqual(value(of: text), "---\n  ---", "an indented line")
 
         // Between words the keyboard's dash is still made.
         text.typeText("\nab")
         press("--", in: app)
-        Thread.sleep(forTimeInterval: 0.6)
+        // Either outcome, once it has landed: a dash, or the two hyphens.
+        UIWait.until(timeout: 3) {
+            let last = self.value(of: text).components(separatedBy: "\n").last ?? ""
+            return last.hasSuffix("--") || last.contains("\u{2014}") || last.contains("\u{2013}")
+        }
         let last = value(of: text).components(separatedBy: "\n").last ?? ""
         XCTAssertTrue(last.hasPrefix("ab") && !last.contains("--"), "a dash between words, got \(last)")
     }
@@ -82,9 +88,9 @@ final class TypedRuleUITests: XCTestCase {
         }
         for _ in 0..<3 {
             hyphen.tap()
-            Thread.sleep(forTimeInterval: 0.3)
+            UIWait.pace(0.3, .readerTyping)
         }
-        Thread.sleep(forTimeInterval: 0.6)
+        UIWait.until(timeout: 3) { self.value(of: text) == "---" }
         XCTAssertEqual(value(of: text), "---")
     }
 }
