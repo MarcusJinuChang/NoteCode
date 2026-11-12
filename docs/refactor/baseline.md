@@ -131,8 +131,9 @@ table is `Suite/function`, so rows are unique.)
 "The base retaken with the Perf plan" below). The `PERF` lines are what
 `--compare` reads (seconds): the median of three `scripts/perf.sh` runs on an
 idle Mac. They are the only `PERF` lines in this file. `TextSizeCostTests/firstFrame`
-was retaken on 12 Nov at `main` 7d6d1aa (see "firstFrame's base retaken"
-below).
+was retaken on 12 Nov at `main` 7d6d1aa, and not on an idle Mac (1-minute
+load up to 295); its value agrees with b18d33b's idle median, 47.0 ms against
+46.6 (see "firstFrame's base retaken" below).
 
 ```
 PERF CodeFenceCostTests/caretMoveCost.into 0.0004
@@ -531,9 +532,11 @@ meant to:
   is 0, nothing laid out down to an anchor).
 - **The same cost per change.** Each run's six changes, at both commits run
   in turn on one simulator ("NoteCode Lane E14", iPad Pro 13-inch (M5),
-  iOS 27.0), `check.sh --only TextSizeCostTests`, 7 runs of b18d33b and 6 of
-  7d6d1aa: restyle plus layout per change, median 36 ms and 39 ms, upper
-  quartile 44 ms at both.
+  iOS 27.0), `check.sh --only TextSizeCostTests`, 8 runs of b18d33b and 7 of
+  7d6d1aa (the table below). Restyle plus layout per change, from the 7 and 6
+  of those runs whose per-change timings were kept (the record does not say
+  which run of each is missing): median 36 ms and 39 ms, upper quartile 44 ms
+  at both.
 - **The row is the worst of six, so one stall sets it.** The reported value
   (ms) in those runs, in order:
 
