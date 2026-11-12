@@ -123,7 +123,8 @@ final class BlankLineLayout: NSObject, NSTextContentStorageDelegate {
 
     /// Whether a paragraph starts at `offset`, by the rule TextKit splits
     /// paragraphs with (`paragraphRange`): after a newline, a carriage
-    /// return, U+2029 or U+0085, which a plain paste can bring in.
+    /// return, a CRLF or U+2029, which a plain paste can bring in. Not after
+    /// U+0085 or U+2028, which `paragraphRange` does not split at either.
     static func startsParagraph(_ offset: Int, in text: NSString) -> Bool {
         guard offset >= 0, offset < text.length else { return false }
         return offset == 0 || text.paragraphRange(for: NSRange(location: offset, length: 0)).location == offset

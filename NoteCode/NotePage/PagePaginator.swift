@@ -222,7 +222,11 @@ final class PagePaginator {
         for (above, below) in zip(lines, lines.dropFirst()) {
             spaces.append(below.typographicBounds.minY - above.typographicBounds.maxY)
         }
-        let normal = max(spaces.min() ?? 0, 0)
+        // The space between two lines that no band moved: the paragraph's
+        // line spacing, or less if its lines show less. Not the smallest
+        // space alone, which a paragraph with one space between lines, and
+        // that one a band's, would take for the normal one.
+        let normal = max(min(style?.lineSpacing ?? 0, spaces.min() ?? 0), 0)
         var skipped = max(first.typographicBounds.minY - before, 0)
         if skipped < 0.5 { skipped = 0 }
         for space in spaces where space - normal > 0.5 { skipped += space - normal }

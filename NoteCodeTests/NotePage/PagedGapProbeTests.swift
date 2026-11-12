@@ -631,6 +631,7 @@ struct PagedGapProbeTests {
         let bands = textView.textContainer.exclusionPaths.map(\.bounds)
         let undo = try #require(textView.undoManager)
         undo.removeAllActions()
+        let length = textView.textStorage.length
 
         let middle = codeRange.location + codeRange.length / 2
         textView.selectedRange = NSRange(location: middle, length: 0)
@@ -641,19 +642,12 @@ struct PagedGapProbeTests {
         try #require(undo.canUndo)
         undo.undo()
         harness.layOut()
-        #expect(textView.textStorage.length == (Self.longCodeLineNoteLength))
+        #expect(textView.textStorage.length == length)
         #expect(try Self.changingPasses(in: harness) <= 1)
         #expect(table.tall.keys.sorted() == [codeRange.location], "entries: \(table.tall.keys.sorted())")
         #expect(textView.textContainer.exclusionPaths.map(\.bounds) == bands)
         Self.checkCodeLines(of: harness, "split and undone")
     }
-
-    /// The length of `longCodeLineNote`'s text.
-    static let longCodeLineNoteLength: Int = {
-        let before = (0..<12).map { "Before \($0): the loop invariant holds before and after every iteration." }.joined(separator: "\n")
-        let after = (0..<20).map { "After \($0): the loop invariant holds before and after every iteration." }.joined(separator: "\n")
-        return ((before + "\n" + String(repeating: "aGVsbG8gd29ybGQgaGVsbG8gd29ybGQ=", count: 300) + "\n" + after) as NSString).length
-    }()
 
     /// The same, joined again with a replace through the text view.
     @Test("Splitting a long code line and joining it again leaves one entry, and its bands")
@@ -827,7 +821,8 @@ struct PagedGapProbeTests {
         try #require(!textView.textContainer.exclusionPaths.isEmpty)
         let layout = harness.page.pageLayout
         let codeLines = Self.lines(of: harness.page).filter { NSLocationInRange($0.line.range.location, codeRange) }.map(\.line)
-        let perLine = codeRange.length / max(codeLines.count, 1)
+        // Monospaced, so every full line holds the same count.
+        let perLine = try #require(codeLines.first).range.length
         let height = codeLines.first?.bounds.height ?? 20
         // Under the body by less than the band, so the band's room tips it over.
         let keep = Int(((layout.bodyHeight - layout.gap / 2) / height).rounded(.down)) * perLine - perLine / 2

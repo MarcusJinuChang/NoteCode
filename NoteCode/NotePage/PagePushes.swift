@@ -22,11 +22,11 @@ extension NSAttributedString.Key {
     /// the copy's `.baselineOffset` there, which is what moves the glyphs;
     /// this says how much of that offset is the break, for whatever places
     /// things by the offset or by the line's top. Never in the text storage.
-    static let pageLineGap = NSAttributedString.Key("NoteCode.pageLineGap")
+    nonisolated static let pageLineGap = NSAttributedString.Key("NoteCode.pageLineGap")
     /// How far that line's glyphs were moved down: the whole of the offset
     /// laid in, which is the gap plus what the line's minimum height took up
     /// (`PagePaginator.slack(of:in:)`), and the gap alone without line spacing.
-    static let pageLineShift = NSAttributedString.Key("NoteCode.pageLineShift")
+    nonisolated static let pageLineShift = NSAttributedString.Key("NoteCode.pageLineShift")
 }
 
 extension NSTextLineFragment {
@@ -38,14 +38,16 @@ extension NSTextLineFragment {
     /// gap out, so it reads that much too high (stage 0's finding). The
     /// glyphs' line top is `typographicBounds.minY + pageLineGap`, and their
     /// baseline `typographicBounds.minY + glyphOrigin.y + pageLineShift`.
-    var pageLineGap: CGFloat { largest(.pageLineGap) }
+    /// Nonisolated, like the line's own `attributedString` it reads, for
+    /// `ProseBlockMetrics.glyphSpans`.
+    nonisolated var pageLineGap: CGFloat { largest(.pageLineGap) }
 
     /// How far this line's glyphs were moved down from where `glyphOrigin`
     /// puts them (`.pageLineShift`): the gap, and with line spacing on a
     /// little more.
-    var pageLineShift: CGFloat { largest(.pageLineShift) }
+    nonisolated var pageLineShift: CGFloat { largest(.pageLineShift) }
 
-    private func largest(_ key: NSAttributedString.Key) -> CGFloat {
+    nonisolated private func largest(_ key: NSAttributedString.Key) -> CGFloat {
         let string = attributedString
         let range = NSIntersectionRange(characterRange, NSRange(location: 0, length: string.length))
         guard range.length > 0 else { return 0 }
