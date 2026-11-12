@@ -73,10 +73,12 @@ Notes are Letter-sized pages, Notability-style. The geometry is all in
     caret and the selection, quote bars, `PageReading.lineTop`, taps on
     links and formulas); with line spacing on, the glyphs move by a little
     more than the gap (`.pageLineShift`), since the minimum line height
-    takes part of the offset up. **Lines of a fixed height keep exclusion
-    paths** (`PagePushTable.tall`): a baseline offset moves a code line's
-    or a display formula's source line's glyphs without making the line
-    taller, so one code line wrapped past a page (minified, base64) is
+    takes part of the offset up. **Lines of a fixed height, and paragraphs
+    with an attachment, keep exclusion paths** (`PagePushTable.tall`): a
+    baseline offset moves a code line's or a display formula's source line's
+    glyphs without making the line taller, and moves a line's words but not
+    its inline formula. So one code line wrapped past a page (minified,
+    base64), or a paragraph taller than a page with a formula in it, is
     broken by paths, and a note with one pays their cost. Code lines are
     otherwise paragraphs of their own, so a code block taller than a page
     is not this case; one long paragraph of prose is.

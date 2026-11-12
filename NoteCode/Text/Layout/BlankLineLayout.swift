@@ -80,7 +80,8 @@ final class BlankLineLayout: NSObject, NSTextContentStorageDelegate {
     /// characters: TextKit makes the line that much taller, with the room
     /// above its glyphs, and changes no line's wrap, since an offset changes
     /// no glyph's width. With line spacing on, the offset is a little more
-    /// than the gap (`slack`), and `.pageLineShift` is the whole of it. Added to any offset already there (a fence's lift,
+    /// than the gap (`PageLineGap.shift`, `PagePaginator.LineMeasure`), and
+    /// `.pageLineShift` is the whole of it. Added to any offset already there (a fence's lift,
     /// a superscript), never in place of it. `.pageLineGap` says how much of
     /// the offset is the break. Only the layout's copy, as with pushes.
     static func gapped(_ paragraph: NSAttributedString, from location: Int, by gaps: [Int: PageLineGap]) -> NSAttributedString {
@@ -91,7 +92,7 @@ final class BlankLineLayout: NSObject, NSTextContentStorageDelegate {
                 NSRange(location: 0, length: result.length)
             )
             guard local.length > 0 else { continue }
-            let shift = line.gap + slack(onLine: local, of: result)
+            let shift = max(line.shift, line.gap)
             var runs: [(range: NSRange, offset: CGFloat)] = []
             result.enumerateAttribute(.baselineOffset, in: local) { value, run, _ in
                 runs.append((run, CGFloat((value as? NSNumber)?.doubleValue ?? 0)))
@@ -103,22 +104,6 @@ final class BlankLineLayout: NSObject, NSTextContentStorageDelegate {
             result.addAttribute(.pageLineShift, value: Double(shift), range: local)
         }
         return result
-    }
-
-    /// How much of a baseline offset a line's minimum height takes up before
-    /// the line grows: the minimum (line spacing, `NoteTypography.lineStyle`)
-    /// less the height its tallest font gives it. A line grows by the offset
-    /// less this (measured: 17pt text, spacing 8, an offset of -100 grew the
-    /// line 91.98pt), so the offset is the gap plus this.
-    static func slack(onLine range: NSRange, of string: NSAttributedString) -> CGFloat {
-        guard let style = string.attribute(.paragraphStyle, at: range.location, effectiveRange: nil) as? NSParagraphStyle,
-              style.minimumLineHeight > 0
-        else { return 0 }
-        var tallest: CGFloat = 0
-        string.enumerateAttribute(.font, in: range) { value, _, _ in
-            if let font = value as? UIFont { tallest = max(tallest, font.lineHeight) }
-        }
-        return max(style.minimumLineHeight - tallest, 0)
     }
 
     /// `paragraph` with `push` more space above it. Only the layout's copy:
@@ -134,6 +119,12 @@ final class BlankLineLayout: NSObject, NSTextContentStorageDelegate {
         result.addAttribute(.pagePush, value: Double(push), range: whole)
         result.addAttribute(.pageGap, value: Double(gap), range: whole)
         return result
+    }
+
+    /// Whether a paragraph starts at `offset`.
+    static func startsParagraph(_ offset: Int, in text: NSString) -> Bool {
+        guard offset >= 0, offset < text.length else { return false }
+        return offset == 0 || text.character(at: offset - 1) == UTF16Unit.newline
     }
 
     /// Whether the character at `offset` is a blank line: a newline that

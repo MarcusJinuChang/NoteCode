@@ -404,21 +404,39 @@ struct NotePDFTests {
         #expect(data.count < 250_000, "\(data.count) bytes")
     }
 
+    /// Dark pixels on each pixel row of a sheet, and the runs of rows with
+    /// any: its lines.
+    private static func inkedLines(of sheet: Bitmap) -> [(top: Int, bottom: Int, ink: Int)] {
+        let rows = (0..<sheet.height).map { row in
+            (0..<sheet.width).count { sheet.luminance(at: CGPoint(x: (CGFloat($0) + 0.5) / sheet.scale, y: (CGFloat(row) + 0.5) / sheet.scale)) < 0.5 }
+        }
+        var lines: [(top: Int, bottom: Int, ink: Int)] = []
+        for (row, ink) in rows.enumerated() where ink > 0 {
+            if let last = lines.last, last.bottom == row - 1 {
+                lines[lines.count - 1] = (last.top, row, last.ink + ink)
+            } else {
+                lines.append((row, row, ink))
+            }
+        }
+        return lines
+    }
+
     /// D9: the first line after a page break inside a paragraph taller than
-    /// a page holds the break as a negative baseline offset in the layout's
-    /// copy, which `drawFormulas` reads to place a formula. Counted as the
-    /// formula's own lift it would be drawn the break's height from its line,
-    /// off the sheet.
-    @Test("A formula on the first line after a break inside a tall paragraph is printed on that sheet, on its line")
-    func formulaOnGapLine() async throws {
+    /// a page holds the break above its glyphs, in the layout's copy, so its
+    /// typographic top is on the page before. Filed by that, it would print
+    /// on the first sheet, clipped away, and the second would start a line
+    /// lower.
+    @Test("A tall paragraph's line after a break prints at the top of the next sheet")
+    func gapLinePrintsOnItsSheet() async throws {
         let before = (0..<12).map { "Line \($0): the loop invariant holds before and after." }.joined(separator: "\n")
-        let tall = Array(repeating: "a $x_1$ $y_2$ $z_3$ b", count: 800).joined(separator: " ")
-        let pdf = try await Self.pdf(before + "\n" + tall + "\nAfter.", pageCount: 3, rendersMarkdown: true)
+        let tall = (0..<400).map { "word\($0) of one very long paragraph" }.joined(separator: " ")
+        let text = before + "\n" + tall + "\nAfter."
+        let pdf = try await Self.pdf(text, pageCount: 3)
 
         // The note as the PDF lays it out: the paragraph is broken by gaps,
         // and the second sheet's first line is a gap line, filed under that
         // sheet by its glyphs, not under the first by its typographic top.
-        let printed = await PrintedNote(text: before + "\n" + tall + "\nAfter.", orientation: .portrait, rendersMarkdown: true)
+        let printed = await PrintedNote(text: text, orientation: .portrait)
         let pageCount = printed.paginate(inkBottom: nil, startingAt: 3)
         #expect(printed.textView.textContainer.exclusionPaths.isEmpty)
         #expect(try #require(printed.textView.blankLineLayout?.pushes.gaps.count) >= 1)
@@ -427,43 +445,47 @@ struct NotePDFTests {
         let sheetStart = try #require(filed[1].first?.lines.first)
         #expect(sheetStart.pageLineGap > 0, "the second sheet does not start with the line after the break")
         #expect(!filed[0].flatMap(\.lines).contains { $0 === sheetStart }, "the line after the break is filed under the first sheet too")
-        try #require(pdf.pageCount >= 2)
-        let sheet = try #require(Bitmap(pdfPage: pdf.page(at: 1)))
-        let opening = try #require(Bitmap(pdfPage: pdf.page(at: 0)))
 
-        // Dark pixels on each pixel row, and the runs of rows with any: lines.
-        func inkedLines(of sheet: Bitmap) -> [(top: Int, bottom: Int, ink: Int)] {
-            let rows = (0..<sheet.height).map { row in
-                (0..<sheet.width).count { sheet.luminance(at: CGPoint(x: (CGFloat($0) + 0.5) / sheet.scale, y: (CGFloat(row) + 0.5) / sheet.scale)) < 0.5 }
-            }
-            var lines: [(top: Int, bottom: Int, ink: Int)] = []
-            for (row, ink) in rows.enumerated() where ink > 0 {
-                if let last = lines.last, last.bottom == row - 1 {
-                    lines[lines.count - 1] = (last.top, row, last.ink + ink)
-                } else {
-                    lines.append((row, row, ink))
-                }
-            }
-            return lines
-        }
-        let lines = inkedLines(of: sheet)
-        let bodyTop = try #require(inkedLines(of: opening).first).top
+        try #require(pdf.pageCount >= 2)
+        let second = try #require(Bitmap(pdfPage: pdf.page(at: 1)))
+        let opening = try #require(Bitmap(pdfPage: pdf.page(at: 0)))
+        let lines = Self.inkedLines(of: second)
+        let bodyTop = try #require(Self.inkedLines(of: opening).first).top
         try #require(lines.count >= 3, "\(lines.count) lines on the second sheet")
-        // The sheet's first line is the paragraph's line after the break. It
-        // has its formulas, drawn on its baseline: the same ink, and the same
-        // top and bottom in its line, as the ordinary line below it.
-        let first = lines[0], second = lines[1]
-        // That it is the first line of the body, where the first sheet's first
-        // line is: one filed under the sheet before by its typographic top,
-        // which starts above the break, would leave this sheet a line lower.
-        let pitch = second.top - first.top
-        #expect(abs(first.top - bodyTop) < pitch / 2,
-                "the sheet's first ink is at row \(first.top), the first sheet's at \(bodyTop), lines \(pitch) rows apart")
-        let ratio = Double(first.ink) / Double(second.ink)
-        print("GAPS PDF: first line rows \(first.top)-\(first.bottom) ink \(first.ink), second \(second.top)-\(second.bottom) ink \(second.ink)")
-        #expect(ratio > 0.8 && ratio < 1.25, "the first line has \(first.ink) dark pixels, the second \(second.ink)")
-        #expect(abs((first.bottom - first.top) - (second.bottom - second.top)) <= 1,
-                "the first line's ink is \(first.bottom - first.top) rows tall, the second's \(second.bottom - second.top)")
+        let pitch = lines[1].top - lines[0].top
+        #expect(abs(lines[0].top - bodyTop) < pitch / 2,
+                "the sheet's first ink is at row \(lines[0].top), the first sheet's at \(bodyTop), lines \(pitch) rows apart")
+    }
+
+    /// A tall paragraph with inline formulas in it keeps exclusion paths
+    /// (`PagePaginator.hasAttachment`): an offset would move its words but
+    /// not its formulas. Its line after a break prints at the top of the
+    /// next sheet with its formulas on it.
+    @Test("A tall paragraph with formulas prints its line after a break, formulas and all, at the top of the next sheet")
+    func formulasInTallParagraph() async throws {
+        let before = (0..<12).map { "Line \($0): the loop invariant holds before and after." }.joined(separator: "\n")
+        let tall = Array(repeating: "a $x_1$ $y_2$ $z_3$ b", count: 800).joined(separator: " ")
+        let text = before + "\n" + tall + "\nAfter."
+        let pdf = try await Self.pdf(text, pageCount: 3, rendersMarkdown: true)
+        let printed = await PrintedNote(text: text, orientation: .portrait, rendersMarkdown: true)
+        _ = printed.paginate(inkBottom: nil, startingAt: 3)
+        #expect(printed.textView.blankLineLayout?.pushes.gaps.isEmpty == true)
+        #expect(!printed.textView.textContainer.exclusionPaths.isEmpty)
+
+        try #require(pdf.pageCount >= 2)
+        let second = try #require(Bitmap(pdfPage: pdf.page(at: 1)))
+        let opening = try #require(Bitmap(pdfPage: pdf.page(at: 0)))
+        let lines = Self.inkedLines(of: second)
+        let bodyTop = try #require(Self.inkedLines(of: opening).first).top
+        try #require(lines.count >= 3, "\(lines.count) lines on the second sheet")
+        let first = lines[0], next = lines[1]
+        let pitch = next.top - first.top
+        print("GAPS PDF: first line rows \(first.top)-\(first.bottom) ink \(first.ink), second \(next.top)-\(next.bottom) ink \(next.ink)")
+        #expect(abs(first.top - bodyTop) < pitch / 2, "the sheet's first ink is at row \(first.top), the first sheet's at \(bodyTop)")
+        let ratio = Double(first.ink) / Double(next.ink)
+        #expect(ratio > 0.8 && ratio < 1.25, "the first line has \(first.ink) dark pixels, the second \(next.ink)")
+        #expect(abs((first.bottom - first.top) - (next.bottom - next.top)) <= 1,
+                "the first line's ink is \(first.bottom - first.top) rows tall, the second's \(next.bottom - next.top)")
     }
 
     @Test("A display formula is centred on the sheet and drawn once")

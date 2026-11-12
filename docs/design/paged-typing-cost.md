@@ -320,22 +320,38 @@ follow-up for very long notes.
    **As built.** `linePlacement` returns each pushed line's gap by its
    index, and a gap above a paragraph's first line becomes its push, so
    markers and boxes, drawn from the first line, never sit on a gap line.
-   The table keeps, per line start, the line's length, its gap and its
-   height without the gap (`PageLineGap.natural`), which the walk uses
-   for that line from then on. An edit inside a gap line stretches it with
-   the text, and a rewrap is put right by the next pass.
+   The table keeps, per line start, the line's length, its gap and the
+   offset laid in for it (`PageLineGap.shift`). An edit inside a gap line
+   stretches it with the text, and a rewrap is put right by the next pass.
    - **Line spacing.** A line's minimum height (`NoteTypography.lineStyle`)
      takes up part of a baseline offset before the line grows (17pt text,
      spacing 8, an offset of -100 grew the line 91.98pt). So the offset is
-     the gap plus that slack (`BlankLineLayout.slack`), the copy carries
-     the whole offset as `.pageLineShift`, and anything placed from
-     `glyphOrigin` adds the shift, while anything placed from a line's top
-     adds the gap (`.pageLineGap`).
-   - **Lines of a fixed height keep exclusion paths** (`PagePushTable.tall`).
-     An offset moves a fixed-height line's glyphs without making the line
-     taller, so one code line or display formula source wrapped past a page
-     is broken by paths, as every tall paragraph was before, and a note
-     with one pays their cost.
+     the gap plus that slack, the copy carries the whole offset as
+     `.pageLineShift`, and anything placed from `glyphOrigin` adds the
+     shift, while anything placed from a line's top adds the gap
+     (`.pageLineGap`).
+   - **Measured each pass, not kept.** A gap line's height without its gap,
+     and its slack, are measured by laying the line out alone, at the text
+     view's width with its paragraph's style, in a TextKit stack of its own
+     (`PagePaginator.measure`, `slack(of:in:)`): once without the offset,
+     once with a 200pt probe. Results are cached by the line, so a line is
+     measured again only when it or its style changes. Keeping the first
+     measurement went stale when the line spacing or the text size changed,
+     which restyles the note with no change of text. A fresh stack each
+     time, since one given a new string kept the last one's layout.
+   - **Lines of a fixed height, and paragraphs with an attachment, keep
+     exclusion paths** (`PagePushTable.tall`).
+     - An offset moves a fixed-height line's glyphs without making the line
+       taller. So one code line or display formula source wrapped past a
+       page is broken by paths, as every tall paragraph was before.
+     - An offset moves a line's text but not its attachment (an inline
+       formula), whose descent takes up part of it: with a 44pt attachment
+       the line grew 6.19pt less than the offset, and with that made up for,
+       the text was drawn 6.19pt low. No one offset puts both where a path
+       does.
+     - A note with either pays the paths' cost. The paginator drops a
+       paths entry that no longer starts a paragraph, so its band can't
+       outlive it.
    - **The readers that take the gap off:** `NotePDF` (which sheet a line
      is on, and `drawFormulas`), `caretRect(for:)`, `selectionRects(for:)`
      and `firstRect(for:)` (each rect cut where it crosses a gap), the taps
@@ -345,7 +361,7 @@ follow-up for very long notes.
      app's own gaps and a path layout set up by hand on every break the
      paragraph reaches, with its copy of the rule gone; also line spacing,
      a long code line, edits and each reader),
-     `NotePDFTests.formulaOnGapLine` and
+     `NotePDFTests.gapLinePrintsOnItsSheet` and `formulasInTallParagraph`, and
      `PageViewTests.Cost.typingCostTallParagraph`.
 
    **Measured** (iPad Pro 13-inch (M5) simulator, Debug, on a loaded Mac),
