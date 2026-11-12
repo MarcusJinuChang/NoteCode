@@ -81,6 +81,9 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
     /// width re-centres a page fitted to its text column.
     private var fittedWidth: CGFloat = 0
 
+    /// Layout passes of this view and of its text view so far.
+    private(set) var layoutPasses = 0
+
     /// Told which page the reader is on whenever that changes, or the page
     /// count does: the device remembers it for next time. Held back until the
     /// note has been scrolled to where it is opening (`restore`), so opening
@@ -128,7 +131,7 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
 
     /// The pages: the layout's margins and bands, and the page count
     /// (`PageBands`).
-    private lazy var bands = PageBands(host: self)
+    private(set) lazy var bands = PageBands(host: self)
 
     /// How many pages the text and ink fill. Worked out whenever TextKit sets
     /// the text's height — see `PageBands.noteHeight(forTextHeight:)`.
@@ -158,22 +161,6 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
     /// Whether a stroke the reader ends in the last page's foot adds a page
     /// (`InkPageGrowth`). Seamless keeps a blank page below ink regardless.
     var addsPagesWhileDrawing = SettingKeys.Drawing.addPagesWhileDrawing.defaultValue
-
-    /// The note's ink, in print layout's coordinates: where each stroke sits
-    /// on its sheet, which is also where it prints.
-    ///
-    /// The canvas shows it converted to the current mode, and every mode
-    /// change converts from this rather than from the canvas. Ink in a sheet's
-    /// margin has no exact place in a mode with narrower breaks — see
-    /// `PageLayout.convert` — so converting what's on screen back and forth
-    /// would move it a page on every round trip.
-    ///
-    /// Strokes the reader made are taken in off the main thread
-    /// (`captureInk`), so reading this first finishes any still on their way.
-    var ink: PaperMarkup {
-        commitInk()
-        return inkPipeline.state.ink
-    }
 
     /// The stored ink, the snapshot on its way in, the generation and the
     /// ink's lowest point (`PageInkPipeline`).
@@ -495,50 +482,6 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
         reading.textViewDidLayout()
     }
 
-    // MARK: Settling, for tests
-
-    /// Layout passes of this view and of its text view so far.
-    private var layoutPasses = 0
-
-    /// Returns once layout has settled on its own: `quiet` has gone by with
-    /// no layout pass of this view or its text view and no change to where
-    /// the note sits (the text view's offset and height, this view's
-    /// offset). The offsets count because an animated scroll, such as the
-    /// one to the caret, moves them in a window with no scene
-    /// (`makeSceneLessTestWindow`) without a layout pass. Polled every 16ms
-    /// by suspending (`Task.sleep`), so the run loop turns and Core
-    /// Animation commits in between; nothing is laid out by force. A pass asked for runs at the next
-    /// commit, well inside `quiet`, so a pending one isn't checked for: in a
-    /// window with no scene it would never run. False if layout was still
-    /// moving after `limit`. For tests, which await this rather than sleep
-    /// (lint rule 9).
-    @discardableResult
-    func layoutSettled(quiet: Duration = .milliseconds(100), limit: Duration = .seconds(3)) async -> Bool {
-        let clock = ContinuousClock()
-        let end = clock.now + limit
-        func place() -> [CGFloat] {
-            [CGFloat(layoutPasses), textView.contentOffset.y, textView.contentSize.height, contentOffset.x, contentOffset.y]
-        }
-        var seen = place()
-        var quietSince = clock.now
-        while clock.now < end {
-            try? await Task.sleep(for: .milliseconds(16))
-            if place() != seen {
-                seen = place()
-                quietSince = clock.now
-            } else if clock.now - quietSince >= quiet {
-                return true
-            }
-        }
-        return false
-    }
-
-    /// Returns once the ink the reader drew has been taken in and told
-    /// onward (`PageInkPipeline.settled`). For tests.
-    func inkSettled() async {
-        await inkPipeline.settled()
-    }
-
     // MARK: Re-wrapping
 
     /// Runs a change that re-wraps the text (a new text size), and puts the
@@ -581,89 +524,6 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
     /// One more page at the end of the note, for ink or text to go on.
     func addPage() {
         bands.addPage()
-    }
-
-    // MARK: Ink
-
-    var inkBottom: CGFloat? { inkPipeline.bottom }
-
-    func showInk() {
-        inkPipeline.show()
-    }
-
-    /// Replaces the note's ink.
-    ///
-    /// - Parameter drawing: strokes in print layout's coordinates, for this
-    ///   note's orientation — the form ink is stored and printed in.
-    func setInk(_ markup: PaperMarkup) {
-        // Whatever was on its way in belonged to the ink this replaces.
-        inkPipeline.replace(with: markup)
-        inkPipeline.show()
-    }
-
-    /// Runs one of PaperKit's inserts so what it adds lands on the page the
-    /// reader is looking at: see `InkInsertion.centre`.
-    ///
-    /// The insert tells the canvas's delegate, so it is captured, saved and
-    /// undone like any other change the reader makes.
-    func insertIntoInk(extent: CGSize, _ insert: () -> Void) {
-        let centre = InkInsertion.centre(
-            in: canvas.coveredPart,
-            regions: pageLayout.inkRegions(pageCount: pageCount),
-            extent: extent
-        )
-        canvas.inserting(around: centre, insert)
-    }
-
-    /// The tallest a photo is first shown: a share of what is on screen, and
-    /// of a page's body, so it fits one page.
-    var insertionMaxHeight: CGFloat {
-        min(canvas.coveredPart.height, pageLayout.bodyHeight) * InkInsertion.photoWidthShare
-    }
-
-    /// Hands touches to the Select tool's overlay, or back to the canvas.
-    func setSelecting(_ selecting: Bool, allowsFingers: Bool) {
-        selectionOverlay.allowsFingers = allowsFingers
-        selectionOverlay.isActive = selecting
-    }
-
-    /// Takes in, now and on the main thread, whatever the reader drew that is
-    /// still on its way: before ink is shown again, read, printed or saved
-    /// for the app leaving the screen (`PageInkPipeline.commit`).
-    func commitInk() {
-        inkPipeline.commit()
-    }
-
-    // MARK: PageInkHost
-
-    func inkChanged(_ ink: PaperMarkup) {
-        onInkChanged?(ink)
-    }
-
-    func inkChangedPageCount() {
-        textView.reapplyContentHeightAdjustment()
-        textView.setNeedsLayout()
-    }
-
-    func inkWasTakenIn(drawnEnds: [CGPoint]) {
-        bands.keepPageBelowInk()
-        growPageForStroke(endingAt: drawnEnds)
-    }
-
-    /// A stroke the reader just drew that ends in the last page's foot adds a
-    /// page, as Add Page does (`PageBands.raiseMinimum`), so they can go on writing.
-    ///
-    /// Only strokes drawn now count (`InkCapture.Result.drawnEnds`): not ink
-    /// that was loaded, moved by the lasso or shown again for a mode switch.
-    /// It runs after the stroke has been taken in and told onward, and the
-    /// page it adds is the note's minimum, not ink: nothing here calls
-    /// `onInkChanged`, so growing never saves ink of its own. Seamless adds
-    /// its page from `PageBands.keepPageBelowInk` as soon as ink reaches the last page.
-    private func growPageForStroke(endingAt ends: [CGPoint]) {
-        guard addsPagesWhileDrawing, pageLayout.mode != .seamless else { return }
-        let last = pageCount
-        guard ends.contains(where: { pageLayout.endsInGrowthBand(y: $0.y, pageCount: last) }) else { return }
-        bands.raiseMinimum(to: last + 1)
     }
 
     // MARK: Zoom
@@ -767,39 +627,6 @@ final class PageView: UIScrollView, UIGestureRecognizerDelegate, PageInkHost, Pa
     ) -> Bool {
         // A scroll already under way mustn't keep the pinch from starting.
         gestureRecognizer === zoomControl.pinch && (other === panGestureRecognizer || other === textView.panGestureRecognizer)
-    }
-
-    // MARK: Rendering
-
-    /// Renders text at the density it is actually shown at, up to a cap.
-    ///
-    /// A transform scales pixels that were drawn at the screen's own density,
-    /// so text drawn at 1x and shown at 1.25x is soft. Raising the content
-    /// scale makes TextKit draw it at the density it lands on. Newly created
-    /// fragment views arrive at the default, which is why this also runs after
-    /// every text view layout and every layout of the text on screen; it only
-    /// touches a view whose value is wrong.
-    ///
-    /// The canvas is left out: PaperKit keeps its own views' scale, and draws
-    /// ink at the density it's shown at by zooming instead — see
-    /// `DrawingCanvas.renderScale`.
-    func matchRenderingScale() {
-        let value = CanvasGeometry.renderingScale(
-            displayScale: displayScale,
-            screenScale: traitCollection.displayScale
-        )
-        Self.setRenderingScale(value, in: textView, skipping: canvas)
-        canvas.renderScale = CanvasGeometry.inkRenderScale(displayScale: displayScale)
-    }
-
-    private static func setRenderingScale(_ value: CGFloat, in view: UIView, skipping excluded: UIView) {
-        guard view !== excluded else { return }
-        if view.contentScaleFactor != value {
-            view.contentScaleFactor = value
-        }
-        for subview in view.subviews {
-            setRenderingScale(value, in: subview, skipping: excluded)
-        }
     }
 }
 
