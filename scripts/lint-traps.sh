@@ -93,12 +93,12 @@ if [[ -z $limit ]]; then limit=0; fi
 
 # 9
 sleeps=$(code_lines NoteCodeTests NoteCodeUITests \
-  | grep -E 'Task\.sleep|RunLoop\.(main|current)\.run|usleep|Thread\.sleep|(^|[^A-Za-z0-9_.])sleep\(|waitFor[^{]*\{ *false *\}' \
+  | grep -E 'Task\.sleep|RunLoop\.(main|current)\.run|usleep|Thread\.sleep|(^|[^A-Za-z0-9_.])sleep\(|waitFor[^{]*\{ *false *\}|UIWait\.pace\(' \
   | grep -vE 'func sleep\(' \
   | while IFS=: read -r f n _; do allowed 9 $f:$n || print $f:$n; done | grep -c .)
 sleepLimit=$(awk '$1 == "limit" && $2 == 9 { print $3 }' $allow 2>/dev/null)
 if [[ -z $sleepLimit ]]; then sleepLimit=0; fi
-(( sleeps > sleepLimit )) && hits+=("NoteCodeTests, NoteCodeUITests rule 9: $sleeps sleeps or run-loop spins, limit $sleepLimit (the count may only fall)")
+(( sleeps > sleepLimit )) && hits+=("NoteCodeTests, NoteCodeUITests rule 9: $sleeps sleeps, run-loop spins or UIWait.pace calls, limit $sleepLimit (the count may only fall)")
 
 # 8
 for f in $(grep -rl 'reportPerf(' NoteCodeTests --include='*.swift' | grep -v '/TestSupport/Perf\.swift$' | sort); do

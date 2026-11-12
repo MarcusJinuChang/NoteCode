@@ -27,7 +27,7 @@ final class TypedRuleUITests: XCTestCase {
         text.tap()
         // The caret is in the note once a keyboard is (minimised, under a
         // hardware key, it still exists).
-        _ = app.keyboards.firstMatch.waitForExistence(timeout: 5)
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "the caret never arrived in the note")
         return (app, text)
     }
 
@@ -60,10 +60,13 @@ final class TypedRuleUITests: XCTestCase {
         // Between words the keyboard's dash is still made.
         text.typeText("\nab")
         press("--", in: app)
-        // Either outcome, once it has landed: a dash, or the two hyphens.
+        // Waits for the outcome the test wants, a dash, and only that: two
+        // hyphens may be the moment before the keyboard makes one, so
+        // stopping on them could fail a run that would have passed. With no
+        // dash the wait runs out and the assertion says what was there.
         UIWait.until(timeout: 3) {
             let last = self.value(of: text).components(separatedBy: "\n").last ?? ""
-            return last.hasSuffix("--") || last.contains("\u{2014}") || last.contains("\u{2013}")
+            return last.contains("\u{2014}") || last.contains("\u{2013}")
         }
         let last = value(of: text).components(separatedBy: "\n").last ?? ""
         XCTAssertTrue(last.hasPrefix("ab") && !last.contains("--"), "a dash between words, got \(last)")
