@@ -1,0 +1,8 @@
+// Copy to Config/Local.xcconfig (gitignored) to sign the public build with
+// your own team. OpenSource.xcconfig includes it last, so these win.
+//
+// Your team id: Xcode › Settings › Apple Accounts › your team, or
+// developer.apple.com › Membership details.
+
+NOTECODE_TEAM = ABCDE12345
+NOTECODE_BUNDLE_ID_PREFIX = com.yourname

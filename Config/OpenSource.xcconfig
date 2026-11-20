@@ -1,0 +1,23 @@
+// The public project's base configuration (NoteCode.xcodeproj › Project ›
+// Info › Configurations, the project row, Debug and Release). Its targets are
+// based on App.xcconfig, Tests.xcconfig and UITests.xcconfig, which read the
+// NOTECODE_* settings here.
+//
+// org.example: example.org is reserved for examples (RFC 2606), so the id
+// belongs to nobody, can't collide with a real app on a device, and reads as
+// a placeholder. A simulator build needs nothing else. To run on your own
+// iPad, copy Local.xcconfig.example to Local.xcconfig (gitignored) and set
+// your team and a prefix of your own: automatic signing registers the app id
+// under your team, and org.example.NoteCode may already be taken.
+
+NOTECODE_BUNDLE_ID_PREFIX = org.example
+NOTECODE_TEAM =
+NOTECODE_APP_INFOPLIST = OpenSource/Info.plist
+
+// The same version as the App Store edition of NoteCode:
+// bump it with each release. The build number stays 1, since a
+// public build is never uploaded.
+MARKETING_VERSION = 1.2.0
+CURRENT_PROJECT_VERSION = 1
+
+#include? "Local.xcconfig"

@@ -1,0 +1,544 @@
+# Typing cost in long paged notes
+
+Debt item D9 (docs/refactor/debt.md). A design note: what a keystroke costs in
+a long paged note now, where the time goes, and which design to build next.
+Stage 1 (C) and F are built (#281 and #293). The background is
+[pages.md](pages.md) › "Page breaks are pushed paragraphs" and › "Cost", and
+decisions.md, 7 Nov.
+
+## Where it stands
+
+D9 was written down when a keystroke near the top of a 40-page note cost
+about 97ms, because every page break was an exclusion path. F5 (PR 226)
+changed that for nearly every note: breaks are now paragraphs pushed whole to
+the next page, and the container has no paths. What is left has three parts:
+
+1. **A paragraph taller than a page's body still uses exclusion paths**, for
+   the breaks it crosses (`PagePaginator.applyBands`). A note with one such
+   paragraph, anywhere, pays the whole old cost on every keystroke, wherever
+   the caret is. This is the part of D9 that is still the 97ms.
+2. **The paginator's walk was linear in the note.** After an edit it walked
+   every paragraph from the edit to the end of the note (pages.md says why it
+   must reach the end). That is about 0.12ms a page: 1.2ms at 10 pages, 24ms
+   at 198. **F (17 Nov) stops it** a page or two below the edit, once the
+   pages below are known to be unchanged: 0.2-0.3ms a keystroke at 40 pages
+   and at 198 (below, "F, as built").
+3. **The edit itself is linear in the note, pages or not.**
+   `UITextView.replace` on the configured view costs about 3µs a line before
+   any layout. That is not pagination. It is a finding for another item
+   (below).
+
+## What was measured
+
+All numbers are on the iPad Pro 13-inch (M5) simulator, Debug build, on 11
+Nov, with other build lanes running on the machine. Each is the median of
+nine one-character edits near the top of the note, the way
+`PageViewTests.Cost` measures. The text is `StylingPerformanceTests.document`.
+On the same day the existing cost tests read
+`typingCostLongNote` 6.5ms (baseline 5.1), `exclusionPathsAreTheCost.with`
+104.8ms (100.7), `.without` 2.0ms (0.8) and `.paged` 6.1ms (5.0). So expect
+these numbers to run 10–30% high in absolute terms. The ratios are what
+matter. The probe was a throwaway test file. It was not committed.
+
+### How the cost grows with pages (no tall paragraph)
+
+The probe splits each keystroke into three timings: the edit
+(`UITextView.replace`), an explicit `PageView.paginate()`, and the
+`layoutIfNeeded` that follows. "Plain" is the same text in a configured text
+view with no pages.
+
+| Lines | Pages | Paged total | edit | paginate | layout | Plain total |
+|---|---|---|---|---|---|---|
+| 375 | 10 | 3.1 | 1.2 | 1.2 | 0.7 | 1.8 |
+| 1,500 | 40 | 11.5 | 4.4 | 5.6 | 1.5 | 4.7 |
+| 3,750 | 99 | 25.1 | 11.9 | 11.2 | 2.0 | 11.4 |
+| 7,500 | 198 | 52.2 | 24.9 | 23.9 | 3.4 | 25.1 |
+
+In ms. The probe calls `paginate()` itself so it can time it, which runs the
+walk a pass earlier than a layout pass would. Its totals therefore sit above
+the PERF line for the same note (6.5ms at 40 pages). The paginate column grows
+at 0.12ms a page. The edit column grows at the same rate with pages and
+without them.
+
+### Exclusion paths: is it how many, or where?
+
+The test used a configured text view holding 1,500 lines, with no pagination
+running, and set the paths by hand.
+
+| Paths | ms a keystroke |
+|---|---|
+| none | 8.9 |
+| one, at y 900 (near the edit) | 86.2 |
+| one, at y 60,000 (deep in the note) | 84.5 |
+| one, far past the end of the text | 92.3 |
+| two, near the top | 84.4 |
+| 45 (one after every page) | 100.8 |
+
+**One path costs nearly what 45 do, and its place doesn't matter**, even when
+it lies below all the text. With any path in the container, TextKit 2 lays
+out everything below an edit again. The number and position of the paths
+barely change that.
+
+The same happens with none of our code involved. A bare
+`UITextView(usingTextLayoutManager: true)` holding the same text costs 4.9ms
+a keystroke with no path and 77.9ms with one path past the end of the text.
+An edit made on the text storage directly, which leaves out UIKit's edit
+path and our delegate, shows where the time lands. On the configured view it
+is 0.2ms for the edit and 0.5ms for the layout with no path, and 6.2ms and
+81.6ms with one path. So the time is TextKit laying out again, not
+anything of ours. Through `UITextView.replace`, most of it (55–70ms) falls
+inside `replace`, because UIKit lays out at once to place the caret.
+
+### A tall paragraph in a 40-page note
+
+The note was 1,500 lines plus one prose paragraph of about 10,000 characters
+(120 lines, about two and a half pages). It gets three paths.
+
+| Tall paragraph at | Edit at the top | Edit inside it | Edit below it |
+|---|---|---|---|
+| line 60 | 82.6 | 81.7 | 79.4 |
+| line 1,450 | 89.7 | 55.2 | 81.3 |
+
+So a note with one such paragraph costs a keystroke what every 40-page note
+did before F5, wherever the reader types.
+
+### A gap inside a paragraph, without a path
+
+This probe used a bare TextKit 2 view and the same tall paragraph. It set
+`.baselineOffset` on the characters of one of the paragraph's lines (line 10
+of 120):
+
+- **−60** made that line exactly 60pt taller (20.3 → 80.3), with its glyphs at
+  the bottom and the space above them. **+60** made it 55.9pt taller, with the
+  space below the glyphs. A negative offset is the exact one.
+- **The wrap did not change.** It was still 120 lines with the same character
+  ranges, since a baseline offset changes no glyph's width. Lines above stayed
+  where they were. Every line below, and the next paragraph, moved down by
+  exactly the growth.
+- **A keystroke at the top cost 4.6ms**, against 4.9ms with nothing and 77.9ms
+  with one path. Nothing below the edit was laid out again.
+- **Hit-testing** a point on the moved glyphs lands in that line.
+- **UIKit's caret and selection rectangle cover the whole grown line**, 82pt
+  against 22pt for a normal line. In our view `DocumentUITextView.caretRect`
+  already corrects this for code fences, but reads the text storage's
+  attributes and not the layout copy's (risks, below).
+
+## Candidate designs
+
+### A. Fewer exclusion paths (one per visible region, or only near the caret)
+
+**Rejected by measurement.** One path anywhere costs 85–92ms, about what 45
+cost, and a single path below all the text costs the same. Any design that
+keeps even one path while the reader types keeps the cost.
+
+### B. A text container per page
+
+TextKit 2 has one container per `NSTextLayoutManager`, and a `UITextView`
+has one layout manager. Pages as containers would mean a layout manager and a
+view per page over one content storage, and our own editing across them:
+caret and selection across a page boundary, the edit menu, the keyboard,
+marked text, and which layer owns touches. It would also undo "Who owns
+scrolling" (the text view scrolls itself). **Rejected**: this is a new editor,
+not a fix, and every trap in AGENTS.md around the text view would have to be
+learned again.
+
+### C. Page breaks inside a tall paragraph as a per-line gap in the layout copy
+
+This handles a tall paragraph the way F5 handles every other paragraph.
+Paths go away entirely, and the break becomes space in the copy of the
+paragraph that TextKit lays out. `BlankLineLayout` (the content storage's
+delegate) already adds the push to that copy as paragraph spacing. For a
+tall paragraph it would also give the characters of the **first line after
+each break** a negative `.baselineOffset` of the break's height. That height
+is the distance `PageBreakRule.linePlacement` already works out today. The
+note's text and styles are untouched, as with pushes.
+
+- **Cost**: the probe's 4.6ms. A keystroke in a note with a tall paragraph
+  costs what one without does.
+- **Where the lines fall**: it reproduces the line tops the paths give now,
+  so the tall paragraph does not move on the page. That is unlike F5, which
+  moved split paragraphs and accepted ink drift (decisions.md, 7 Nov). **There
+  is no new drift.** Ink is anchored to the page, and the lines it sits beside
+  stay put. This is an acceptance criterion, not an assumption.
+- **Risks, against the traps**:
+  - *The caret and the selection.* UIKit draws both the height of the grown
+    line, which is a caret that runs through the page gap, and in print
+    layout across two sheets' margins. `caretRect(for:)` reads the storage's
+    `.baselineOffset`, which the copy-only gap is not in. It would need the
+    gap from `PagePushTable`, and `selectionRects(for:)` would need the same
+    clamp, which the view does not override today. Both need a real look on
+    the iPad.
+  - *Attributes already there.* The styler sets `.baselineOffset` on some
+    paragraphs (DocumentStyler.swift:402), and `MarkdownLayout` lifts single
+    characters. The gap has to be added to the value already there, never
+    replace it, or those glyphs drop.
+  - *The wrap must not move.* The probe shows a baseline offset changes no
+    line's characters, so placing the gap needs no second pass. If a later
+    TextKit changed that, the paginator's repeat-until-still loop
+    (`passLimit`) would bound it, and the guard test below would catch it.
+  - *Position things from lines* (pages.md). A line's typographic bounds
+    would include the gap above its glyphs. Anything drawn at a line's top
+    on a gap line would land in the gap. A gap line is never a paragraph's
+    first line, so list markers and checkboxes are safe, but blockquote and
+    callout bars, highlights and the hidden-marker runs need checking.
+  - *Code panels* read the container's paths
+    (CodeBlockLayoutFragment.swift:493). Code lines are paragraphs of their
+    own and are never tall, so nothing changes for them. The read becomes
+    dead code once nothing sets paths. Remove it in a separate step.
+  - *The PDF* draws text from the same layout, so the glyphs follow. But
+    `NotePDF.drawFormulas` (NotePDF.swift:463) reads `.baselineOffset` from
+    the line fragment's `attributedString`, which is the layout copy, and
+    subtracts it from the glyph origin to place a formula. With the gap in
+    that attribute, a formula on the first line after a break would be drawn
+    about the gap's height away from its glyphs. Stage 1 has to settle this.
+    TextKit only moves glyphs by `.baselineOffset`, so the gap has to be in
+    it, but the copy can also carry the gap under a key of its own on the
+    same characters, and readers like this one subtract that. The other way
+    is for each reader to subtract the gap from `PagePushTable`. Grep for
+    every reader of the copy's `.baselineOffset` when building it.
+    `NotePDFTests`, with a formula on a gap line, and a look at a printed
+    tall paragraph confirm it.
+  - *Fence detection, `.layoutManager`, `nativeUTF8`*: not touched. The gap is
+    an attribute in a paragraph copy, applied where pushes already are.
+
+### D. Split a tall paragraph into several elements for layout
+
+A custom `NSTextContentManager` (or an `NSTextContentStorage` override) would
+hand TextKit a tall paragraph as one element per page, each with an ordinary
+push. **Rejected for now**: the delegate we use maps one paragraph range to
+one element, and replacing the content manager reaches into location mapping,
+selection and every `textElement`-based reader (`appliedPush`,
+`laidOutPanelRuns`, the caret). It is far more surface than C for the same
+result.
+
+### E. Drop the paths while the reader types, restore them on a pause
+
+**Rejected.** While the paths are gone, the tall paragraph's lines past each
+break slide up into the gap and then jump back. Ink beside them is wrong in
+between, and a mode switch or a PDF taken mid-burst would have to restore
+first. It trades a cost for a visible fault.
+
+### F. Stop the walk early (for part 2, not the tall case)
+
+After a keystroke that changes no paragraph's height, every paragraph below
+is where the last full walk found it. So the walk could stop at the first
+paragraph past the edit whose top and push match that walk's. Comparing with
+TextKit's current frame is not enough. TextKit has already moved the
+paragraphs below by the edit's change in height, so a frame can agree with
+the running position while a paragraph further down now crosses a break. The
+table would have to keep each paragraph's checked top and shift those tops
+with edits, as it shifts pushes. That is not a tiny change. It saves at most
+the paginate column (5.6ms at 40 pages, 24ms at 198). **Worth doing after C**,
+with `ReopenTests` and `PageSettlingTests` as the guard for the page count.
+
+### F, as built (17 Nov)
+
+The note above asked for each paragraph's checked top. The build keeps
+less, one number a page, because what the walk works out below a **pushed**
+paragraph depends only on where that paragraph lands (a body's top) and on
+the paragraphs below it, not on the running position above it.
+
+- **`PagePushTable.landings`**: for each pushed paragraph the last walk
+  reached, where its top landed. Shifted with edits like the pushes, dropped
+  with its paragraph, forgotten on a new layout (`restart`) and when the
+  paginator gives up before settling (`passLimit`). A landing stands for the
+  paragraph that started there *and* the pages the walk set below it, so two
+  more go:
+  - the one at an edit's start, whose paragraph's text the edit changed.
+    Deleting a pushed paragraph's head left its tail starting at the same
+    offset, at or past `mustWalkThrough`, landing where the whole one did,
+    and the walk stopped on pages set for the taller paragraph (22pt out on
+    the next page, in every mode). Only a deletion that brings a paragraph
+    up from its old end leaves one intact there, and its landing moves with
+    it.
+  - any a walk passes without a paragraph starting there. Replacing the
+    newline above a pushed paragraph joins it to the one above; the joined
+    paragraph's walk resets the pages below and passes the old landing;
+    splitting them again at the same place, the paragraph found that landing
+    and stopped on the joined paragraph's pages (in all three modes).
+- **`PagePushTable.mustWalkThrough`**: the end of the text edited since the
+  walk last passed it (any storage edit, attributes included: a restyle of
+  the whole note walks the whole note), and of the paragraphs the last pass
+  changed, so the next pass checks them as before. It moves with the text.
+- **The stop.** The walk stops after a pushed paragraph that starts at or
+  past `mustWalkThrough` and lands within 0.001pt of its recorded landing.
+  Its text is unchanged, so its height is; it lands where it did; so
+  everything below is what the last walk to reach it left, and a walk to the
+  end would change nothing (its tolerance is 0.01pt). Its own push may still
+  change, when the text above grew by less than the room at the foot of its
+  page, and is set like any other. That paragraph is then not added to
+  `mustWalkThrough`, since a push changes no wrap: the next pass may stop at
+  it again.
+- **Paths.** A pass that changes the container's paths (a fixed-height tall
+  paragraph) has the next one check from where it started, as before F, and
+  that check may stop like any other. As first built it also had to walk as
+  far as the pass before; no test could fail without that, the test note
+  given a formula paragraph whose paths move with five edits included,
+  because the walk measures a paragraph without the room its paths take
+  (`skipped`), so where everything lands does not depend on them. It was
+  taken out, which saves a pasted page's check pass about a third of its
+  walk (490 paragraphs to 322).
+- **What it does not catch, by construction**: a change to a paragraph's
+  height with no storage edit. There is none today: every restyle, marker
+  change and push goes through the text storage, which the table watches.
+  A new layout restarts the table.
+
+An edit that changes the height of the text above a break by more than the
+room at that page's foot moves every break below it, and the walk then goes
+on until a page absorbs the change, or to the end. In the test note
+(`PageWalkStopTests`), typing a line's worth of text and pasting several
+paragraphs walked the whole note; a keystroke, Return, a join, edits in a
+code block, a formula and the tall paragraph walked 8-90 paragraphs of 376.
+
+**Tests.** `PageWalkStopTests.sameAsFullWalk`, in all three modes: the same
+note (prose, headings, a list, a code block, a display and an inline formula,
+a tall paragraph) in two editors wired as the app's, one stopping early and
+one walking to the end, given 18 edits (typing, deleting, a join, Return,
+pastes, a page pasted and deleted, edits in the list, the code block, both
+formulas, above, inside and below the tall paragraph). After each, every
+push, gap, path, line top and the page count agree, and a walk to the end
+from the top of the early one's note changes nothing. With the stop allowed
+before the edited text it fails at once. `keystrokeWalksLittle` and
+`PageViewTests.Cost.typingCostWithWalk` fail without the stop (14,535 and
+72,855 paragraphs walked in nine keystrokes, against 333).
+
+**Measured** (iPad Pro 13-inch (M5) simulator, Debug, 17 Nov, a heavily
+loaded Mac; nine keystrokes at the top, each with `PageView.paginate()`, the
+layout pass's first step, after it):
+
+| | Walk to the end | Stopped early |
+|---|---|---|
+| 40 pages, keystroke with its walk | 12.7ms | 4.3-5.3ms |
+| 40 pages, the walk alone | 7.1-7.3ms | 0.2-0.3ms |
+| 198 pages, keystroke with its walk | 61-67ms | 21-35ms |
+| 198 pages, the walk alone | 34-36ms | 0.3ms |
+| Inside a tall paragraph (40 pages) | 15.4-17.2ms | 7.4-9.8ms |
+
+The walk-to-the-end column is the same build with the stop switched off
+(`PagePushTable.stopsWalkEarly`), two runs; the other column is two runs and
+three `perf.sh` runs. The PERF lines (median of the three `perf.sh` runs) are
+`typingCostWithWalk.pages40` 4.4ms, `.pages198` 21.2ms and
+`typingCostTallParagraph.inside` 7.5ms (was 15.6). What is left at 198
+pages is `UITextView.replace` (Finding outside D9). The other typing
+PERF lines don't change: a keystroke above every break sets no content size,
+so their walk waited for a layout pass the tests never ran.
+
+## Recommendation: C, then F
+
+C removes the only remaining 97ms case, keeps every line where it is now
+(so no ink moves), and reuses the mechanism F5 built (a layout-only attribute
+in `BlankLineLayout`, kept in `PagePushTable`, applied with
+`edited(.editedAttributes…)` over one paragraph). F is an independent
+follow-up for very long notes.
+
+### Staged plan
+
+0. **Probe in the real view (test only).** In a `PageHarness` note with one
+   tall paragraph, apply the gap through `BlankLineLayout` for its breaks
+   with the paths cleared. Check three things: the paragraph's line tops
+   equal those of today's path layout within 0.5pt, in all three modes; the
+   wrap is the same; and a keystroke at the top falls to the no-tall cost.
+   If the line tops can't be matched, stop. C would then move ink, which
+   needs a decision like F5's.
+
+   **Done 11 Nov: it passes** (`PagedGapProbeTests`, iPad Pro 13-inch (M5)
+   simulator, Debug). The gap is laid in by a test-only content storage
+   delegate that wraps the view's `BlankLineLayout` and adds a negative
+   `.baselineOffset` to the copy of the first line after each break, of the
+   height `linePlacement`'s rule gives; no app code changed. The push table
+   is frozen while it runs (`isApplying`), so the walk neither runs nor puts
+   the paths back, since teaching the walk the gaps is stage 1.
+
+   | Mode | Breaks | Gap | Line feet moved | Glyphs drawn moved | Wrap |
+   |---|---|---|---|---|---|
+   | seamless | 6 | 11pt | 0.000pt | 0.00pt | same (298 lines) |
+   | compressed | 6 | 34pt | 0.000pt | 0.00pt | same |
+   | print | 6 | 178pt | 0.000pt | 0.00pt | same |
+
+   The note is a 228-line paragraph between prose. The gap is the break's
+   band (1, 24 and 168pt) plus the 10pt foot of the page the line would have
+   straddled, so both branches of the rule are used: a line starting in the
+   band and a line crossing into it. "Glyphs drawn" is the
+   first inked row of each of its lines, with the paragraph's layout fragment
+   drawn at 2 pixels a point, with paths and with gaps. Every line of the note
+   below the paragraph also stays put. A gap line's typographic bounds grow
+   by the gap, upwards, as the bare-view probe found. One reader to watch:
+   `NSTextLineFragment.glyphOrigin` leaves `.baselineOffset` out, so on a gap
+   line it reads exactly the gap high while the glyphs are drawn where the
+   paths drew them. Anything placed from it needs the gap taken off, as
+   risk *The PDF* says for `.baselineOffset`.
+
+   The cost, a keystroke at the top of the 40-page note with a
+   10,000-character paragraph at line 60. Each number is the best of three
+   batches, each batch the median of nine keystrokes on a monotonic clock.
+   The gaps are timed on a harness of their own. Two runs, in ms:
+
+   | | Run 1 | Run 2 |
+   |---|---|---|
+   | No tall paragraph | 5.5 | 5.2 |
+   | No tall paragraph, table frozen | 5.1 | 5.2 |
+   | Tall, exclusion paths | 76.4 | 76.8 |
+   | Tall, exclusion paths, table frozen | 76.3 | 77.2 |
+   | Tall, gaps, table frozen | 5.0 | 5.0 |
+
+   So with gaps a keystroke costs what one in a note without a tall
+   paragraph does, and freezing the table is not what saves the time. The
+   walk (about 0.12ms a page) comes back on top in stage 1, as for any note.
+   Earlier runs, with a single batch timed on `Date()`, gave gaps 5.2-5.6ms
+   against 5.1-6.3ms without a tall paragraph and 78-91ms with paths.
+
+   *Frozen* means more than "no walk". The table ignores the edits, so it
+   neither lowers `through` nor shifts its pushes, and after a frozen run its
+   keys past the edit are out by the characters typed. The comparison is
+   still fair. The edits are at offset 120, in a paragraph with no push, and
+   TextKit asks the content storage's delegate again only for the paragraph
+   edited, so no stale key is read while the run is timed. Every frozen run
+   is frozen the same way, and none is laid out again afterwards.
+
+   The test's bounds are loose: gaps under a third of paths, and under twice
+   the frozen note without a tall paragraph plus 2ms.
+1. **Build C.** **Done 11 Nov** (as built, at the end of this step). `PagePaginator`'s `.tall` case records gaps per line start in
+   `PagePushTable`, shifted with edits like pushes. `BlankLineLayout` adds
+   them to the copy's `.baselineOffset`. `applyBands` and the paths go.
+   `caretRect(for:)` and a new `selectionRects(for:)` take the gap from the
+   table and keep the caret and highlight to the glyphs. Readers of the
+   copy's `.baselineOffset` that place things by it (`NotePDF.drawFormulas`)
+   must not count the gap: record it under its own key in the copy and
+   subtract it there (risk *The PDF*, above). `PageBreakRule.linePlacement`
+   should return each line's gap, so the paginator and its tests use one
+   rule (the stage 0 probe has a copy of it). Add a perf test,
+   `PageViewTests.Cost.typingCostTallParagraph`, with a PERF line in
+   baseline.md, that types above the tall paragraph and inside it (D9's
+   symptom is a slow keystroke anywhere in the note; stage 0 timed only
+   above it), and a test that the line tops match a stored path layout.
+   **As built.** `linePlacement` returns each pushed line's gap by its
+   index, and a gap above a paragraph's first line becomes its push, so
+   markers and boxes, drawn from the first line, never sit on a gap line.
+   The table keeps, per line start, the line's length, its gap and the
+   offset laid in for it (`PageLineGap.shift`). An edit inside a gap line
+   stretches it with the text, and a rewrap is put right by the next pass.
+   - **Line spacing.** A line's minimum height (`NoteTypography.lineStyle`)
+     takes up part of a baseline offset before the line grows (17pt text,
+     spacing 8, an offset of -100 grew the line 91.98pt). So the offset is
+     the gap plus that slack, the copy carries the whole offset as
+     `.pageLineShift`, and anything placed from `glyphOrigin` adds the
+     shift, while anything placed from a line's top adds the gap
+     (`.pageLineGap`).
+   - **Measured each pass, not kept.** A gap line's height without its gap,
+     and its slack, are measured by laying the line out alone, at the text
+     view's width with its paragraph's style, in a TextKit stack of its own
+     (`PagePaginator.measure`, `slack(of:in:)`): once without the offset,
+     once with a 200pt probe. Results are cached by the line, so a line is
+     measured again only when it or its style changes. Keeping the first
+     measurement went stale when the line spacing or the text size changed,
+     which restyles the note with no change of text. A fresh stack each
+     time, since one given a new string kept the last one's layout.
+   - **Lines of a fixed height, and paragraphs with an attachment, keep
+     exclusion paths** (`PagePushTable.tall`).
+     - An offset moves a fixed-height line's glyphs without making the line
+       taller. So one code line or display formula source wrapped past a
+       page is broken by paths, as every tall paragraph was before.
+     - An offset moves a line's text but not its attachment (an inline
+       formula), whose descent takes up part of it: with a 44pt attachment
+       the line grew 6.19pt less than the offset, and with that made up for,
+       the text was drawn 6.19pt low. No one offset puts both where a path
+       does.
+     - A note with either pays the paths' cost. The paginator drops a
+       paths entry that no longer starts a paragraph (by TextKit's own
+       paragraph rule, `\r` and U+2029 included), so its band can't outlive
+       it.
+     - The walk takes out of such a paragraph's height the room TextKit
+       left for its bands (`PagePaginator.skipped`). Main counted it in,
+       which was harmless while the paragraph stayed tall, but a long line
+       cut to just under a page then read as tall and kept its band for
+       good.
+   - **The readers that take the gap off:** `NotePDF` (which sheet a line
+     is on; `drawFormulas` needs nothing, since no formula is on a gap line), `caretRect(for:)`, `selectionRects(for:)`
+     and `firstRect(for:)` (each rect cut where it crosses a gap), the taps
+     on links and formulas, `PageReading.lineTop`, the quote bars,
+     `TextRegion.visibleLines` and the debug report.
+   - **Tests.** `PagedGapProbeTests` (the stage 0 probe, now against the
+     app's own gaps and a path layout set up by hand on every break the
+     paragraph reaches, with its copy of the rule gone; also line spacing,
+     a long code line, edits and each reader),
+     `NotePDFTests.gapLinePrintsOnItsSheet` and `formulasInTallParagraph`, and
+     `PageViewTests.Cost.typingCostTallParagraph`.
+
+   **Measured** (iPad Pro 13-inch (M5) simulator, Debug, on a loaded Mac,
+   the last three runs of the touched suites), each keystroke timed with the
+   page's layout pass after it:
+
+   | | ms | against the note without a tall paragraph |
+   |---|---|---|
+   | Without a tall paragraph | 3.9-4.1 | |
+   | Above it | 4.1-4.2 | 1.01-1.04x |
+   | Below it | 3.7-3.9 | 0.93-0.95x |
+   | Inside it | 12.9-13.2 | 3.2-3.3x |
+
+   The PERF lines (the median of three `perf.sh` runs) are above 4.9ms,
+   below 5.0ms and inside 15.6ms.
+
+   Above and below meet the acceptance. **Inside does not**, and the gaps
+   are not why: with the gaps taken out of the paragraph it costs the same
+   (13.1-13.3ms). Two things make it up:
+   - **About 8-10ms is the walk run inside `replace`.** An edit inside the
+     tall paragraph makes UIKit set the content size twice per keystroke,
+     and each time `PageBands.noteHeight` runs `settledTextHeight()`: the
+     walk to the end of the note and `ensureLayout` for the whole of it,
+     there and then. Above and below, the walk waits for the next layout
+     pass.
+   - **About 4-6ms is TextKit's own.** A paragraph that changes height
+     costs more in a note laid out to its end than in one laid out lazily.
+     A bare configured view holding the same text, laid out to its end,
+     costs 5.8-5.9ms for the same keystroke.
+
+   So the test holds inside to the same paragraph without gaps, and under
+   30ms. Option F (stage 3) is what would bring it down.
+2. **Tidy (refactor step).** Remove the exclusion-path readers that nothing
+   feeds any more: `CodeBlockLayoutFragment`'s `breaks` from the container,
+   and `PageBands`' clearing. Then update `exclusionPathsAreTheCost` so it
+   still shows the old cost on a plain view of its own, as it does now.
+3. **F**, as above. **Done 17 Nov** ("F, as built"). Inside a tall
+   paragraph a keystroke now costs about 7.5ms, from 13-16ms: the walk run
+   inside `replace` is a page or two, and what is left is TextKit's. That
+   is 1.5-1.9x the same keystroke in the note without a tall paragraph, so
+   still a little over the 1.5x acceptance below; a bare view holding the
+   same text, laid out to its end, costs 5.8-8.1ms for it.
+
+### Acceptance numbers
+
+Measured as `PageViewTests.Cost` measures, in the same run:
+
+- **A 40-page note with one tall paragraph**: a keystroke at the top, inside
+  the tall paragraph and below it each cost at most 1.5× `typingCostLongNote`.
+  Today they cost 55–90ms against about 6ms.
+- **`typingCostLongNote` and `exclusionPathsAreTheCost.paged`** are no more
+  than 10% worse than their PERF lines.
+- **Line tops**: every line of a tall paragraph within 0.5pt of the path
+  layout, in seamless, compressed and print, and on the page it was on.
+- **Caret**: on a gap line it is the height of a caret on an ordinary line of
+  that font, and its top is not above the glyphs' line.
+- `PageSettlingTests`, `ReopenTests`, `NotePDFTests` and the code-panel tests
+  pass as they are.
+- **PDF formulas**: a new `NotePDFTests` case puts an inline formula on the
+  first line after a break in a tall paragraph and checks it is drawn on its
+  glyphs' baseline, within 0.5pt, not a gap's height away.
+- After F (if built): the paginate share at 198 pages under 2ms, from 24ms.
+  **Met** (17 Nov): 0.3ms, against 34-36ms with the stop switched off on the
+  same loaded Mac.
+
+## Finding outside D9
+
+`UITextView.replace` on the configured view costs 4.0ms at 1,500 lines and
+24ms at 7,500, with or without pages. The same edit made on the text storage
+directly costs 0.2ms. The evidence points at UIKit's own edit and caret
+path rather than at our code: a bare `UITextView(usingTextLayoutManager:
+true)` with none of our delegate, styler or parser costs 4.9ms a keystroke
+at 1,500 lines, the configured view with no pages 4.7ms, and its `replace`
+alone 4.4ms. UIKit also lays out at once inside `replace` to place the caret
+(above). So most of it is probably UIKit laying out to the caret, and it
+grows with the note. How much of it, if any, is ours was not measured: the
+probe did not time the delegate, the styler and the parser on their own.
+F5's measurements did not separate it out either. It is worth a debt row of
+its own, starting with that split, since at 198 pages it is half of the
+keystroke.

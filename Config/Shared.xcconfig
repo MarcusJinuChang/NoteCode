@@ -1,0 +1,26 @@
+// Settings every target shares: the app, its unit tests and its UI tests, in
+// NoteCode.xcodeproj and in the App Store edition's own project, which uses
+// these same files. Lifted on 17 Nov 2026 from the target settings the App
+// Store's 1.2.0 was built with; they were the same in Debug and Release.
+//
+// A target has one base configuration, and an xcconfig can't branch on the
+// target, so each target's base is App.xcconfig, Tests.xcconfig or
+// UITests.xcconfig, which include this file. What differs between the
+// editions (bundle id prefix, team, Info.plist, version) comes from the
+// project's base configuration (OpenSource.xcconfig here; the App Store
+// edition has its own), through the NOTECODE_* settings App.xcconfig reads.
+//
+// Edit these files, not the Build Settings tab: a value typed there is
+// written into the project file, where it overrides this one.
+
+SDKROOT = auto
+IPHONEOS_DEPLOYMENT_TARGET = 27.0
+MACOSX_DEPLOYMENT_TARGET = 27.0
+TARGETED_DEVICE_FAMILY = 1,2
+
+CODE_SIGN_STYLE = Automatic
+GENERATE_INFOPLIST_FILE = YES
+
+SWIFT_VERSION = 5.0
+SWIFT_APPROACHABLE_CONCURRENCY = YES
+SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES

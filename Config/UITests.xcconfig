@@ -1,0 +1,15 @@
+// The UI test target (NoteCodeUITests), in both projects. In the App Store
+// project the same target also covers ProUITests/.
+
+#include "Shared.xcconfig"
+
+PRODUCT_NAME = $(TARGET_NAME)
+PRODUCT_BUNDLE_IDENTIFIER = $(NOTECODE_BUNDLE_ID_PREFIX).NoteCodeUITests
+MARKETING_VERSION = 1.0
+CURRENT_PROJECT_VERSION = 1
+
+SUPPORTED_PLATFORMS = iphoneos iphonesimulator macosx
+SWIFT_EMIT_LOC_STRINGS = NO
+STRING_CATALOG_GENERATE_SYMBOLS = NO
+
+TEST_TARGET_NAME = NoteCode

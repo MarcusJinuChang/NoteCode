@@ -1,0 +1,312 @@
+//
+//  PageLayout.swift
+//  NoteCode
+//
+//  Where pages fall in a note, in each of the three ways it can be viewed.
+//
+
+import CoreGraphics
+
+/// Which way up a note's pages are. A property of the note, like paper.
+nonisolated enum PageOrientation: String, CaseIterable, Sendable {
+    case portrait
+    case landscape
+
+    static let `default` = PageOrientation.portrait
+}
+
+/// How pages are shown. A preference about viewing, not a property of a note,
+/// so it follows the device rather than the page.
+nonisolated enum PageViewMode: String, CaseIterable, Sendable {
+    /// One continuous surface. Page breaks exist but aren't drawn.
+    case seamless
+    /// Continuous, with a dashed line where one page ends and the next begins.
+    case compressed
+    /// Separate sheets of paper, margins and all, the way they would print.
+    case print
+
+    static let `default` = SettingKeys.Notes.viewMode.defaultValue
+}
+
+/// The geometry of a paged note, as pure functions.
+///
+/// **One pagination, three presentations.** Every mode breaks pages at the
+/// same lines: each page holds a body `bodyHeight` tall, and text flows around
+/// a band between one body and the next. The modes differ only in how tall
+/// that band is — a sheet's two margins and the gap between sheets in print
+/// layout, a narrow strip in compressed, a hairline in seamless. Because
+/// a point's position *within its page's body* is the same in every mode, ink
+/// converts between modes by page (`convert`) and stays on the words it was
+/// drawn over. Pagination that differed by mode would make that impossible.
+///
+/// Units are page points: US Letter at 96 per inch, the CSS convention. At
+/// that size the editor's 17pt body text prints at 12.75pt, a normal printed
+/// size, because a page 816 wide prints 612 points wide.
+nonisolated struct PageLayout: Equatable, Sendable {
+
+    var orientation: PageOrientation
+    var mode: PageViewMode
+
+    init(orientation: PageOrientation = .default, mode: PageViewMode = .default) {
+        self.orientation = orientation
+        self.mode = mode
+    }
+
+    // MARK: Paper
+
+    static let unitsPerInch: CGFloat = 96
+
+    /// US Letter. A4 would be one more case here; nothing else depends on it.
+    static let paperInches = CGSize(width: 8.5, height: 11)
+
+    /// Three-quarters of an inch on every side.
+    static let margin: CGFloat = 72
+
+    /// A sheet, in page points.
+    var pageSize: CGSize {
+        let portrait = CGSize(
+            width: Self.paperInches.width * Self.unitsPerInch,
+            height: Self.paperInches.height * Self.unitsPerInch
+        )
+        return orientation == .portrait
+            ? portrait
+            : CGSize(width: portrait.height, height: portrait.width)
+    }
+
+    /// The width lines wrap at. Fixed per orientation, so line breaks never
+    /// depend on the device, its orientation, the zoom, or the view mode.
+    var textWidth: CGFloat { pageSize.width - Self.margin * 2 }
+
+    /// How much of a page text can fill. The same in every mode, which is
+    /// what makes pagination the same in every mode.
+    var bodyHeight: CGFloat { pageSize.height - Self.margin * 2 }
+
+    // MARK: Between pages
+
+    /// Space between sheets in print layout. 24pt reads as surround between
+    /// two pieces of paper, not as a rule across one. It matches the border
+    /// beside the sheets (`CanvasGeometry.printGutter`) by choice, so the
+    /// surround is even, but nothing breaks if the two differ.
+    static let printSheetGap: CGFloat = 24
+
+    /// The strip a compressed page break occupies, dashed line in its middle.
+    /// 24pt is enough room above and below the line for it to read as a page
+    /// end rather than an underline. It is the same number as the print gap
+    /// by coincidence: the two modes never share a layout.
+    static let compressedGap: CGFloat = 24
+
+    /// A seamless page break. Not zero: a band with no height pushes no line,
+    /// and a line left straddling the break would paginate differently here
+    /// than in the other modes. One point is enough to push it, and too little
+    /// to see.
+    static let seamlessGap: CGFloat = 1
+
+    /// From the bottom of one page's body to the top of the next.
+    var gap: CGFloat {
+        switch mode {
+        case .print:      Self.margin * 2 + Self.printSheetGap
+        case .compressed: Self.compressedGap
+        case .seamless:   Self.seamlessGap
+        }
+    }
+
+    /// From the top of one page's body to the top of the next.
+    var pitch: CGFloat { bodyHeight + gap }
+
+    /// Where page 0's body begins in the note.
+    ///
+    /// Print layout shows the first sheet's whole top margin. The continuous
+    /// modes show half of it: there is no sheet edge for it to set apart.
+    var firstBodyTop: CGFloat {
+        mode == .print ? Self.printSheetGap + Self.margin : Self.margin / 2
+    }
+
+    /// Space after the last page's body.
+    var trailingSpace: CGFloat {
+        mode == .print ? Self.margin + Self.printSheetGap : Self.margin
+    }
+
+    // MARK: Pages
+
+    /// The part of the last page's body a stroke can end in to add a page
+    /// (`InkPageGrowth`): from here to the page's bottom.
+    func growthBandTop(ofPage index: Int) -> CGFloat {
+        bodyTop(ofPage: index) + bodyHeight * (1 - InkPageGrowth.bandShare)
+    }
+
+    /// Whether a stroke ending at `y` is in the foot of the last of
+    /// `pageCount` pages. Below the body counts: print layout and compressed
+    /// take no ink there, but a seamless stroke can end on it.
+    func endsInGrowthBand(y: CGFloat, pageCount: Int) -> Bool {
+        y >= growthBandTop(ofPage: max(pageCount, 1) - 1)
+    }
+
+    func bodyTop(ofPage index: Int) -> CGFloat {
+        firstBodyTop + CGFloat(index) * pitch
+    }
+
+    /// The page a point in the note belongs to. The boundary is the middle of
+    /// the band between two bodies, so ink in a gap goes to the nearer page.
+    func pageIndex(atY y: CGFloat) -> Int {
+        max(Int(((y - firstBodyTop + gap / 2) / pitch).rounded(.down)), 0)
+    }
+
+    /// How many pages a note has: the pages its text and its ink need, or
+    /// `minimum` if that is more. At least one.
+    ///
+    /// - Parameters:
+    ///   - textBottom: the bottom of the last line, in note coordinates.
+    ///   - inkBottom: the lowest point of any ink, or `nil` for none.
+    ///   - minimum: the pages the note was given (`Page.minimumPageCount`).
+    func pageCount(textBottom: CGFloat, inkBottom: CGFloat?, minimum: Int = 1) -> Int {
+        let lowest = max(textBottom, inkBottom ?? 0)
+        return max(pageIndex(atY: lowest) + 1, minimum, 1)
+    }
+
+    /// How tall a note of `pageCount` pages is.
+    func noteHeight(pageCount: Int) -> CGFloat {
+        bodyTop(ofPage: max(pageCount, 1) - 1) + bodyHeight + trailingSpace
+    }
+
+    /// Sheet `index` in print layout, margins included — exactly what would
+    /// go to the printer for that page.
+    func sheet(ofPage index: Int) -> CGRect {
+        CGRect(
+            x: 0,
+            y: bodyTop(ofPage: index) - Self.margin,
+            width: pageSize.width,
+            height: pageSize.height
+        )
+    }
+
+    // MARK: Where ink shows
+
+    /// The part of the note page `index` has in seamless layout, placed on
+    /// that page in this one: where its ink shows.
+    ///
+    /// Seamless is the reference (decided 9 Oct). Ink is cut at page breaks
+    /// into a piece per page (`InkPages`), each masked to its page's region
+    /// and moved with its page, so it sits on the same words in every mode.
+    /// Compressed and print layout have room seamless doesn't — the rest of
+    /// compressed's strip, print layout's top and bottom margins and the gap
+    /// between sheets — and ink there would have no place in seamless: it
+    /// would land on another page's words. So nothing shows there, and a
+    /// stroke can't start there. Side margins are the same in every mode.
+    ///
+    /// In seamless the regions tile the note, so all of it takes ink.
+    func inkRegion(ofPage index: Int, pageCount: Int) -> CGRect {
+        let count = max(pageCount, 1)
+        let seamless = PageLayout(orientation: orientation, mode: .seamless)
+        let top = index == 0 ? 0 : seamless.bodyTop(ofPage: index) - seamless.gap / 2
+        let bottom = index == count - 1
+            ? seamless.noteHeight(pageCount: count)
+            : seamless.bodyTop(ofPage: index) + bodyHeight + seamless.gap / 2
+        let shift = bodyTop(ofPage: index) - seamless.bodyTop(ofPage: index)
+        return CGRect(x: 0, y: top + shift, width: pageSize.width, height: bottom - top)
+    }
+
+    /// Every page's `inkRegion`, top to bottom.
+    func inkRegions(pageCount: Int) -> [CGRect] {
+        (0..<max(pageCount, 1)).map { inkRegion(ofPage: $0, pageCount: pageCount) }
+    }
+
+    /// The parts of the note no page's ink shows in: between one page's
+    /// `inkRegion` and the next, above the first and below the last, across
+    /// the page's width. None in seamless.
+    func inkHiddenBands(pageCount: Int) -> [CGRect] {
+        var bands: [CGRect] = []
+        var top: CGFloat = 0
+        for region in inkRegions(pageCount: pageCount) {
+            if region.minY - top > 0.001 {
+                bands.append(CGRect(x: 0, y: top, width: pageSize.width, height: region.minY - top))
+            }
+            top = region.maxY
+        }
+        let end = noteHeight(pageCount: pageCount)
+        if end - top > 0.001 {
+            bands.append(CGRect(x: 0, y: top, width: pageSize.width, height: end - top))
+        }
+        return bands
+    }
+
+    /// Whether a stroke may start at a point in the note: whether it's in
+    /// a page's `inkRegion`. Elsewhere a finger scrolls instead.
+    func takesInk(at point: CGPoint, pageCount: Int) -> Bool {
+        guard mode != .seamless else { return true }
+        let index = min(pageIndex(atY: point.y), max(pageCount, 1) - 1)
+        return inkRegion(ofPage: index, pageCount: pageCount).contains(point)
+    }
+
+    /// Where compressed layout draws the break after page `index`.
+    func breakLineY(afterPage index: Int) -> CGFloat {
+        bodyTop(ofPage: index) + bodyHeight + gap / 2
+    }
+
+    /// The bands text flows around, one after each of the first `pageCount`
+    /// pages, in the text container's coordinates.
+    ///
+    /// Where the breaks are, as geometry. The container itself has exclusion
+    /// paths only for the breaks inside a paragraph taller than a page; every
+    /// other break is a push on the paragraph below it (`PagePaginator`).
+    ///
+    /// - Parameter containerTop: the note coordinate the container starts at,
+    ///   which is the text view's top inset. It must be `firstBodyTop`.
+    func exclusionBands(pageCount: Int, containerTop: CGFloat) -> [CGRect] {
+        (0..<max(pageCount, 0)).map { exclusionBand(afterPage: $0, containerTop: containerTop) }
+    }
+
+    /// The break after page `index`, in the text container's coordinates.
+    func exclusionBand(afterPage index: Int, containerTop: CGFloat) -> CGRect {
+        CGRect(
+            x: 0,
+            y: bodyTop(ofPage: index) + bodyHeight - containerTop,
+            width: textWidth,
+            height: gap
+        )
+    }
+
+    // MARK: Between modes
+
+    /// The same point on the same page, in another layout.
+    ///
+    /// Ink drawn in one mode lands on the same words in any other: the page it
+    /// is on doesn't change, and nor does its distance from that page's body.
+    /// Horizontal positions don't change between modes at all.
+    ///
+    /// Exact into print layout and back, from any mode, because print layout's
+    /// breaks are the widest. Not exact the other way: a point in a sheet's
+    /// margin keeps its distance from the page's body, and in a mode with a
+    /// narrower break that distance can reach onto the next page. That is why
+    /// `PageView` keeps ink in print layout's coordinates and only ever
+    /// converts outward from them.
+    ///
+    /// Only meaningful between layouts of one orientation. A different
+    /// orientation wraps text at a different width, so no position carries
+    /// over, and this returns `nil`.
+    func convert(y: CGFloat, to other: PageLayout) -> CGFloat? {
+        guard other.orientation == orientation else { return nil }
+        let index = pageIndex(atY: y)
+        return other.bodyTop(ofPage: index) + (y - bodyTop(ofPage: index))
+    }
+
+    /// Where to scroll to show page `index` from its top edge.
+    ///
+    /// The note's very top for the first page. After that: the sheet with a
+    /// little of the gap above it in print layout, the dashed line in
+    /// compressed, and the break in seamless — so the page's first line isn't
+    /// jammed against the top of the view.
+    func scrollTop(forPage index: Int) -> CGFloat {
+        guard index > 0 else { return 0 }
+        return mode == .print
+            ? sheet(ofPage: index).minY - Self.printSheetGap / 2
+            : bodyTop(ofPage: index) - gap / 2
+    }
+}
+
+/// Adding pages as the reader draws down (feedback item 8, 23 Oct): a stroke
+/// that ends in the last page's foot adds a page, through Add Page's path.
+nonisolated enum InkPageGrowth {
+    /// The share of a page's body, from the bottom, that counts as its foot:
+    /// about 1.4 inches of a Letter page, three or four lines of handwriting.
+    static let bandShare: CGFloat = 0.15
+}

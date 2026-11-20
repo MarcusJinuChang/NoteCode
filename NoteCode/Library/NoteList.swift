@@ -1,0 +1,583 @@
+//
+//  NoteList.swift
+//  NoteCode
+//
+//  The note list: folders, and the notes in and out of them.
+//
+
+import SwiftData
+import SwiftUI
+
+/// Every note, grouped into folders, in the sidebar the ☰ button opens.
+///
+/// Folders open and close in place rather than leading to a list of their
+/// own, and are rows among the notes: one list, sorted by the reader's choice,
+/// with a Pinned section above it. What goes where, and in what order, is
+/// `NoteListSections`.
+struct NoteList: View {
+    /// True when the on-disk store failed and edits live only in memory.
+    var storageIsEphemeral = false
+
+    @Binding var selection: Page?
+
+    /// Owns the open note and the delete actions. `selection` is its
+    /// `selection`, seen through a binding that also records the search.
+    var navigation: NoteNavigation
+
+    /// What the search field holds. While it holds words, the list shows the
+    /// notes that match instead of its folders.
+    @Binding var searchText: String
+
+    /// Told of each note the "+" menu makes, so the page can open with its
+    /// title ready to type.
+    var onNewPage: (Page) -> Void = { _ in }
+
+    /// Asked to show Settings, from the list's ••• menu.
+    var onShowSettings: () -> Void = {}
+
+    /// What the menu bar has asked the list to do (New Folder, Search Notes).
+    /// Answered when the list is on screen, then cleared.
+    @Binding var request: ListRequest?
+
+    /// Ask the window for the file picker, and for the Export All sheet.
+    var onImport: () -> Void
+    var onExportAll: () -> Void
+
+    /// Whether the list is the one to draw the toast: it is when the list is
+    /// on screen, and the open note's page draws it when the list is away.
+    var showsToasts = true
+
+    init(
+        storageIsEphemeral: Bool = false,
+        selection: Binding<Page?>,
+        navigation: NoteNavigation,
+        searchText: Binding<String>,
+        onNewPage: @escaping (Page) -> Void = { _ in },
+        onShowSettings: @escaping () -> Void = {},
+        onImport: @escaping () -> Void = {},
+        onExportAll: @escaping () -> Void = {},
+        request: Binding<ListRequest?> = .constant(nil),
+        showsToasts: Bool = true
+    ) {
+        self.storageIsEphemeral = storageIsEphemeral
+        _selection = selection
+        self.navigation = navigation
+        _searchText = searchText
+        self.onNewPage = onNewPage
+        self.onShowSettings = onShowSettings
+        self.onImport = onImport
+        self.onExportAll = onExportAll
+        _request = request
+        self.showsToasts = showsToasts
+    }
+
+    @FocusState private var searchIsFocused: Bool
+
+    private var actions: NoteActions {
+        NoteActions(navigation: navigation, context: modelContext, toasts: toasts)
+    }
+
+    @Environment(\.modelContext) var modelContext
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.appExtensions) var extensions
+    @AppStorage(SettingKeys.General.accent) private var accent
+    @Environment(ToastCenter.self) private var toasts: ToastCenter?
+    // The notes that are not in Recently Deleted (F8: the store leaves the
+    // others out, rather than the list loading them to filter). The foot
+    // counts the others in the store (`Page.deletedCount`).
+    @Query(filter: Page.livePredicate, sort: \Page.modifiedAt, order: .reverse) private var pages: [Page]
+
+    /// Bumped whenever a context saves, so the foot's count is read again. A
+    /// purge, Delete Now or Delete All changes no live note, so `pages` alone
+    /// would not say the count had moved.
+    @State private var deletedCountTick = 0
+    @Query private var folders: [Folder]
+
+    /// How notes are ordered. Per device, like the view mode: it's how this
+    /// reader likes to look at the list, and changes nothing in a note.
+    @AppStorage(SettingKeys.Notes.sort) private var sort
+
+    /// Which way up the "+" button's tap makes a note's pages
+    /// (Settings › Notes › New Notes).
+    @AppStorage(SettingKeys.Notes.newNoteOrientation) var newNoteOrientation
+
+    /// Whether a note made here is opened (Settings › Notes › Open Note After
+    /// Creating).
+    @AppStorage(SettingKeys.Notes.opensAfterCreating)
+    private var opensNewNote
+
+    /// Folders the reader has closed. Folders start open, so a new folder's
+    /// notes are never hidden behind a row nobody has tapped yet.
+    @State private var closedFolders: Set<PersistentIdentifier> = []
+
+    /// The note the rename alert is for. Kept after the alert closes, since
+    /// its button may run after the alert has said it's gone.
+    @State private var renamingPage: Page?
+    @State private var showsNameAlert = false
+    @State private var typedName = ""
+
+    /// The folder editor's sheet: a new folder, or a folder's name, colour
+    /// and symbol.
+    @State private var editingFolder: FolderEditing?
+
+    /// Whether the Recently Deleted sheet is showing.
+    @State private var showsRecentlyDeleted = false
+
+    /// The sheet a row of the list's foot asked for (the App Store's tip jar).
+    @State private var footSheet: ExtensionSheet?
+
+    /// The folder whose deletion is waiting on the reader's choice.
+    @State private var deleting: Folder?
+
+    /// The note whose info is showing.
+    @State private var infoPage: Page?
+
+    /// What is being dragged and where it would land.
+    @State private var drag = ListDragState()
+
+#if os(iOS)
+    /// Held here rather than left to an `EditButton`, since editing starts
+    /// from the list's menu and ends at the Done that replaces it.
+    @State private var editMode: EditMode = .inactive
+#endif
+
+    /// The foot's count, read from the store. Reading the tick makes the body
+    /// depend on it, so a save re-reads the count.
+    private func deletedNotesCount() -> Int {
+        _ = deletedCountTick
+        return Page.deletedCount(in: modelContext)
+    }
+
+    var body: some View {
+        let search = NoteSearch(searchText)
+        let sections = NoteListSections(pages: pages, folders: folders, sort: sort)
+        let results = search.results(in: pages, sort: sort)
+        let hasLiveNotes = pages.contains(where: \.isLive)
+        let deletedCount = deletedNotesCount()
+
+        ScrollViewReader { proxy in
+        List(selection: $selection) {
+            if storageIsEphemeral {
+                Label(
+                    "Storage is unavailable, so changes made now won't be saved.",
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.footnote)
+                .foregroundStyle(.orange)
+            }
+
+            if !search.isEmpty {
+                resultRows(results, for: search)
+            } else {
+                if sections.hasPinned {
+                    Section("Pinned") {
+                        itemRows(sections.pinnedItems, showsFolder: true)
+                    }
+                }
+
+                if sections.hasPinned || !sections.folders.isEmpty {
+                    // The header is the drop target for the top level: a folder
+                    // dropped on it goes to the top, a note out of its folder.
+                    Section {
+                        itemRows(sections.items)
+                    } header: {
+                        Text("Library")
+                            .modifier(ListRowDrop(target: .topFolders, hoverID: .topFolders, drag: drag, outset: 12))
+                    }
+                } else {
+                    itemRows(sections.items)
+                }
+            }
+
+            if search.isEmpty, deletedCount > 0 {
+                recentlyDeletedRow(count: deletedCount)
+            }
+
+            // Not under the empty list's overlay, which would sit on it.
+            if search.isEmpty, hasLiveNotes || !folders.live.isEmpty {
+                ListFoot { footSheet = $0 }
+            }
+        }
+#if canImport(UIKit)
+        .background { ListDropBridge(drag: drag, folders: folders, perform: performDrop) }
+#endif
+        .overlay {
+            if !search.isEmpty && results.isEmpty {
+                ContentUnavailableView.search(text: searchText)
+            } else if search.isEmpty && !hasLiveNotes && folders.live.isEmpty {
+                emptyList
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if showsToasts, let toasts {
+                ToastOverlay(center: toasts, bottomInset: 12)
+            }
+        }
+        .searchable(text: $searchText, prompt: "Search Notes")
+        .searchFocused($searchIsFocused)
+        .onChange(of: request, initial: true) { _, asked in
+            guard let asked else { return }
+            request = nil
+            answer(asked, scrolling: proxy)
+        }
+        .navigationTitle("NoteCode")
+#if os(macOS)
+        .navigationSplitViewColumnWidth(min: 180, ideal: 220)
+#endif
+        .toolbar {
+            // Two items at most, so the sidebar keeps room for its title:
+            // with Edit, Sort and New side by side, "NoteCode" didn't show.
+            // No glass behind either button: they sit on the bar's opaque
+            // surface like the buttons of every other bar (`BarMaterial`).
+            ToolbarItem {
+#if os(iOS)
+                if editMode.isEditing {
+                    Button("Done") {
+                        withAnimation { editMode = .inactive }
+                    }
+                } else {
+                    listMenu
+                }
+#else
+                listMenu
+#endif
+            }
+            .sharedBackgroundVisibility(.hidden)
+            ToolbarItem {
+                // A tap makes a note the way Settings › New Notes says; holding
+                // it offers the other orientation and a folder.
+                Menu {
+                    NewNoteButtons { addPage($0, in: newNoteFolder) }
+                    Divider()
+                    templateMenu(in: newNoteFolder)
+                    Divider()
+                    Button("New Folder", systemImage: "folder.badge.plus") {
+                        editingFolder = .new(moving: nil)
+                    }
+                } label: {
+                    Label("New", systemImage: "plus")
+                } primaryAction: {
+                    addPage(newNoteOrientation, in: newNoteFolder)
+                }
+                .accessibilityIdentifier("newNoteButton")
+            }
+            .sharedBackgroundVisibility(.hidden)
+        }
+#if os(iOS)
+        .toolbarBackground(BarMaterial.fill, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        // The sidebar's own surface is Home's grey, not the system's
+        // translucent sidebar material.
+        .scrollContentBackground(.hidden)
+        .background(HomePalette.background.ignoresSafeArea())
+#endif
+#if os(iOS)
+        .environment(\.editMode, $editMode)
+#endif
+        .sheet(item: $infoPage) { page in
+            NoteInfoView(page: page)
+        }
+        .sheet(item: $editingFolder) { editing in
+            FolderEditor(editing: editing)
+        }
+        .sheet(isPresented: $showsRecentlyDeleted) {
+            RecentlyDeletedView()
+        }
+        .sheet(item: $footSheet) { $0.view }
+        .alert("Rename Note", isPresented: $showsNameAlert) {
+            TextField("Name", text: $typedName)
+            Button("Cancel", role: .cancel) {}
+            Button("Rename") { finishRenamingPage() }
+        }
+        }
+        .modifier(CountsSaves(tick: $deletedCountTick))
+    }
+
+    /// Recently Deleted, the list's last row, while it holds anything. Not a
+    /// note, so it is never selected; it raises the sheet.
+    private func recentlyDeletedRow(count: Int) -> some View {
+        Button {
+            showsRecentlyDeleted = true
+        } label: {
+            Label {
+                HStack {
+                    Text("Recently Deleted")
+                    Spacer()
+                    Text(count, format: .number)
+                        .foregroundStyle(.secondary)
+                }
+            } icon: {
+                Image(systemName: "trash")
+            }
+        }
+        .buttonStyle(.plain)
+        .selectionDisabled()
+        .modifier(ListRowDrop(target: .recentlyDeleted, hoverID: .recentlyDeleted, drag: drag))
+        .accessibilityIdentifier("recentlyDeletedRow")
+    }
+
+    /// Does what the menu bar asked. The list may have only just slid in, and
+    /// a field focused or an alert raised in the same frame is dropped, so it
+    /// waits for the slide.
+    private func answer(_ request: ListRequest, scrolling proxy: ScrollViewProxy) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(350))
+            switch request {
+            case .newFolder:   editingFolder = .new(moving: nil)
+            case .searchNotes: searchIsFocused = true
+            case .showFolder(let id):
+                // Opened if the reader had closed it, then brought into view.
+                closedFolders.remove(id)
+                withAnimation { proxy.scrollTo(id, anchor: .top) }
+            }
+        }
+    }
+
+    // MARK: Rows
+
+    /// A search's results, each opening its note.
+    private func resultRows(_ results: [NoteSearch.Result], for search: NoteSearch) -> some View {
+        ForEach(results) { result in
+            NoteResultRow(
+                result: result, search: search, sort: sort,
+                isSelected: selection == result.page,
+                menu: noteMenu(result.page),
+                onOpen: { selection = result.page }
+            )
+        }
+    }
+
+    /// Folders, the notes beside them and what is open in them, flattened into
+    /// rows (`NoteListRow`) so each can be dragged and dropped on.
+    ///
+    /// - Parameter showsFolder: whether the notes at this level name their
+    ///   folder, for the Pinned section, where notes from every folder sit
+    ///   together.
+    private func itemRows(_ items: [NoteListSections.Item], showsFolder: Bool = false) -> some View {
+        let rows = NoteListRow.rows(for: items, closed: closedFolders, showsFolder: showsFolder)
+        return ForEach(rows) { row in
+            switch row {
+            case .folder(let section, let depth, let isOpen):
+                FolderRow(
+                    section: section, depth: depth, isOpen: isOpen, drag: drag,
+                    menu: folderMenu(section.folder),
+                    isDeleting: isDeleting(section.folder),
+                    onToggle: { toggle(section.folder) },
+                    onDelete: { delete(section.folder, $0) }
+                )
+            case .note(let page, let depth, let showsFolder):
+                NoteRow(
+                    page: page, depth: depth, showsFolder: showsFolder, sort: sort,
+                    isSelected: selection == page, drag: drag,
+                    menu: noteMenu(page),
+                    onOpen: { selection = page }
+                )
+            case .empty(_, let depth):
+                emptyFolderRow
+                    .padding(.leading, NoteListMetrics.indent(depth))
+                    .deleteDisabled(true)
+            }
+        }
+        .onDelete { offsets in
+            deletePages(offsets.compactMap { offset in
+                if case .note(let page, _, _) = rows[offset] { page } else { nil }
+            })
+        }
+    }
+
+    // MARK: Menus
+
+    /// Edit and Sort By, in one menu the way Notes and Files have them.
+    private var listMenu: some View {
+        Menu {
+#if os(iOS)
+            Button("Edit", systemImage: "checkmark.circle") {
+                withAnimation { editMode = .active }
+            }
+#endif
+            NoteSortMenu(sort: $sort)
+            Divider()
+            Button("Import…", systemImage: "square.and.arrow.down", action: onImport)
+            Button("Export All Notes…", systemImage: "square.and.arrow.up", action: onExportAll)
+            Divider()
+            // The app's, not the list's: ⌘, opens it from anywhere, and Home
+            // has a gear of its own.
+            Button("Settings", systemImage: "gearshape", action: onShowSettings)
+                .accessibilityIdentifier("settingsButton")
+        } label: {
+            Label("More", systemImage: "ellipsis.circle")
+        }
+    }
+
+    /// From Template ›: a note that starts with its headings, in the open
+    /// note's folder like the + button's tap.
+    private func templateMenu(in folder: Folder?) -> some View {
+        Menu {
+            ForEach(NoteTemplate.allCases) { template in
+                Button {
+                    addPage(from: template, in: folder)
+                } label: {
+                    Label(template.title, systemImage: template.systemImage)
+                }
+            }
+        } label: {
+            Label("From Template", systemImage: "doc.badge.plus")
+        }
+        .accessibilityIdentifier("fromTemplateMenu")
+    }
+
+    private func noteMenu(_ page: Page) -> NoteMenu {
+        NoteMenu(
+            page: page,
+            folders: folders,
+            onNewFolder: { editingFolder = .new(moving: page) },
+            onGetInfo: { infoPage = page },
+            onDuplicate: { page.duplicated(in: modelContext) },
+            onRename: { startRenaming(page) },
+            onDelete: { deletePages([page]) }
+        )
+    }
+
+    private func folderMenu(_ folder: Folder) -> FolderMenu {
+        FolderMenu(
+            folder: folder,
+            folders: folders,
+            onRename: { editingFolder = .rename(folder) },
+            onNewNote: { addPage($0, in: folder) },
+            onNewFolderInside: {
+                closedFolders.remove(folder.persistentModelID)
+                editingFolder = .new(moving: nil, in: folder)
+            },
+            onMove: { move(folder, into: $0) },
+            onDelete: { deleting = folder }
+        )
+    }
+
+    // MARK: Bindings
+
+    private func toggle(_ folder: Folder) {
+        withAnimation(.snappy) {
+            if closedFolders.contains(folder.persistentModelID) {
+                closedFolders.remove(folder.persistentModelID)
+            } else {
+                closedFolders.insert(folder.persistentModelID)
+            }
+        }
+    }
+
+    /// Moves a folder from its menu: to the end of another folder, or the top.
+    private func move(_ folder: Folder, into target: Folder?) {
+        performDrop(.moveFolder(folder, into: target, at: nil))
+    }
+
+    /// Does what a drop or a menu decided. Not an edit: nothing's date
+    /// moves. Saved at once, so a move isn't lost to a kill before autosave.
+    private func performDrop(_ action: ListDropAction) {
+        switch action {
+        case .deleteNote(let page):
+            deletePages([page])
+            return
+        case .deleteFolder(let folder):
+            delete(folder, .withNotes)
+            return
+        default:
+            break
+        }
+        withAnimation {
+            ListDrop.perform(action, among: folders)
+            switch action {
+            case .fileNote(_, into: let folder?), .moveFolder(_, into: let folder?, _):
+                closedFolders.remove(folder.persistentModelID)
+            default:
+                break
+            }
+        }
+        Storage.save(modelContext, reason: "save the list's changes")
+    }
+
+    private func isDeleting(_ folder: Folder) -> Binding<Bool> {
+        Binding { deleting == folder } set: { if !$0 { deleting = nil } }
+    }
+
+    // MARK: Changes
+
+    /// Where the "+" button files a new note: with the note that's open, so
+    /// a student working through a class's folder keeps adding to it. At the
+    /// top of the list when no note is open, or the open one has no folder.
+    private var newNoteFolder: Folder? {
+        NewNotes.folder(whileViewing: selection)
+    }
+
+    func addPage(_ orientation: PageOrientation, in folder: Folder?) {
+        let page: Page = withAnimation {
+            if let folder {
+                closedFolders.remove(folder.persistentModelID)
+            }
+            return Page.create(orientation: orientation, in: folder, context: modelContext)
+        }
+        finishAdding(page, in: folder)
+    }
+
+    private func addPage(from template: NoteTemplate, in folder: Folder?) {
+        let page: Page = withAnimation {
+            if let folder {
+                closedFolders.remove(folder.persistentModelID)
+            }
+            return Page.create(from: template, orientation: newNoteOrientation, in: folder, context: modelContext)
+        }
+        finishAdding(page, in: folder)
+    }
+
+    /// Opens a note just made, or, with Open Note After Creating off, leaves
+    /// the reader where they were and says it was added, with a way in.
+    private func finishAdding(_ page: Page, in folder: Folder?) {
+        if opensNewNote {
+            onNewPage(page)
+        } else {
+            toasts?.show(NewNotes.addedMessage(in: folder), actionTitle: "Open") {
+                onNewPage(page)
+                selection = page
+            }
+        }
+        selection = NewNotes.selection(afterCreating: page, current: selection, opens: opensNewNote)
+    }
+
+    private func startRenaming(_ page: Page) {
+        typedName = page.displayTitle
+        renamingPage = page
+        showsNameAlert = true
+    }
+
+    private func finishRenamingPage() {
+        guard let page = renamingPage else { return }
+        // An edit, as renaming from the title is: the date moves.
+        page.rename(to: typedName)
+        page.modifiedAt = .now
+    }
+
+    /// Moves notes to Recently Deleted, with a toast that puts them back.
+    private func deletePages(_ deleted: [Page]) {
+        actions.moveToRecentlyDeleted(deleted)
+    }
+
+    private func delete(_ folder: Folder, _ deletion: Folder.Deletion) {
+        actions.delete(folder, deletion)
+    }
+}
+
+/// Bumps `tick` each time a context saves, for a view that reads something
+/// the store holds and its `@Query` does not (F8: the foot's count of deleted
+/// notes). Ends with the view.
+private struct CountsSaves: ViewModifier {
+    @Binding var tick: Int
+
+    func body(content: Content) -> some View {
+        content.task {
+            // A save made while the view was away was not heard.
+            tick += 1
+            for await _ in NotificationCenter.default.notifications(named: ModelContext.didSave) {
+                tick += 1
+            }
+        }
+    }
+}

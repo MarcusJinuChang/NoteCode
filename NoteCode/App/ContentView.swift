@@ -1,0 +1,588 @@
+//
+//  ContentView.swift
+//  NoteCode
+//
+
+import SwiftUI
+import SwiftData
+import StoreKit
+import UniformTypeIdentifiers
+
+struct ContentView: View {
+    /// True when the on-disk store failed and edits live only in memory.
+    var storageIsEphemeral = false
+
+    /// The open note. Held as the model object rather than its
+    /// `persistentModelID`, which changes from a temporary ID to a permanent
+    /// one on first save — a new note would close itself a moment after
+    /// opening.
+    @State private var nav = NoteNavigation()
+    private var actions: NoteActions {
+        NoteActions(navigation: nav, context: modelContext, toasts: toasts)
+    }
+    private var selection: Page? {
+        get { nav.selection }
+        nonmutating set { nav.selection = newValue }
+    }
+
+    /// The app opens on Home with the list beside it (`SidebarPlan`); over a
+    /// note the list is away until ☰ brings it over the page.
+    private var columnVisibility: NavigationSplitViewVisibility {
+        get { nav.columnVisibility }
+        nonmutating set { nav.columnVisibility = newValue }
+    }
+
+    /// In a compact width (an iPhone, a folded Duo) there is no room for the
+    /// list over the page, so the window is a stack instead: Home at its root,
+    /// the list pushed on it, a note pushed on either (roadmap step 11). What
+    /// is pushed, kept in step with `selection` and with the split view's
+    /// `columnVisibility`, so a Duo folding or unfolding keeps its place.
+    private var compactPath: [CompactScreen] {
+        get { nav.compactPath }
+        nonmutating set { nav.compactPath = newValue }
+    }
+
+#if os(iOS)
+    @Environment(\.layoutClass) private var layoutClass
+    private var isCompact: Bool { layoutClass.isCompact }
+#else
+    private var isCompact: Bool { false }
+#endif
+
+    /// Whether the title screen is over the window. Raised on a first launch
+    /// and by Settings › Help and About › Welcome Screen.
+    @State private var showsWelcomeScreen = false
+    /// Whether the launch has decided about the title screen, which it does
+    /// after the sidebar's launch delay. Consent waits for it (`ConsentGate`).
+    @State private var launchSettled = false
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// The Home card the open note came from, for the way back (W3).
+    @State private var homeLaunch: HomeLaunch?
+
+    /// What the list's search field holds.
+    @State private var searchText = ""
+
+    /// The search the open note was opened from, so it can show where it
+    /// matched. Taken as a note opens rather than read live, so typing in
+    /// the search field doesn't redraw the note under the list.
+    private var openedSearch: NoteSearch {
+        get { nav.openedSearch }
+        nonmutating set { nav.openedSearch = newValue }
+    }
+
+    /// A note the reader has just made, which opens with its title being
+    /// renamed. Cleared when another note opens, so coming back to this one
+    /// later doesn't start renaming again.
+    private var newPage: Page? {
+        get { nav.newPage }
+        nonmutating set { nav.newPage = newValue }
+    }
+
+    /// Whether Settings is showing. Held here, above the list, so ⌘, opens it
+    /// whether or not the list is on screen.
+    @State private var showsSettings = false
+
+    /// Something for the list to do when it is on screen: the menu bar's
+    /// New Folder and Search Notes.
+    @State private var listRequest: ListRequest?
+
+    /// Which way up ⌘N makes a note's pages (Settings › Notes › New Notes),
+    /// as the + button's tap does.
+    @AppStorage(SettingKeys.Notes.newNoteOrientation) private var newNoteOrientation
+
+    /// Whether Export All's sheet and the Files picker for Import are showing.
+    @State private var showsExportAll = false
+    @State private var showsImporter = false
+
+    /// What an import couldn't bring in, for an alert. `nil` when nothing.
+    @State private var importProblems: String?
+
+    /// This window's identity in `OpenNoteRegistry`, and the note it has
+    /// claimed there, so a second window never edits the same note.
+    @State private var window = WindowToken()
+    @State private var claimedKey: String?
+    private let openNotes = OpenNoteRegistry.shared
+
+    /// The message that follows a deletion, with its Undo. Drawn by the list
+    /// when the list is showing and by the open note's page when it isn't.
+    @State private var toasts = ToastCenter()
+
+#if canImport(UIKit)
+    /// Where the hotbar is docked, so a toast on the page sits clear of it.
+    @AppStorage(SettingKeys.General.hotbarDock) private var dock
+#endif
+
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.requestReview) private var requestReview
+    @Environment(\.appExtensions) private var extensions
+    /// What the launch delay and the rating prompt's wait are measured on.
+    @Environment(\.debounceClock) private var debounceClock
+
+    /// What the launch does once (`LaunchCoordinator`).
+    private let launch: LaunchCoordinator
+
+    /// - Parameter openedPage: a note to open straight away, with the list
+    ///   hidden. Only debug launch arguments pass one.
+    init(storageIsEphemeral: Bool = false, openedPage: Page? = nil) {
+        self.storageIsEphemeral = storageIsEphemeral
+        // True when a debug launch argument opened a note, in a store of its
+        // own (or `-debug-keep-defaults` says the saved state is not this
+        // launch's). Only debug launch arguments open a note of their own.
+        var opensDebugNote = false
+#if DEBUG && canImport(UIKit)
+        // `-debug-keep-defaults` is a run over a device's own notes: nothing
+        // here may prune, claim or make what belongs to the real store.
+        opensDebugNote = openedPage != nil || DebugSession.shared.options.keepsDefaults
+#elseif DEBUG
+        opensDebugNote = openedPage != nil
+#endif
+        launch = LaunchCoordinator(storageIsEphemeral: storageIsEphemeral, opensDebugNote: opensDebugNote)
+        // The list is away for the first layout and comes in right after it
+        // (`SidebarPlan.launchDelay`), on Home, or over a note when storage
+        // failed and the warning is the list's.
+        _nav = State(initialValue: NoteNavigation(
+            selection: openedPage,
+            columnVisibility: .detailOnly,
+            compactPath: openedPage != nil ? [.note] : storageIsEphemeral ? [.list] : []
+        ))
+    }
+
+    var body: some View {
+        navigation
+        .environment(toasts)
+        .environment(\.coveredBySheet, showsSettings || showsExportAll)
+        .overlay {
+            if showsWelcomeScreen {
+                WelcomeScreen(onGetStarted: dismissWelcomeScreen)
+                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(1)
+            }
+        }
+        .settingsSheet(
+            isPresented: $showsSettings,
+            onOpenWelcomeNote: openWelcomeNote,
+            onShowWelcomeScreen: showWelcomeScreen,
+            onExportFinished: exported,
+            hotbarCanMove: !isCompact
+        )
+        .sheet(isPresented: $showsExportAll) {
+            ExportAllSheet(onFinished: { count in
+                showsExportAll = false
+                exported(count)
+            })
+            .presentationSizing(.form)
+        }
+        .fileImporter(
+            isPresented: $showsImporter,
+            allowedContentTypes: NoteImport.contentTypes,
+            allowsMultipleSelection: true,
+            onCompletion: importFiles
+        )
+        .alert("Some files weren't imported", isPresented: Binding(
+            get: { importProblems != nil },
+            set: { if !$0 { importProblems = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(importProblems ?? "")
+        }
+        .windowActions(WindowActions(
+            newNote: newNote,
+            newFolder: { ask(.newFolder) },
+            searchNotes: { ask(.searchNotes) },
+            toggleNoteList: toggleNoteList,
+            goHome: goHome,
+            isCovered: showsSettings || showsWelcomeScreen
+        ))
+        .task {
+            try? await debounceClock.sleep(for: SidebarPlan.launchDelay)
+            if launch.showsList(noteOpen: selection != nil) {
+                columnVisibility = .all
+            }
+            syncOpenNoteClaim()
+            claimWelcomeScreenOnFirstLaunch()
+            launchSettled = true
+            launch.makeWelcomeNoteOnFirstLaunch(in: modelContext, extensions: extensions)
+            launch.purgeExpiredNotes(in: modelContext)
+            launch.pruneNoteMemory(in: modelContext)
+        }
+        .onChange(of: selection) { closed, _ in
+            if selection != newPage { newPage = nil }
+            syncOpenNoteClaim()
+            if let selection {
+                NoteMemory().rememberOpened(selection)
+                ReviewPrompt().noteOpened()
+                withAnimation { columnVisibility = .detailOnly }
+            } else {
+                // A note closed: Home, with the list beside it, on the curve
+                // the note shrinks on (`goHome`), not the default's.
+                withAnimation(Self.homeAnimation) { columnVisibility = .all }
+                askForReviewIfDue(closing: closed)
+            }
+            if isCompact { syncCompactPath(toSelection: selection) }
+        }
+        // Back from a note, in the stack: the note closes.
+        .onChange(of: compactPath) {
+            if isCompact, !compactPath.contains(.note), selection != nil {
+                selection = nil
+            }
+        }
+        .onChange(of: isCompact) { _, compact in carryPlace(toCompact: compact) }
+        // The other window let the note go: it's free to be opened here.
+        .onChange(of: isOpenElsewhere) { syncOpenNoteClaim() }
+        .onDisappear {
+            if let claimedKey { openNotes.release(claimedKey, by: window) }
+            claimedKey = nil
+        }
+    }
+
+    // MARK: Navigation
+
+    /// A split view with the list sliding over the page, or, in a compact
+    /// width, a stack.
+    @ViewBuilder
+    private var navigation: some View {
+        if isCompact {
+            compactStack
+        } else {
+            if selection == nil {
+                // Home: the list is a column beside it, as in any split view.
+                splitView.navigationSplitViewStyle(.balanced)
+            } else {
+                // A note: the list slides over the page instead of pushing it
+                // narrower, so opening it never rescales the note underneath.
+                splitView.navigationSplitViewStyle(.prominentDetail)
+            }
+        }
+    }
+
+    private var splitView: some View {
+        NavigationSplitView(columnVisibility: $nav.columnVisibility) {
+            noteList(showsToasts: columnVisibility != .detailOnly)
+                // The joined control carries the list button, in a note.
+                .toolbar(removing: selection == nil || isCompact ? nil : .sidebarToggle)
+        } detail: {
+            Group {
+                if selection != nil {
+                    noteDetail
+                        // Home's card is where the note shrinks to.
+                        .transition(.noteToHome(homeLaunch, reduceMotion: reduceMotion))
+                } else {
+                    home
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if columnVisibility == .detailOnly {
+                    ToastOverlay(center: toasts, bottomInset: selection == nil ? 16 : pageToastInset)
+                }
+            }
+        }
+    }
+
+    /// Home, the list and a note, one pushed on another. The back button
+    /// takes the place of ☰ and the house, so the note's header has neither.
+    private var compactStack: some View {
+        NavigationStack(path: $nav.compactPath) {
+            home
+                .navigationDestination(for: CompactScreen.self) { screen in
+                    switch screen {
+                    case .list: noteList(showsToasts: true)
+                    case .note: noteDetail
+                    }
+                }
+        }
+        .overlay(alignment: .bottom) {
+            // The list draws its own.
+            if compactPath.last != .list {
+                ToastOverlay(center: toasts, bottomInset: selection == nil ? 16 : pageToastInset)
+            }
+        }
+    }
+
+    private func noteList(showsToasts: Bool) -> some View {
+        NoteList(
+            storageIsEphemeral: storageIsEphemeral,
+            selection: opening,
+            navigation: nav,
+            searchText: $searchText,
+            onNewPage: { newPage = $0 },
+            onShowSettings: { showsSettings = true },
+            onImport: { showsImporter = true },
+            onExportAll: { showsExportAll = true },
+            request: $listRequest,
+            showsToasts: showsToasts
+        )
+            // Searching the list brings the keyboard up; the list stays its
+            // size and the keyboard covers its lower rows.
+            .ignoresSafeArea(.keyboard)
+    }
+
+    @ViewBuilder
+    private var noteDetail: some View {
+        if let page = selection, isOpenElsewhere {
+            OpenElsewhereView(title: page.displayTitle, onGoHome: goHome)
+        } else if let page = selection {
+            PageDetailView(
+                page: page,
+                revealing: openedSearch,
+                onDelete: { actions.moveToRecentlyDeleted([page], reopening: page) },
+                onGoHome: houseButtonAction,
+                onToggleList: isCompact ? nil : { toggleNoteList() },
+                onShowSettings: { showsSettings = true },
+                startsRenaming: page == newPage
+            )
+                // A fresh editor per note. Reusing one would carry the last
+                // note's undo stack across, and undo would type it back in.
+                .id(ObjectIdentifier(page))
+        }
+    }
+
+    /// The house in a note's header. Not in the stack, whose back button
+    /// goes to the list or Home.
+    private var houseButtonAction: (() -> Void)? {
+        if isCompact { return nil }
+        return { goHome() }
+    }
+
+    private var home: some View {
+        HomeView(
+            onOpen: { open($0) },
+            onOpenFrom: { open($0, from: $1) },
+            onNewNote: newNote,
+            onNewNoteFromTemplate: { newNote(from: $0) },
+            onImport: { showsImporter = true },
+            onShowList: showList,
+            onShowFolder: { ask(.showFolder($0.persistentModelID)) },
+            onSearch: { ask(.searchNotes) },
+            onShowSettings: { showsSettings = true },
+            onOpenWelcomeNote: openWelcomeNote,
+            consentMayStart: ConsentGate.isOpen(launchSettled: launchSettled, titleScreenUp: showsWelcomeScreen)
+        )
+    }
+
+    /// Keeps the stack's top in step with the open note: a note opened
+    /// anywhere is pushed, a note closed (Home, Delete) is popped, and the
+    /// back button closing it clears the selection.
+    private func syncCompactPath(toSelection selection: Page?) {
+        let path = CompactScreen.path(compactPath, noteOpen: selection != nil)
+        if path != compactPath { compactPath = path }
+    }
+
+    /// The Duo folding or unfolding: the stack or the split view picks up
+    /// what the other was showing.
+    private func carryPlace(toCompact compact: Bool) {
+        if compact {
+            compactPath = CompactScreen.path(
+                listShowing: SidebarPlan.stackShowsList(listShowing: columnVisibility != .detailOnly, noteOpen: selection != nil),
+                noteOpen: selection != nil
+            )
+        } else {
+            columnVisibility = SidebarPlan.showsList(unfoldingFrom: compactPath, noteOpen: selection != nil) ? .all : .detailOnly
+        }
+    }
+
+    // MARK: One editor per note
+
+    /// Whether another window has the open note, so this one shows
+    /// "Open in another window" instead of a second editor.
+    private var isOpenElsewhere: Bool {
+        guard let selection, let key = NoteMemory.key(for: selection.persistentModelID) else { return false }
+        return openNotes.isOpenElsewhere(key, for: window)
+    }
+
+    /// Keeps this window's claim in step with its selection: gives up the
+    /// note it left, takes the one it opened if no other window has it.
+    private func syncOpenNoteClaim() {
+        let key = selection?.settledID().flatMap(NoteMemory.key(for:))
+        if let claimedKey, claimedKey != key {
+            openNotes.release(claimedKey, by: window)
+            self.claimedKey = nil
+        }
+        if let key, openNotes.claim(key, for: window) {
+            claimedKey = key
+        }
+    }
+
+    // MARK: Import and export
+
+    /// Makes a note of each file the reader chose, in the open note's folder
+    /// (or the top of the list), like a new note. One file opens; several are
+    /// left in the list, with a toast saying how many and where.
+    private func importFiles(_ result: Result<[URL], Error>) {
+        let urls: [URL]
+        switch result {
+        case .success(let chosen): urls = chosen
+        case .failure(let error):
+            importProblems = error.localizedDescription
+            return
+        }
+        let folder = NewNotes.folder(whileViewing: selection)
+        let imported = Page.importFiles(
+            urls,
+            orientation: newNoteOrientation,
+            into: folder,
+            context: modelContext
+        )
+        importProblems = imported.skippedMessage
+        if let summary = imported.summary(into: folder) {
+            toasts.show(summary)
+        }
+        if imported.pages.count == 1, let page = imported.pages.first {
+            open(page)
+        }
+    }
+
+    /// Told Export All has written its notes where the reader chose.
+    private func exported(_ count: Int) {
+        toasts.show(count == 1 ? "Exported 1 note" : "Exported \(count) notes")
+    }
+
+    /// The list's selection, noting the search each note is opened from.
+    ///
+    /// While there's a search the list shows only its results, so a note
+    /// opened from the list then was opened from a result. Set together with
+    /// the selection, so the note's page is made knowing it.
+    private var opening: Binding<Page?> {
+        Binding {
+            selection
+        } set: { page in
+            openedSearch = NoteSearch(searchText)
+            selection = page
+        }
+    }
+
+    /// ⌘N: the + button's tap. A note in the open note's folder, opened with
+    /// its title ready to rename, through `Page.create` like every other way
+    /// of making one.
+    private func newNote() {
+        actions.newNote(orientation: newNoteOrientation)
+    }
+
+    /// A note from a template, made and opened the way ⌘N makes one.
+    private func newNote(from template: NoteTemplate) {
+        actions.newNote(from: template, orientation: newNoteOrientation)
+    }
+
+    /// Opens a note from Home. Not from a search: Home has none, so the note
+    /// shows no matches.
+    private func open(_ page: Page, from launch: HomeLaunch? = nil) {
+        homeLaunch = launch
+        openedSearch = NoteSearch("")
+        selection = page
+    }
+
+    /// Closes the open note and shows Home, with the list beside it: the
+    /// house in a note's header, and ⇧⌘H.
+    ///
+    /// **One animation for all of it** (31 Oct). The note's shrinking, the
+    /// list coming in and the split view's change of style used to start on
+    /// three transactions, two of them on the default spring, and the list
+    /// popped in against a note still shrinking. Now the selection and the
+    /// column change in one transaction, and `onChange(of: selection)`
+    /// repeats the same column change on the same curve.
+    private func goHome() {
+        withAnimation(Self.homeAnimation) {
+            selection = nil
+            columnVisibility = .all
+        }
+        compactPath = []
+    }
+
+    /// The curve of the note shrinking to Home, and the list coming in with it.
+    static let homeAnimation: Animation = .smooth(duration: 0.38)
+
+    /// Home's Show All: the list over Home.
+    private func showList() {
+        if isCompact {
+            compactPath = [.list]
+        } else {
+            withAnimation { columnVisibility = .all }
+        }
+    }
+
+    /// ⇧⌘N and ⇧⌘F belong to the list, so it comes first.
+    private func ask(_ request: ListRequest) {
+        showList()
+        listRequest = request
+    }
+
+    /// ⌃⌘S: the list over the page, or away. Over Home too, which is what is
+    /// there with no note open.
+    private func toggleNoteList() {
+        if isCompact {
+            compactPath = compactPath.last == .list ? Array(compactPath.dropLast()) : [.list]
+            return
+        }
+        withAnimation {
+            columnVisibility = columnVisibility == .detailOnly ? .all : .detailOnly
+        }
+    }
+
+    /// Settings › Help and About › Welcome Note: a new copy each time, opened.
+    ///
+    /// Opened like a note the reader made, so the list slides away for it.
+    /// Other notes are untouched, dates included.
+    private func openWelcomeNote() {
+        let page = WelcomeNote.make(in: modelContext, runLines: extensions.runLines)
+        openedSearch = NoteSearch("")
+        selection = page
+    }
+
+    /// Raises the title screen on a first launch, once.
+    private func claimWelcomeScreenOnFirstLaunch() {
+        if launch.claimsTitleScreen() {
+            withAnimation { showsWelcomeScreen = true }
+        }
+    }
+
+    private func showWelcomeScreen() {
+        withAnimation { showsWelcomeScreen = true }
+    }
+
+    private func dismissWelcomeScreen() {
+        withAnimation { showsWelcomeScreen = false }
+    }
+
+    /// A note closed back to Home: the one moment the app asks for a rating,
+    /// when `ReviewPrompt` says it's due. Not for a note just moved to Recently
+    /// Deleted, not in a debug launch (a UI test would meet the sheet), and not
+    /// while a free reader's tracking prompt is still to come, so the two
+    /// system prompts never land on the same Home visit.
+    private func askForReviewIfDue(closing note: Page?) {
+        guard let note, note.modelContext != nil, !note.isDeleted, note.isLive else { return }
+#if DEBUG && canImport(UIKit)
+        if DebugSession.shared.options.isActive { return }
+#endif
+        guard extensions.mayAskForReview() else { return }
+        let prompt = ReviewPrompt()
+        let version = ReviewPrompt.version()
+        guard prompt.isDue(version: version) else { return }
+        Task { [debounceClock] in
+            // Once the note has shrunk back into Home, and only if the reader
+            // is still there rather than in the next note.
+            try? await debounceClock.sleep(for: .seconds(1))
+            guard selection == nil else { return }
+            prompt.markAsked(version: version)
+            requestReview()
+        }
+    }
+
+    /// How far above the page's bottom edge a toast sits: clear of the hotbar
+    /// when it is docked there.
+    private var pageToastInset: CGFloat {
+#if canImport(UIKit)
+        // The bar and its margin, which `keyboardClearance` also reserves,
+        // then a gap of the same size.
+        dock == .bottom || isCompact ? Hotbar.barFootprint + Hotbar.margin : 16
+#else
+        16
+#endif
+    }
+}
+
+#Preview {
+    ContentView()
+        .modelContainer(for: [Page.self, Folder.self], inMemory: true)
+}

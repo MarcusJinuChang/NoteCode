@@ -1,0 +1,486 @@
+//
+//  TextRewritingPolicyTests.swift
+//  NoteCodeTests
+//
+
+#if canImport(UIKit)
+
+import SwiftUI
+import Testing
+import UIKit
+@testable import NoteCode
+
+@Suite("Text rewriting policy", .tags(.editor))
+@MainActor
+struct TextRewritingPolicyTests {
+
+    // MARK: Traits
+
+    @Test("The code policy disables every rewriting trait")
+    func codeDisablesEverything() {
+        let textView = UITextView()
+        TextRewritingPolicy.code.apply(to: textView)
+
+        #expect(textView.autocorrectionType == .no)
+        #expect(textView.autocapitalizationType == .none)
+        #expect(textView.smartQuotesType == .no)
+        #expect(textView.smartDashesType == .no)
+        #expect(textView.smartInsertDeleteType == .no)
+        #expect(textView.inlinePredictionType == .no)
+        #expect(textView.spellCheckingType == .no)
+    }
+
+    @Test("The prose policy enables every rewriting trait, and leaves spell checking off")
+    func proseEnablesEverything() {
+        let textView = UITextView()
+        TextRewritingPolicy.code.apply(to: textView)   // start from off
+        TextRewritingPolicy.prose.apply(to: textView)
+
+        #expect(textView.autocorrectionType == .yes)
+        #expect(textView.autocapitalizationType == .sentences)
+        #expect(textView.smartQuotesType == .yes)
+        #expect(textView.smartDashesType == .yes)
+        #expect(textView.smartInsertDeleteType == .yes)
+        #expect(textView.inlinePredictionType == .default)
+        #expect(textView.spellCheckingType == .no)
+    }
+
+    @Test("Switching policies round-trips cleanly")
+    func policiesRoundTrip() {
+        let textView = UITextView()
+
+        TextRewritingPolicy.prose.apply(to: textView)
+        TextRewritingPolicy.code.apply(to: textView)
+
+        #expect(textView.autocorrectionType == .no)
+        #expect(textView.smartQuotesType == .no)
+        #expect(textView.inlinePredictionType == .no)
+    }
+
+    @Test("A new editor rewrites nothing until the caret is placed")
+    func initialPolicyIsCode() {
+        #expect(TextRewritingPolicy.initial == .code)
+    }
+
+    // MARK: Where each applies
+
+    /// The policy at the `|` in `marked`, which is taken out first.
+    private func policy(_ marked: String) -> TextRewritingPolicy {
+        let caret = marked.range(of: "|")!
+        let offset = NSRange(caret, in: marked).location
+        let source = marked.replacingCharacters(in: caret, with: "")
+        return TextRewritingPolicy.at(offset, in: source, blocks: DocumentParser.parse(source))
+    }
+
+    @Test("Prose, headings and list items are prose")
+    func proseLines() {
+        #expect(policy("|") == .prose)                      // an empty note
+        #expect(policy("the pointer| holds") == .prose)
+        #expect(policy("# Lect|ure") == .prose)
+        #expect(policy("- first ite|m\n") == .prose)
+        #expect(policy("1. second|") == .prose)
+    }
+
+    @Test("A code block's lines and fences are code")
+    func codeBlockLines() {
+        #expect(policy("Before\n```cpp|\nint lo = 0;\n```\nAfter") == .code)   // opening fence
+        #expect(policy("Before\n```cpp\nint lo| = 0;\n```\nAfter") == .code)
+        #expect(policy("Before\n```cpp\n|int lo = 0;\n```\nAfter") == .code)   // start of a code line
+        #expect(policy("Before\n```cpp\nint lo = 0;\n```|\nAfter") == .code)   // closing fence
+        #expect(policy("Before\n```cpp\nint lo = 0;\n```\n|After") == .prose)  // the line after
+        #expect(policy("Before|\n```cpp\nint lo = 0;\n```\nAfter") == .prose)  // the line before
+    }
+
+    @Test("A fence being typed is code from its first backtick")
+    func fenceBeingTyped() {
+        #expect(policy("Notes\n`|") == .code)
+        #expect(policy("Notes\n``|") == .code)
+        #expect(policy("Notes\n```|") == .code)
+        #expect(policy("Notes\n```py|") == .code)
+        #expect(policy("Notes\n```python\npri|") == .code)
+    }
+
+    @Test("The note's last line follows the block it belongs to")
+    func lastLine() {
+        // A new line after a closed block is prose; still on the closing
+        // fence, or anywhere in an unclosed block, is code.
+        #expect(policy("```cpp\nx;\n```\n|") == .prose)
+        #expect(policy("```cpp\nx;\n```|") == .code)
+        #expect(policy("```cpp\nx;\n|") == .code)
+        #expect(policy("```cpp\n|") == .code)
+        #expect(policy("prose\n|") == .prose)
+    }
+
+    @Test("Inline code is code, between its backticks")
+    func inlineCode() {
+        #expect(policy("use `vec|tor` here") == .code)
+        #expect(policy("use `|vector` here") == .code)     // right after the opening backtick
+        #expect(policy("use `vector|` here") == .code)     // right before the closing one
+        #expect(policy("use `vector` |here") == .prose)    // past the closing one and a space
+        #expect(policy("use |`vector` here") == .prose)    // before the opening one
+        #expect(policy("use `vector` and `ma|p`") == .code)
+        #expect(policy("use `vector` and |`map`") == .prose)
+    }
+
+    @Test("The word after inline code stays code until a space ends it")
+    func wordTouchingInlineCode() {
+        // The keyboard corrects the word a space ends, and its word runs
+        // through a backtick: "use `int lo` " became "use `int lot " (3 Oct).
+        #expect(policy("use `int lo`|") == .code)
+        #expect(policy("use `vector`s|") == .code)
+        #expect(policy("use `vector`| here") == .code)
+        #expect(policy("use `vector` |") == .prose)
+        #expect(policy("use `vector` teh|") == .prose)
+        #expect(policy("use `vector`\n|") == .prose)       // a new line
+    }
+
+    @Test("Inline code being typed is code before its closing backtick")
+    func inlineCodeBeingTyped() {
+        #expect(policy("use `int lo|") == .code)
+        #expect(policy("use `vector` then `int lo|") == .code)
+        #expect(policy("use `|`") == .code)                // between an empty pair
+    }
+
+    @Test("Backticks inside a code block don't change anything")
+    func backticksInCode() {
+        #expect(policy("```sh\necho `date`|\n```") == .code)
+    }
+
+    @Test("Windows line endings put the caret on the right line")
+    func crlf() {
+        #expect(policy("```cpp\r\nint lo;\r\n```\r\n|After") == .prose)
+        #expect(policy("```cpp\r\nint lo|;\r\n```\r\nAfter") == .code)
+    }
+
+    // MARK: Rewrites behind the caret
+
+    /// Whether the keyboard replacing the «marked» text with `replacement`
+    /// would change code.
+    private func rewrite(_ marked: String, to replacement: String) -> Bool {
+        let open = marked.range(of: "«")!, close = marked.range(of: "»")!
+        let range = NSRange(
+            location: NSRange(open, in: marked).location,
+            length: NSRange(open.upperBound..<close.lowerBound, in: marked).length
+        )
+        let source = marked.replacingOccurrences(of: "«", with: "").replacingOccurrences(of: "»", with: "")
+        return TextRewritingPolicy.rewriteChangesCode(range, with: replacement, in: source, blocks: DocumentParser.parse(source))
+    }
+
+    @Test("The keyboard can't rewrite code behind the caret")
+    func rewritesOfCode() {
+        // A space after "now" turned "lo` now" into "log now" (3 Oct).
+        #expect(rewrite("use `int «lo` now»", to: "log now"))
+        #expect(rewrite("use `int «lo`»", to: "lot"))
+        #expect(rewrite("use `«int» lo` now", to: "Int"))                // inside the span
+        #expect(rewrite("```cpp\nint «lo»\n```\nAfter", to: "log"))       // inside a block
+    }
+
+    @Test("The keyboard can still rewrite prose, beside code or not")
+    func rewritesOfProse() {
+        #expect(!rewrite("«teh» cat", to: "the"))
+        #expect(!rewrite("use `int «lo` nwo»", to: "lo` now"))             // only the prose word differs
+        #expect(!rewrite("```cpp\nint lo\n```\n«teh»", to: "the"))
+    }
+
+    // MARK: The editor
+
+    @Test("The editor switches as the caret crosses into code and back")
+    func editorSwitches() {
+        final class Box { var value = "" }
+        let box = Box()
+        let coordinator = DocumentTextView.Coordinator(text: Binding(get: { box.value }, set: { box.value = $0 }))
+        let textView = DocumentTextView.makeConfiguredTextView()
+        textView.delegate = coordinator
+        textView.text = "Lecture notes\n```cpp\nint lo = 0;\n```\nMore notes"
+
+        textView.selectedRange = NSRange(location: 5, length: 0)
+        coordinator.textViewDidChangeSelection(textView)
+        #expect(coordinator.rewritingPolicy == .prose)
+        #expect(textView.autocorrectionType == .yes)
+
+        textView.selectedRange = NSRange(location: 24, length: 0)   // in `int lo`
+        coordinator.textViewDidChangeSelection(textView)
+        #expect(coordinator.rewritingPolicy == .code)
+        #expect(textView.autocorrectionType == .no)
+        #expect(textView.smartQuotesType == .no)
+
+        textView.selectedRange = NSRange(location: (textView.text as NSString).length, length: 0)
+        coordinator.textViewDidChangeSelection(textView)
+        #expect(coordinator.rewritingPolicy == .prose)
+        #expect(textView.autocapitalizationType == .sentences)
+    }
+
+    @Test("The editor turns away the keyboard's rewrites of code, and only those")
+    func editorFiltersRewrites() {
+        final class Box { var value = "" }
+        let box = Box()
+        let coordinator = DocumentTextView.Coordinator(text: Binding(get: { box.value }, set: { box.value = $0 }))
+        let textView = DocumentTextView.makeConfiguredTextView()
+        textView.delegate = coordinator
+        textView.text = "use `int lo` nwo"
+        textView.selectedRange = NSRange(location: 16, length: 0)
+
+        func allows(_ location: Int, _ length: Int, _ replacement: String) -> Bool {
+            coordinator.textView(textView, shouldChangeTextIn: NSRange(location: location, length: length), replacementText: replacement)
+        }
+
+        #expect(!allows(9, 7, "log now"))   // going back over the span
+        #expect(allows(13, 3, "now"))       // correcting the prose word after it
+        #expect(allows(16, 0, " "))         // typing
+        #expect(allows(15, 1, ""))          // deleting
+
+        textView.selectedRange = NSRange(location: 4, length: 8)
+        #expect(allows(4, 8, "x"))          // typing over a selected span
+    }
+
+    @Test("Starting to type in an empty note is prose, though the caret never moved")
+    func editorBeginsInEmptyNote() {
+        // A tap into an empty note leaves the caret where it was, so no
+        // selection change says where typing will go.
+        final class Box { var value = "" }
+        let box = Box()
+        let coordinator = DocumentTextView.Coordinator(text: Binding(get: { box.value }, set: { box.value = $0 }))
+        let textView = DocumentTextView.makeConfiguredTextView()
+        textView.delegate = coordinator
+
+        #expect(coordinator.textViewShouldBeginEditing(textView))
+        #expect(coordinator.rewritingPolicy == .prose)
+        #expect(textView.autocapitalizationType == .sentences)
+    }
+
+    // MARK: Settings › Writing › Autocorrect
+
+    @Test("With Autocorrect off, prose rewrites nothing but is not code")
+    func proseWithoutRewriting() {
+        let textView = UITextView()
+        TextRewritingPolicy.prose.apply(to: textView)
+        TextRewritingPolicy.proseWithoutRewriting.apply(to: textView)
+
+        #expect(textView.autocorrectionType == .no)
+        #expect(textView.autocapitalizationType == .none)
+        #expect(textView.smartQuotesType == .no)
+        #expect(textView.smartDashesType == .no)
+        #expect(textView.smartInsertDeleteType == .no)
+        #expect(textView.inlinePredictionType == .no)
+        #expect(textView.spellCheckingType == .no)
+
+        #expect(SettingKeys.Writing.autocorrectInProse.name == "autocorrectInProse")
+        #expect(SettingKeys.Writing.autocorrectInProse.defaultValue)
+        // Not code, so no row of code keys.
+        #expect(CodeKeys.keys(for: .proseWithoutRewriting).isEmpty)
+    }
+
+    @Test("The setting only changes prose: code stays code")
+    func settingOnlyChangesProse() {
+        func policy(_ marked: String) -> TextRewritingPolicy {
+            let caret = marked.range(of: "|")!
+            let offset = NSRange(caret, in: marked).location
+            let source = marked.replacingCharacters(in: caret, with: "")
+            return TextRewritingPolicy.at(offset, in: source, blocks: DocumentParser.parse(source), rewritesProse: false)
+        }
+        #expect(policy("the pointer| holds") == .proseWithoutRewriting)
+        #expect(policy("|") == .proseWithoutRewriting)
+        #expect(policy("Before\n```cpp\nint lo| = 0;\n```\nAfter") == .code)
+        #expect(policy("use `int l|o` now") == .code)
+    }
+
+    @Test("Turning Autocorrect off reaches a keyboard that is already showing prose")
+    func editorFollowsTheSetting() {
+        final class Box { var value = "" }
+        let box = Box()
+        let coordinator = DocumentTextView.Coordinator(text: Binding(get: { box.value }, set: { box.value = $0 }))
+        let textView = DocumentTextView.makeConfiguredTextView()
+        textView.delegate = coordinator
+        textView.text = "Lecture notes\n```cpp\nint lo = 0;\n```\nMore notes"
+
+        textView.selectedRange = NSRange(location: 5, length: 0)
+        coordinator.textViewDidChangeSelection(textView)
+        #expect(textView.autocorrectionType == .yes)
+
+        coordinator.setRewritesProse(false, in: textView)
+        #expect(coordinator.rewritingPolicy == .proseWithoutRewriting)
+        #expect(textView.autocorrectionType == .no)
+        #expect(textView.autocapitalizationType == .none)
+
+        // Moving through code and back keeps it off.
+        textView.selectedRange = NSRange(location: 24, length: 0)
+        coordinator.textViewDidChangeSelection(textView)
+        #expect(coordinator.rewritingPolicy == .code)
+        textView.selectedRange = NSRange(location: (textView.text as NSString).length, length: 0)
+        coordinator.textViewDidChangeSelection(textView)
+        #expect(coordinator.rewritingPolicy == .proseWithoutRewriting)
+        #expect(textView.smartDashesType == .no)
+
+        coordinator.setRewritesProse(true, in: textView)
+        #expect(coordinator.rewritingPolicy == .prose)
+        #expect(textView.autocorrectionType == .yes)
+    }
+
+    /// What Settings does to an open note: the same `DocumentTextView`, handed
+    /// a new `rewritesProse` by SwiftUI, which calls `updateUIView`.
+    @Observable
+    final class Setting {
+        var rewritesProse = true
+        var text = "Lecture notes about graphs"
+    }
+
+    struct Host: View {
+        let setting: Setting
+        var body: some View {
+            DocumentTextView(text: Binding(get: { setting.text }, set: { setting.text = $0 }),
+                             editorSettings: EditorSettings(rewritesProse: setting.rewritesProse))
+        }
+    }
+
+    @Test("Turning Autocorrect off in Settings reaches a note that is already open")
+    func settingReachesOpenNote() throws {
+        let setting = Setting()
+        let window = makeSceneLessTestWindow(frame: CGRect(x: 0, y: 0, width: 820, height: 1180))
+        window.rootViewController = UIHostingController(rootView: Host(setting: setting))
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true; window.rootViewController = nil }
+
+        func settle() {
+            let end = Date(timeIntervalSinceNow: 0.3)
+            repeat {
+                window.layoutIfNeeded()
+                CATransaction.flush()
+                RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+            } while Date() < end
+        }
+        func findTextView(in view: UIView) -> UITextView? {
+            if let t = view as? UITextView { return t }
+            for sub in view.subviews { if let t = findTextView(in: sub) { return t } }
+            return nil
+        }
+
+        settle()
+        let textView = try #require(findTextView(in: window))
+        textView.selectedRange = NSRange(location: 5, length: 0)
+        (textView.delegate as? DocumentTextView.Coordinator)?.textViewDidChangeSelection(textView)
+        #expect(textView.autocorrectionType == .yes)
+
+        setting.rewritesProse = false
+        settle()
+        #expect(textView.autocorrectionType == .no)
+        #expect(textView.smartQuotesType == .no)
+
+        setting.rewritesProse = true
+        settle()
+        #expect(textView.autocorrectionType == .yes)
+    }
+
+    // MARK: Dashes
+
+    @Test("A hyphen typed after hyphens at a line's start is typed by the app, so --- is a rule")
+    func dashAtLineStart() {
+        // The second hyphen, and the third.
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 1, in: "-") == TextEdit(
+            range: NSRange(location: 1, length: 0), replacement: "-", selection: NSRange(location: 2, length: 0)))
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 2, in: "--")?.selection == NSRange(location: 3, length: 0))
+        // After a newline, and indented.
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 6, in: "abc\n--") != nil)
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 3, in: "  -") != nil)
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 3, in: "\t--") != nil)
+    }
+
+    @Test("The first hyphen, a bullet's and mid-line ones are the keyboard's")
+    func dashInProse() {
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 0, in: "") == nil, "nothing before it to make a dash with")
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 2, in: "  ") == nil)
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 5, in: "word-") == nil)
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 7, in: "word --") == nil)
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 2, in: "- ") == nil, "a bullet's text")
+        #expect(TextRewritingPolicy.hyphenKept(typedAt: 3, in: "- -") == nil)
+    }
+}
+
+// MARK: Moved from the Core suites (T11): these read TextRewritingPolicy, which is app code
+
+extension TextRewritingPolicyTests {
+
+    @Test("Smart punctuation is a straight quote made curly or hyphens made a dash, and nothing else")
+    func smartPunctuation() {
+        #expect(TextRewritingPolicy.isSmartPunctuation(replacing: "\"", with: "\u{201C}"))
+        #expect(TextRewritingPolicy.isSmartPunctuation(replacing: "\"", with: "\u{201D}"))
+        #expect(TextRewritingPolicy.isSmartPunctuation(replacing: "'", with: "\u{2019}"))
+        #expect(TextRewritingPolicy.isSmartPunctuation(replacing: "--", with: "\u{2014}"))
+        #expect(!TextRewritingPolicy.isSmartPunctuation(replacing: "\"", with: "x"))
+        #expect(!TextRewritingPolicy.isSmartPunctuation(replacing: "lo", with: "log"))
+    }
+
+    @Test("Inline code inside bold is code to the keyboard")
+    func codeInBoldIsCode() {
+        let source = "a **`int lo`** b"
+        let caret = (source as NSString).range(of: "lo").location
+        #expect(TextRewritingPolicy.at(caret, in: source, blocks: DocumentParser.parse(source)) == .code)
+    }
+    // MARK: The "." shortcut
+
+    /// Two quick spaces on the on-screen keyboard, as it makes them
+    /// (measured 7 Nov): the second space through the delegate, then "."
+    /// over both spaces and a space after it, neither through the delegate
+    /// (or, `spaceThroughDelegate`, the last one through it).
+    static func doubleSpace(
+        _ source: String, at caret: Int, rewritesProse: Bool, spaceThroughDelegate: Bool = false
+    ) -> (text: String, binding: String) {
+        final class Box { var value = "" }
+        let box = Box()
+        let coordinator = DocumentTextView.Coordinator(text: Binding(get: { box.value }, set: { box.value = $0 }))
+        let textView = DocumentTextView.makeConfiguredTextView()
+        textView.delegate = coordinator
+        // As in the app, an edit drops the coordinator's snapshot of the text.
+        coordinator.observeEdits(of: textView)
+        textView.text = source
+        coordinator.setRewritesProse(rewritesProse, in: textView)
+
+        func keyboard(_ location: Int, _ length: Int, _ text: String, delegate: Bool) {
+            let range = NSRange(location: location, length: length)
+            if delegate {
+                guard coordinator.textView(textView, shouldChangeTextIn: range, replacementText: text) else { return }
+            }
+            textView.textStorage.replaceCharacters(in: range, with: text)
+            textView.selectedRange = NSRange(location: location + (text as NSString).length, length: 0)
+            coordinator.textViewDidChange(textView)
+        }
+
+        textView.selectedRange = NSRange(location: caret, length: 0)
+        coordinator.textViewDidChangeSelection(textView)
+        keyboard(caret, 0, " ", delegate: true)
+        keyboard(caret + 1, 0, " ", delegate: true)
+        keyboard(caret, 2, ".", delegate: false)
+        keyboard(caret + 1, 0, " ", delegate: spaceThroughDelegate)
+        return (textView.text, box.value)
+    }
+
+    @Test("Two spaces stay two in prose with Autocorrect off, and in code",
+          arguments: [false, true])
+    func periodShortcutTakenBack(spaceThroughDelegate: Bool) {
+        let prose = Self.doubleSpace("ab", at: 2, rewritesProse: false, spaceThroughDelegate: spaceThroughDelegate)
+        #expect(prose.text == "ab  ")
+        #expect(prose.binding == "ab  ", "the page wasn't given the spaces back")
+
+        let code = Self.doubleSpace("```cpp\nint x\n```\n", at: 12, rewritesProse: true,
+                                    spaceThroughDelegate: spaceThroughDelegate)
+        #expect(code.text == "```cpp\nint x  \n```\n")
+    }
+
+    @Test("With Autocorrect on, prose keeps the keyboard's \". \"")
+    func periodShortcutInProse() {
+        #expect(Self.doubleSpace("ab", at: 2, rewritesProse: true).text == "ab. ")
+    }
+
+    @Test("A period typed after two spaces is left alone")
+    func periodTypedByHand() {
+        var shortcut = PeriodShortcut()
+        let source = NSMutableString(string: "ab ")
+        shortcut.willChange(NSRange(location: 3, length: 0), to: " ", in: source, rewrites: false)
+        source.append(" ")
+        #expect(shortcut.didChange(source, selection: NSRange(location: 4, length: 0)) == nil)
+        shortcut.willChange(NSRange(location: 4, length: 0), to: ".", in: source, rewrites: false)
+        source.append(".")
+        #expect(shortcut.didChange(source, selection: NSRange(location: 5, length: 0)) == nil)
+    }
+}
+
+#endif

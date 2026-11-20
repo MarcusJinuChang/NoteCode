@@ -1,0 +1,660 @@
+//
+//  DocumentStyler.swift
+//  NoteCode
+//
+//  Turns DocumentParser's blocks into visible styling on the text view.
+//
+
+#if canImport(UIKit)
+
+import UIKit
+
+extension NSAttributedString.Key {
+    /// Marks a run of code the highlighter coloured (and a character typed
+    /// after one, which takes its colour until the next pass). Syntax
+    /// colours are told apart from every other foreground by this, not by
+    /// comparing colour values: a theme may colour a token exactly
+    /// `.label`, and the output text colour no longer has to be a hair off
+    /// it. The value is `true`.
+    static let noteCodeSyntax = NSAttributedString.Key(AppIdentifier.named("syntax"))
+}
+
+extension DocumentStyler {
+
+    // MARK: Attributes
+
+    /// The fonts at the default size, which is every note's unless it was
+    /// resized (`NoteTypography`). The note body does not follow Dynamic Type
+    /// (Phase 9): its size is part of its pagination, and a larger body
+    /// re-wraps every line and moves the page breaks while ink stays where it
+    /// was drawn. A note's own size is chosen on the note, from the text
+    /// options row, and asks first when the note has ink.
+    static var proseFont: UIFont { NoteTypography.standard.prose }
+    static var codeFont: UIFont { NoteTypography.standard.code }
+
+    #if DEBUG
+    /// For tests, which compare what was styled against it.
+    static func headingFont(level: Int, typography: NoteTypography = .standard) -> UIFont {
+        typography.heading(level: level)
+    }
+    #endif
+
+    static func proseAttributes(_ typography: NoteTypography = .standard) -> [NSAttributedString.Key: Any] {
+        var attributes: [NSAttributedString.Key: Any] = [
+            .font: typography.prose,
+            .foregroundColor: UIColor.label,
+        ]
+        // Only with spacing, so a note with none is styled as it always was.
+        if typography.lineSpacing > 0 {
+            attributes[.paragraphStyle] = typography.lineStyle(for: typography.prose)
+        }
+        return attributes
+    }
+
+    /// No `.backgroundColor` here on purpose. That attribute paints per glyph,
+    /// which leaves the ragged right edge this project started with;
+    /// CodeBlockLayoutFragment draws the panel at fragment level instead.
+    ///
+    /// The paragraph style is a code line's height (`CodeBlockRoom`), here
+    /// rather than added after, so a line made by typing Return in a block
+    /// is as tall as its neighbours before the restyle reaches it. Its
+    /// continuation indent is an unindented line's; `applyCodeLineIndents`
+    /// gives each line its own.
+    static func codeAttributes(_ typography: NoteTypography = .standard) -> [NSAttributedString.Key: Any] {
+        [
+            .font: typography.code,
+            .foregroundColor: UIColor.label,
+            .paragraphStyle: unindentedCodeLine(typography),
+        ]
+    }
+
+    /// An output block's text: light on its dark panel, in both appearances.
+    static func outputAttributes(_ typography: NoteTypography = .standard) -> [NSAttributedString.Key: Any] {
+        [
+            .font: typography.code,
+            .foregroundColor: CodeOutputPanel.textColor,
+            .paragraphStyle: unindentedCodeLine(typography),
+        ]
+    }
+
+    private static func unindentedCodeLine(_ typography: NoteTypography) -> NSParagraphStyle {
+        CodeBlockRoom.codeLine(
+            height: typography.codeLineHeight,
+            continuation: CodeBlockRoom.continuationIndent(leading: 0, advance: CodeBlockRoom.advance(of: typography.code))
+        )
+    }
+
+    static func headingAttributes(level: Int, typography: NoteTypography = .standard) -> [NSAttributedString.Key: Any] {
+        let font = typography.heading(level: level)
+        var attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: UIColor.label,
+        ]
+        if typography.lineSpacing > 0 {
+            attributes[.paragraphStyle] = typography.lineStyle(for: font)
+        }
+        return attributes
+    }
+
+    /// Markdown markers stay visible but recede, so the text reads as formatted
+    /// without hiding what you'd need to edit. Hiding them only when the caret
+    /// is elsewhere is a later refinement.
+    static let markerColor = UIColor.tertiaryLabel
+
+    /// Link text: the accent as text, darker on light and lighter on dark
+    /// (`AccentPalette.textHex`). Read from the stored accent each time the
+    /// colour is resolved, so a new accent shows on the next redraw
+    /// (`DocumentUITextView.tintColorDidChange`) with no restyle: the
+    /// attribute is this one object either way.
+    static let linkColor = makeLinkColor(reading: .standard)
+
+    /// `linkColor` over any store of settings, so a test can give it an
+    /// accent of its own instead of writing the device's.
+    static func makeLinkColor(reading defaults: UserDefaults) -> UIColor {
+        UIColor { traits in
+            AccentPalette.uiColor(AccentPalette.linkHex(isDark: traits.userInterfaceStyle == .dark, in: defaults))
+        }
+    }
+
+    /// How far each nesting level indents, on top of the whitespace the user
+    /// actually typed.
+    static let listIndentPerLevel: CGFloat = 16
+
+    /// Indents a list item and, more importantly, aligns its wrapped lines
+    /// under the content rather than under the bullet.
+    /// Measuring text is not cheap and list markers repeat constantly — a
+    /// document of bullets asks for the width of "- " hundreds of times.
+    ///
+    /// Keyed by the size too: a marker is wider in a larger body, and notes
+    /// of different sizes are styled in one process.
+    /// Bounded at 500 (it was not): a key is the marker's text and the size, and
+    /// indentation is part of the text, so it could grow with what is typed.
+    private static let markerWidths = BoundedCache<String, CGFloat>(limit: 500)
+
+    static func listParagraphStyle(
+        for block: BlockNode,
+        in source: String,
+        rendered: Bool = false,
+        typography: NoteTypography = .standard
+    ) -> NSParagraphStyle {
+        let style = typography.lineStyle(for: typography.prose)
+        let depth = block.listDepth ?? 0
+        let levelIndent = CGFloat(depth) * listIndentPerLevel
+
+        // Width of the literal marker text, indentation included, so a wrapped
+        // line starts exactly where the item's text does.
+        let markerWidth: CGFloat = if let marker = block.markerRange {
+            width(ofMarker: laidOutMarker(String(source[marker]), of: block, rendered: rendered), typography: typography)
+        } else {
+            0
+        }
+
+        style.firstLineHeadIndent = levelIndent
+        style.headIndent = levelIndent + markerWidth
+        return style
+    }
+
+    /// The marker as TextKit lays it out, so a wrapped line hangs under the
+    /// words: a rendered note's `- ` is `• `, and a checkbox item's marker is
+    /// the box's em space and the gap after it. Indentation stays as typed.
+    private static func laidOutMarker(_ marker: String, of block: BlockNode, rendered: Bool) -> String {
+        guard rendered, let kind = block.listMarker else { return marker }
+        let indent = marker.prefix { $0 == " " || $0 == "\t" }
+        switch kind {
+        case .ordered:  return marker
+        case .bullet:   return indent + "\(MarkdownLayout.bullet) "
+        case .checkbox: return indent + "\(MarkdownLayout.box) "
+        }
+    }
+
+    private static func width(ofMarker marker: String, typography: NoteTypography) -> CGFloat {
+        let key = "\(typography.bodySize)|\(marker)"
+        return markerWidths.value(for: key) {
+            (marker as NSString).size(withAttributes: [.font: typography.prose]).width
+        }!
+    }
+
+    // MARK: Applying
+
+    #if DEBUG
+    /// Re-styles the whole document from scratch, for tests, which have no
+    /// cache of their own. Returns the blocks it parsed.
+    ///
+    /// The editor goes through the `snapshot:previousSignatures:` variant,
+    /// which parses once per edit and restyles only the blocks that changed.
+    @discardableResult
+    static func applyStyling(
+        to textView: UITextView,
+        rendered: Bool = false,
+        typography: NoteTypography = .standard,
+        markers: MarkerDimming = .standard
+    ) -> [BlockNode] {
+        let snapshot = DocumentSnapshot(text: textView.text ?? "")
+        applyStyling(
+            to: textView, snapshot: snapshot, previousSignatures: [], rendered: rendered,
+            typography: typography, markers: markers
+        )
+        return snapshot.blocks
+    }
+    #endif
+
+    /// - Parameter previousSignatures: what the document looked like last time
+    ///   this ran. Only the blocks that differ get restyled; pass an empty array
+    ///   to restyle everything.
+    /// - Returns: signatures to hand back on the next call.
+    @discardableResult
+    /// - Parameter snapshot: the text as this edit left it, with its parse and
+    ///   layouts. Its `source` is the one String instance every index below
+    ///   belongs to. `UITextView.text` hands back a freshly bridged
+    ///   NSString-backed String on every access, and using `String.Index`
+    ///   values across instances with different backing storage forces index
+    ///   reconciliation on each use, which turned a single restyle of a
+    ///   500-line note into 600ms.
+    static func applyStyling(
+        to textView: UITextView,
+        snapshot: DocumentSnapshot,
+        previousSignatures: [BlockSignature] = [],
+        rendered: Bool = false,
+        typography: NoteTypography = .standard,
+        markers: MarkerDimming = .standard
+    ) -> [BlockSignature] {
+        // Rewriting attributes mid-composition destroys the marked-text
+        // underline and can drop the in-progress character entirely, which
+        // breaks Pinyin, Kana, and accent input.
+        guard textView.markedTextRange == nil else { return previousSignatures }
+
+        let storage = textView.textStorage
+        let source = snapshot.source
+        let layouts = snapshot.layouts
+        let signatures = layouts.map(\.signature)
+
+        guard let changed = changedIndices(from: previousSignatures, to: signatures) else {
+            return signatures
+        }
+
+        let touched = Array(layouts[changed])
+        guard let first = touched.first, let last = touched.last else { return signatures }
+        let span = NSRange(
+            location: first.range.location,
+            length: last.range.location + last.range.length - first.range.location
+        )
+
+        // Syntax colours already on screen, captured before the wipe below.
+        //
+        // `setAttributes` replaces rather than merges, so restyling blanks every
+        // colour in the document. Highlighting is async and debounced, so that
+        // left code with no colour at all for as long as the user kept typing —
+        // in every block, not just the one being edited. NSTextStorage has
+        // already migrated these ranges across the edit, so they are still
+        // correct where the text didn't change.
+        let existingColors = codeColors(in: storage, layouts: touched)
+
+        // Worked out on a copy, and written only where it differs.
+        //
+        // Setting attributes is an edit even when they're the ones already
+        // there, and with page breaks as exclusion paths TextKit then lays out
+        // everything below the edited paragraph again. A keystroke in prose
+        // usually leaves its paragraph styled exactly as it was — the typed
+        // character takes the typing attributes — so restyling it cost a
+        // second full layout of the note below the caret on every keystroke
+        // (sampled on the simulator, 25 September).
+        let styled = NSMutableAttributedString(attributedString: storage)
+        styled.setAttributes(proseAttributes(typography), range: span)
+
+        for layout in touched {
+            switch layout.block.kind {
+            case .code(let code):
+                styleCode(layout, code: code, typography: typography, markers: markers, to: styled)
+            case .paragraph:
+                styleParagraph(layout, source: source, typography: typography, to: styled)
+            case .listItem(_, let marker, _):
+                styleListItem(layout, marker: marker, source: source, rendered: rendered, typography: typography, markers: markers, to: styled)
+            case .heading(let level, _):
+                styleHeading(layout, level: level, source: source, typography: typography, markers: markers, to: styled)
+            case .blockQuote(let depth, _):
+                styleBlockQuote(layout, depth: depth, source: source, typography: typography, to: styled)
+            case .math(let math):
+                styleDisplayFormula(layout, math: math, source: source, typography: typography, to: styled)
+            case .rule:
+                styleRule(layout, to: styled)
+            }
+        }
+
+        // Put the colours back. Newly typed characters aren't covered by any of
+        // them and take the block's plain typing attributes, so they show up
+        // uncoloured until the next highlight pass rather than inheriting the
+        // colour of whatever they were typed after.
+        for run in existingColors {
+            styled.addAttributes(syntaxAttributes(run, over: typography.code), range: run.range)
+        }
+
+        let wanted = styled.attributedSubstring(from: span)
+        guard !wanted.isEqual(to: storage.attributedSubstring(from: span)) else {
+            return signatures
+        }
+
+        storage.beginEditing()
+        wanted.enumerateAttributes(in: NSRange(location: 0, length: wanted.length)) { attributes, range, _ in
+            storage.setAttributes(attributes, range: NSRange(location: span.location + range.location, length: range.length))
+        }
+        storage.endEditing()
+
+        return signatures
+    }
+
+    // MARK: One function per block kind
+
+    private static func styleCode(
+        _ layout: BlockLayout, code: CodeBlock, typography: NoteTypography, markers: MarkerDimming,
+        to styled: NSMutableAttributedString
+    ) {
+        let output = code.isOutput
+        styled.setAttributes(output ? outputAttributes(typography) : codeAttributes(typography), range: layout.range)
+        // The fence lines are markers like any other, so they recede
+        // too — the code inside is what should carry the eye. On an
+        // output block's dark panel the usual marker grey would sink
+        // into it, so they take the panel's own label colour.
+        for marker in layout.blockMarkers {
+            styled.addAttribute(.foregroundColor, value: markers.fenceColour(isOutput: output), range: marker)
+        }
+        // The fences last, so nothing else's style can land on them.
+        applyCodeLineIndents(to: styled, code: layout.contentRange, typography: typography)
+        applyFenceRoom(to: styled, block: layout.range, isClosed: code.isClosed, font: typography.code)
+    }
+
+    private static func styleParagraph(
+        _ layout: BlockLayout, source: String, typography: NoteTypography, to styled: NSMutableAttributedString
+    ) {
+        apply(layout.inlines, over: typography.prose, to: styled)
+        dimUndrawableFormulas(in: layout, source: source, to: styled)
+    }
+
+    private static func styleListItem(
+        _ layout: BlockLayout, marker: ListMarker, source: String, rendered: Bool,
+        typography: NoteTypography, markers: MarkerDimming, to styled: NSMutableAttributedString
+    ) {
+        styled.addAttribute(
+            .paragraphStyle,
+            value: listParagraphStyle(for: layout.block, in: source, rendered: rendered, typography: typography),
+            range: layout.range
+        )
+        apply(layout.inlines, over: typography.prose, to: styled)
+        dimUndrawableFormulas(in: layout, source: source, to: styled)
+        for range in layout.blockMarkers {
+            styled.addAttribute(.foregroundColor, value: markers.bulletColour, range: range)
+        }
+        // A ticked item is done: struck through, and quieter.
+        if marker == .checkbox(checked: true), layout.contentRange.length > 0 {
+            let content = trimmingNewline(layout.contentRange, in: source, of: layout)
+            styled.addAttribute(.foregroundColor, value: UIColor.secondaryLabel, range: content)
+            styled.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: content)
+        }
+    }
+
+    private static func styleHeading(
+        _ layout: BlockLayout, level: Int, source: String, typography: NoteTypography,
+        markers: MarkerDimming, to styled: NSMutableAttributedString
+    ) {
+        styled.setAttributes(headingAttributes(level: level, typography: typography), range: layout.range)
+        apply(layout.inlines, over: typography.heading(level: level), to: styled)
+        dimUndrawableFormulas(in: layout, source: source, to: styled)
+        for marker in layout.blockMarkers {
+            styled.addAttribute(.foregroundColor, value: markers.headingTextColour, range: marker)
+        }
+    }
+
+    private static func styleBlockQuote(
+        _ layout: BlockLayout, depth: Int, source: String, typography: NoteTypography,
+        to styled: NSMutableAttributedString
+    ) {
+        // Indented past its bar, which its fragment draws. Whole
+        // paragraphs, as a list item's style is: the storage makes a
+        // paragraph's characters share its first one's.
+        styled.addAttribute(.paragraphStyle, value: ProseBlockMetrics.quoteParagraphStyle(depth: depth, typography: typography), range: layout.range)
+        apply(layout.inlines, over: typography.prose, to: styled)
+        dimUndrawableFormulas(in: layout, source: source, to: styled)
+        for marker in layout.blockMarkers {
+            styled.addAttribute(.foregroundColor, value: markerColor, range: marker)
+        }
+    }
+
+    private static func styleRule(_ layout: BlockLayout, to styled: NSMutableAttributedString) {
+        // An ordinary line of text with its dashes hidden; its
+        // fragment draws the line through it.
+        for marker in layout.blockMarkers {
+            styled.addAttribute(.foregroundColor, value: markerColor, range: marker)
+        }
+    }
+
+    /// Gives a code block's fence lines their room: the opening fence the gap
+    /// above the panel and its header, the closing fence the footer and the
+    /// gap below (`CodeBlockRoom`).
+    ///
+    /// The fences are found as paragraphs, the block's first and, when it is
+    /// closed, its last: a paragraph style belongs to a whole paragraph, and
+    /// the block's markers end where its code begins rather than at a newline.
+    private static func applyFenceRoom(to styled: NSMutableAttributedString, block: NSRange, isClosed: Bool, font: UIFont) {
+        guard block.length > 0 else { return }
+        let string = styled.string as NSString
+
+        func apply(_ style: CodeBlockRoom.LineStyle, to paragraph: NSRange) {
+            styled.addAttribute(.paragraphStyle, value: style.paragraph, range: paragraph)
+            styled.addAttribute(.baselineOffset, value: style.baselineOffset, range: paragraph)
+        }
+
+        let opening = string.paragraphRange(for: NSRange(location: block.location, length: 0))
+        apply(CodeBlockRoom.openingFence(font: font), to: opening)
+
+        guard isClosed else { return }
+        let closing = string.paragraphRange(for: NSRange(location: block.location + block.length - 1, length: 0))
+        guard closing.location > opening.location else { return }
+        apply(CodeBlockRoom.closingFence(font: font), to: closing)
+    }
+
+    /// Gives each line of code its own continuation indent: a line that
+    /// wraps continues past its own indentation (`CodeBlockRoom`), so the
+    /// rest of it never reads as the next line.
+    ///
+    /// Whole paragraphs, newline included: a paragraph style belongs to a
+    /// paragraph, the storage makes every character of one take its first
+    /// character's, and a newline left with another would differ from the
+    /// storage on every restyle and be written, and laid out, every time.
+    private static func applyCodeLineIndents(to styled: NSMutableAttributedString, code: NSRange, typography: NoteTypography) {
+        guard code.length > 0 else { return }
+        let string = styled.string as NSString
+        let advance = CodeBlockRoom.advance(of: typography.code)
+        let height = typography.codeLineHeight
+        var styles: [CGFloat: NSParagraphStyle] = [:]
+
+        string.enumerateSubstrings(in: string.paragraphRange(for: code), options: .byParagraphs) { line, _, paragraph, _ in
+            guard let line else { return }
+            let continuation = CodeBlockRoom.continuationIndent(
+                leading: CodeBlockRoom.leadingWidth(of: line, advance: advance),
+                advance: advance
+            )
+            let style = styles[continuation] ?? CodeBlockRoom.codeLine(height: height, continuation: continuation)
+            styles[continuation] = style
+            styled.addAttribute(.paragraphStyle, value: style, range: paragraph)
+        }
+    }
+
+    // MARK: Size
+
+    /// The font a sized run's text is set in: the font around it, at the
+    /// run's size against it, so a heading's run is a larger heading.
+    ///
+    /// `withSize` keeps the font's leading, scaled with it (measured 18 Oct:
+    /// 1.713pt at 17, 2.418 at 24), so a line holding a run is as tall as the
+    /// run's own text would make it; a run at the size of the text around it
+    /// lays out exactly the lines plain text does.
+    static func font(_ base: UIFont, sizedTo size: SpanSize?) -> UIFont {
+        guard let size else { return base }
+        return base.withSize(size.points(against: base.pointSize))
+    }
+
+    /// A list item's text without its line terminator, so a strikethrough
+    /// doesn't run on into the gap after the line.
+    private static func trimmingNewline(_ range: NSRange, in source: String, of layout: BlockLayout) -> NSRange {
+        let text = source[layout.block.contentRange]
+        guard let last = text.last, last.isNewline else { return range }
+        return NSRange(location: range.location, length: max(range.length - last.utf16.count, 0))
+    }
+
+    /// Applies inline nodes over a block whose base font is already set.
+    ///
+    /// One pass: each node is drawn with its own attributes, which hold
+    /// every pair it is inside. Fonts are derived from the block's own,
+    /// sized first, then given their traits, so bold inside a heading is a
+    /// bold heading and bold inside a sized run is bold at the run's size.
+    /// A marker keeps the font of the text around its pair and is dimmed.
+    /// A formula that can't be drawn (`FormulaValidity`) shows its source,
+    /// dollars and all, in `secondaryLabel`, so it reads as TeX that didn't
+    /// take rather than as prose. The layout leaves its dollars showing too
+    /// (`MarkdownLayout.formulaRun`), so the two agree.
+    /// A `$$` block. Drawable: its first line takes the formula's height
+    /// (fixed, centred) and its source lines one point each, so the block
+    /// takes the room of the formula and no more. Not drawable: prose, dimmed.
+    private static func styleDisplayFormula(_ layout: BlockLayout, math: MathBlock, source: String, typography: NoteTypography, to storage: NSMutableAttributedString) {
+        guard let tex = FormulaValidity.check(String(source[math.contentRange])).tex,
+              let height = DisplayFormula.paragraphHeight(tex: tex, font: typography.prose)
+        else {
+            storage.addAttribute(.foregroundColor, value: UIColor.secondaryLabel, range: layout.range)
+            return
+        }
+        let text = source as NSString
+        var location = layout.range.location
+        let end = NSMaxRange(layout.range)
+        var first = true
+        while location < end {
+            var lineEnd = location
+            while lineEnd < end, text.character(at: lineEnd) != UTF16Unit.newline { lineEnd += 1 }
+            let range = NSRange(location: location, length: min(lineEnd + 1, end) - location)
+            let style = NSMutableParagraphStyle()
+            style.minimumLineHeight = first ? height : DisplayFormula.sourceLineHeight
+            style.maximumLineHeight = style.minimumLineHeight
+            style.alignment = first ? .center : .left
+            storage.addAttribute(.paragraphStyle, value: style, range: range)
+            first = false
+            location = lineEnd + 1
+        }
+    }
+
+    private static func dimUndrawableFormulas(in layout: BlockLayout, source: String, to storage: NSMutableAttributedString) {
+        let inlines = layout.inlines
+        guard inlines.count == layout.block.inlines.count else { return }
+        var index = 0
+        while index + 2 < inlines.count {
+            guard case .opening(.math) = inlines[index].kind,
+                  inlines[index + 1].kind == .text,
+                  case .closing(.math) = inlines[index + 2].kind
+            else { index += 1; continue }
+            let tex = String(source[layout.block.inlines[index + 1].range])
+            if !FormulaValidity.check(tex).isValid {
+                let start = inlines[index].range.location
+                storage.addAttribute(
+                    .foregroundColor, value: UIColor.secondaryLabel,
+                    range: NSRange(location: start, length: NSMaxRange(inlines[index + 2].range) - start)
+                )
+            }
+            index += 3
+        }
+    }
+
+    private static func apply(_ inlines: [InlineLayout], over blockFont: UIFont, to storage: NSMutableAttributedString) {
+        for inline in inlines {
+            let attributes = inline.attributes
+            if inline.kind.isMarker {
+                if attributes != .plain {
+                    storage.addAttribute(.font, value: font(for: attributes, over: blockFont), range: inline.range)
+                }
+                storage.addAttribute(.foregroundColor, value: markerColor, range: inline.range)
+                continue
+            }
+            guard attributes != .plain else { continue }
+
+            if attributes.size != nil || attributes.bold || attributes.italic || attributes.code {
+                storage.addAttribute(.font, value: font(for: attributes, over: blockFont), range: inline.range)
+            }
+            // A link keeps the link colour inside a coloured run.
+            if attributes.link {
+                storage.addAttribute(.foregroundColor, value: linkColor, range: inline.range)
+                storage.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: inline.range)
+            } else if let colour = attributes.colour {
+                storage.addAttribute(.foregroundColor, value: textColour(hex: colour), range: inline.range)
+            }
+            if attributes.code {
+                // A per-glyph background is right here, unlike a code block —
+                // an inline span is short and doesn't need to square off.
+                storage.addAttribute(.backgroundColor, value: UIColor.secondarySystemFill, range: inline.range)
+            }
+            // After code's, so a highlighted word of code shows the highlight.
+            if let highlight = attributes.highlight {
+                storage.addAttribute(.backgroundColor, value: highlightColour(highlight), range: inline.range)
+            }
+            if attributes.strikethrough {
+                storage.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: inline.range)
+            }
+            if attributes.underline {
+                storage.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: inline.range)
+            }
+        }
+    }
+
+    /// The font text with `attributes` is set in, in a block set in
+    /// `blockFont`: sized, then monospaced for code, or given bold and
+    /// italic. Code is regular weight unless it is inside bold.
+    static func font(for attributes: InlineAttributes, over blockFont: UIFont) -> UIFont {
+        let sized = font(blockFont, sizedTo: attributes.size)
+        if attributes.code {
+            let code = UIFont.monospacedSystemFont(ofSize: sized.pointSize, weight: attributes.bold ? .bold : .regular)
+            return attributes.italic ? code.withTraits(.traitItalic) : code
+        }
+        var traits: UIFontDescriptor.SymbolicTraits = []
+        if attributes.bold { traits.insert(.traitBold) }
+        if attributes.italic { traits.insert(.traitItalic) }
+        return traits.isEmpty ? sized : sized.withTraits(traits)
+    }
+
+    /// Sets the attributes newly typed characters will take on.
+    ///
+    /// Without this, UIKit inherits typing attributes from the character to the
+    /// left of the caret — so the first thing typed after a code block comes out
+    /// monospaced on a grey background. This is the "attribute bleed" problem;
+    /// setting typing attributes from the *parsed* region under the caret is the
+    /// fix, rather than letting the text system guess.
+    static func applyTypingAttributes(
+        to textView: UITextView,
+        source: String,
+        blocks: [BlockNode],
+        rendered: Bool = false,
+        typography: NoteTypography = .standard
+    ) {
+        let caret = textView.selectedRange.location
+
+        let current = block(at: caret, in: source, blocks: blocks)
+
+        switch current?.kind {
+        case .code(let code) where code.isOutput:
+            // One colour all the way through: nothing is highlighted.
+            textView.typingAttributes = outputAttributes(typography)
+        case .code:
+            // Carry the neighbouring syntax colour onto whatever is typed next.
+            //
+            // Highlighting is debounced, so without this the character just
+            // typed sits uncoloured for as long as the debounce — you type the
+            // `n` of `return` and watch it stay black next to five pink
+            // letters. A briefly stale colour reads as stable; a black gap at
+            // the caret reads as broken, and the next highlight pass corrects
+            // either one.
+            var attributes = codeAttributes(typography)
+            if let inherited = inheritedCodeColor(at: caret, in: textView.textStorage) {
+                attributes[.foregroundColor] = inherited
+                attributes[.noteCodeSyntax] = true
+            }
+            textView.typingAttributes = attributes
+        case .heading(let level, _):
+            textView.typingAttributes = headingAttributes(level: level, typography: typography)
+        case .blockQuote(let depth, _):
+            // The indent carries, or a quote's new line starts at the margin.
+            var attributes = proseAttributes(typography)
+            attributes[.paragraphStyle] = ProseBlockMetrics.quoteParagraphStyle(depth: depth, typography: typography)
+            textView.typingAttributes = attributes
+        case .listItem:
+            // Carry the indent, or text typed into a wrapped list line jumps
+            // back to the margin.
+            var attributes = proseAttributes(typography)
+            attributes[.paragraphStyle] = listParagraphStyle(for: current!, in: source, rendered: rendered, typography: typography)
+            textView.typingAttributes = attributes
+        default:
+            textView.typingAttributes = proseAttributes(typography)
+        }
+    }
+
+    /// The block containing a UTF-16 offset, if any.
+    ///
+    /// Ranges are half-open, so a caret sitting exactly on the boundary between
+    /// a code block and the prose after it belongs to the prose — which is what
+    /// you want when typing just past a closing fence.
+    static func block(at utf16Offset: Int, in source: String, blocks: [BlockNode]) -> BlockNode? {
+        guard let index = Range(NSRange(location: utf16Offset, length: 0), in: source)?.lowerBound else {
+            return nil
+        }
+        if index == source.endIndex {
+            return blocks.last
+        }
+        return blocks.first { $0.range.contains(index) }
+    }
+}
+
+private extension UIFont {
+    /// Adds symbolic traits while keeping everything else about the font,
+    /// including the Dynamic Type size it was resolved at.
+    func withTraits(_ traits: UIFontDescriptor.SymbolicTraits) -> UIFont {
+        guard let descriptor = fontDescriptor.withSymbolicTraits(fontDescriptor.symbolicTraits.union(traits)) else {
+            return self
+        }
+        return UIFont(descriptor: descriptor, size: 0)
+    }
+}
+
+#endif

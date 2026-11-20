@@ -1,0 +1,568 @@
+//
+//  CodeBlockLayoutFragment.swift
+//  NoteCode
+//
+//  Draws a fenced code block as one continuous panel behind the text.
+//
+
+#if canImport(UIKit)
+
+import UIKit
+
+// MARK: - Fragment
+
+/// A layout fragment that paints a code-block panel before drawing its text.
+///
+/// This is the reason the editor needs TextKit 2 rather than an attributed
+/// string alone: `.backgroundColor` is a per-glyph attribute, so it hugs the
+/// end of each line and leaves a ragged right edge. Drawing at the fragment
+/// level gives a rectangle spanning the full text container instead.
+final class CodeBlockLayoutFragment: NSTextLayoutFragment {
+
+    /// Where this paragraph sits in its block, and whether it closes it.
+    struct Placement: Equatable {
+        var position: CodeBlockPosition
+        var closesBlock: Bool
+    }
+
+    /// The paragraph's place in its block as the note is now, asked each time
+    /// it is read, or `nil` to keep `madePlacement`.
+    ///
+    /// Not fixed when the fragment is made: a block grows or shrinks by typing
+    /// on another line, and TextKit asks for a fragment again only for a
+    /// paragraph whose text or attributes changed. A fence typed as the note's
+    /// last text was made the block's only paragraph, and kept the rounded,
+    /// inset bottom of one when code was typed under it: a white seam between
+    /// the header's panel and the code's (7 Nov device pass, code-4).
+    var placement: () -> Placement? = { nil }
+
+    /// The placement when the fragment was made, for a fragment the
+    /// coordinator no longer finds in a block (it is about to be made again).
+    var madePlacement = Placement(position: .middle, closesBlock: false)
+
+    /// The placement for the draw under way, asked once for it rather than
+    /// on each of the dozen reads a draw makes.
+    private var drawingPlacement: Placement?
+
+    /// Outside a draw this asks `placement()` afresh, which parses the note,
+    /// on every read: a caller there reads it once and keeps it.
+    private var currentPlacement: Placement { drawingPlacement ?? placement() ?? madePlacement }
+
+    var position: CodeBlockPosition { currentPlacement.position }
+
+    /// The selected stretches of code, asked for each time the fragment draws.
+    ///
+    /// Not read from `textLayoutManager.textSelections`: measured 7 Oct, that
+    /// holds the caret's range and not a selection `UITextView` made, so the
+    /// fragment found nothing selected while a selection showed on screen. The
+    /// coordinator knows the text view's own selection and hands it over.
+    var selectedRanges: () -> [NSTextRange] = { [] }
+
+    /// Whether this paragraph is the fence that closes its block.
+    ///
+    /// The line after it isn't code. That includes the empty line TextKit
+    /// puts in this fragment when the note ends with a newline straight after
+    /// the fence, the line the caret sits on once a block is closed.
+    var closesBlock: Bool { currentPlacement.closesBlock }
+
+    /// How the block this paragraph belongs to is shown, asked for each time
+    /// the fragment draws.
+    ///
+    /// A closure for the reason `selectedRanges` is one: the answer changes
+    /// with the caret, and the fragment is not laid out again when it does.
+    /// The default is the old behaviour, every character drawn,
+    /// for a fragment made without a coordinator.
+    var fenceDisplay: () -> FenceDisplay = { FenceDisplay(showsFences: true, isEditing: false) }
+
+    /// Whether this paragraph is the block's opening fence.
+    var isOpeningFence: Bool { position.roundsTop }
+
+    /// Whether this paragraph is a fence line rather than code. An unclosed
+    /// block has only an opening one.
+    ///
+    /// `isOpeningFence` spelled out on one placement, so the draw reads it
+    /// once; change the two together.
+    var isFence: Bool {
+        let placement = currentPlacement
+        return placement.position.roundsTop || placement.closesBlock
+    }
+
+    /// The panel's left and right edges, in this fragment's own coordinates:
+    /// the text column, and `CodeBlockRoom.outset` beyond it on each side.
+    ///
+    /// Resolved lazily, deliberately *not* captured when the fragment is
+    /// created: during the first layout pass the text view has no frame yet,
+    /// so the container reports a width of -16 (zero bounds minus line-fragment
+    /// padding). Reading it at draw time gets the settled value instead.
+    private var panelSpan: (left: CGFloat, right: CGFloat) {
+        let container = textLayoutManager?.textContainer
+        let containerWidth = container?.size.width ?? 0
+        let padding = container?.lineFragmentPadding ?? 0
+        // The text column, in the container's coordinates, then in the
+        // fragment's: its frame starts where its text does.
+        let textLeft = padding
+        let textRight = containerWidth > 0 ? containerWidth - padding : layoutFragmentFrame.maxX
+        let span = CodeBlockRoom.panelSpan(textLeft: textLeft, textRight: textRight)
+        return (span.left - layoutFragmentFrame.minX, span.right - layoutFragmentFrame.minX)
+    }
+
+    /// Expands the area this fragment is allowed to paint into.
+    ///
+    /// TextKit clips fragment drawing to these bounds, and the default is sized
+    /// to the glyphs — so a full-width panel gets cropped back to the text
+    /// width no matter how wide a rect is filled.
+    override var renderingSurfaceBounds: CGRect {
+        // The room above covers the overhang described in panelRect. TextKit
+        // clips fragment drawing to these bounds, so without it the overhang is
+        // trimmed and the seam comes back.
+        //
+        // Upward is the safe direction. TextKit 2 stacks fragment views with
+        // each line in front of the line below it — measured, and held by
+        // CodeBlockPanelTests.upperLinesInFront — so a panel reaching up lands
+        // behind the line above, under its text and its descenders. Nothing is
+        // added at the bottom: a panel reaching down would land in front of the
+        // next line and paint over it.
+        //
+        // The panel reaches into the page's margins on both sides, so the
+        // area does too.
+        //
+        // The margin to the left is in it as well, for the line numbers.
+        // Always, whether they are on or not: the area is the same either
+        // way, so switching them needs a redraw and no layout.
+        let span = panelSpan
+        return super.renderingSurfaceBounds
+            .union(
+                CGRect(
+                    x: span.left,
+                    y: -Self.maximumOverhang,
+                    width: span.right - span.left,
+                    height: layoutFragmentFrame.height + Self.maximumOverhang
+                )
+            )
+            .union(
+                CGRect(x: -Self.lineNumberReach, y: 0, width: Self.lineNumberReach, height: layoutFragmentFrame.height)
+            )
+    }
+
+    /// Whether this paragraph is part of an output block, whose panel is a
+    /// console: dark in both appearances. Set when the fragment is made. A
+    /// retag to or from output restyles the whole block, which lays every
+    /// paragraph of it out again, so none keeps the old answer.
+    var isOutput = false
+
+    /// This paragraph's line number within its block, from 1, or `nil` for
+    /// none: numbers off, or a line that isn't code. Asked at draw time, like
+    /// `fenceDisplay`, so turning the setting on or off redraws the fragment
+    /// views and lays nothing out.
+    var lineNumber: () -> Int? = { nil }
+
+    private var fillColor: UIColor {
+        isOutput ? CodeOutputPanel.fillColor : .secondarySystemBackground
+    }
+
+    override func draw(at point: CGPoint, in context: CGContext) {
+        drawingPlacement = placement() ?? madePlacement
+        defer { drawingPlacement = nil }
+        let display = fenceDisplay()
+        drawPanel(at: point, in: context)
+        drawSelection(at: point, in: context)
+        // An away block's fence lines keep their place and their height and
+        // draw nothing. Glyphs only: collapsing the line, or any other change
+        // to the text, would lay out everything below it and move ink off
+        // its words. Decided here, at draw time, and not by a rendering
+        // attribute: see `CodeFenceDisplay.swift`.
+        if isFence, !display.showsFences { return }
+        super.draw(at: point, in: context)
+        drawLineNumber(at: point, in: context)
+        for line in textLineFragments {
+            drawWrapMark(for: line, at: point, in: context)
+        }
+    }
+
+    // MARK: Wrap marks
+
+    /// Gap between a wrap mark and the continuation it points at.
+    static let wrapMarkGap: CGFloat = 3
+
+    /// Draws ↳ in front of `line` if it continues a wrapped line of code, in
+    /// the room its hanging indent leaves (`CodeBlockRoom.continuationColumns`),
+    /// so it reads as the rest of the line above and not a line of its own.
+    ///
+    /// Paint only, like a line number: nothing is laid out for it. Called
+    /// with the context's origin at the fragment's, as `draw` is, and by
+    /// printing, which draws a page's lines one at a time.
+    func drawWrapMark(for line: NSTextLineFragment, at point: CGPoint, in context: CGContext) {
+        guard !isFence, line !== textLineFragments.first, line.characterRange.length > 0,
+              let font = (textElement as? NSTextParagraph)?.attributedString.attribute(.font, at: 0, effectiveRange: nil) as? UIFont
+        else { return }
+
+        let bounds = line.typographicBounds
+        let baseline = point.y + bounds.minY + line.glyphOrigin.y
+        let textStart = point.x + bounds.minX + line.glyphOrigin.x
+
+        // A stroked path, not a symbol image: a tinted symbol drew a grey
+        // box round itself in the PDF (16 Oct), and a path is vector
+        // everywhere. Down from the top of the lower-case letters, then
+        // right, to an arrowhead: about a character wide.
+        let right = textStart - Self.wrapMarkGap
+        let left = right - font.pointSize * 0.55
+        let top = baseline - font.xHeight * 1.1
+        let turn = baseline - font.xHeight * 0.35
+        let head = font.pointSize * 0.16
+
+        let path = UIBezierPath()
+        path.move(to: CGPoint(x: left, y: top))
+        path.addLine(to: CGPoint(x: left, y: turn))
+        path.addLine(to: CGPoint(x: right, y: turn))
+        path.move(to: CGPoint(x: right - head, y: turn - head))
+        path.addLine(to: CGPoint(x: right, y: turn))
+        path.addLine(to: CGPoint(x: right - head, y: turn + head))
+
+        context.saveGState()
+        context.setStrokeColor((isOutput ? CodeOutputPanel.labelColor : UIColor.tertiaryLabel).cgColor)
+        context.setLineWidth(max(1, font.pointSize * 0.08))
+        context.setLineCap(.round)
+        context.setLineJoin(.round)
+        context.addPath(path.cgPath)
+        context.strokePath()
+        context.restoreGState()
+    }
+
+    // MARK: Line numbers
+
+    /// Gap between a number's right edge and the panel.
+    static let lineNumberGap: CGFloat = 16
+
+    /// How far into the margin a fragment may paint: the page's margin and
+    /// the container's line fragment padding, as a heading's hashes have.
+    static let lineNumberReach = HeadingLayoutFragment.reach
+
+    /// Digits in the code's own face, a little smaller so they recede.
+    static var lineNumberFont: UIFont {
+        NoteTypography.standard.lineNumber
+    }
+
+    /// Draws this paragraph's number in the page's left margin, right-aligned
+    /// against the panel, on its first line's baseline.
+    ///
+    /// Never a gutter inside the panel: that would shift the code to the
+    /// right, re-wrap it, and move ink off its words. This is paint in a
+    /// margin the text already has, so turning numbers on moves nothing.
+    /// Called with the context's origin at the fragment's, as `draw` is, and
+    /// by printing, which draws a page's lines one at a time.
+    func drawLineNumber(at point: CGPoint, in context: CGContext) {
+        guard !isFence, !isOutput, let number = lineNumber(), let line = textLineFragments.first else { return }
+
+        // Sized by the code it sits beside, so a note set in a larger body
+        // numbers its lines in proportion. The paragraph's first character
+        // carries the code font (a rendered note's joiners keep a block's own).
+        let codeFont = (textElement as? NSTextParagraph)?.attributedString
+            .attribute(.font, at: 0, effectiveRange: nil) as? UIFont
+        let font = codeFont.map { NoteTypography.lineNumberFont(forCodeSize: $0.pointSize) } ?? Self.lineNumberFont
+        let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: UIColor.secondaryLabel]
+        let digits = String(number) as NSString
+        let width = digits.size(withAttributes: attributes).width
+
+        let baseline = point.y + line.typographicBounds.minY + line.glyphOrigin.y
+        let origin = CGPoint(x: point.x + panelSpan.left - Self.lineNumberGap - width, y: baseline - font.ascender)
+
+        UIGraphicsPushContext(context)
+        digits.draw(at: origin, withAttributes: attributes)
+        UIGraphicsPopContext()
+    }
+
+    /// Draws the language's name in the header, where the language button
+    /// stands on screen: for printing, where there is no button, so a block
+    /// on paper doesn't open with an empty row. Called with the context's
+    /// origin at the fragment's, as `drawPanel` is.
+    func drawHeaderLabel(at point: CGPoint, in context: CGContext) {
+        guard isOpeningFence, let line = textLineFragments.first,
+              let text = (textElement as? NSTextParagraph)?.attributedString.string
+        else { return }
+
+        let header = CodeBlockRoom.header(ofFenceLine: line.typographicBounds.offsetBy(dx: point.x, dy: point.y))
+        let font = CodeBlockLanguageButton.titleFont
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: isOutput ? CodeOutputPanel.labelColor : UIColor.secondaryLabel,
+        ]
+        let origin = CGPoint(x: header.minX, y: header.midY - font.lineHeight / 2)
+
+        UIGraphicsPushContext(context)
+        (FenceTag.label(ofFenceLine: text) as NSString).draw(at: origin, withAttributes: attributes)
+        UIGraphicsPopContext()
+    }
+
+    /// Fills the selected part of this fragment, over the panel.
+    ///
+    /// UIKit's own highlight is behind the fragment views and so behind the
+    /// panel; see `CodeSelectionHighlight`. Not part of `drawPanel`, which
+    /// printing also calls: a selection isn't printed.
+    private func drawSelection(at point: CGPoint, in context: CGContext) {
+        guard let layoutManager = textLayoutManager else { return }
+
+        let fragmentRange = rangeInElement
+        let selected = selectedRanges()
+            .compactMap { $0.intersection(fragmentRange) }
+            .filter { !$0.isEmpty }
+        guard !selected.isEmpty else { return }
+
+        let frame = layoutFragmentFrame
+        context.saveGState()
+        context.setFillColor(CodeSelectionHighlight.color.cgColor)
+        for range in selected {
+            layoutManager.enumerateTextSegments(in: range, type: .selection, options: []) { _, segment, _, _ in
+                // Segments are in the container's coordinates, the context's
+                // origin is this fragment's.
+                context.fill(segment.offsetBy(dx: point.x - frame.minX, dy: point.y - frame.minY))
+                return true
+            }
+        }
+        context.restoreGState()
+    }
+
+    /// Device pixels per point in the context being drawn into.
+    ///
+    /// Read from the transform rather than the screen so it stays right when the
+    /// view is rendered somewhere other than the display.
+    static func pixelScale(of context: CGContext) -> CGFloat {
+        let scale = hypot(context.ctm.b, context.ctm.d)
+        return scale > 0 ? scale : 1
+    }
+
+    /// How far an interior panel reaches above its fragment, in device pixels.
+    static let overhangPixels: CGFloat = 2
+
+    /// The most that overhang can be in points, which the rendering surface
+    /// has to leave room for. Two points is two pixels even at 1x.
+    static let maximumOverhang: CGFloat = 2
+
+    /// The panel rectangle for one fragment.
+    ///
+    /// A code line is 20.021484375pt tall at body size, so fragment boundaries
+    /// land partway through a device pixel rather than on the grid. Two
+    /// fragments meeting inside one pixel each cover part of it, and two partial
+    /// coverages composite to less than the fill: a hairline of the page showing
+    /// through the block, every few lines. It is faint on a light background and
+    /// obvious on a dark one.
+    ///
+    /// The cure is for the fragment *behind* to cover that pixel completely, so
+    /// the one in front can be partial without the page showing through. Each
+    /// line's view sits in front of the line below it, so the fragment behind is
+    /// the lower one: an interior panel starts `overhangPixels` above its frame,
+    /// underneath the line above. The bottom never moves — reaching down would
+    /// paint in front of the next line's text.
+    ///
+    /// Whole pixels of overlap, not a round-up to the next pixel boundary. An
+    /// earlier version rounded the bottom up to its own pixel grid, which works
+    /// only while that grid is the screen's. Inside `PageView` the page is
+    /// scaled by a transform, the fragment's grid sits some fraction off the
+    /// screen's, and the edge is filtered as well; the round-up could leave no
+    /// overlap on screen at all, and at 1.25x the seam came back.
+    ///
+    /// - Parameters:
+    ///   - topInset: how far below the frame's top a block's top starts: the
+    ///     gap above it, which is part of the opening fence's line.
+    ///   - bottomInset: how far above the frame's bottom a block's bottom
+    ///     ends: the gap below it, part of the closing fence's line, or less
+    ///     for an unclosed block, which has no closing fence.
+    static func panelRect(
+        frame: CGRect,
+        position: CodeBlockPosition,
+        scale: CGFloat,
+        topInset: CGFloat = CodeBlockRoom.gapAbove,
+        bottomInset: CGFloat = CodeBlockRoom.gapBelow
+    ) -> CGRect {
+        let scale = scale > 0 ? scale : 1
+        let overhang = min(overhangPixels / scale, maximumOverhang)
+
+        let top = position.roundsTop
+            ? frame.minY + topInset
+            : frame.minY - overhang
+
+        let bottom = position.roundsBottom
+            ? frame.maxY - bottomInset
+            : frame.maxY
+
+        return CGRect(
+            x: frame.minX,
+            y: top,
+            width: frame.width,
+            height: max(0, bottom - top)
+        )
+    }
+
+    // MARK: Page breaks
+
+    /// A stretch of the fragment the panel covers, in container coordinates,
+    /// with which of the block's ends it carries.
+    struct PanelRun: Equatable {
+        var top: CGFloat
+        var bottom: CGFloat
+        var position: CodeBlockPosition
+    }
+
+    /// Breaks shorter than this don't interrupt a panel. Seamless layout's
+    /// 1pt break still pushes a line, and a code block reads better unbroken
+    /// there; compressed and print layout's breaks are 24pt and more.
+    static let minimumBreakHeight: CGFloat = 2
+
+    /// The stretches a fragment's panel covers, split at page breaks.
+    ///
+    /// TextKit keeps a fragment's frame starting where its paragraph began and
+    /// places a line pushed past an exclusion band further down inside it, so
+    /// the frame spans the break. A panel drawn over the whole frame painted
+    /// across the gap between two sheets in print layout. Splitting where a
+    /// break lies above the first line, or between two lines of a wrapped
+    /// one, keeps the panel on the page.
+    ///
+    /// Only the first run carries the block's top, and only the last its
+    /// bottom: a code block continued over a page break is square at the
+    /// break. With no break in the fragment this is one run over the whole
+    /// frame, exactly as before.
+    ///
+    /// - Parameters:
+    ///   - frame: the fragment's frame, in container coordinates.
+    ///   - lines: each line's vertical extent, in container coordinates, in order.
+    ///   - breaks: the page breaks' vertical extents, in container coordinates.
+    static func panelRuns(
+        frame: CGRect,
+        lines: [ClosedRange<CGFloat>],
+        breaks: [ClosedRange<CGFloat>],
+        position: CodeBlockPosition
+    ) -> [PanelRun] {
+        let breaks = breaks.filter { $0.upperBound - $0.lowerBound >= minimumBreakHeight }
+
+        /// Whether a page break sits in the space between `upper` and `lower`.
+        func isBreak(from upper: CGFloat, to lower: CGFloat) -> Bool {
+            breaks.contains { $0.lowerBound >= upper - 0.5 && $0.upperBound <= lower + 0.5 }
+        }
+
+        var bounds: [(top: CGFloat, bottom: CGFloat)] = []
+        var runTop = frame.minY
+        if let first = lines.first, isBreak(from: frame.minY, to: first.lowerBound) {
+            runTop = first.lowerBound
+        }
+        for (upper, lower) in zip(lines, lines.dropFirst()) where isBreak(from: upper.upperBound, to: lower.lowerBound) {
+            bounds.append((runTop, upper.upperBound))
+            runTop = lower.lowerBound
+        }
+        bounds.append((runTop, frame.maxY))
+
+        return bounds.enumerated().map { index, run in
+            let roundsTop = index == 0 && position.roundsTop
+            let roundsBottom = index == bounds.count - 1 && position.roundsBottom
+            let runPosition: CodeBlockPosition = switch (roundsTop, roundsBottom) {
+            case (true, true):   .only
+            case (true, false):  .first
+            case (false, true):  .last
+            case (false, false): .middle
+            }
+            return PanelRun(top: run.top, bottom: run.bottom, position: runPosition)
+        }
+    }
+
+    // MARK: Drawing
+
+    /// How far the paragraph was pushed down to start a page, and how much of
+    /// that is the break itself. Both nil for a paragraph that wasn't.
+    private var pagePush: CGFloat? { pageAttribute(.pagePush) }
+    private var pageGap: CGFloat? { pageAttribute(.pageGap) }
+
+    private func pageAttribute(_ key: NSAttributedString.Key) -> CGFloat? {
+        guard let paragraph = textElement as? NSTextParagraph, paragraph.attributedString.length > 0,
+              let value = paragraph.attributedString.attribute(key, at: 0, effectiveRange: nil) as? Double
+        else { return nil }
+        return CGFloat(value)
+    }
+
+    /// The stretches this fragment's panel covers, in container coordinates,
+    /// from where TextKit laid out its lines.
+    var laidOutPanelRuns: [PanelRun] {
+        var frame = layoutFragmentFrame
+        var textLines = textLineFragments
+        // The note's empty last line, after a closing fence. It's the only
+        // line with no characters, and it stretches the frame by a line.
+        if closesBlock, textLines.count > 1, let last = textLines.last, last.characterRange.length == 0 {
+            textLines.removeLast()
+            frame.size.height = textLines[textLines.count - 1].typographicBounds.maxY
+        }
+        let lines = textLines.map { line in
+            (frame.minY + line.typographicBounds.minY)...(frame.minY + line.typographicBounds.maxY)
+        }
+        var breaks = (textLayoutManager?.textContainer?.exclusionPaths ?? [])
+            .map { $0.bounds.minY...$0.bounds.maxY }
+        // A paragraph pushed to the next page (`PagePaginator`) has the break
+        // above its first line: the last `gap` points of the push.
+        if let push = pagePush, let gap = pageGap, push >= gap, gap > 0 {
+            breaks.append((frame.minY + push - gap)...(frame.minY + push))
+        }
+
+        return Self.panelRuns(frame: frame, lines: lines, breaks: breaks, position: position)
+    }
+
+    /// Paints the panel. Called from `draw(at:in:)`, and by printing, which
+    /// draws a page's lines one at a time rather than the whole fragment.
+    func drawPanel(at point: CGPoint, in context: CGContext) {
+        let resolved = drawingPlacement == nil
+        if resolved { drawingPlacement = placement() ?? madePlacement }
+        defer { if resolved { drawingPlacement = nil } }
+        let frame = layoutFragmentFrame
+        let runs = laidOutPanelRuns
+        let scale = Self.pixelScale(of: context)
+        let span = panelSpan
+        let cornerRadius = CodeBlockRoom.cornerRadius
+
+        context.saveGState()
+        context.setFillColor(fillColor.cgColor)
+
+        for run in runs {
+            // Span the text column and the room either side of it, not the
+            // text. `layoutFragmentFrame.width` stops at the last glyph,
+            // which is precisely the ragged edge being fixed here.
+            let rect = Self.panelRect(
+                frame: CGRect(
+                    x: point.x + span.left,
+                    y: point.y + (run.top - frame.minY),
+                    width: span.right - span.left,
+                    height: run.bottom - run.top
+                ),
+                position: run.position,
+                scale: scale,
+                bottomInset: closesBlock ? CodeBlockRoom.gapBelow : CodeBlockRoom.unclosedInset
+            )
+
+            var corners: UIRectCorner = []
+            if run.position.roundsTop {
+                corners.formUnion([.topLeft, .topRight])
+            }
+            if run.position.roundsBottom {
+                corners.formUnion([.bottomLeft, .bottomRight])
+            }
+
+            let path: UIBezierPath = corners.isEmpty
+                ? UIBezierPath(rect: rect)
+                : UIBezierPath(
+                    roundedRect: rect,
+                    byRoundingCorners: corners,
+                    cornerRadii: CGSize(width: cornerRadius, height: cornerRadius)
+                  )
+            context.addPath(path.cgPath)
+        }
+
+        context.fillPath()
+
+        context.restoreGState()
+    }
+}
+
+/// How a code block's paragraphs are drawn right now.
+struct FenceDisplay: Equatable {
+    /// Whether the fence lines' backticks are drawn.
+    var showsFences: Bool
+    /// Whether the caret or a selection is in the block: its fences show, as
+    /// markers, and it has no language button.
+    var isEditing: Bool
+}
+
+#endif

@@ -1,0 +1,374 @@
+//
+//  NoteSearchTests.swift
+//  NoteCodeTests
+//
+
+import Foundation
+import SwiftData
+import Testing
+#if canImport(UIKit)
+import SwiftUI
+import UIKit
+#endif
+@testable import NoteCode
+
+@Suite("Note search", .tags(.library))
+struct NoteSearchTests {
+
+    // MARK: What matches
+
+    @Test("An empty search matches nothing, and the list shows as it is")
+    func emptySearch() {
+        #expect(NoteSearch("").isEmpty)
+        #expect(NoteSearch("  \n ").isEmpty)
+        #expect(NoteSearch(" ").match(title: "Anything", content: "at all") == nil)
+    }
+
+    @Test("Every word has to appear, in the title or the text, in any order")
+    func everyWord() {
+        let search = NoteSearch("search binary")
+        #expect(search.terms == ["search", "binary"])
+
+        #expect(search.match(title: "Binary trees", content: "Depth-first search") != nil)
+        #expect(search.match(title: "Lecture 4", content: "binary search on a sorted array") != nil)
+        #expect(search.match(title: "Binary trees", content: "Inorder traversal") == nil)
+    }
+
+    @Test("Case, accents and word boundaries don't matter")
+    func loose() {
+        #expect(NoteSearch("cafe").match(title: "Café notes", content: "") != nil)
+        #expect(NoteSearch("VECTOR").match(title: "", content: "std::vector<int>") != nil)
+        #expect(NoteSearch("vec").match(title: "", content: "std::vector<int>") != nil)
+        #expect(NoteSearch("Ünïcode").match(title: "", content: "unicode strings") != nil)
+    }
+
+    @Test("A note is a title match only when every word is in its title")
+    func titleMatch() {
+        let search = NoteSearch("binary search")
+        #expect(search.match(title: "Binary search", content: "")?.inTitle == true)
+        #expect(search.match(title: "Binary trees", content: "search")?.inTitle == false)
+    }
+
+    // MARK: Excerpts
+
+    @Test("The excerpt is the line holding the text's first match, trimmed")
+    func excerptLine() {
+        let content = "# Lecture 4\n\n  The loop invariant holds.  \nThen a second invariant.\n"
+        #expect(NoteSearch("invariant").match(title: "", content: content)?.excerpt == "The loop invariant holds.")
+    }
+
+    @Test("The excerpt is the words the page draws, not the Markdown typed",
+          arguments: [
+              ("# CS133 Lecture 4", "CS133", "CS133 Lecture 4"),
+              ("## Big-O **notation** recap", "notation", "Big-O notation recap"),
+              ("- [ ] review *heaps* tonight", "heaps", "review heaps tonight"),
+              ("> a [link](https://example.com) to read", "read", "a link to read"),
+              ("Call `foo()` twice", "twice", "Call foo() twice"),
+          ])
+    func excerptIsPlainText(line: String, term: String, shown: String) {
+        let content = "Notes\n\n\(line)\n"
+        #expect(NoteSearch(term).match(title: "", content: content)?.excerpt == shown)
+    }
+
+    @Test("A match in code reads as typed: every character there is drawn")
+    func excerptInCode() {
+        let content = "Notes\n\n```cpp\n# define MAX 10\nint **p;\n```\n"
+        #expect(NoteSearch("define").match(title: "", content: content)?.excerpt == "# define MAX 10")
+        #expect(NoteSearch("int").match(title: "", content: content)?.excerpt == "int **p;")
+    }
+
+    @Test("A search for the markers themselves still shows the line it matched")
+    func excerptOfMarkerSearch() {
+        let excerpt = NoteSearch("**").match(title: "", content: "Some **bold** words\n")?.excerpt
+        #expect(excerpt == "Some **bold** words")
+    }
+
+    @Test("A coloured run's tags are not in the excerpt")
+    func excerptWithoutTags() throws {
+        let content = "Lead <span style=\"color:#FF0000\">factor</span> out\n"
+        let excerpt = try #require(NoteSearch("factor").match(title: "", content: content)?.excerpt)
+        #expect(excerpt == "Lead factor out")
+    }
+
+    @Test("The excerpt comes from whichever word matches first in the text")
+    func excerptFirstWord() {
+        let content = "Heaps come first.\nThen sorting.\nThen heaps again."
+        #expect(NoteSearch("sorting heaps").match(title: "", content: content)?.excerpt == "Heaps come first.")
+    }
+
+    @Test("Only a title match has no excerpt")
+    func excerptTitleOnly() {
+        let match = NoteSearch("graphs").match(title: "Graphs", content: "BFS and DFS")
+        #expect(match != nil)
+        #expect(match?.excerpt == nil)
+    }
+
+    @Test("Far along a long line, the excerpt starts near the match, at a word")
+    func excerptLongLine() throws {
+        let content = "Before the match there is a long run of words that would push it out of the row entirely, and then pivot comes."
+        let excerpt = try #require(NoteSearch("pivot").match(title: "", content: content)?.excerpt)
+
+        #expect(excerpt.hasPrefix("…"))
+        #expect(excerpt.hasSuffix("then pivot comes."))
+        // At a word: the character after the ellipsis starts one.
+        let afterEllipsis = excerpt.dropFirst()
+        let start = content.range(of: String(afterEllipsis))
+        #expect(start != nil)
+        if let start {
+            #expect(start.lowerBound == content.startIndex || content[content.index(before: start.lowerBound)] == " ")
+        }
+        #expect(afterEllipsis.count <= NoteSearch.excerptLead + "pivot comes.".count)
+    }
+
+    // MARK: Matches in the text
+
+    @Test("Matches are every occurrence of every word, in order, in UTF-16")
+    func matchesInText() {
+        let content = "🙂 loop, then Loop again; a lööp"
+        let matches = NoteSearch("loop").matches(in: content)
+        let ns = content as NSString
+
+        #expect(matches.map { ns.substring(with: $0) } == ["loop", "Loop", "lööp"])
+        // The emoji is two UTF-16 units: the first match starts at 3, not 2.
+        #expect(matches.first?.location == 3)
+    }
+
+    @Test("Overlapping words are one match")
+    func overlappingMatches() {
+        let content = "vector and vec"
+        let matches = NoteSearch("vec vector").matches(in: content)
+        #expect(matches.map { (content as NSString).substring(with: $0) } == ["vector", "vec"])
+    }
+
+    @Test("Matches stop at the limit")
+    func matchLimit() {
+        let content = String(repeating: "a ", count: 1_000)
+        #expect(NoteSearch("a").matches(in: content, limit: 20).count == 20)
+    }
+
+    // MARK: Bold
+
+    @Test("The words searched for are bold in a result's title and excerpt")
+    func highlighted() {
+        let text = NoteSearch("loop inv").highlighted("The loop invariant holds")
+        let bold = text.runs
+            .filter { $0.inlinePresentationIntent == .stronglyEmphasized }
+            .map { String(text[$0.range].characters) }
+
+        #expect(bold == ["loop", "inv"])
+        #expect(String(text.characters) == "The loop invariant holds")
+    }
+}
+
+// MARK: - Results
+
+@Suite("Note search results", .tags(.library))
+@MainActor
+struct NoteSearchResultsTests {
+
+    private let container: ModelContainer
+    private var context: ModelContext { container.mainContext }
+
+    init() throws {
+        let schema = NoteSchema.current
+        container = try ModelContainer(
+            for: schema,
+            configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)]
+        )
+    }
+
+    private func note(_ title: String, _ content: String = "", modified day: Int = 0) -> Page {
+        let page = Page(title: title, content: content)
+        page.modifiedAt = Date(timeIntervalSince1970: TimeInterval(day) * 86_400)
+        context.insert(page)
+        return page
+    }
+
+    @Test("Title matches come first, then the rest, each in the reader's sort")
+    func order() {
+        let oldTitle = note("Heaps", modified: 1)
+        let newTitle = note("Heaps and stacks", modified: 5)
+        let oldText = note("Lecture 3", "heaps", modified: 2)
+        let newText = note("Lecture 9", "a heap of heaps", modified: 9)
+        _ = note("Graphs", "BFS", modified: 10)
+
+        let results = NoteSearch("heaps").results(in: context.allPages, sort: .default)
+
+        #expect(results.map(\.page.title) == [newTitle, oldTitle, newText, oldText].map(\.title))
+    }
+
+    @Test("Notes in folders and pinned notes are results like any other")
+    func flat() {
+        let folder = Folder(name: "CS 133")
+        context.insert(folder)
+        let filed = note("Pointers", "nullptr")
+        filed.folder = folder
+        let pinned = note("Pinned", "nullptr")
+        pinned.isPinned = true
+
+        let results = NoteSearch("nullptr").results(in: context.allPages, sort: .default)
+
+        #expect(Set(results.map(\.page.title)) == ["Pointers", "Pinned"])
+    }
+
+    /// Notes with a spread of titles and text, one in Recently Deleted.
+    private func library() -> [Page] {
+        _ = note("Heaps", "min-heap and max-heap", modified: 1)
+        _ = note("Lecture 3", "heaps and vectors", modified: 2)
+        _ = note("Vectors", "std::vector<int>", modified: 3)
+        _ = note("Graphs", "BFS and DFS", modified: 4)
+        let gone = note("Heaps deleted", "heaps", modified: 5)
+        gone.deletedAt = Date()
+        return context.allPages
+    }
+
+    @Test("The results are the same as before for an empty search and for real ones")
+    func resultsPinned() {
+        let pages = library()
+        func titles(_ query: String) -> [String] {
+            NoteSearch(query).results(in: pages, sort: .default).map(\.page.title)
+        }
+
+        #expect(titles("") == [])
+        #expect(titles("  ") == [])
+        #expect(titles("heaps") == ["Heaps", "Lecture 3"])
+        #expect(titles("vector") == ["Vectors", "Lecture 3"])
+        #expect(titles("bfs dfs") == ["Graphs"])
+        #expect(titles("zebra") == [])
+    }
+
+    @Test("An empty search reads no note's text")
+    func emptySearchReadsNothing() {
+        let pages = library()
+        var reads = 0
+        let results = NoteSearch("").results(in: pages, sort: .default) { page in
+            reads += 1
+            return page.content
+        }
+
+        #expect(results.isEmpty)
+        #expect(reads == 0)
+    }
+
+    @Test("The search call over 500 notes", .timeLimit(.minutes(1)), .tags(.perf))
+    func cost() {
+        for index in 0..<500 {
+            _ = note("Note \(index)", String(repeating: "std::vector<int> v; // line \(index)\n", count: 200), modified: index)
+        }
+        let pages = context.allPages
+        let search = NoteSearch("")
+
+        var samples: [TimeInterval] = []
+        for _ in 0..<5 {
+            let took = ContinuousClock().measure { _ = search.results(in: pages, sort: .default) }
+            samples.append(Double(took.components.seconds) + Double(took.components.attoseconds) / 1e18)
+        }
+        let median = samples.sorted()[samples.count / 2]
+        reportPerf("NoteSearchResultsTests/cost.empty", seconds: median)
+        #expect(median < 0.005)
+    }
+}
+
+private extension ModelContext {
+    var allPages: [Page] {
+        (try? fetch(FetchDescriptor<Page>())) ?? []
+    }
+}
+
+// MARK: - Opening a result
+
+#if canImport(UIKit)
+
+@Suite("Opening a search result", .tags(.library))
+@MainActor
+struct SearchRevealTests {
+
+    /// Enough pages that the match is well below the first screen.
+    private static let text = (0..<300)
+        .map { $0 == 240 ? "Line \($0): the needle is here." : "Line \($0): an invariant holds before and after every iteration." }
+        .joined(separator: "\n")
+
+    @Test("The page scrolls to the first match once it's laid out")
+    func scrollsToMatch() async throws {
+        let window = makeTestWindow(frame: CGRect(x: 0, y: 0, width: 1000, height: 1200))
+        let textView = DocumentTextView.makeConfiguredTextView()
+        textView.text = Self.text
+        let page = PageView(textView: textView)
+
+        let matches = NoteSearch("needle").matches(in: Self.text)
+        let first = try #require(matches.first)
+        page.reveal(first, highlighting: matches)
+
+        page.frame = CGRect(x: 0, y: 0, width: 880, height: 1100)
+        window.addSubview(page)
+        window.makeKeyAndVisible()
+        page.layoutIfNeeded()
+        textView.layoutIfNeeded()
+        // The reveal runs after the layout pass that finds the page sized.
+        await waitFor { textView.contentOffset.y > 0 }
+
+        let top = try #require(page.lineTop(atCharacter: first.location))
+        let visible = textView.contentOffset.y..<(textView.contentOffset.y + textView.bounds.height)
+        #expect(textView.contentOffset.y > 0)
+        #expect(visible.contains(top))
+    }
+
+    @Test("Highlights come and go with the search result's matches")
+    func highlights() {
+        let textView = DocumentTextView.makeConfiguredTextView()
+        textView.text = "the needle"
+
+        #expect(!textView.showsSearchMatches)
+
+        let needle = NSRange(location: 4, length: 6)
+        textView.highlightSearchMatches([needle], current: needle)
+        #expect(textView.showsSearchMatches)
+
+        textView.clearSearchHighlights()
+        #expect(!textView.showsSearchMatches)
+    }
+
+    @Test("Typing in the editor takes a search result's highlights away")
+    func typingClearsHighlights() {
+        final class Box { var value = "" }
+        let box = Box()
+        let coordinator = DocumentTextView.Coordinator(text: Binding(get: { box.value }, set: { box.value = $0 }))
+        let textView = DocumentTextView.makeConfiguredTextView()
+        textView.delegate = coordinator
+        textView.text = "the needle"
+
+        let needle = NSRange(location: 4, length: 6)
+        textView.highlightSearchMatches([needle], current: needle)
+        coordinator.textViewDidChange(textView)
+
+        #expect(!textView.showsSearchMatches)
+    }
+}
+
+#endif
+
+// MARK: Moved from the Core suites (T11): these read NoteSearch, which is app code
+
+extension NoteSearchTests {
+
+    @Test("Search never finds a tag, never shows one, and points at the note's own characters")
+    func searchIgnoresColourTags() throws {
+        let red = SpanStyle(colour: TextColour.red.hex).openTag
+        let text = "keep the \(red)load factor\(SpanStyle.close) low"
+        #expect(NoteSearch("span").match(title: "Note", content: text) == nil)
+        #expect(NoteSearch("color").match(title: "Note", content: text) == nil)
+
+        let match = try #require(NoteSearch("factor").match(title: "Note", content: text))
+        #expect(match.excerpt?.contains("<") == false)
+        let found = try #require(NoteSearch("factor").matches(in: text).first)
+        #expect((text as NSString).substring(with: found) == "factor")
+    }
+
+    @Test("Search reads the text nested in bold, not the colour tag")
+    func searchReadsNestedText() {
+        let red = SpanStyle(colour: TextColour.red.hex).openTag
+        let note = "**\(red)load factor\(SpanStyle.close)** low"
+        #expect(NoteSearch("span").match(title: "Note", content: note) == nil)
+        #expect(NoteSearch("factor").match(title: "Note", content: note) != nil)
+    }
+}

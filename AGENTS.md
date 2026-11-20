@@ -1,0 +1,417 @@
+# AGENTS.md
+
+The rules for anyone, person or coding agent, changing this code. Read it
+before the code; the design note for your area comes next (Design notes,
+below).
+
+## Project overview
+
+An iPad and iPhone note-taking app for computer science coursework. A single continuous,
+scrollable document (Obsidian-style) where:
+
+- Regular text is typed and formatted like a normal markdown note.
+- Triple-backtick fences (` ``` `) anywhere in the flow become syntax-highlighted
+  code blocks — not separate files, just inline sections of the same page. Each
+  block carries a run and a copy button in its top-right corner.
+- A drawing layer (Notability-style) sits over the same page and can be toggled on
+  to draw handwritten notes/diagrams with Apple Pencil, then toggled back to
+  text/code editing without losing scroll position or leaving the page.
+
+Primary use case: programming coursework in C++ and algorithm practice in Java
+and Python, so code blocks need to support at least C++, Java, and Python.
+
+Nothing is compiled or executed on the device. In this edition, Run opens the
+block on a free online compiler, and `CodeDestination.request(for:language:)`
+picks it, two ways:
+
+- **In the link.** Compiler Explorer encodes a whole session in the URL path, so
+  the student lands on a finished run. Verified against the live site; the
+  compiler ids are pinned and are a maintenance item, since the site has no
+  "latest" alias and 1,197 compilers.
+- **On the pasteboard.** Programiz keeps the editor's contents in the browser,
+  with no way to be handed a program, so the code is copied and the student
+  pastes on arrival. Everything that can't go in a link goes here: Java,
+  JavaScript, and a block too long for one.
+
+Compiler Explorer does not get Java: its executor compiles into a fixed
+filename, so `public class Main` fails there with an error about the file name.
+It does not get JavaScript either, whose only compilers there are V8 builds that
+cannot execute (see "Code: languages, the keys row…"). Those go to Programiz.
+
+## Tech stack
+
+- **Swift + SwiftUI** — app shell, navigation, state management.
+- **TextKit 2** (`NSTextLayoutManager`) — custom text editor that detects code
+  fences as you type and renders that span as a distinct, non-plain-text region.
+- **PaperKit** (`PaperMarkupViewController`, `PaperMarkup`) — transparent
+  overlay canvas for ink, sharing scroll position with the text layer. It is
+  PencilKit's canvas plus shapes, images and text boxes; PencilKit's tools still
+  drive it. Only one of (text layer, drawing layer) should own touch input at a
+  time, controlled by the toggle. Chosen over a bare `PKCanvasView` on 19 Sep;
+  see docs/archive/phase-drawing-layer.md.
+- **SwiftData** — persistence for documents (text content + serialized
+  `PaperMarkup` data per page). iCloud sync is a later-stage concern, not MVP.
+- **Platforms** — iOS and iPadOS 27 (iPad, iPhone, the Duo); macOS is not a
+  platform since 1.2.0 (features.md › macOS).
+
+## Conventions
+
+- Prefer SwiftUI-native state (`@State`, `@Observable`) over introducing
+  Combine unless a specific async stream genuinely needs it.
+- Keep the text/code parsing logic (fence detection, language tagging)
+  separate from rendering — parsing should be pure and testable without
+  SwiftUI in the loop.
+- Drawing data (`PaperMarkup`) is serialized independently per page and should
+  never be re-encoded on every keystroke of the text layer — only on drawing
+  layer changes.
+- When several settings have to move together, they live in one type with one
+  `apply(to:)` rather than being set individually at the call site, so they
+  cannot drift apart. `TextRewritingPolicy` is the reference example.
+
+## Architecture notes
+
+- A "page" is the persistence unit: text content + an array of drawing
+  strokes anchored to scroll position, not a list of discrete blocks.
+- The toggle switches *input ownership*, not *view visibility* — both layers
+  are always rendered/visible; only one accepts touches at a time.
+- Code fence detection should be resilient to incomplete fences while typing
+  (i.e. don't require the closing ``` to exist before showing highlighting).
+
+## Design notes (read on demand)
+
+Per-feature design notes, decisions and what was measured live in `docs/design/`.
+Comments and docs that say "AGENTS.md › Section" mean the file below with that title.
+Read the one that matches the area you are changing; do not read them all.
+
+| Section | File |
+|---|---|
+| Colour | [docs/design/colour.md](docs/design/colour.md) |
+| Page geometry, orientation, and zoom | [docs/design/page-geometry-orientation-and-zoom.md](docs/design/page-geometry-orientation-and-zoom.md) |
+| Who owns scrolling | [docs/design/who-owns-scrolling.md](docs/design/who-owns-scrolling.md) |
+| iPhone and the Duo | [docs/design/iphone-and-the-duo.md](docs/design/iphone-and-the-duo.md) |
+| The page fills the window | [docs/design/the-page-fills-the-window.md](docs/design/the-page-fills-the-window.md) |
+| Pages | [docs/design/pages.md](docs/design/pages.md) |
+| Typing cost in long paged notes | [docs/design/paged-typing-cost.md](docs/design/paged-typing-cost.md) |
+| The note page | [docs/design/the-note-page.md](docs/design/the-note-page.md) |
+| Keyboard, edit menu, pointer, Dynamic Type | [docs/design/keyboard-edit-menu-pointer-dynamic-type.md](docs/design/keyboard-edit-menu-pointer-dynamic-type.md) |
+| Recently Deleted and folder faces | [docs/design/recently-deleted-and-folder-faces.md](docs/design/recently-deleted-and-folder-faces.md) |
+| Home, the title screen, thumbnails, reopening | [docs/design/home-the-title-screen-thumbnails-reopening.md](docs/design/home-the-title-screen-thumbnails-reopening.md) |
+| Writing: hidden Markdown markers, lists, checklists, links | [docs/design/writing-hidden-markdown-markers-lists-checklists.md](docs/design/writing-hidden-markdown-markers-lists-checklists.md) |
+| Code: languages, the keys row, indentation, line numbers, output | [docs/design/code-languages-and-keys.md](docs/design/code-languages-and-keys.md) |
+| Insert and templates | [docs/design/insert-and-templates.md](docs/design/insert-and-templates.md) |
+| Navigation and the text options row | [docs/design/navigation-and-the-text-options-row.md](docs/design/navigation-and-the-text-options-row.md) |
+| Notes in and out, and one editor per note | [docs/design/notes-in-and-out-and-one-editor-per-note.md](docs/design/notes-in-and-out-and-one-editor-per-note.md) |
+| Settings, toasts, polish (v3 phase 8) | [docs/design/settings-toasts-polish-v3-phase-8.md](docs/design/settings-toasts-polish-v3-phase-8.md) |
+| Settings | [docs/design/settings.md](docs/design/settings.md) |
+| Code-block fences | [docs/design/code-block-fences.md](docs/design/code-block-fences.md) |
+| Code blocks: room around and inside | [docs/design/code-blocks-room-around-and-inside.md](docs/design/code-blocks-room-around-and-inside.md) |
+| Coloured and sized text | [docs/design/coloured-and-sized-text.md](docs/design/coloured-and-sized-text.md) |
+| Inline nesting | [docs/design/inline-nesting.md](docs/design/inline-nesting.md) |
+| Formatting per character | [docs/design/formatting-per-character.md](docs/design/formatting-per-character.md) |
+| Typing style | [docs/design/typing-style.md](docs/design/typing-style.md) |
+| Obsidian's other marks and blocks | [docs/design/obsidian-s-other-marks-and-blocks.md](docs/design/obsidian-s-other-marks-and-blocks.md) |
+| Paste and copy with formatting | [docs/design/paste-and-copy-with-formatting.md](docs/design/paste-and-copy-with-formatting.md) |
+| Organising notes | [docs/design/organising-notes.md](docs/design/organising-notes.md) |
+| LaTeX: inline and display formulas | [docs/design/latex.md](docs/design/latex.md) |
+| Selection, objects and the ink storage format | [docs/design/object-system.md](docs/design/object-system.md) |
+| Paper styles (removed 31 Oct) | [docs/design/paper-styles.md](docs/design/paper-styles.md) |
+| The model (schema versions, freezing) | [docs/design/the-model.md](docs/design/the-model.md) |
+
+What the app contains: [docs/features.md](docs/features.md) — every feature by type, how it
+works, and what is missing or planned. Read it before reading code to find out whether
+something exists, and update its rows in the same PR that adds, changes or removes a feature.
+Some of its rows describe the App Store edition's own parts, which are not in this
+repository.
+
+Start at [docs/README.md](docs/README.md) (where every kind of fact lives).
+Decisions and reversals: [docs/decisions.md](docs/decisions.md).
+Status and what is left: [docs/ROADMAP.md](docs/ROADMAP.md). Finished plans
+are in `docs/archive/`. Everything still to see on a real iPad, in the order
+of a walk through the app:
+[docs/ipad-test-checklist.md](docs/ipad-test-checklist.md).
+How the app was built, phase by phase:
+[docs/timeline.md](docs/timeline.md). The cost tests' and the warning
+ratchet's numbers: [docs/refactor/baseline.md](docs/refactor/baseline.md);
+what the November refactor taught:
+[docs/refactor/lessons.md](docs/refactor/lessons.md).
+
+## Folder map
+
+`NoteCode/` is an Xcode synchronized group, so a file's folder is its place in
+the target; nothing is listed in the project. Tests mirror it in
+`NoteCodeTests/`.
+
+| Folder | Holds |
+|---|---|
+| `App/` | `NoteCodeScene` (the one scene), `AppExtensions` (the seam), `ContentView`, launch, navigation, commands, Welcome |
+| `Model/` | `Page`, `Folder` and the frozen schema, `Storage`; behaviour in `+Behaviour` extensions, never in the frozen class files |
+| `Library/` | Home, the note list, folders, search, templates, thumbnails, Recently Deleted |
+| `NotePage/` | A note's page: `PageDetailView`, `PageView` (the scroll view that owns the layers), `NoteEditor`, header, hotbar, the controllers (typography, typing style, selection size, undo, mode), `EditorFeature` |
+| `Text/Core/` | The pure core: parser, `DocumentSnapshot`, formatting, layout planning, text maths. No UIKit or SwiftUI (lint rule 4); `swift test` compiles it alone (Package.swift) |
+| `Text/Editor/` | `DocumentTextView` and its Coordinator extensions, `DocumentStyler`, edit router, clipboard, caret, settings, `PageConfiguration` |
+| `Text/Layout/` | TextKit 2 layout fragments for prose, blanks and lists |
+| `Code/` | Code-block overlay and bars, languages, keys row, indent, highlighter, `CodeDestination` (compiler sites) |
+| `Ink/` | Canvas, codec, capture, tools and palettes, selection and the object table, `PageInkPipeline` |
+| `Formula/` | LaTeX attachments and editor |
+| `InOut/` | PDF, Markdown interchange, Export All, Import |
+| `Settings/` | `SettingKeys` (one table per section, names and defaults frozen), the settings pages |
+| `Shared/` | Small helpers with no feature in them |
+| `Debug/` | The `-debug-` launch options (DEBUG only) |
+| `OpenSource/` (repository root) | This edition's `@main` (`OpenSourceEdition.swift`, `AppExtensions.none`), its Info.plist and privacy manifest, and `OpenSourceEditionTests` |
+| `Config/` (repository root) | The xcconfigs; `Local.xcconfig.example` is the one to copy for signing (README) |
+| `scripts/` | Below |
+| `docs/` | Start at docs/README.md |
+
+## How a feature plugs in
+
+The app is **the general app plus an edition**. `NoteCodeScene` is the whole
+app; an edition's `@main` hands it an `AppExtensions`
+(App/AppExtensions.swift). This repository's edition hands it `.none`. The
+App Store edition is built from this code plus a private layer that adds its
+features through the same doors, so a change to general behaviour belongs
+here, and a new door can be added here when a feature needs one.
+
+- **Where an edition adds app-level things:** a member of `AppExtensions`
+  (`start`, `root`, `homeFooter`, `listFootRows`, `aboutRows`,
+  `settingsSections`, `mayAskForReview`, `runLines`, and under `#if DEBUG`
+  `debugResetKeys` and `debugRoot`). A member is added only because the
+  general code calls it; its default does nothing.
+- **Where it adds things to a note's editor:** an `EditorFeature`
+  (NotePage/EditorFeature.swift), made per note by an
+  `EditorFeatureFactory` listed in `AppExtensions.editorFeatures`. A
+  feature offers `actions(for:)` (placed in the code-block menu, the text
+  row or the ••• menu), a `pageAccessory`, a `topBarItem`, a `sidePanel`,
+  `run(_:from:)`, `blocksDidChange` and `connect(_: EditorServices)`.
+  `EditorServices` is everything a feature may ask of the text view
+  (text, blocks, apply an edit, place the caret, open a site); none of it
+  knows a feature.
+- **Settings:** a new setting is a `SettingKey` in `SettingKeys`, declared
+  with the `@AppStorage` init that takes it. Settings that must move
+  together are one type with `apply(to:)` (`TextRewritingPolicy`,
+  `EditorSettings`, `PageConfiguration`).
+- **The seam rule:** general code names no edition's types; it reaches an
+  edition only through `AppExtensions` and `EditorFeature`.
+  `scripts/check-seam.sh` counts the breaches and fails above the `SEAM <n>`
+  line in docs/refactor/baseline.md.
+
+## Scripts
+
+Every script runs from any worktree. Set `NOTECODE_SIM` to a simulator
+copy of its own (for example `"NoteCode Lane B"`) and `TMPDIR` to a folder
+of its own when sessions run at once: the simulator lock is per simulator
+name, so runs on different copies go in parallel and runs on one queue. Logs
+and result bundles go under `$TMPDIR/notecode-check/<worktree>-<hash>/`.
+
+| Script | Does |
+|---|---|
+| `scripts/check.sh [--full] [--coverage] [--only <Suite> …]` | Lint, seam, `swift test` of the core, then a build and the Fast plan (every unit test but `.perf`). Fails on a failing test or a build error. `--full` adds the Full plan and the UI tests, and from a clean build fails on more warnings than `WARNINGS <n>` in baseline.md. The macOS build runs only if the app target's `SUPPORTED_PLATFORMS` includes `macosx`; otherwise it prints "macOS: not a supported platform, skipped" |
+| `scripts/lint-traps.sh` | Greps for the traps below (`.layoutManager`, `.inkType`, `MarkupOrderedSet` walks, UIKit in Core, test sleeps and the rest); exceptions in `scripts/lint-allow.txt` |
+| `scripts/check-seam.sh` | The seam count (above) |
+| `scripts/core-test.sh [--filter …]` | `swift test` on the Mac for `Text/Core` and its tests, no simulator |
+| `scripts/perf.sh [--compare docs/refactor/baseline.md]` | The cost tests (the Perf plan); fails if any is more than 10% worse than its `PERF` line (under 5ms not judged). A row over budget is re-run first: only its test, up to twice more, and it fails only if its best run is still over |
+| `scripts/verify-move.sh [base]` | Checks that a commit only moves code, and lists access that was loosened |
+| `scripts/debug-launch.sh` | Relaunches the Debug build with the `-debug-` arguments below and prints the report |
+| `scripts/make-icons.swift` | Draws the app icons |
+| `scripts/refresh-ce-ids.sh` | Refreshes the pinned Compiler Explorer compiler ids |
+
+## The model
+
+`Page` and `Folder` are typealiases for `NoteSchemaV1.Page` and `.Folder`
+(Page.swift, Folder.swift); `Storage` opens every store with
+`NoteMigrationPlan`. Read [docs/design/the-model.md](docs/design/the-model.md)
+before changing a stored attribute. The rules:
+
+- **Version 1 is frozen by its hashes** (`ModelFreezeTests`), and has
+  shipped, so a changed hash means a new schema version.
+- **Shaped for CloudKit**: every relationship optional, every attribute
+  optional or with a default, nothing `.unique`.
+- **A store that can't be opened looks like lost notes**: `Storage` falls
+  back to memory with a warning.
+
+## Shipping
+
+- Every required-reason API the app calls needs its reason in
+  `PrivacyInfo.xcprivacy`, or an App Store upload is rejected
+  (`AppStoreReadinessTests`).
+- **The app icon is drawn by `scripts/make-icons.swift`**: edit the script,
+  never the PNGs, and run `swift scripts/make-icons.swift`. The name and the
+  icon are not licensed for your own builds; see [NOTICE](NOTICE).
+- iPad and iPhone, the Duo included (`TARGETED_DEVICE_FAMILY = "1,2"`).
+
+## Build/test
+
+Scheme `NoteCode`; targets `NoteCode`, `NoteCodeTests`, `NoteCodeUITests`.
+SwiftPM dependencies: HighlightSwift 1.1.0 (code colours) and SwiftMath 1.7.3
+(LaTeX).
+
+Use `scripts/check.sh` (Scripts, above), which wraps this with the lint, the
+simulator lock and the warning ratchet. The raw command is:
+
+    xcodebuild test -project NoteCode.xcodeproj -scheme NoteCode \
+      -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)'
+
+The pure tests (`NoteCodeTests/Text/Core`, bar the two that read
+`DebugFixture`) also run on the Mac with no simulator: `swift test`, or
+`scripts/core-test.sh`, which `check.sh` runs first. The root `Package.swift`
+compiles `NoteCode/Text/Core` in place under the module name `NoteCode`, and
+is test-only: the app does not depend on it, nothing in Core is `public`, and
+the Xcode project does not know it. So a file in Core that needs UIKit or an
+app type fails to compile there, and a test that does belongs in the folder of
+what it tests, not in Core.
+
+Tests use Swift Testing (`@Suite` / `@Test`), not XCTest. Suites that touch
+UIKit are wrapped in `#if canImport(UIKit)` and marked `@MainActor`.
+
+Since 13 September, runs fail to launch on Xcode's cloned simulators ("Busy
+… failed preflight checks"). Add `-parallel-testing-enabled NO`.
+
+Run on a physical iPad with Apple Pencil for anything involving ink — latency
+and palm rejection in the simulator are not representative.
+
+## Debug launch options
+
+Debug builds only (`NoteCode/Debug/`, all behind `#if DEBUG`:
+`DebugLaunchOptions.swift` parses them, `DebugSeed.swift` and
+`DebugSession.swift` carry them out, `DebugStateReport.swift` is the
+report, and `DeviceProbe.swift` and `SelectionProbe.swift` read their own
+flags). They put the app in a known state in one command and report what's
+on screen, so a check doesn't take twenty gestures, a pasteboard that syncs
+with the Mac, or a rebuilt copy of the app with logging.
+
+| Argument | Does |
+|---|---|
+| `-debug-note pages\|code\|empty` | Opens a built-in note, in an in-memory store — the simulator's notes are untouched |
+| `-debug-note-file <path>` | Opens a note read from a file on the Mac |
+| `-debug-orientation portrait\|landscape` | The seeded note's pages |
+| `-debug-text-size 14\|15\|16\|17\|19\|21\|23` | The seeded note's text size |
+| `-debug-mode seamless\|compressed\|print` | Sets the view mode, in the saved setting the menu uses |
+| `-debug-ink-file <path>` | The seeded note's ink, read from a file on the Mac (`DrawingCodec` bytes), to look at a note with thousands of strokes |
+| `-debug-page <n>` | Scrolls to page n's top edge, counted from 1 |
+| `-debug-then-mode <mode>` | Switches mode once the page has settled |
+| `-debug-then-delay <seconds>` | Wait before that switch; default 1 |
+| `-debug-report` | Writes `tmp/notecode-debug-state.json` in the app container each time layout settles |
+| `-debug-first-launch` | A fresh install: an empty in-memory store and the first-launch flags cleared, so the title screen and the Welcome note appear |
+| `-debug-home` | Home over a few weeks of sample notes and three folders, in memory, with the title screen already seen and a note to continue at page 3 |
+| `-debug-keep-defaults` | With `-debug-home`: leaves the saved flags and remembered places alone, and stops the launch pruning or making anything, so it can run over a device's own notes (`ListDragUITests` does) |
+| `-debug-probe` | Writes `tmp/notecode-probe.log` in the app container: what the list's drag and drop deliver, and what drew (`-debug-probe-snapshot` adds window PNGs, `-debug-probe-watch` a drop watcher on the root view). Pull it with `xcrun devicectl device copy from --domain-type appDataContainer --domain-identifier <your bundle id> --source tmp/notecode-probe.log` |
+| `-debug-selection-probe` | Writes `tmp/selectionprobe.log`: what PaperKit's selection does on each tool and touch (docs/design/object-system.md, step 0) |
+
+The report lists mode, orientation, page count, scroll offset, scale, zoom, the
+top line (character, page, whether it starts the page, its text), the point
+size of the text there (`topLinePoints`) and
+`visibleLinesAcrossBreaks`. It is built from where TextKit actually has the
+lines, not from page geometry, and the last two fields are the ones that would
+have shown the 13 September view-switch bug. Bad or misspelt arguments land in
+its `problems` rather than being ignored.
+
+The arguments are deliberately not the settings keys: `-pageViewMode print`
+would work with no code, but a launch argument outranks saved settings, and the
+view menu would then seem broken for the whole session.
+
+    scripts/debug-launch.sh --device "iPad Air 13-inch (M4)" -- \
+      -debug-note pages -debug-orientation landscape -debug-mode print \
+      -debug-page 4 -debug-then-mode seamless -debug-report
+
+The script relaunches the installed Debug build with those arguments, waits
+(`--wait`, default 4s) and prints the report. For manual runs from Xcode, put
+the same arguments in the scheme's Run → Arguments.
+
+## Implementation requirements
+
+- TextKit 2 fence-to-code-region conversion — changes here need manual testing
+  against fast typing, pasting, and mid-fence edits.
+- Overlay touch handoff between the PaperKit canvas and the text view — exactly one
+  layer accepts touches at any moment.
+- Reading `.layoutManager` anywhere on the text view silently downgrades it to
+  TextKit 1 and leaves `textLayoutManager` nil, with no error to say why.
+- A button inside a `UITextView` is not simply a button. When one of the text
+  view's own recognisers claims the touch, UIKit cancels the one the button was
+  tracking and it never fires, so `DocumentUITextView` refuses to let those
+  recognisers begin on an action bar. Changes near this need a real tap test —
+  `sendActions` in a unit test cannot see the conflict. Bars are inserted
+  beneath the ink canvas (`CodeBlockOverlay.ceiling`), so in draw mode the
+  canvas takes every touch over them, and they're placed from TextKit's
+  viewport layout as well as the text view's, since typing a block causes
+  no layout pass of the text view.
+- Ink is saved by `DrawingSaveScheduler` from `PageView.onInkChanged`, which
+  fires only for changes the reader made. Anything that shows or moves ink
+  for the app's own reasons must not call it: a save bumps `modifiedAt`, and
+  opening a note would reorder the list. See step 4 of
+  docs/archive/phase-drawing-layer.md.
+- **Strokes are taken into the stored ink off the main thread** (10 Oct,
+  `InkCapture`). PaperKit's delegate says only that the markup changed, so
+  what changed is found by walking all of it, and at 5,000 strokes that was
+  400ms on the main thread per stroke even walked properly. Now
+  `PageInkPipeline.capture()` only takes a snapshot of the canvas (free: a
+  `PaperMarkup` is a value) with the layout it was drawn in, and a detached
+  task works out the rest; while one runs, only the newest snapshot waits,
+  so a burst of strokes is taken in as one. So `onInkChanged` arrives a
+  moment after the stroke, and anything that needs every stroke now calls
+  `PageView.commitInk()` first, which takes the newest snapshot in on the
+  main thread: reading `PageView.ink` (the PDF), showing ink (a mode
+  switch, with the layout the strokes were drawn in, not the new one),
+  leaving the note and the app leaving the screen (`NoteEditor.commitInk`,
+  from `PageDetailView`), and SwiftUI removing the page. A result computed
+  from state replaced since is dropped (`inkGeneration`).
+  **A test that waits for it must `await`**, not turn the run loop: the
+  task comes back to the main actor, which a synchronous test turning the
+  run loop is still holding, so nothing ever arrived
+  (`waitFor` in `TestSupport/InkHarness.swift`).
+- Parse and index `(textView.text ?? "").nativeUTF8`, never `textView.text`
+  itself. That String is backed by the text storage's NSString, and reading
+  it a character at a time is a message send per character: the parser took
+  3ms a keystroke on a 23KB note, in Release too.
+- Never read `Page.drawingData` from a page whose deletion has been saved.
+  SwiftData traps ("backing data was detached … without resolving attribute
+  faults"), since external storage leaves the attribute unloaded, and
+  `isDeleted` reads false again by then — check `modelContext` too. (A note
+  in Recently Deleted isn't deleted yet and can be read; this is about
+  `Page.delete`, which purging uses.)
+- Deleting a note is `Page.moveToRecentlyDeleted`; only purging and Delete
+  Now use `Page.delete(_:from:)`. Both save at once. Other changes are saved
+  by autosave, or when the app leaves the screen with a note open, and a
+  deletion from the note list had neither: killed within a few seconds — a
+  crash, or Xcode starting the next build — the note came back.
+- Walk a `MarkupOrderedSet` with `for … in`, never `map`, `reduce`, an
+  index or anything else that reads it by position. Reading one element by
+  index costs what `count` does, and both grow with the set (16ms each at
+  5,000 strokes); `map` reads every element that way. `InkMarkupTransforms.frames(of:)`
+  did, after every stroke: 808ms per stroke at 500 strokes, 10.6s at 2,000
+  (simulator, 10 Oct), and writing stuttered and caught up seconds later.
+  Even done right, every operation on the set is linear: at 5,000 strokes a
+  walk with `renderFrame` is 107ms, an append 20ms, `ids` 16ms.
+- **Build a `MarkupOrderedSet` with one `append(contentsOf:)`** of a Swift
+  array, never an `append`, `insert`, `updateOrAppend` or `set[id] =` per
+  element: each costs what `count` does, so building a set grows with the
+  square of its size. Opening a note did, in `InkMarkupTransforms.convert`: 1.5s at
+  2,000 strokes and 7s at 5,000, now 141ms and 384ms; switching to print
+  layout 1.7s at 2,000, now 323ms; and the PDF 7.2s at 2,000, now 1.8s,
+  most of it PaperKit drawing (simulator, 10 Oct; `PageViewTests.openingCost`
+  and `NotePDFTests.printingCost` keep them). Setting by id was worst:
+  68s for 5,000. Removing is the exception: use `removeElement(for:)` per
+  element, which is few. A markup keeps what `removeAll(where:)` takes
+  out, as it does an element left out of an assigned set.
+- Never read `PKInk.inkType` from a stroke the canvas made; use
+  `InkContent.inkIdentifier`. PaperKit's pixel eraser cuts nothing: it adds
+  a stroke in `com.apple.ink.eraser`, which `PKInk.InkType` has no case
+  for, and the Swift getter traps on it. Every pixel erase crashed the app
+  as the pen lifted (28 Oct).
+- The action bars are positioned from TextKit 2's *viewport*, never from the
+  whole document. Asking for a fragment further down forces layout all the way
+  to it, which is the lazy layout the editor is built on.
+
+## Open questions
+
+Things that are decided in someone's head but not in the code. Move them up
+into a section above once they are settled.
+
+- Where text-anchored ink lands. Wanted for its own sake, but it is a phase,
+  not a step; docs/ROADMAP.md › After 1.0 ranks it behind iCloud sync.
+- Side-by-side pages (a scrolling-direction setting): the text view scrolls
+  itself and only vertically, so pages flowing sideways means something other
+  than the text view owns scrolling — the same question "Who owns scrolling"
+  settled the other way for zoom.
+- An infinite canvas against Letter pages: ink is stored in page coordinates,
+  so an unbounded canvas is probably a second kind of note rather than a mode.
+- Group notes and comments need a server that holds notes and accounts, and
+  the app has none.

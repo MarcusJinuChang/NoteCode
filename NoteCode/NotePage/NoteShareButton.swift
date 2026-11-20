@@ -1,0 +1,201 @@
+//
+//  NoteShareButton.swift
+//  NoteCode
+//
+//  The note header's share button.
+//
+
+#if canImport(UIKit)
+
+import SwiftUI
+import UIKit
+
+/// The header's Share button: a tap shares the note as a PDF, holding it
+/// offers the rest.
+///
+/// **A menu with a primary action**, as the list's + is: the tap does the
+/// common thing and a hold shows PDF, Markdown, Copy as Markdown and Print.
+/// The PDF is every page as printed, ink included. Markdown is the note's
+/// text as a `.md` file, which is the note itself: the text storage holds
+/// the Markdown as typed, and only ink needs a PDF to survive. Printing goes
+/// through the PDF (⌘P is the same action).
+///
+/// The PDF is made when the item is chosen, which takes a moment on a long
+/// note, and the button shows that it's working until the sheet opens.
+struct NoteShareButton: View {
+    let editor: NoteEditor
+    /// The note's display title (`NoteTitle.display`), never blank; it names the PDF and the `.md`, as in Print.
+    let title: String
+    /// What to share if the text view doesn't exist yet: the note's saved text.
+    var fallbackText: String = ""
+
+    @Environment(ToastCenter.self) private var toasts: ToastCenter?
+
+    @State private var isPreparing = false
+    @State private var failed = false
+    @State private var anchor = PopoverAnchor()
+
+    var body: some View {
+        Menu {
+            Button {
+                Task { await sharePDF() }
+            } label: {
+                Text("PDF")
+                Text("Every page as printed, ink included")
+                Image(systemName: "doc.richtext")
+            }
+            Button {
+                shareMarkdown()
+            } label: {
+                Text("Markdown")
+                Text("A .md file of the text; ink isn't in it")
+                Image(systemName: "doc.plaintext")
+            }
+            Button("Copy as Markdown", systemImage: "doc.on.doc") { copyMarkdown() }
+            Divider()
+            Button("Print…", systemImage: "printer") {
+                Task { await editor.printNote(title: title) }
+            }
+        } label: {
+            if isPreparing {
+                ProgressView()
+                    .accessibilityLabel("Preparing to Share")
+            } else {
+                Label("Share", systemImage: "square.and.arrow.up")
+            }
+        } primaryAction: {
+            Task { await sharePDF() }
+        }
+        .disabled(isPreparing)
+        .background(PopoverAnchorView(anchor: anchor))
+        .accessibilityIdentifier("shareButton")
+        .alert("Couldn't prepare this note", isPresented: $failed) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("There may not be enough free space on this device. Free some up and try again.")
+        }
+    }
+
+    private var markdown: String {
+        editor.currentText ?? fallbackText
+    }
+
+    private func sharePDF() async {
+        isPreparing = true
+        defer { isPreparing = false }
+
+        guard let data = await editor.pdf(title: title) else { return }
+        guard let url = try? NotePDF.write(data, title: title) else {
+            failed = true
+            return
+        }
+        present(url)
+    }
+
+    /// The text, exactly, as a `.md` file named for the note.
+    private func shareMarkdown() {
+        guard let url = try? NoteMarkdown.write(markdown, title: title) else {
+            failed = true
+            return
+        }
+        present(url)
+    }
+
+    private func copyMarkdown() {
+        UIPasteboard.general.string = markdown
+        toasts?.show("Copied")
+    }
+
+    private func present(_ url: URL) {
+        // The editor's own window before any scene's: with two NoteCode
+        // windows open, the first active scene's key window may be the other one.
+        let window = editor.textView?.window ?? Self.keyWindow
+        guard let placement = SharePopover.placement(anchor: anchor.view, keyWindow: window) else { return }
+        Self.present(url, in: placement.window, pointingAt: placement.button)
+    }
+
+    /// The window the reader is in: the active scene's key window.
+    private static var keyWindow: UIWindow? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let active = scenes.filter { $0.activationState == .foregroundActive }
+        return (active.isEmpty ? scenes : active).lazy.compactMap(\.keyWindow).first
+    }
+
+    /// Opens the share sheet over whatever is showing, pointing at the
+    /// button on iPad, where it's a popover.
+    private static func present(_ url: URL, in window: UIWindow, pointingAt button: CGRect) {
+        guard var presenter = window.rootViewController else { return }
+        while let presented = presenter.presentedViewController {
+            presenter = presented
+        }
+
+        let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        if let popover = activity.popoverPresentationController {
+            popover.sourceView = window
+            popover.sourceRect = SharePopover.sourceRect(button: button, in: window.bounds)
+        }
+        presenter.present(activity, animated: true)
+    }
+}
+
+/// The share sheet's pure choices: where it points, and what the file is called.
+nonisolated enum SharePopover {
+
+    /// The window to present in and the button's rect in it.
+    ///
+    /// The anchor's window when it has one. **It may not**: on a short note
+    /// with no ink the anchor was the only copy SwiftUI made, and it sat in a
+    /// toolbar item host that was in no window, so Share wrote the PDF and
+    /// opened nothing (device pass, 7 Nov). Then the given window (the
+    /// note's own), with no rect, so `sourceRect` points at the top right.
+    /// That stands in for the button only while Share is the trailing
+    /// toolbar item; if it moves, this fallback points at the wrong place.
+    ///
+    /// Pointed at in the window's coordinates, not the anchor's own: the
+    /// anchor sits in the toolbar's hosting view, and in landscape its bounds
+    /// put the popover in the window's top-left corner.
+    @MainActor
+    static func placement(anchor: UIView?, keyWindow: UIWindow?) -> (window: UIWindow, button: CGRect)? {
+        if let anchor, let window = anchor.window {
+            return (window, anchor.convert(anchor.bounds, to: window))
+        }
+        return keyWindow.map { ($0, .zero) }
+    }
+
+    /// The rect the popover points at. The Share button's, in window
+    /// coordinates, or when that can't be trusted (no size, or outside the
+    /// window, as a button not yet laid out reports) a small rect at the
+    /// window's top right, where the button is, and never the top left.
+    static func sourceRect(button: CGRect, in window: CGRect) -> CGRect {
+        guard button.width > 1, button.height > 1, window.intersects(button) else {
+            return CGRect(x: window.maxX - 60, y: window.minY + 20, width: 44, height: 44)
+        }
+        return button
+    }
+}
+
+/// Where a UIKit popover points: a plain view behind a SwiftUI control.
+///
+/// SwiftUI's own popover would hold the share sheet as a child, and the
+/// sheet presents Print and Save to Files from itself, so it's presented
+/// from UIKit instead, the way the code block's share is.
+final class PopoverAnchor {
+    weak var view: UIView?
+}
+
+private struct PopoverAnchorView: UIViewRepresentable {
+    let anchor: PopoverAnchor
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.isUserInteractionEnabled = false
+        anchor.view = view
+        return view
+    }
+
+    func updateUIView(_ view: UIView, context: Context) {
+        anchor.view = view
+    }
+}
+
+#endif

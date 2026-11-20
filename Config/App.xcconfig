@@ -1,0 +1,57 @@
+// The app target's settings, in both projects (Shared.xcconfig says how the
+// files fit together). The product and module are pinned to NoteCode, so
+// `@testable import NoteCode` and TEST_HOST hold whatever the target is
+// called.
+//
+// Set by the project's base configuration (the edition):
+//   NOTECODE_BUNDLE_ID_PREFIX   the reverse-DNS prefix (org.example in the public build)
+//   NOTECODE_TEAM               the signing team, empty in the public build
+//   NOTECODE_APP_INFOPLIST      the edition's Info.plist (OpenSource/Info.plist here)
+//   MARKETING_VERSION, CURRENT_PROJECT_VERSION
+
+#include "Shared.xcconfig"
+
+PRODUCT_NAME = NoteCode
+PRODUCT_MODULE_NAME = NoteCode
+PRODUCT_BUNDLE_IDENTIFIER = $(NOTECODE_BUNDLE_ID_PREFIX).NoteCode
+
+// iPhone and iPad only: the app has shipped iOS-only since 1.2.0.
+SUPPORTED_PLATFORMS = iphoneos iphonesimulator
+SUPPORTS_MACCATALYST = NO
+
+DEVELOPMENT_TEAM = $(NOTECODE_TEAM)
+CODE_SIGN_IDENTITY = Apple Development
+PROVISIONING_PROFILE_SPECIFIER =
+
+// Only the app target has it; the tests keep the nonisolated default.
+SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor
+SWIFT_EMIT_LOC_STRINGS = YES
+STRING_CATALOG_GENERATE_SYMBOLS = YES
+
+ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon
+// The alternates have no macOS art (scripts/make-icons.swift draws them).
+ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=iphone*] = AppIcon-Paper AppIcon-Orange
+ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor
+
+ENABLE_APP_SANDBOX = YES
+ENABLE_USER_SELECTED_FILES = readonly
+ENABLE_PREVIEWS = YES
+REGISTER_APP_GROUPS = YES
+
+LD_RUNPATH_SEARCH_PATHS = @executable_path/Frameworks
+LD_RUNPATH_SEARCH_PATHS[sdk=macosx*] = @executable_path/../Frameworks
+
+// The plist file holds what differs between the editions (the App Store's
+// has its ad SDK's keys); these generated keys are the same in both.
+INFOPLIST_FILE = $(NOTECODE_APP_INFOPLIST)
+INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO
+INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*] = YES
+INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*] = YES
+INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*] = YES
+INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*] = YES
+INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*] = YES
+INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*] = YES
+INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*] = UIStatusBarStyleDefault
+INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*] = UIStatusBarStyleDefault
+INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight

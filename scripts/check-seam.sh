@@ -1,0 +1,62 @@
+#!/bin/zsh
+# Count the files outside any Pro/ folder that reach into Pro/, the App
+# Store edition's code (AGENTS.md › How a feature plugs in). Prints
+# `file: name×n …` for each and the count, and fails if the count is above
+# the `SEAM <n>` line in docs/refactor/baseline.md. The count may only fall; 2X7 brings it to 0.
+#
+#   scripts/check-seam.sh
+#
+# A file counts when its code, with comments and string literals stripped,
+# names as a whole word:
+#  - a top-level type or function declared in Pro/ (any file there);
+#  - one of the editor's Pro members (`editor.ai`, `.run`, `.pro`, and
+#    `explain`, `summariseNote`, `insertAnswer`, `runInApp`, `connectRun`,
+#    `onRunNeedsPro`), reached on a value called `editor`, or the named ones
+#    on their own;
+#  - the closures and setting that lead to Pro without naming it:
+#    `explainBlockAtCaret`, `runService`. (`runBlockAtCaret` left the list in
+#    2X5b: ⌘R now asks the editor's features, then opens a compiler site.)
+# NoteCode/, NoteCodeTests/ and NoteCodeUITests/ are searched. OpenSource/
+# is not: it is the other edition, whose `@main` is also called NoteCodeApp.
+# The public repository has no Pro/, so there it counts nothing. (Before the
+# split's S2 the Pro code was NoteCode/Pro/, still looked for below.)
+
+set -uo pipefail
+cd ${0:A:h:h}
+
+pro=NoteCode/Pro
+[[ -d Pro ]] && pro=Pro
+# The public tree has no Pro code, so nothing can reach into it.
+[[ -d $pro ]] || { print "seam: no Pro/ folder here, nothing to count"; exit 0; }
+# Every top-level declaration in Pro/: a line that starts at column 0.
+types=(${(f)"$( { grep -rhoE '^((public|internal|private|fileprivate|final|nonisolated|@MainActor|@Observable) )*(struct|class|enum|actor|protocol|typealias|func) [A-Za-z_][A-Za-z0-9_]*' $pro --include='*.swift' | awk '{print $NF}'; } | sort -u)"})
+# Members named on their own, and those only counted on `editor`.
+members=(explain summariseNote insertAnswer runInApp connectRun onRunNeedsPro
+         explainBlockAtCaret runService)
+words="${(j:|:)types}|${(j:|:)members}"
+# `editor.run`, `editor?.pro`, `editor!.ai`, `self.editor.run` …
+onEditor='editor[?!]?\.(ai|run|pro)'
+
+# Code only: drop // comments and the contents of "…" literals.
+strip() { perl -pe 's{"(?:[^"\\]|\\.)*"}{""}g; s{//.*$}{}' $1 }
+
+n=0
+for f in $(find NoteCode NoteCodeTests NoteCodeUITests -name '*.swift' -not -path '*/Pro/*' 2>/dev/null | sort); do
+  code=$(strip $f)
+  hits=$( { print -r -- $code | grep -owE "\\b($words)\\b"; print -r -- $code | grep -oE "\\b$onEditor\\b" | sed -E 's/[?!]//'; } \
+    | sort | uniq -c | awk '{ printf "%s%s×%s", (NR > 1 ? " " : ""), $2, $1 }')
+  [[ -n $hits ]] || continue
+  n=$(( n + 1 ))
+  print -r -- "$f: $hits"
+done
+print "seam: $n files"
+
+baseline=docs/refactor/baseline.md
+limit=$(grep -E '^SEAM [0-9]+' $baseline 2>/dev/null | head -1 | awk '{print $2}')
+if [[ -z $limit ]]; then
+  print "(no SEAM line in $baseline yet: not enforced)"; exit 0
+fi
+if (( n > limit )); then
+  print "FAIL: $n files reach into Pro/, baseline allows $limit"; exit 1
+fi
+print "seam within baseline ($limit)"
