@@ -123,8 +123,14 @@ nonisolated enum AppInfo {
     static let feedbackAddress: String? = "notecodesupport@gmail.com"
 
     /// The web form both rows open first (`FeedbackRoute`): it needs nothing
-    /// set up on the device. `nil` until the form exists.
-    static let feedbackForm: FeedbackForm? = nil
+    /// set up on the device. "NoteCode Feedback", a Google Form on the
+    /// developer's account (made 21 Nov); responses are in its Responses tab.
+    /// The entries are "What is this?" and "App version", from the form's
+    /// pre-filled link, so the app fills both in.
+    static let feedbackForm: FeedbackForm? = FeedbackForm(
+        url: URL(string: "https://docs.google.com/forms/d/e/1FAIpQLSdkxC6l8AccYzxHWzgDAUp4fKd5wlkeyWlt1uJ_q1CMq7C7Tw/viewform")!,
+        kindEntry: "entry.194544374",
+        versionEntry: "entry.1383320529")
 
     /// The privacy policy's page (the `gh-pages` branch's `privacy.md`; its
     /// text is drafted in `docs/site/privacy.md`). Never optional: the
