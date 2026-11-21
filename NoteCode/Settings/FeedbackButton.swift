@@ -146,7 +146,7 @@ private struct MailComposer: UIViewControllerRepresentable {
 #if canImport(MessageUI)
 // Sent, saved, cancelled or failed, the sheet closes: Mail reports a failure
 // itself, and a sent message is in the outbox.
-extension MailComposer.Coordinator: @preconcurrency MFMailComposeViewControllerDelegate {
+extension MailComposer.Coordinator: MFMailComposeViewControllerDelegate {
     func mailComposeController(
         _ controller: MFMailComposeViewController,
         didFinishWith result: MFMailComposeResult,
