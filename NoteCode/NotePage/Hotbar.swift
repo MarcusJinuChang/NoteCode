@@ -266,6 +266,11 @@ struct Hotbar: View {
             editor.toggleQuote()
         }
         button("Horizontal Rule", "minus") { editor.insertRule() }
+        // In the slot the second formula button left (21 Nov), so the bar,
+        // and the text row capped to it (`RowLimit`), keep their length.
+        // Nothing to add to a link that is already there, as in More ▾.
+        button("Link", "link") { editor.beginLink() }
+            .disabled(editor.caretFormatting.link)
 
         // One slot for both kinds of formula: two buttons side by side, `f`
         // and a root sign, read as two different things (21 Nov). Inline is
