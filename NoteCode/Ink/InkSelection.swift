@@ -181,31 +181,66 @@ final class InkSelection {
     /// after its drag is over is not used.
     @ObservationIgnored private var adjustment = 0
 
+    /// Whether a drag or a scale is in progress: the canvas may be showing
+    /// the note without the selection, so nothing else should replace its
+    /// markup (`PageInkPipeline.isBusy`).
+    var isAdjusting: Bool { base != nil }
+
+    /// Whether the canvas still shows `base`, as the drag found it: nothing
+    /// was hidden or previewed yet, so ending or cancelling assigns nothing.
+    @ObservationIgnored private var showsBase = true
+
+    /// The picture couldn't be drawn (too large), so previews assign the
+    /// whole markup, as they did before O2.
+    @ObservationIgnored private var previewsWholeMarkup = false
+
+    /// The task drawing the picture, for `settled()`.
+    @ObservationIgnored private var snapshotTask: Task<Void, Never>?
+
     func beginAdjusting() {
         base = canvas?.markup
         startBounds = nil
         startBounds = originalBounds
         adjustment += 1
+        showsBase = true
+        previewsWholeMarkup = false
         guard let canvas, let base, let area = originalBounds else { return }
         let token = adjustment
         let ids = ids
-        // Until the picture is ready the preview assigns the whole markup, as
-        // it always did; once it is, a preview only moves the picture.
-        Task { @MainActor [weak self, weak canvas] in
+        // Until the picture is ready only the box moves. Assigning the whole
+        // markup per preview, as this did before the picture was up, had
+        // PaperKit redraw the page 30 times a second, and it flashed.
+        snapshotTask = Task { @MainActor [weak self, weak canvas] in
             let selected = InkCommands.only(base, ids: ids)
-            guard let canvas,
-                  await canvas.showSnapshot(
-                    of: selected, over: area.insetBy(dx: -24, dy: -24),
-                    remaining: InkCommands.deleted(base, ids: ids)),
-                  let self
-            else { return }
-            if self.adjustment != token || self.base == nil {
-                canvas.removeSnapshot()
-                return
+            let isCurrent = { () -> Bool in
+                guard let self else { return false }
+                return self.adjustment == token && self.base != nil
             }
-            // Catch up with where the drag got to while it was drawing.
-            if let pending = self.pending { canvas.transformSnapshot(pending) }
+            guard let canvas else { return }
+            let shown = await canvas.showSnapshot(
+                of: selected, over: area.insetBy(dx: -24, dy: -24),
+                isCurrent: isCurrent,
+                remaining: InkCommands.deleted(base, ids: ids))
+            // A drag that ended while the picture was drawing has already
+            // put the canvas right; touching it now would hide the selection
+            // with nothing to bring it back, and the next capture would store
+            // the note without it (Marcus, 21 Nov: moved ink disappearing).
+            guard let self, isCurrent() else { return }
+            if shown {
+                self.showsBase = false
+                // Catch up with where the drag got to while it was drawing.
+                if let pending = self.pending { canvas.transformSnapshot(pending) }
+            } else {
+                self.previewsWholeMarkup = true
+                if let pending = self.pending { self.preview(pending) }
+            }
         }
+    }
+
+    /// Returns once the picture for the drag begun last is up, or given up.
+    /// For tests.
+    func settled() async {
+        await snapshotTask?.value
     }
 
     /// Shows the selection moved by `translation`. Quiet: nothing is told
@@ -244,8 +279,9 @@ final class InkSelection {
         pending = transform
         if canvas.isShowingSnapshot {
             canvas.transformSnapshot(transform)
-        } else {
+        } else if previewsWholeMarkup {
             canvas.showPreview(InkCommands.transformed(base, ids: ids, by: transform))
+            showsBase = false
         }
         // The box follows what it surrounds.
         bounds = originalBounds?.applying(transform)
@@ -255,29 +291,54 @@ final class InkSelection {
     /// Makes what the preview showed the reader's change: one capture, one
     /// undo step. A drag that went nowhere changes nothing.
     func endAdjusting(actionName: String) {
-        defer { base = nil; pending = nil; startBounds = nil; adjustment += 1 }
+        defer { finishAdjusting() }
         guard let canvas, let base else { return }
         guard let transform = pending, transform != .identity else {
-            canvas.removeSnapshot()
-            canvas.showPreview(base)
+            putBack(base, on: canvas)
             return
         }
         // Back to where it was, quietly, so the canvas's delegate sees the
-        // one change from there to the end rather than two.
+        // one change from there to the end rather than two. The picture
+        // stays up a moment over the canvas while PaperKit redraws, so the
+        // moved ink doesn't blink out on release.
         let after = InkCommands.transformed(base, ids: ids, by: transform)
-        canvas.removeSnapshot()
-        canvas.showPreview(base)
+        if canvas.isShowingSnapshot {
+            canvas.releaseSnapshot()
+        } else if !showsBase {
+            canvas.holdStill()
+        }
+        if !showsBase { canvas.showPreview(base) }
         canvas.replaceMarkup(with: after, actionName: actionName)
         set(ids)
     }
 
     /// Puts the canvas back as the drag found it.
     func cancelAdjusting() {
-        defer { base = nil; pending = nil; startBounds = nil; adjustment += 1 }
+        defer { finishAdjusting() }
         guard let canvas, let base else { return }
-        canvas.removeSnapshot()
-        canvas.showPreview(base)
+        putBack(base, on: canvas)
+    }
+
+    private func putBack(_ base: PaperMarkup, on canvas: DrawingCanvas) {
+        if canvas.isShowingSnapshot {
+            // The picture goes back to where the ink is and stays a moment,
+            // over the canvas redrawing it there.
+            canvas.transformSnapshot(.identity)
+            canvas.releaseSnapshot()
+        }
+        // Nothing to assign when nothing was hidden or moved: a tap on the
+        // selection, or a drag that ended before its picture was drawn.
+        if !showsBase { canvas.showPreview(base) }
         set(ids)
+    }
+
+    private func finishAdjusting() {
+        base = nil
+        pending = nil
+        startBounds = nil
+        showsBase = true
+        previewsWholeMarkup = false
+        adjustment += 1
     }
 
     // MARK: Commands

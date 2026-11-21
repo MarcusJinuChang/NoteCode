@@ -403,9 +403,12 @@ final class PageInkPipeline {
         }
     }
 
-    /// A stroke is being drawn, or one is on its way in.
+    /// A stroke is being drawn, or one is on its way in, or the Select tool
+    /// is moving or scaling, while the canvas shows the note without what it
+    /// moves: a redraw then would put a selected piece back under the drag.
     private var isBusy: Bool {
-        (host?.canvas.isDrawing ?? false) || isCapturing || newestSnapshot != nil
+        (host?.canvas.isDrawing ?? false) || (host?.selection.isAdjusting ?? false)
+            || isCapturing || newestSnapshot != nil
     }
 
     /// Replaces the pieces waiting to be drawn again with themselves, with a
