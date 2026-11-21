@@ -44,6 +44,9 @@ enum FormulaAttachment {
     private struct Drawn {
         var image: UIImage
         var metrics: Metrics
+        /// How far the ink reaches past the typeset box on each side, which
+        /// the image (and the attachment) take in so nothing is cut off.
+        var overhang: UIEdgeInsets
     }
 
     private static let cache = BoundedCache<Key, Drawn>(limit: 500)
@@ -65,7 +68,14 @@ enum FormulaAttachment {
         attachment.image = drawn.image
         // The attachment sits on the baseline; a descender hangs below it by
         // the formula's descent (measured within 0.5pt, latex.md › Drawing).
-        attachment.bounds = CGRect(x: 0, y: fitting ? 0 : -drawn.metrics.descent, width: drawn.metrics.width, height: drawn.metrics.ascent + drawn.metrics.descent)
+        // Its overhang, if any, is room around that: ink past the box was cut
+        // off (an integral's top and limits, a big bracket's ends; 21 Nov).
+        let pad = drawn.overhang
+        attachment.bounds = CGRect(
+            x: 0, y: fitting ? 0 : -drawn.metrics.descent - pad.bottom,
+            width: drawn.metrics.width + pad.left + pad.right,
+            height: drawn.metrics.ascent + drawn.metrics.descent + pad.top + pad.bottom
+        )
         return attachment
     }
 
@@ -102,10 +112,15 @@ enum FormulaAttachment {
         label.frame = CGRect(origin: .zero, size: fit)
         label.layoutIfNeeded()
         guard let list = label.displayList else { return false }
+        // Where the page put it: the attachment takes in the overhang, so the
+        // formula starts its left overhang in, and a display formula sits its
+        // bottom overhang up (`make`).
+        let pad = overhang(tex: source.tex, pointSize: source.pointSize, display: source.display)
+        let natural = list.width + pad.left + pad.right
         var scale: CGFloat = 1
-        if let room, room > 0, list.width > room { scale = room / list.width }
+        if let room, room > 0, natural > room { scale = room / natural }
         context.saveGState()
-        context.translateBy(x: origin.x, y: origin.y)
+        context.translateBy(x: origin.x + pad.left * scale, y: origin.y - (source.display ? pad.bottom * scale : 0))
         // The display list is y up from its baseline.
         context.scaleBy(x: scale, y: -scale)
         // The label placed the list with its baseline `descent` above its
@@ -119,6 +134,12 @@ enum FormulaAttachment {
     /// Metrics only, for tests.
     static func metrics(tex: String, pointSize: CGFloat, display: Bool) -> Metrics? {
         drawn(tex: tex, pointSize: pointSize, display: display)?.metrics
+    }
+
+    /// How far the drawn formula's ink reaches past its typeset box, at the
+    /// text's `pointSize`: zero for most formulas.
+    static func overhang(tex: String, pointSize: CGFloat, display: Bool) -> UIEdgeInsets {
+        drawn(tex: tex, pointSize: pointSize, display: display)?.overhang ?? .zero
     }
 
     private static func render(tex: String, pointSize: CGFloat, display: Bool) -> Drawn? {
@@ -137,18 +158,77 @@ enum FormulaAttachment {
         guard let list = label.displayList else { return nil }
         let metrics = Metrics(ascent: list.ascent, descent: list.descent, width: list.width)
 
+        // Drawn with a margin, so ink past the typeset box isn't lost, then
+        // cut back to the box plus whatever ink lies outside it.
+        let size = label.bounds.size
+        let margin = (pointSize * 0.5).rounded(.up)
+        let canvas = CGSize(width: size.width + 2 * margin, height: size.height + 2 * margin)
         let format = UIGraphicsImageRendererFormat()
         format.scale = renderScale
         format.opaque = false
-        let size = label.bounds.size
-        let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
+        let full = UIGraphicsImageRenderer(size: canvas, format: format).image { context in
             // The label's layer is geometry-flipped, so UIKit's y-down
             // context needs one more flip.
-            context.cgContext.translateBy(x: 0, y: size.height)
+            context.cgContext.translateBy(x: margin, y: margin + size.height)
             context.cgContext.scaleBy(x: 1, y: -1)
             label.layer.render(in: context.cgContext)
+        }
+        let box = CGRect(origin: CGPoint(x: margin, y: margin), size: size)
+        let overhang = inkOverhang(of: full, beyond: box)
+        let kept = CGRect(
+            x: box.minX - overhang.left, y: box.minY - overhang.top,
+            width: box.width + overhang.left + overhang.right, height: box.height + overhang.top + overhang.bottom
+        )
+        let image = UIGraphicsImageRenderer(size: kept.size, format: format).image { _ in
+            full.draw(at: CGPoint(x: -kept.minX, y: -kept.minY))
         }.withRenderingMode(.alwaysTemplate)
-        return Drawn(image: image, metrics: metrics)
+        return Drawn(image: image, metrics: metrics, overhang: overhang)
+    }
+
+    /// How far the ink in `image` lies outside `box` (points, in the image's
+    /// space) on each side, rounded up to the next half point; zero on a side
+    /// it doesn't cross.
+    static func inkOverhang(of image: UIImage, beyond box: CGRect) -> UIEdgeInsets {
+        guard let ink = inkBounds(of: image) else { return .zero }
+        func up(_ value: CGFloat) -> CGFloat { value > 0.01 ? (value * 2).rounded(.up) / 2 : 0 }
+        return UIEdgeInsets(
+            top: up(box.minY - ink.minY), left: up(box.minX - ink.minX),
+            bottom: up(ink.maxY - box.maxY), right: up(ink.maxX - box.maxX)
+        )
+    }
+
+    /// The smallest rectangle, in points, holding every pixel of `image`
+    /// that isn't (nearly) transparent, or nil for none.
+    private static func inkBounds(of image: UIImage) -> CGRect? {
+        guard let cg = image.cgImage else { return nil }
+        let width = cg.width, height = cg.height
+        var alpha = [UInt8](repeating: 0, count: width * height)
+        let drawn = alpha.withUnsafeMutableBytes { bytes -> Bool in
+            guard let context = CGContext(
+                data: bytes.baseAddress, width: width, height: height, bitsPerComponent: 8,
+                bytesPerRow: width, space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.alphaOnly.rawValue
+            ) else { return false }
+            context.draw(cg, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard drawn else { return nil }
+        var minX = width, minY = height, maxX = -1, maxY = -1
+        for y in 0..<height {
+            let row = y * width
+            for x in 0..<width where alpha[row + x] > 8 {
+                if x < minX { minX = x }
+                if x > maxX { maxX = x }
+                if y < minY { minY = y }
+                if y > maxY { maxY = y }
+            }
+        }
+        guard maxX >= 0 else { return nil }
+        // The bitmap's rows run top down, as the image's do.
+        let scale = image.scale
+        return CGRect(
+            x: CGFloat(minX) / scale, y: CGFloat(minY) / scale,
+            width: CGFloat(maxX - minX + 1) / scale, height: CGFloat(maxY - minY + 1) / scale
+        )
     }
 }
 
@@ -184,7 +264,8 @@ enum DisplayFormula {
     /// The formula's own room: its height and the gap above and below.
     static func lineHeight(tex: String, pointSize: CGFloat) -> CGFloat? {
         guard let m = FormulaAttachment.metrics(tex: tex, pointSize: pointSize, display: true) else { return nil }
-        return (m.ascent + m.descent + 2 * gap).rounded(.up)
+        let pad = FormulaAttachment.overhang(tex: tex, pointSize: pointSize, display: true)
+        return (m.ascent + m.descent + pad.top + pad.bottom + 2 * gap).rounded(.up)
     }
 
     /// The fixed height to ask TextKit for. Measured (29 Oct, probes at 17pt):
