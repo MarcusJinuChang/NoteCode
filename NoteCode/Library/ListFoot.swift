@@ -13,8 +13,8 @@ import SwiftUI
 ///
 /// **A row exists only if it works**, as in Settings: the edition's rows
 /// (the App Store's ad, and its tip jar once the App Store has answered with
-/// its products) only when they show, the mail rows once
-/// `AppInfo.feedbackAddress` is set. The policy row is always there.
+/// its products) only when they show, the feedback rows once there is a
+/// form or an address to send to (`FeedbackRoute.exists`). The policy row is always there.
 struct ListFoot: View {
     /// Shows a sheet an edition's row asks for; the note list presents it.
     var present: @MainActor (ExtensionSheet) -> Void
@@ -49,16 +49,14 @@ struct ListFoot: View {
     /// Jar), then Feature Request, Send Feedback and Privacy Policy.
     func rows(with extensions: AppExtensions) -> [ExtensionRow] {
         var rows = extensions.listFootRows { [present] in present($0) }
-        if let url = AppInfo.featureRequestURL() {
+        if FeedbackRoute.exists(form: AppInfo.feedbackForm, address: AppInfo.feedbackAddress) {
             rows.append(ExtensionRow(id: "featureRequest") {
-                Link(destination: url) {
+                FeedbackButton(kind: .featureRequest) {
                     Label("Feature Request", systemImage: "lightbulb")
                 }
             })
-        }
-        if let url = AppInfo.feedbackURL() {
             rows.append(ExtensionRow(id: "sendFeedback") {
-                Link(destination: url) {
+                FeedbackButton(kind: .feedback) {
                     Label("Send Feedback", systemImage: "envelope")
                 }
             })

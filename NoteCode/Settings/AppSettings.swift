@@ -110,11 +110,21 @@ nonisolated enum AppInfo {
     /// strings are read from anywhere. Tests read the iPad's.
     nonisolated(unsafe) static var deviceName = "iPad"
 
+    /// What the device runs, for the feedback mail: "iPadOS 27.1". Set with
+    /// `deviceName`.
+    nonisolated(unsafe) static var systemString = "iPadOS"
+
     /// Where Send Feedback and Feature Request write to: the support address,
-    /// the same one the support and privacy pages publish. With `nil` both rows
-    /// are left out: a mail button that opens a message to nobody is the kind
-    /// of placeholder App Review rejects.
+    /// the same one the support and privacy pages publish. It is the way when
+    /// there is no form (`feedbackForm`), by the app's own mail sheet or, with
+    /// Mail not set up, as an address to copy. With no address and no form
+    /// both rows are left out: a button that sends to nobody is the kind of
+    /// placeholder App Review rejects.
     static let feedbackAddress: String? = "notecodesupport@gmail.com"
+
+    /// The web form both rows open first (`FeedbackRoute`): it needs nothing
+    /// set up on the device. `nil` until the form exists.
+    static let feedbackForm: FeedbackForm? = nil
 
     /// The privacy policy's page (the `gh-pages` branch's `privacy.md`; its
     /// text is drafted in `docs/site/privacy.md`). Never optional: the
@@ -123,14 +133,15 @@ nonisolated enum AppInfo {
 
     /// The `mailto:` link for Send Feedback, or `nil` without an address.
     static func feedbackURL(address: String? = feedbackAddress) -> URL? {
-        mail(to: address, subject: "NoteCode Feedback")
+        mail(to: address, subject: FeedbackKind.feedback.subject)
     }
 
-    /// The `mailto:` link for Feature Request, at the list's foot: the same
-    /// address under its own subject, so requests can be told from reports
-    /// in the inbox. `nil` without an address, like Send Feedback.
+    /// The `mailto:` link for Feature Request: the same address under its own
+    /// subject, so requests can be told from reports in the inbox. `nil`
+    /// without an address, like Send Feedback. The rows no longer open these
+    /// links (`FeedbackButton`); they are what the mail sheet's fields say.
     static func featureRequestURL(address: String? = feedbackAddress) -> URL? {
-        mail(to: address, subject: "NoteCode Feature Request")
+        mail(to: address, subject: FeedbackKind.featureRequest.subject)
     }
 
     private static func mail(to address: String?, subject: String) -> URL? {
