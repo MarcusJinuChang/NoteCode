@@ -65,6 +65,10 @@ struct FormulaEditor: View {
             preview
                 .frame(maxWidth: .infinity, minHeight: 64)
                 .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
+                // The preview keeps its height; the source gives way. It was
+                // the other way round, and a tall formula (a fraction over a
+                // fraction, a matrix) lost its top and bottom (21 Nov).
+                .layoutPriority(1)
 
             TextEditor(text: $model.tex)
                 .font(.system(.body, design: .monospaced))
@@ -96,17 +100,33 @@ struct FormulaEditor: View {
         .onAppear { focused = !model.isReadOnly }
     }
 
+    /// Room around the drawn formula in the preview, which also takes in
+    /// what a glyph draws past its box (an italic's overhang, a big
+    /// operator's limits).
+    static let previewInset: CGFloat = 12
+    /// The tallest the preview grows before it scrolls.
+    static let maxPreviewHeight: CGFloat = 180
+
     @ViewBuilder
     private var preview: some View {
         if let tex = model.validity.tex,
            let image = FormulaAttachment.make(tex: tex, pointSize: 22, display: model.display)?.image {
-            ScrollView(.horizontal, showsIndicators: false) {
-                Image(uiImage: image)
-                    .renderingMode(.template)
-                    .foregroundStyle(.primary)
-                    .padding(12)
-                    .accessibilityLabel(model.cleaned)
+            // As tall as the formula up to `maxPreviewHeight`, then it
+            // scrolls, both ways: a scroll view along one axis only cut off
+            // whatever didn't fit across the other. Centred while it fits.
+            let side = CGSize(width: image.size.width + 2 * Self.previewInset, height: image.size.height + 2 * Self.previewInset)
+            GeometryReader { box in
+                ScrollView([.horizontal, .vertical], showsIndicators: true) {
+                    Image(uiImage: image)
+                        .renderingMode(.template)
+                        .foregroundStyle(.primary)
+                        .padding(Self.previewInset)
+                        .frame(minWidth: box.size.width, minHeight: box.size.height)
+                        .accessibilityLabel(model.cleaned)
+                }
+                .scrollBounceBehavior(.basedOnSize, axes: [.horizontal, .vertical])
             }
+            .frame(height: min(max(side.height, 64), Self.maxPreviewHeight))
         } else {
             Text(model.cleaned.isEmpty ? "Type TeX below" : "Can't draw this yet")
                 .foregroundStyle(.secondary)
@@ -197,7 +217,9 @@ extension DocumentTextView.Coordinator {
         guard let presenter = textView.window?.rootViewController?.topPresented else { return }
         let host = UIHostingController(rootView: FormulaEditor(model: model))
         host.modalPresentationStyle = .popover
-        host.preferredContentSize = CGSize(width: 420, height: 360)
+        // Taller than it was (360pt), so a preview at its full height
+        // leaves the source its 96pt.
+        host.preferredContentSize = CGSize(width: 420, height: 420)
         if let popover = host.popoverPresentationController {
             popover.sourceView = textView
             popover.sourceRect = (anchor ?? CGRect(origin: textView.bounds.origin, size: CGSize(width: 1, height: 1)))

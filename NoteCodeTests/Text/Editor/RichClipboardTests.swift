@@ -259,7 +259,7 @@ struct RichClipboardTests {
         var (red, green, blue, alpha) = (CGFloat(0), CGFloat(0), CGFloat(0), CGFloat(0))
         let colour = try #require(Self.attribute(.foregroundColor, of: "red", in: text) as? UIColor)
         colour.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-        let drawn = AccentPalette.textHex(for: 0xE5484D, isDark: false)
+        let drawn = AccentPalette.textColourHex(for: 0xE5484D, isDark: false)
         #expect(abs(red - CGFloat((drawn >> 16) & 0xFF) / 255) < 0.01 && abs(blue - CGFloat(drawn & 0xFF) / 255) < 0.01,
                 "a colour as a light page draws it")
         #expect(Self.attribute(.foregroundColor, of: "some", in: text) == nil)

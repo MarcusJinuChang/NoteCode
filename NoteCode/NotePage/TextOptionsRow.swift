@@ -249,9 +249,11 @@ private struct ColourSwatches: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    /// A filled circle in the colour as it is drawn on this page.
-    static func swatch(hex: Int, isDark: Bool, side: CGFloat = 16) -> UIImage {
-        let colour = AccentPalette.uiColor(AccentPalette.textHex(for: hex, isDark: isDark))
+    /// A filled circle in the colour as it is drawn on this page, 18pt so
+    /// the colour reads at a glance (it was 16pt, in the washed-out colours
+    /// before 21 Nov).
+    static func swatch(hex: Int, isDark: Bool, side: CGFloat = 18) -> UIImage {
+        let colour = AccentPalette.uiColor(AccentPalette.textColourHex(for: hex, isDark: isDark))
         return UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { _ in
             colour.setFill()
             UIBezierPath(ovalIn: CGRect(x: 0, y: 0, width: side, height: side)).fill()
@@ -350,14 +352,14 @@ private struct CodeControls: View {
         // An output block is the output; it takes no output of its own. And
         // an unclosed block has nothing after it to put one in.
         if kind != .output {
-            RowWord("+ Output", label: "Add Output Block", isSelected: false, along: 66) { editor.addOutputBlock() }
+            // Icons, like every other control on the row: the words "+ Output"
+            // and "Explain" read as a different kind of control (21 Nov).
+            HotbarButton("Add Output Block", "terminal") { editor.addOutputBlock() }
                 .disabled(!isClosed)
             // What the edition adds (`EditorFeature`): the assistant's Explain.
             ForEach(editor.actions(for: .codeBlockAtCaret, in: .codeBlockRow)) { action in
-                RowWord(action.title, label: action.label ?? action.title, isSelected: false, along: action.rowWidth) {
-                    action.perform()
-                }
-                .disabled(!action.isAvailable)
+                HotbarButton(action.label ?? action.title, action.symbol) { action.perform() }
+                    .disabled(!action.isAvailable)
             }
         }
     }
@@ -379,40 +381,6 @@ private struct IndentControls: View {
     var body: some View {
         HotbarButton("Outdent", "decrease.indent") { editor.indent(outdent: true) }
         HotbarButton("Indent", "increase.indent") { editor.indent(outdent: false) }
-    }
-}
-
-/// A control that is a word and not a symbol.
-private struct RowWord: View {
-    var word: String
-    var label: String
-    var isSelected: Bool
-    var along: CGFloat?
-    var action: () -> Void
-
-    @Environment(\.isEnabled) private var isEnabled
-
-    init(_ word: String, label: String, isSelected: Bool, along: CGFloat? = nil, action: @escaping () -> Void) {
-        self.word = word
-        self.label = label
-        self.isSelected = isSelected
-        self.along = along
-        self.action = action
-    }
-
-    var body: some View {
-        Button(action: action) {
-            Text(word)
-                .font(.system(size: 14, weight: .semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .foregroundStyle(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
-                .opacity(isEnabled ? 1 : 0.3)
-                .hotbarTarget(isHighlighted: isSelected, along: along)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 

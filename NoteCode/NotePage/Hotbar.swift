@@ -266,8 +266,24 @@ struct Hotbar: View {
             editor.toggleQuote()
         }
         button("Horizontal Rule", "minus") { editor.insertRule() }
-        button("Inline Formula", "function") { editor.insertFormula(display: false) }
-        button("Display Formula", "x.squareroot") { editor.insertFormula(display: true) }
+
+        // One slot for both kinds of formula: two buttons side by side, `f`
+        // and a root sign, read as two different things (21 Nov). Inline is
+        // first, as the one used most.
+        Menu {
+            Button { editor.insertFormula(display: false) } label: {
+                Label(NoteShortcut.inlineFormula.title, systemImage: "function")
+            }
+            Button { editor.insertFormula(display: true) } label: {
+                Label(NoteShortcut.displayFormula.title, systemImage: "x.squareroot")
+            }
+        } label: {
+            HotbarIcon(systemImage: "function")
+        }
+        .modifier(HotbarMenuStyle())
+        .menuOrder(.fixed)
+        .accessibilityLabel("Formula")
+        .accessibilityIdentifier("formulaMenu")
 
         // One menu for every kind of list, so the bar doesn't grow a button
         // for each.

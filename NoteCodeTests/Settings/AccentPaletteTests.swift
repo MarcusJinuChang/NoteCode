@@ -179,8 +179,27 @@ extension AccentPaletteTests {
     @Test("Every colour reads at 4.5:1 or better on the page in both appearances")
     func textColoursContrast() {
         for colour in TextColour.allCases {
-            #expect(AccentPalette.contrast(AccentPalette.textHex(for: colour.hex, isDark: false), 0xFFFFFF) >= 4.5, "\(colour.name) light")
-            #expect(AccentPalette.contrast(AccentPalette.textHex(for: colour.hex, isDark: true), 0x000000) >= 4.5, "\(colour.name) dark")
+            #expect(AccentPalette.contrast(AccentPalette.textColourHex(for: colour.hex, isDark: false), 0xFFFFFF) >= 4.5, "\(colour.name) light")
+            #expect(AccentPalette.contrast(AccentPalette.textColourHex(for: colour.hex, isDark: true), 0x000000) >= 4.5, "\(colour.name) dark")
+        }
+    }
+
+    @Test("The palette draws its own vivid pair; any other colour is only made legible")
+    func paletteDrawsItsPair() {
+        #expect(AccentPalette.textColourHex(for: TextColour.red.hex, isDark: false) == TextColour.red.drawn.light)
+        #expect(AccentPalette.textColourHex(for: TextColour.red.hex, isDark: true) == TextColour.red.drawn.dark)
+        #expect(AccentPalette.textColourHex(for: 0xFFFF00, isDark: false) == AccentPalette.textHex(for: 0xFFFF00, isDark: false))
+    }
+
+    @Test("Every drawn colour is a nearest match for its own colour, so ink recolours land back on it")
+    func drawnMapsBack() {
+        for colour in TextColour.allCases {
+            for hex in [colour.drawn.light, colour.drawn.dark] {
+                let nearest = TextColour.nearest(
+                    red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255, blue: Double(hex & 0xFF) / 255
+                )
+                #expect(nearest == colour, "\(colour.name) \(String(hex, radix: 16))")
+            }
         }
     }
 }

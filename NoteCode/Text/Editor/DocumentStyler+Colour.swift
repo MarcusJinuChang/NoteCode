@@ -15,9 +15,10 @@ extension DocumentStyler {
 
     // MARK: Colour
 
-    /// The colour a coloured run is drawn in: its hex, taken toward black on
-    /// a light page and white on a dark one far enough for 4.5:1, as links
-    /// are (`AccentPalette.textHex`).
+    /// The colour a coloured run is drawn in: the palette's pair for the
+    /// appearance, or for any other hex, that hex taken toward black on a
+    /// light page and white on a dark one far enough for 4.5:1
+    /// (`AccentPalette.textColourHex`).
     ///
     /// One object per hex, kept: the styler writes only attributes that
     /// differ from the storage's, and two dynamic colours made from the same
@@ -194,7 +195,7 @@ private final class TextColourCache: @unchecked Sendable {
     func colour(hex: Int) -> UIColor {
         colours.value(for: hex) {
             UIColor { traits in
-                AccentPalette.uiColor(AccentPalette.textHex(for: hex, isDark: traits.userInterfaceStyle == .dark))
+                AccentPalette.uiColor(AccentPalette.textColourHex(for: hex, isDark: traits.userInterfaceStyle == .dark))
             }
         }!
     }

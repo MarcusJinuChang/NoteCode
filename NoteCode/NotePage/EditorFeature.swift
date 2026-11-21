@@ -43,7 +43,9 @@ struct EditorAction: Identifiable {
     var label: String?
     var symbol: String
     var placement: EditorActionPlacement
-    /// The hit width along the options row, for `.codeBlockRow`.
+    /// The hit width along the options row, for `.codeBlockRow`, when it
+    /// showed the title. Unread since 21 Nov, when the row took the symbol
+    /// (a square target); kept so an edition that sets it still builds.
     var rowWidth: CGFloat?
     /// Shown but dimmed when false.
     var isAvailable = true
