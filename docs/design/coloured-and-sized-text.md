@@ -24,19 +24,26 @@ tag, `TextColour` the palette, `SpanSize` the sizes. Any size since 18 Oct
   free:** `MarkdownLayout` collapses them to word joiners (no room), the
   caret stops at their left edges, Show Markdown never draws them, and the
   outline's titles leave them out.
-- **Colour is drawn made legible:** the stored hex taken toward black on
-  a light page and white on a dark one just far enough for 4.5:1
-  (`AccentPalette.textHex`, as links are), so a colour from elsewhere reads
-  as well as the palette's. Colour goes on before the spans inside it, so a
-  link keeps the link colour.
+- **Colour is drawn made legible:** a palette colour in its own pair, one
+  per appearance, as saturated as its hue allows at 4.5:1 or better
+  (`TextColour.drawn`, `AccentPalette.textColourHex`; 21 Nov, Marcus: the
+  colours "should appear more vibrant", on the page and on the text row's
+  swatches, which draw the same pair). Any other hex is taken toward black
+  on a light page and white on a dark one just far enough for 4.5:1
+  (`AccentPalette.textHex`, as links are). The stored hex never changes, so
+  notes written before keep their tags. Colour goes on before the spans
+  inside it, so a link keeps the link colour.
   - **One `UIColor` per hex** (`DocumentStyler.textColour`, cached): two
     dynamic colours from the same hex aren't equal, and the styler writes
     whatever differs, so a fresh one each restyle rewrote every run and laid
     out the note below it on every keystroke.
     `TextColourLayoutTests.restyleIsNotAnEdit` fails without the cache.
-  - The palette: Red `#E5484D`, Orange `#E5750A`, Yellow `#B88700`, Green
-    `#2F9E44`, Blue `#3B82F6`, Purple `#9061F9`, each at least 4.5:1 once
-    adjusted, in both appearances (tested).
+  - The palette, stored: Red `#E5484D`, Orange `#E5750A`, Yellow `#B88700`,
+    Green `#2F9E44`, Blue `#3B82F6`, Purple `#9061F9`. Drawn, light / dark:
+    `#E0001A`/`#FF4D52`, `#C25400`/`#FF8C1A`, `#986F00`/`#FFC92E`,
+    `#00862B`/`#30D158`, `#0062F0`/`#4C93FF`, `#8B2CF5`/`#A66BFF`, each at
+    least 4.5:1 on its page (tested). Yellow and orange stay deep on a
+    white page: no bright yellow reaches 4.5:1 there.
 - **Any size, stored as em, shown in points** (decided 18 Oct, Marcus;
   docs/archive/text-system-overhaul.md, decision 1). `SpanSize` holds thousandths of
   an em against the block's font, so a heading's run is a larger heading

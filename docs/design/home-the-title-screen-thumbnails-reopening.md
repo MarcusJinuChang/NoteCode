@@ -35,7 +35,10 @@ v3 phase 2 (12 Oct, `docs/archive/ui-design-v3-implementation.md`).
     locked: the system's sidebar button (or ⌃⌘S) can still hide it, and it comes
     back on the next Home. In portrait it takes about 320pt of 834 and Home's
     Continue card gets cramped; narrowing the sidebar is the lever. Switching
-    style when a note opens rebuilds the split view, so the list's open and
+    style when a note opens rebuilds the split view (and going Home waits for
+    the note to shrink into its card before it switches: `ContentView.goHome`,
+    `settleHome`, 21 Nov; switched at once, the whole window cross-faded and
+    the shrink never showed), so the list's open and
     closed folders reset then (they are `NoteList` state). Checked in the
     simulator, portrait and landscape: Home with the list, a note opened from
     the list, the house button. Not checked: a Duo folding, Stage Manager or a
