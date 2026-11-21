@@ -289,6 +289,15 @@ struct NoteImportTests {
         #expect(NoteImport.text(from: Data([0x89, 0x50, 0x4E, 0x47, 0x00, 0x01])) == nil)
         #expect(NoteImport.text(from: Data(repeating: 0x61, count: NoteImport.maxBytes + 1)) == nil)
     }
+
+    @Test("Bytes that aren't UTF-8 are read as Windows Latin 1")
+    func windowsLatin1() {
+        // "// café “x”" as Notepad's ANSI saves it.
+        let bytes = Data([0x2F, 0x2F, 0x20, 0x63, 0x61, 0x66, 0xE9, 0x20, 0x93, 0x78, 0x94])
+        #expect(NoteImport.text(from: bytes) == "// café “x”")
+        // UTF-8 still wins where the bytes are UTF-8.
+        #expect(NoteImport.text(from: Data("café".utf8)) == "café")
+    }
 }
 
 // MARK: - Import into the store

@@ -56,6 +56,11 @@ struct AppExtensions: Sendable {
     /// What the Welcome note and the title screen say Run does.
     var runLines = RunLines.compilerSite
 
+    /// Whether this copy is a tester's, so Help and About offers Add Test
+    /// Notes (`TestNotes`). A Debug build always is, whatever this says
+    /// (`AboutSettings`); the App Store's answers true for TestFlight.
+    var isTestingBuild: @MainActor @Sendable () async -> Bool = { false }
+
 #if DEBUG
     /// Settings keys `-debug-first-launch` clears besides the general ones
     /// (the App Store's: the Run disclosure).
