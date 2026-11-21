@@ -167,11 +167,13 @@ enum FormulaAttachment {
         format.scale = renderScale
         format.opaque = false
         let full = UIGraphicsImageRenderer(size: canvas, format: format).image { context in
-            // The label's layer is geometry-flipped, so UIKit's y-down
-            // context needs one more flip.
+            // The display list itself, as `drawVector` draws it, not the
+            // label's layer: the label draws into its own bounds, and that
+            // cut off whatever reached past them. The list is y up, placed
+            // `descent` above the frame's bottom.
             context.cgContext.translateBy(x: margin, y: margin + size.height)
             context.cgContext.scaleBy(x: 1, y: -1)
-            label.layer.render(in: context.cgContext)
+            list.draw(context.cgContext)
         }
         let box = CGRect(origin: CGPoint(x: margin, y: margin), size: size)
         let overhang = inkOverhang(of: full, beyond: box)
