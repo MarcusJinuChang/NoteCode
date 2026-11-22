@@ -48,8 +48,8 @@ struct TestNotesTests {
             #expect(blocks.contains { $0.language == language && $0.isClosed }, "\(language)")
         }
         #expect(blocks.contains { $0.language == nil && !$0.isOutput })
-        #expect(blocks.contains(where: \.isOutput))
-        #expect(blocks.allSatisfy(\.isClosed))
+        #expect(blocks.contains { $0.isOutput })
+        #expect(blocks.allSatisfy { $0.isClosed })
     }
 
     @Test("Only the edge cases end in an unclosed fence")
