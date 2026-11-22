@@ -5,6 +5,7 @@
 //  Settings › Help and About (split out of SettingsView.swift).
 //
 
+import SwiftData
 import SwiftUI
 
 struct AboutSettings: View {
