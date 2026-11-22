@@ -141,11 +141,15 @@ struct InkSelectionTests {
         let start = rig.frames()
         rig.notifications = 0
 
+        let box = try! #require(rig.selection.bounds)
         rig.selection.beginAdjusting()
         rig.selection.previewMove(by: CGSize(width: 10, height: 0))
         rig.selection.previewMove(by: CGSize(width: 25, height: 5))
         #expect(rig.notifications == 0, "a drag in progress isn't a change yet")
-        #expect(abs(rig.frames()[a.elementID]!.minX - (start[a.elementID]!.minX + 25)) < 0.5)
+        // Until the picture is drawn only the box moves: the canvas isn't
+        // assigned per preview, which redrew the whole page.
+        #expect(rig.frames() == start)
+        #expect(abs(try! #require(rig.selection.bounds).minX - (box.minX + 25)) < 0.5)
 
         rig.selection.endAdjusting(actionName: "Move")
 
@@ -174,6 +178,76 @@ struct InkSelectionTests {
         #expect(rig.frames() == start)
         #expect(rig.notifications == 0)
         #expect(!rig.editor.canUndo)
+    }
+
+    @Test("A drag or a tap that ends before its picture is drawn leaves every stroke on the canvas")
+    func lateSnapshotChangesNothing() async {
+        let rig = Rig()
+        let a = Self.stroke(from: CGPoint(x: 100, y: 100), to: CGPoint(x: 200, y: 100))
+        let b = Self.stroke(from: CGPoint(x: 100, y: 400), to: CGPoint(x: 200, y: 400))
+        rig.put([a, b])
+        rig.selection.select(.rectangle(CGRect(x: 120, y: 90, width: 30, height: 20)))
+        let start = rig.frames()
+
+        // A tap on the selection: begun and ended in one go, the picture
+        // still drawing. It used to land after and hide `a` for good.
+        rig.selection.beginAdjusting()
+        rig.selection.endAdjusting(actionName: "Move")
+        await rig.selection.settled()
+        #expect(!rig.canvas.isShowingSnapshot)
+        #expect(rig.frames() == start, "the selection is still on the canvas")
+
+        // A quick drag, and a cancelled one: the same.
+        rig.selection.beginAdjusting()
+        rig.selection.previewMove(by: CGSize(width: 30, height: 0))
+        rig.selection.endAdjusting(actionName: "Move")
+        await rig.selection.settled()
+        #expect(!rig.canvas.isShowingSnapshot)
+        let moved = rig.frames()
+        #expect(moved.count == 2)
+        #expect(abs(moved[a.elementID]!.minX - (start[a.elementID]!.minX + 30)) < 0.5)
+        #expect(moved[b.elementID] == start[b.elementID])
+
+        rig.selection.beginAdjusting()
+        rig.selection.previewMove(by: CGSize(width: 30, height: 0))
+        rig.selection.cancelAdjusting()
+        await rig.selection.settled()
+        #expect(!rig.canvas.isShowingSnapshot)
+        #expect(rig.frames() == moved)
+
+        // One drag begun while the last one's picture is still drawing.
+        rig.selection.beginAdjusting()
+        rig.selection.endAdjusting(actionName: "Move")
+        rig.selection.beginAdjusting()
+        await rig.selection.settled()
+        #expect(rig.canvas.isShowingSnapshot)
+        rig.selection.cancelAdjusting()
+        #expect(!rig.canvas.isShowingSnapshot)
+        #expect(rig.frames() == moved)
+    }
+
+    @Test("The picture sits on the ink it stands for, at any render scale, and follows the drag")
+    func snapshotSitsOnTheInk() async throws {
+        let rig = Rig()
+        rig.canvas.renderScale = 2
+        let a = Self.stroke(from: CGPoint(x: 300, y: 300), to: CGPoint(x: 400, y: 340))
+        rig.put([a])
+        rig.selection.select(.rectangle(CGRect(x: 320, y: 300, width: 30, height: 30)))
+        let box = try #require(rig.selection.bounds)
+
+        rig.selection.beginAdjusting()
+        await rig.selection.settled()
+        let frame = try #require(rig.canvas.snapshotFrame)
+        // Drawn over the box with a margin, in the note's coordinates. In the
+        // canvas's own points, as it was, it sat at half the size and away.
+        #expect(frame.contains(box))
+        #expect(abs(frame.midX - box.midX) < 1 && abs(frame.midY - box.midY) < 1)
+
+        rig.selection.previewMove(by: CGSize(width: 40, height: -20))
+        let moved = try #require(rig.canvas.snapshotFrame)
+        #expect(abs(moved.midX - (frame.midX + 40)) < 1 && abs(moved.midY - (frame.midY - 20)) < 1)
+        rig.selection.endAdjusting(actionName: "Move")
+        #expect(abs(rig.frames()[a.elementID]!.midX - (box.midX + 40)) < 1)
     }
 
     @Test("A scale grows the selection about its corner")

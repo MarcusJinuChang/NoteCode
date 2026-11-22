@@ -140,28 +140,50 @@ final class DrawingCanvas: UIView {
     /// scaled (docs/design/object-system.md, O2). Moving a layer costs the
     /// same at 5,000 strokes as at 5; assigning a whole markup 30 times a
     /// second does not.
-    private var snapshotView: UIImageView?
+    ///
+    /// A sibling of the canvas in the text view's content, whose coordinates
+    /// are the note's, directly above it and below the page covers. It used
+    /// to be the canvas's own subview, framed in note coordinates, but the
+    /// canvas's points are the part of the note on screen times
+    /// `renderScale` (`cover(_:)`): scrolled down or at any scale but 1 the
+    /// picture was drawn away from the ink it stood for, shrunk, and the
+    /// selection seemed to jump on touch-down (Marcus, 21 Nov).
+    private var picture: UIImageView?
 
     /// Whether a snapshot is up, with the originals hidden behind it.
-    var isShowingSnapshot: Bool { snapshotView != nil }
+    var isShowingSnapshot: Bool { picture != nil }
 
-    /// Draws `selected` into a picture over `area` and puts it on the canvas,
-    /// and swaps the canvas to `remaining` (the note without the selection),
-    /// in one step. Returns whether it did; the caller keeps previewing the
-    /// whole markup when not.
-    func showSnapshot(of selected: PaperMarkup, over area: CGRect, remaining: @autoclosure () -> PaperMarkup) async -> Bool {
+    /// Where the snapshot is, in note coordinates. For tests.
+    var snapshotFrame: CGRect? { picture?.frame }
+
+    /// Draws `selected` into a picture over `area` and puts it over the
+    /// canvas, and swaps the canvas to `remaining` (the note without the
+    /// selection), in one step. Returns whether it did; the caller keeps
+    /// previewing the whole markup when not.
+    ///
+    /// Drawing takes a moment, and the drag may be over by the time it's
+    /// done. `isCurrent` is asked before anything changes, and when it says
+    /// no nothing does: swapping to `remaining` after the drag had ended
+    /// hid the selection for good.
+    func showSnapshot(
+        of selected: PaperMarkup, over area: CGRect, isCurrent: () -> Bool,
+        remaining: @autoclosure () -> PaperMarkup
+    ) async -> Bool {
         let area = area.intersection(selected.bounds)
-        let scale = min(traitCollection.displayScale, 4)
-        guard snapshotView == nil, !area.isNull, area.width > 0, area.height > 0,
+        let scale = min(traitCollection.displayScale, 4) * max(renderScale, 1)
+        guard picture == nil, !area.isNull, area.width > 0, area.height > 0,
               area.width * area.height * scale * scale < 16_000_000,
               let image = await Self.render(selected, over: area, scale: scale)
         else { return false }
-        guard snapshotView == nil else { return false }
+        guard picture == nil, isCurrent(), let note = superview else { return false }
         let view = UIImageView(image: UIImage(cgImage: image, scale: scale, orientation: .up))
         view.frame = area
         view.isUserInteractionEnabled = false
-        addSubview(view)
-        snapshotView = view
+        // Over the canvas while PaperKit redraws it without the selection,
+        // which can show the page empty for a moment.
+        let still = holdStill()
+        note.insertSubview(view, aboveSubview: still ?? self)
+        picture = view
         showPreview(remaining())
         return true
     }
@@ -169,7 +191,7 @@ final class DrawingCanvas: UIView {
     /// Moves the picture as `transform` (in note coordinates) would move the
     /// ink it shows.
     func transformSnapshot(_ transform: CGAffineTransform) {
-        guard let view = snapshotView else { return }
+        guard let view = picture else { return }
         let c = view.center
         // A layer transforms about its centre: T(p) = centre + M(p - centre).
         view.transform = CGAffineTransform(translationX: c.x, y: c.y)
@@ -177,9 +199,46 @@ final class DrawingCanvas: UIView {
             .concatenating(CGAffineTransform(translationX: -c.x, y: -c.y))
     }
 
-    func removeSnapshot() {
-        snapshotView?.removeFromSuperview()
-        snapshotView = nil
+    /// Ends the snapshot but leaves the picture where it is for a moment,
+    /// over a still of the canvas, while the canvas is given the markup the
+    /// drag ended with and PaperKit redraws it: taken down at once, the
+    /// moved ink blinked out and the page flashed on release.
+    func releaseSnapshot() {
+        guard let view = picture else { return }
+        picture = nil
+        holdStill()
+        Self.retire(view)
+    }
+
+    /// How long a still stays over the canvas after its markup is
+    /// replaced. PaperKit says nothing when it has finished drawing (its
+    /// delegate has no such call), so this is a time, as
+    /// `PageInkPipeline.redrawTimes` are. **Unverified on device.**
+    static let redrawHold: TimeInterval = 0.25
+
+    /// Puts a still of the canvas as it is on screen over it, taken down
+    /// after `redrawHold`, so replacing the whole markup doesn't show
+    /// PaperKit's tiles being redrawn. Returns it, for what goes above.
+    @discardableResult
+    func holdStill() -> UIView? {
+        guard window != nil, let note = superview,
+              let still = snapshotView(afterScreenUpdates: false)
+        else { return nil }
+        still.isUserInteractionEnabled = false
+        // The still is the canvas's own points; placed as the canvas is.
+        still.bounds = CGRect(origin: .zero, size: bounds.size)
+        still.center = center
+        still.transform = transform
+        note.insertSubview(still, aboveSubview: self)
+        Self.retire(still)
+        return still
+    }
+
+    private static func retire(_ view: UIView) {
+        UIView.animate(
+            withDuration: 0.1, delay: redrawHold, options: [.beginFromCurrentState],
+            animations: { view.alpha = 0 },
+            completion: { _ in view.removeFromSuperview() })
     }
 
     private static func render(_ markup: PaperMarkup, over area: CGRect, scale: CGFloat) async -> CGImage? {
