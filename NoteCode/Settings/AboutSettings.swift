@@ -37,8 +37,9 @@ struct AboutSettings: View {
                 // The title screen of a first launch, shown again.
                 Button("Welcome Screen", action: onShowWelcomeScreen)
                     .accessibilityIdentifier("welcomeScreenButton")
-                if let feedback = AppInfo.feedbackURL() {
-                    Link("Send Feedback", destination: feedback)
+                if FeedbackRoute.exists(form: AppInfo.feedbackForm, address: AppInfo.feedbackAddress) {
+                    FeedbackButton(kind: .featureRequest) { Text("Feature Request") }
+                    FeedbackButton(kind: .feedback) { Text("Send Feedback") }
                 }
                 Link("Privacy Policy", destination: AppInfo.privacyPolicy)
                 // Only with the app's App Store id (`AppInfo.appStoreID`).

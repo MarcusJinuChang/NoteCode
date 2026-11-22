@@ -553,11 +553,46 @@ Measured on the simulator, Debug, 10 previews averaged, 24 strokes selected:
 draws the selection once into an image (`DrawingCanvas.showSnapshot`), hides
 the originals in one rebuild, and each preview only sets the image's
 transform: about 5µs at all three sizes. Until the image is ready (a moment
-after touch-down) previews use the old path; the end result is the same
-either way (`snapshotScaleMatchesOldPath`). `originalBounds` is cached at
+after touch-down) only the box moves (21 Nov, below); the end result is the
+same either way (`snapshotScaleMatchesOldPath`). `originalBounds` is cached at
 begin, since walking the markup for it was itself linear. The release is
 still one rebuild and one undo step. The image is drawn at the display
-scale, so a drag while zoomed in may look soft until release.
+scale times `renderScale`.
+
+### Three drag bugs (21 Nov)
+
+Marcus, on the iPad: moving a lasso selection flashed the page empty, the
+selection sometimes jumped on touch-down, and moved ink sometimes vanished
+once the selection was let go of, and was deleted. Three causes:
+
+- **Ink deleted.** The picture is drawn in a task, and when it finished
+  after the drag had ended (a tap on the selection, a quick flick) it still
+  swapped the canvas to the note without the selection, then saw the drag
+  was over and took only the picture down. The selection was gone from the
+  canvas, and the next stroke's capture stored the note without it. Now the
+  task asks whether its drag is still current before it changes anything
+  (`showSnapshot(isCurrent:)`; `lateSnapshotChangesNothing`).
+- **Ink jumping.** The picture was a subview of the canvas, framed in note
+  coordinates, but the canvas's points are the part of the note on screen
+  times `renderScale`. Anywhere but the top of the note at 1x it sat away
+  from the ink, smaller. It is now a sibling of the canvas in the text view's
+  content, which is the note's coordinates, and drawn at `renderScale` too
+  (`snapshotSitsOnTheInk`).
+- **The page flashing.** Before the picture was up, every preview assigned
+  the whole markup (30 a second), and PaperKit redrew the page each time;
+  the release and the swap to the note without the selection assign it too.
+  Now only the box moves until the picture is up (a moment, for a selection
+  of normal size); a tap or a drag that ended before then assigns nothing;
+  and each whole assignment that remains happens under a still of the canvas
+  (`DrawingCanvas.holdStill`), with the picture left up a moment on release,
+  for `redrawHold` (0.25s). The whole-markup preview remains only for a
+  selection too large to draw as one picture. The cut-piece redraws wait
+  while a drag is in progress (`PageInkPipeline.isBusy`).
+
+**Unverified on device:** that a still made with
+`snapshotView(afterScreenUpdates: false)` shows PaperKit's tiles, and that
+0.25s covers PaperKit's redraw on an iPad. A flash left at release means the
+hold is too short.
 
 ## Questions for Marcus (with a recommendation)
 

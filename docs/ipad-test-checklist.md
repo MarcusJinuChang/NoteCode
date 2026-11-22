@@ -161,7 +161,7 @@ do the steps, pull `tmp/selectionprobe.log` with
 - [ ] Open Note After Creating (Notes) on and off; New Notes orientation; Plain Text is called Code. — settings, **FB 12, 15**
 - [ ] Marker dimming rows: Off, Dim, Full each on screen, in dark mode. — **FB 9**, settings
 - [ ] Haptics where they are offered. — settings
-- [ ] The list's foot: Feature Request and Send Feedback each open a mail with its own subject, and Privacy Policy opens the page; Settings › Help and About has the same links. — settings
+- [ ] The list's foot: Feature Request and Send Feedback each open the form with its kind and the version filled in (with no form set: the app's mail sheet with its own subject, and with no Mail account the address and a Copy button, never Mail's add-account screen), and Privacy Policy opens the page; Settings › Help and About has the same rows. — settings
 
 ## 9. Import, export and sharing
 
