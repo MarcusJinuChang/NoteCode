@@ -5,12 +5,18 @@
 //  Settings › Help and About (split out of SettingsView.swift).
 //
 
+import SwiftData
 import SwiftUI
 
 struct AboutSettings: View {
     var onOpenWelcomeNote: () -> Void
     var onShowWelcomeScreen: () -> Void
     @Environment(\.appExtensions) private var extensions
+    @Environment(\.modelContext) private var context
+    /// Whether this is a tester's copy: a Debug build, or whatever the
+    /// edition says (the App Store's: TestFlight).
+    @State private var isTesting = false
+    @State private var testNotesAdded = 0
 
     var body: some View {
         Form {
@@ -47,9 +53,37 @@ struct AboutSettings: View {
                 NavigationLink("Acknowledgements") { AcknowledgementsPage() }
                 LabeledContent("Version", value: AppInfo.versionString())
             }
+
+            // Testers only: a folder of notes that exercise every feature
+            // (`TestNotes`), so a bug hunt doesn't start by writing them.
+            if isTesting {
+                Section {
+                    Button("Add Test Notes") {
+                        TestNotes.add(to: context)
+                        try? context.save()
+                        testNotesAdded += 1
+                    }
+                    .accessibilityIdentifier("addTestNotesButton")
+                } header: {
+                    Text("Testing")
+                } footer: {
+                    if testNotesAdded > 0 {
+                        Text("Added \(TestNotes.all.count) notes in the \(TestNotes.folderName) folder.")
+                    } else {
+                        Text("A \(TestNotes.folderName) folder with a note for each feature, each opening with a checklist. Shown only in test builds.")
+                    }
+                }
+            }
         }
         .navigationTitle("Help and About")
         .task { await extensions.settingsAppeared() }
+        .task {
+#if DEBUG
+            isTesting = true
+#else
+            isTesting = await extensions.isTestingBuild()
+#endif
+        }
     }
 }
 

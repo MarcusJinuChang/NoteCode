@@ -267,14 +267,16 @@ nonisolated enum NoteImport {
     }
 
     /// A file's bytes as text: UTF-8, or UTF-16 with a byte order mark, which
-    /// Notepad and some exports write. `nil` for anything else, or for bytes
-    /// with a NUL in them, which is a binary file.
+    /// Notepad and some exports write, or else Windows Latin 1, which older
+    /// Windows editors save in (a course's starter `.cpp` with "café" or a
+    /// curly quote in a comment is not UTF-8, and was refused). `nil` for
+    /// bytes with a NUL in them, which is a binary file.
     static func text(from data: Data) -> String? {
         guard data.count <= maxBytes, !data.contains(0) || hasUTF16Mark(data) else { return nil }
         if hasUTF16Mark(data) {
             return String(data: data, encoding: .utf16)
         }
-        return String(data: data, encoding: .utf8)
+        return String(data: data, encoding: .utf8) ?? String(data: data, encoding: .windowsCP1252)
     }
 
     private static func hasUTF16Mark(_ data: Data) -> Bool {

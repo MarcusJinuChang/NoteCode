@@ -38,6 +38,7 @@ open-source edition Run opens a compiler site.
 | New note "+" | Tap makes a note and, per the Open Note After Creating setting (default on since 31 Oct), opens it, or with the setting off shows a toast with Open instead; hold picks orientation; files in the open note's folder | built (feedback #12) | `WelcomeNote.swift` |
 | Templates | Lecture, Problem and Lab; text only | built | `insert-and-templates.md` |
 | Welcome note | First launch note | built | `organising-notes.md` |
+| Test notes | Settings › Help and About › Add Test Notes, in Debug builds and where the edition says so (`AppExtensions.isTestingBuild`; the App Store's: TestFlight): a Test Notes folder, with one inside it, of eleven text-only notes (text and marks, lists, code in every language with errors and input, formulas, ink and lasso rows, a long note, landscape, edge cases, locked, empty, nested), each opening with a What to check list. Again makes a second set | built | `TestNotes.swift` |
 | Recently Deleted | Delete moves a note there with an Undo toast; restore; purged after a period; folders go with their notes | built | `recently-deleted-and-folder-faces.md` |
 | Note menu | Rename, Pin, Move to Folder (with Top Level), Get Info, Manage (Lock Text, Duplicate), Delete | built | `the-note-page.md` |
 | Text lock | Read-only text, ink still works | built | `the-note-page.md` |
