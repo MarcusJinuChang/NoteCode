@@ -38,7 +38,8 @@ you choose to open and a mail you choose to send.
 
 Settings › Help and About and the foot of the note list link to NoteCode's
 privacy policy, which covers the App Store edition and has a section on this
-one, and Send Feedback writes to NoteCode's support address. Both are set in
+one, and Feature Request and Send Feedback go to NoteCode's feedback form or
+support address. All of these are set in
 `AppInfo` (`NoteCode/Settings/AppSettings.swift`): if you distribute a build
 of your own, point them at your own policy and address.
 

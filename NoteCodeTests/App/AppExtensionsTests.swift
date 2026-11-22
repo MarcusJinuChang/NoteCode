@@ -22,8 +22,8 @@ struct AppExtensionsTests {
 
     /// The general rows, in their order, as far as this build has them.
     static var generalRows: [String] {
-        (AppInfo.featureRequestURL() == nil ? [] : ["featureRequest"])
-            + (AppInfo.feedbackURL() == nil ? [] : ["sendFeedback"])
+        (FeedbackRoute.exists(form: AppInfo.feedbackForm, address: AppInfo.feedbackAddress)
+            ? ["featureRequest", "sendFeedback"] : [])
             + ["privacyPolicy"]
     }
 

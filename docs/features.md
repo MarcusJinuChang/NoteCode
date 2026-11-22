@@ -175,7 +175,7 @@ Sheet with General, Pro, Notes, Writing, Code, Drawing and Help and About
 | Code | Code Keys, Indent Width, Line Numbers | |
 | Drawing | Finger Draws, Erases, Size, Colour Set, Pens and Highlighters palettes, Pencil actions, Add Pages While Drawing, Return to Previous Tool, Reset Colours | |
 | Pro | Status (Pro or Free), renewal, Manage, Restore, See NoteCode Pro (`ProSettings.swift`) | |
-| Help and About | Welcome note and screen, version, licences, tip jar, privacy row (always) and feedback and feature-request rows, mailing `notecodesupport@gmail.com` (`AppInfo.feedbackAddress`, set 31 Oct) | |
+| Help and About | Welcome note and screen, version, licences, tip jar, privacy row (always) and Feature Request and Send Feedback rows, also at the list's foot. They open the web form (`AppInfo.feedbackForm`, with the kind and the version filled in); with no form, the app's own mail sheet to `notecodesupport@gmail.com` (`AppInfo.feedbackAddress`, set 31 Oct) where Mail can send, else that address with a Copy button. Until 21 Nov they were `mailto:` links, which on a device with no Mail account opened Mail's add-account screen (`FeedbackRoute`) | built |
 
 ## 9. Shell and release
 

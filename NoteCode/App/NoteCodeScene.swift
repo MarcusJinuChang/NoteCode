@@ -24,6 +24,7 @@ struct NoteCodeScene: Scene {
         self.extensions = extensions
 #if canImport(UIKit)
         AppInfo.deviceName = UIDevice.current.userInterfaceIdiom == .phone ? "iPhone" : "iPad"
+        AppInfo.systemString = "\(UIDevice.current.systemName) \(UIDevice.current.systemVersion)"
         // So the menu bar's bare-letter shortcuts know when a field is typing.
         TextInputActivity.shared.start()
 #else
