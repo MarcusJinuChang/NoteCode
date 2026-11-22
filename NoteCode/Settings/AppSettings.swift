@@ -137,6 +137,25 @@ nonisolated enum AppInfo {
     /// paywall and the App Store both need the link to exist.
     static let privacyPolicy = URL(string: "https://marcusjinuchang.github.io/NoteCode/privacy")!
 
+    /// NoteCode's Apple ID on the App Store (App Store Connect › App
+    /// Information › Apple ID, all digits), for Rate NoteCode and Share
+    /// NoteCode in Help and About. With `nil` both rows are left out, so a
+    /// build of your own doesn't send its readers to someone else's page.
+    static let appStoreID: String? = nil
+
+    /// The app's App Store page, or `nil` without an id.
+    static func appStorePage(id: String? = appStoreID) -> URL? {
+        guard let id, !id.isEmpty, id.allSatisfy({ $0.isASCII && $0.isNumber }) else { return nil }
+        return URL(string: "https://apps.apple.com/app/id\(id)")
+    }
+
+    /// The App Store's write-a-review sheet for the app, or `nil` without an
+    /// id. A link the reader taps, unlike `requestReview`, which iOS may
+    /// decline to show (`ReviewPrompt`).
+    static func writeReviewURL(id: String? = appStoreID) -> URL? {
+        appStorePage(id: id).flatMap { URL(string: $0.absoluteString + "?action=write-review") }
+    }
+
     /// The `mailto:` link for Send Feedback, or `nil` without an address.
     static func feedbackURL(address: String? = feedbackAddress) -> URL? {
         mail(to: address, subject: FeedbackKind.feedback.subject)

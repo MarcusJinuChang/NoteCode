@@ -48,6 +48,16 @@ struct AboutSettings: View {
                     FeedbackButton(kind: .feedback) { Text("Send Feedback") }
                 }
                 Link("Privacy Policy", destination: AppInfo.privacyPolicy)
+                // Only with the app's App Store id (`AppInfo.appStoreID`).
+                if let review = AppInfo.writeReviewURL() {
+                    Link("Rate NoteCode", destination: review)
+                        .accessibilityIdentifier("rateNoteCodeButton")
+                }
+                if let page = AppInfo.appStorePage() {
+                    ShareLink("Share NoteCode", item: page,
+                              message: Text("NoteCode: notes for computer science, with code that runs and ink on the same page."))
+                        .accessibilityIdentifier("shareNoteCodeButton")
+                }
                 // The edition's rows (the App Store's Ad Privacy Options).
                 ForEach(extensions.aboutRows()) { $0.view }
                 NavigationLink("Acknowledgements") { AcknowledgementsPage() }

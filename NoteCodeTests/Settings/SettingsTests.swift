@@ -119,6 +119,17 @@ struct SettingsTests {
         #expect(url?.absoluteString.hasPrefix("mailto:hello@example.com") == true)
     }
 
+    @Test("Rate and Share link to the App Store page only with a numeric id")
+    func appStoreLinks() {
+        #expect(AppInfo.appStorePage(id: "1234567890")?.absoluteString == "https://apps.apple.com/app/id1234567890")
+        #expect(AppInfo.writeReviewURL(id: "1234567890")?.absoluteString
+            == "https://apps.apple.com/app/id1234567890?action=write-review")
+        for id in [nil, "", "id123", "12 34", "../x"] as [String?] {
+            #expect(AppInfo.appStorePage(id: id) == nil, "\(String(describing: id))")
+            #expect(AppInfo.writeReviewURL(id: id) == nil, "\(String(describing: id))")
+        }
+    }
+
     @Test("The version reads as the store shows it: version, then build")
     func version() {
         let text = AppInfo.versionString()
