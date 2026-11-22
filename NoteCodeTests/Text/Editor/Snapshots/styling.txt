@@ -214,7 +214,7 @@ rendered=false
 [297,3] $$\n
     NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
     NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
-    NSParagraphStyle = Alignment Center, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 48.2871/48.2871, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+    NSParagraphStyle = Alignment Center, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 49.2871/49.2871, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
 [300,19] \frac{a}{b} = c\n$$\n
     NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
     NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
@@ -481,7 +481,7 @@ rendered=true
 [297,3] $$\n
     NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
     NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
-    NSParagraphStyle = Alignment Center, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 48.2871/48.2871, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
+    NSParagraphStyle = Alignment Center, LineSpacing 0, ParagraphSpacing 0, ParagraphSpacingBefore 0, HeadIndent 0, TailIndent 0, FirstLineHeadIndent 0, LineHeight 49.2871/49.2871, LineHeightMultiple 0 LineBreakMode WordWrapping, Tabs ( |     28L, |     56L, |     84L, |     112L, |     140L, |     168L, |     196L, |     224L, |     252L, |     280L, |     308L, |     336L | ), DefaultTabInterval 0, Blocks ( | ), Lists ( | ), BaseWritingDirection Natural, HyphenationFactor 0, TighteningForTruncation NO, HeaderLevel 0 LineBreakStrategy 0 PresentationIntents ( | ) ListIntentOrdinal 0 CodeBlockIntentLanguageHint ''
 [300,19] \frac{a}{b} = c\n$$\n
     NSColor = colour light(0.000,0.000,0.000,1.000) dark(1.000,1.000,1.000,1.000)
     NSFont = <UICTFont: 0x> font-family: "UICTFontTextStyleBody"; font-weight: normal; font-style: normal; font-size: 17.00pt
