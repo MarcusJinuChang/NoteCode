@@ -148,8 +148,10 @@ struct NoteListDeletedCountTests {
         window.rootViewController = UIHostingController(rootView: NavigationStack { list }.modelContainer(container))
         window.makeKeyAndVisible()
         defer { window.isHidden = true }
-        // The live note, the Recently Deleted row and the foot's rows.
-        let drawn = await waitFor({ window.layoutIfNeeded(); return Self.cells(in: window) >= 6 })
+        // The live note, the Recently Deleted row and the rest of the list;
+        // with no edition (`.none`) the foot has no rows of its own, where it
+        // had three before the App Store's rows moved out (23 Nov).
+        let drawn = await waitFor({ window.layoutIfNeeded(); return Self.cells(in: window) >= 3 })
         #expect(drawn)
         let withRow = Self.cells(in: window)
 
