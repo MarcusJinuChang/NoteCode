@@ -33,15 +33,13 @@ purchases and no account.
   Markdown import and export, PDF sharing.
 
 Notes are stored on the device with SwiftData. This edition makes no network
-requests of its own: the only things that leave the app are a compiler site
-you choose to open and a mail you choose to send.
+requests of its own: the only thing that leaves the app is a compiler site
+you choose to open.
 
-Settings › Help and About and the foot of the note list link to NoteCode's
-privacy policy, which covers the App Store edition and has a section on this
-one, and Feature Request and Send Feedback go to NoteCode's feedback form or
-support address. All of these are set in
-`AppInfo` (`NoteCode/Settings/AppSettings.swift`): if you distribute a build
-of your own, point them at your own policy and address.
+This edition has no feedback rows, privacy policy link, rating prompt or App
+Store links; the App Store edition adds those through `AppExtensions`
+(`NoteCode/App/AppExtensions.swift`). If you distribute a build of your own,
+add your own there.
 
 ## Building it
 

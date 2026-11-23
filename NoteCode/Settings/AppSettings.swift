@@ -100,8 +100,7 @@ nonisolated enum AppIconChoice: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// Settings › Help and About: where the reader can reach the developer, and
-/// what build this is.
+/// Settings › Help and About: what build this is, and what it runs on.
 nonisolated enum AppInfo {
 
     /// What the reader holds, for "on this iPad" and the like: an iPad, or an
@@ -110,73 +109,9 @@ nonisolated enum AppInfo {
     /// strings are read from anywhere. Tests read the iPad's.
     nonisolated(unsafe) static var deviceName = "iPad"
 
-    /// What the device runs, for the feedback mail: "iPadOS 27.1". Set with
-    /// `deviceName`.
+    /// What the device runs: "iPadOS 27.1", for an edition's feedback mail.
+    /// Set with `deviceName`.
     nonisolated(unsafe) static var systemString = "iPadOS"
-
-    /// Where Send Feedback and Feature Request write to: the support address,
-    /// the same one the support and privacy pages publish. It is the way when
-    /// there is no form (`feedbackForm`), by the app's own mail sheet or, with
-    /// Mail not set up, as an address to copy. With no address and no form
-    /// both rows are left out: a button that sends to nobody is the kind of
-    /// placeholder App Review rejects.
-    static let feedbackAddress: String? = "notecodesupport@gmail.com"
-
-    /// The web form both rows open first (`FeedbackRoute`): it needs nothing
-    /// set up on the device. "NoteCode Feedback", a Google Form on the
-    /// developer's account (made 21 Nov); responses are in its Responses tab.
-    /// The entries are "What is this?" and "App version", from the form's
-    /// pre-filled link, so the app fills both in.
-    static let feedbackForm: FeedbackForm? = FeedbackForm(
-        url: URL(string: "https://docs.google.com/forms/d/e/1FAIpQLSdkxC6l8AccYzxHWzgDAUp4fKd5wlkeyWlt1uJ_q1CMq7C7Tw/viewform")!,
-        kindEntry: "entry.194544374",
-        versionEntry: "entry.1383320529")
-
-    /// The privacy policy's page (the `gh-pages` branch's `privacy.md`; its
-    /// text is drafted in `docs/site/privacy.md`). Never optional: the
-    /// paywall and the App Store both need the link to exist.
-    static let privacyPolicy = URL(string: "https://marcusjinuchang.github.io/NoteCode/privacy")!
-
-    /// NoteCode's Apple ID on the App Store (App Store Connect › App
-    /// Information › Apple ID, all digits), for Rate NoteCode and Share
-    /// NoteCode in Help and About. With `nil` both rows are left out, so a
-    /// build of your own doesn't send its readers to someone else's page.
-    static let appStoreID: String? = nil
-
-    /// The app's App Store page, or `nil` without an id.
-    static func appStorePage(id: String? = appStoreID) -> URL? {
-        guard let id, !id.isEmpty, id.allSatisfy({ $0.isASCII && $0.isNumber }) else { return nil }
-        return URL(string: "https://apps.apple.com/app/id\(id)")
-    }
-
-    /// The App Store's write-a-review sheet for the app, or `nil` without an
-    /// id. A link the reader taps, unlike `requestReview`, which iOS may
-    /// decline to show (`ReviewPrompt`).
-    static func writeReviewURL(id: String? = appStoreID) -> URL? {
-        appStorePage(id: id).flatMap { URL(string: $0.absoluteString + "?action=write-review") }
-    }
-
-    /// The `mailto:` link for Send Feedback, or `nil` without an address.
-    static func feedbackURL(address: String? = feedbackAddress) -> URL? {
-        mail(to: address, subject: FeedbackKind.feedback.subject)
-    }
-
-    /// The `mailto:` link for Feature Request: the same address under its own
-    /// subject, so requests can be told from reports in the inbox. `nil`
-    /// without an address, like Send Feedback. The rows no longer open these
-    /// links (`FeedbackButton`); they are what the mail sheet's fields say.
-    static func featureRequestURL(address: String? = feedbackAddress) -> URL? {
-        mail(to: address, subject: FeedbackKind.featureRequest.subject)
-    }
-
-    private static func mail(to address: String?, subject: String) -> URL? {
-        guard let address, !address.isEmpty else { return nil }
-        var components = URLComponents()
-        components.scheme = "mailto"
-        components.path = address
-        components.queryItems = [URLQueryItem(name: "subject", value: subject)]
-        return components.url
-    }
 
     /// "1.0 (1)": the version the store shows, then the build.
     static func versionString(of bundle: Bundle = .main) -> String {

@@ -2,19 +2,18 @@
 //  ListFoot.swift
 //  NoteCode
 //
-//  The note list's last section: the edition's rows, the links, and the mark.
+//  The note list's last section: the edition's rows, then the mark.
 //
 
 import SwiftUI
 
-/// The foot of the note list (step 12 of docs/ROADMAP.md): Tip Jar, Feature
-/// Request, Send Feedback and Privacy Policy, then the mark and the version as
-/// a sign-off under the notes.
+/// The foot of the note list (step 12 of docs/ROADMAP.md): the edition's
+/// rows (the App Store's: the ad, Tip Jar, Feature Request, Send Feedback
+/// and Privacy Policy), then the mark and the version as a sign-off under the
+/// notes. With no edition rows the section is the sign-off alone.
 ///
-/// **A row exists only if it works**, as in Settings: the edition's rows
-/// (the App Store's ad, and its tip jar once the App Store has answered with
-/// its products) only when they show, the feedback rows once there is a
-/// form or an address to send to (`FeedbackRoute.exists`). The policy row is always there.
+/// **A row exists only if it works**, as in Settings: the edition hands over
+/// only the rows that show.
 struct ListFoot: View {
     /// Shows a sheet an edition's row asks for; the note list presents it.
     var present: @MainActor (ExtensionSheet) -> Void
@@ -45,27 +44,8 @@ struct ListFoot: View {
         .task { extensions.listFootAppeared() }
     }
 
-    /// The rows in order: the edition's first (the App Store's ad, then Tip
-    /// Jar), then Feature Request, Send Feedback and Privacy Policy.
+    /// The rows in order: the edition's, as it lists them.
     func rows(with extensions: AppExtensions) -> [ExtensionRow] {
-        var rows = extensions.listFootRows { [present] in present($0) }
-        if FeedbackRoute.exists(form: AppInfo.feedbackForm, address: AppInfo.feedbackAddress) {
-            rows.append(ExtensionRow(id: "featureRequest") {
-                FeedbackButton(kind: .featureRequest) {
-                    Label("Feature Request", systemImage: "lightbulb")
-                }
-            })
-            rows.append(ExtensionRow(id: "sendFeedback") {
-                FeedbackButton(kind: .feedback) {
-                    Label("Send Feedback", systemImage: "envelope")
-                }
-            })
-        }
-        rows.append(ExtensionRow(id: "privacyPolicy") {
-            Link(destination: AppInfo.privacyPolicy) {
-                Label("Privacy Policy", systemImage: "hand.raised")
-            }
-        })
-        return rows
+        extensions.listFootRows { [present] in present($0) }
     }
 }

@@ -25,9 +25,7 @@ the same routes.
 Notes are stored on the device with SwiftData and are not sent anywhere by
 this edition. Run opens a free online compiler site in the browser, with the
 block's code either in the link (Compiler Explorer) or on the pasteboard
-(Programiz); that happens only when you press Run. Feature Request and Send
-Feedback open a web form, or a mail you write and send yourself; nothing is
-sent until you send it.
+(Programiz); that happens only when you press Run.
 
 ## Supported versions
 
