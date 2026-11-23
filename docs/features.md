@@ -5,12 +5,10 @@ feature. For Marcus and for agents: read this to learn what exists before
 reading code, and to find the design note that has the detail. What is still to
 be seen on a real iPad is one ordered list: `ipad-test-checklist.md`.
 
-**Two editions.** The open-source repository holds the whole notes app. The
-App Store edition adds Pro, Run in the app, the on-device assistant, the tip
-jar and ads from a private layer (`Pro/`) that is not in it. Rows that say
-**Pro**, and Pro status, the paywall, ads, the tip jar and the Pro settings
-page, describe that layer; a file or note marked (private) is in it. In the
-open-source edition Run opens a compiler site.
+**This edition.** This repository is the base notes app. An edition adds
+its own features through `AppExtensions` and `EditorFeature` (AGENTS.md ›
+How a feature plugs in); the App Store edition's are described in its own
+repository, not here. Here, Run opens a compiler site.
 
 - **Status:** *built* (merged to `main`), *partial* (built, with a named gap),
   *missing* (wanted, not built), *planned* (not in 1.0; see `docs/ROADMAP.md` › After 1.0),
@@ -71,7 +69,6 @@ open-source edition Run opens a compiler site.
 | Caret on empty space | A tap below the last line adds the blank lines needed and puts the caret there, one undo step; gaps between sheets in print and compressed are not handled | built (feedback #7) | |
 | Outline and page badge | Headings list (exactly as tall as its rows) jumps to a heading; "2 / 5" shows the page | built | `navigation-and-the-text-options-row.md` |
 | Find in note | System find | built | `the-note-page.md` |
-| Summarise Note | Pro. ••• › Summarise Note: an on-device summary in a sheet (long notes in up to 4 pieces); Copy or Insert Below | built; unverified on device | `ai-features.md` (private) |
 | LaTeX | Inline `$…$` (and `$$…$$` mid-line, display style) draws as a formula in the line, in the text's colour and size; a formula SwiftMath can't draw keeps its dollars and shows dimmed. A `$$` block (`$$`…`$$` over lines, or one line) draws as one centred formula on a line of its own, scaled down to fit the column, its source lines taking no room; an undrawable block shows as typed, dimmed. A drawn formula is one place for the caret; Backspace after it deletes all of it (one undo step); a selection never ends inside one. Tap opens an editor popover (sheet when narrow) with the source in monospace and a live preview — Done writes back as one undo step, Remove deletes it, read-only in a locked note. The hotbar's Formula menu (Inline Formula, Display Formula; also the edit menu, ⇧⌘M / ⌥⌘M) inserts a new inline or display formula over the selection. A formula's image takes in any ink past its typeset box (an integral's limits, a big bracket), so nothing is cut off, and the editor's preview grows to the formula's height (to 180pt, then scrolls both ways). The PDF and thumbnails draw each formula as vectors in black on the sheet, and don't print its source. Copy puts the source in Menlo (`$…$`, and every line of a `$$` block) in the RTF, the plain text unchanged; a rich paste escapes a `$` as `\$` when it would otherwise make a formula. Get Info doesn't count words inside a formula, and an outline title shows a formula's TeX without its dollars | inline layout (L3), display blocks (L4), editing (L5), PDF/thumbnails (L6) and info/outline/copy/paste (L7) built; unverified on device | `latex.md` |
 | Free text boxes | PaperKit has one through Insert; a text-box tool is not designed | idea (feedback #18) | |
 
@@ -85,17 +82,13 @@ open-source edition Run opens a compiler site.
 | Output blocks | An `output` fence for a program's result, on the code panel's own light/dark colours | built | `code-languages-and-keys.md` |
 | Syntax highlighting | HighlightSwift with a custom theme; each role 4.5:1; the theme's weight and italic (keywords bold, comments italic) drawn in the code font at its size, so a line keeps its height | built | `colour.md` |
 | Block header | Name, Run and Copy buttons in the block's corner | built | `code-blocks-room-around-and-inside.md` |
-| Run | Pro runs in the app (below); free opens the paywall. No choice of where code runs (removed 30 Oct). A site is only the panel's way out (*Open on a Site Instead*) and Run in a build without a service: Compiler Explorer (code in the link) or Programiz (code copied) for Java, JavaScript and a block too long for a link | built | `AGENTS.md`, `CodeDestination.swift`, `scripts/refresh-ce-ids.sh` (the pinned compiler ids; 6 Nov: Python 3.15) |
-| Run panel | Notes \| Run control in the top bar opens a pane at the page's right (360pt, dragged 280pt to half the window, collapses to an edge tab; a bottom sheet in a compact width): block strip, Run, Output and Input tabs, per-block input and last result (dimmed when the code changed). `RunSession`; `-debug-run-stub`. `RunServiceFactory.runService` (Pro/Run/RunSession.swift) supplies the runner; with `nil` none of it is visible | built (R3, R4) | `code-languages-and-keys.md`, `RunPanel.swift`, `RunSession.swift` (private) |
-| Run in the app | A free reader's ▷, ⌘R and the edit menu's Run open the paywall (`PaywallView`, "Run in the app is part of NoteCode Pro.") and do nothing else; the Run segment of the top bar carries a small PRO mark for them; Pro's run in the panel, every runnable language (C++, C, Java, Python, JavaScript, Rust, Go). The first run in the app is held while the panel says where the code goes (`RunDisclosure`: our run service and Judge0, with the Privacy Policy link); Run sends it and is remembered, Not Now sends nothing and asks again next time. Each run sends `ProStatus.signedTransaction`; a 402 refreshes `ProStatus` and opens the paywall. Offline, capped, service down or too large: the panel says which, and except offline offers *Open on a Site Instead*. **Keep in Note** writes or replaces the ```` ```output ```` block under the code (one undo step); a compile error's `file:line` is a link that puts the caret on that line. `RunRoute`, `KeepInNote` | built (R4) | `RunRouting.swift`, `RunPanel.swift` (private), `CodeDestination.swift` |
+| Run | Opens the block on a free online compiler: Compiler Explorer (code in the link) or Programiz (code copied) for Java, JavaScript and a block too long for a link. An edition can run it in the app instead (`EditorFeature.run`) | built | `AGENTS.md`, `CodeDestination.swift`, `scripts/refresh-ce-ids.sh` (the pinned compiler ids; 6 Nov: Python 3.15) |
 | Copy block | Copies the code with a Copied toast | built | `keyboard-edit-menu-…md` |
 | Code keys row | ⇥ ⇤ and brackets above the keyboard | built | `code-languages-and-keys.md` |
 | Indentation | Return keeps indent and opens a level after `{`; Tab and Backspace move a level; width is a setting | built | `code-languages-and-keys.md` |
 | Line numbers | Setting, off by default | built | `code-languages-and-keys.md` |
 | Wrapped lines | Continue past their indentation, with a mark | built | `code-blocks-room-around-and-inside.md` |
 | Return in a block | A thin extra gap after Return was reported on 1.0 | not reproduced on `main` (feedback #14, #31); retest on the iPad | `code-blocks-room-around-and-inside.md` |
-| Explain Code | Pro. Edit menu › Explain Block, or the Explain button (sparkles) in the text row, on a block: Apple's on-device model explains it in a sheet; Copy, or Insert Below as a quote or output block (undoable) | built; unverified on device | `ai-features.md` (private) |
-| Running code in the app | Pro. Runner layer (R1), proxy (R2), panel (R3) and wiring (R4); see "Run panel" and "Run in the app" above. Contract: `docs/design/run-proxy-contract.md` (private) | built (R1–R4); unverified on device | `RunServiceClient.swift`, `JavaMain.swift`, `CompilerMessages.swift`, `ReadsInput.swift` (all private) |
 
 ## 4. Drawing and ink
 
@@ -165,31 +158,26 @@ open-source edition Run opens a compiler site.
 
 ## 8. Settings
 
-Sheet with General, Pro, Notes, Writing, Code, Drawing and Help and About
+Sheet with General, Notes, Writing, Code, Drawing and Help and About, and an
+edition's own pages and sections (`SettingsSection`)
 (`SettingsView.swift`, `DrawingSettings.swift`); design in `settings.md`.
 
 | Page | Contains | Missing |
 |---|---|---|
 | General | Appearance, Accent Colour, Toolbar Position, Haptic on Snap, App Icon, Toolbar Icons and Icon Weight | whole-app palette reset |
 | Notes | New Notes orientation, Open Note After Creating, View, Sort By and Order, Recently Deleted, Export All | |
-| Writing | Show Markdown, Autocorrect, Markers (four rows), On-Device Assistant (switch, Answer Length, Insert As) | |
+| Writing | Show Markdown, Autocorrect, Markers (four rows), then an edition's section (`SettingsSection`, `.writing`) | |
 | Code | Code Keys, Indent Width, Line Numbers | |
 | Drawing | Finger Draws, Erases, Size, Colour Set, Pens and Highlighters palettes, Pencil actions, Add Pages While Drawing, Return to Previous Tool, Reset Colours | |
-| Pro | Status (Pro or Free), renewal, Manage, Restore, See NoteCode Pro (`ProSettings.swift`) | |
 | Help and About | Welcome note and screen, version, licences, Add Test Notes for testers, then the edition's rows (`AppExtensions.aboutRows`). The App Store edition's: Feature Request and Send Feedback (also at the list's foot, opening the web form, else the mail sheet, else an address to copy), Privacy Policy, Rate NoteCode and Share NoteCode once its App Store id is set, Ad Privacy Options. The open-source edition adds none | built |
 
 ## 9. Shell and release
 
 | Feature | How it works | Status | Detail |
 |---|---|---|---|
-| Tip jar | Three consumable tips; unlocks nothing | built; needs App Store Connect | `the-list-s-foot-and-the-tip-jar.md` (private) |
 | App icon | Drawn by a script; Default, Dark, Tinted plus two alternates | built | `AGENTS.md` › Shipping |
-| Privacy | Notes never leave the device. Run (Pro) sends a block's code and input to our proxy and Judge0; ads (free) send what Google's SDK collects, unlinked. Manifest declares the ad data and UserDefaults. Policy rewritten for both (`docs/site/privacy.md`, private). The open-source edition has neither: nothing leaves the device but a compiler site the reader opens and a mail the reader sends | policy drafted; Marcus publishes it to `gh-pages` | `docs/design/shipping.md` (private) › Privacy, Run and ads |
+| Privacy | Notes never leave the device, and this edition makes no network requests of its own: only a compiler site the reader opens from Run. The privacy manifest declares UserDefaults (`OpenSource/PrivacyInfo.xcprivacy`) | built | `AppStoreReadinessTests` |
 | Storage | SwiftData, schema version 1 frozen by hashes; falls back to memory with a warning | built | `AGENTS.md` › The model |
-| Pro status | `ProStatus`: whether the reader has Pro (one monthly subscription, no trial), its expiry and the signed transaction for the Run proxy; purchase, Restore, Manage; `-debug-pro on\|off`. The AI actions read it (P2); ads (P3) and Run (R4) read it too | built (P1) | `the-list-s-foot-and-the-tip-jar.md` (private), `ProStatus.swift` (private) |
-| Paywall and AI gate | `PaywallView`: what Pro gives, this iPad's AI availability, price and period, Subscribe, Restore, Terms of Use, Privacy Policy (always: `AppInfo.privacyPolicy` is set), and the renewal terms with Apple's cancel-24-hours line. If the store doesn't answer or has no product, "Couldn't reach the App Store." with Try Again instead of a price that never loads (`ProStatus.productFailed`). A free reader's Explain or Summarise opens it instead of the sheet and starts no model session (`AIAssistant.needsPro`). Settings › Pro: status, renewal, Manage, Restore. Run opens it too ("Run in the app is part of NoteCode Pro."), and so does Remove ads (P3) | built (P2); unverified on device | `ai-features.md`, `PaywallView.swift`, `ProSettings.swift` (all private) |
-| Ads | Banner (standard anchored adaptive, at most 90pt) for readers without Pro, in an opaque strip below Home's page and in the list's foot, with Remove ads under it opening the paywall; sized from the width of its slot, so it stays inside the column (#117). Nothing at launch; the first Home visit runs Google's UMP flow, then the Mobile Ads SDK starts. Outside the EEA/UK that visit shows Google's IDFA explainer (published in AdMob › Privacy & messaging), whose Continue raises ATT; in the EEA/UK it shows the GDPR form, and ATT comes on the second Home visit: the app's own prompt within the same launch, likely Google's explainer first after a relaunch (decided 10 Nov, `shipping.md` › Ads). Refused or unasked tracking: non-personalised (`npa`). Where UMP requires it, Help and About › **Ad Privacy Options** reopens Google's form to change the answer; on a launch that skipped Home it asks UMP when that page opens, showing nothing. Test ids in Debug, real ids in Release (`AdConfig`) | built (P3); unverified on device | `shipping.md`, `AdConfig.swift`, `AdConsent.swift`, `AdBanner.swift` (all private) |
-| Rating prompt | App Store edition only. iOS's App Store rating sheet, a second after a note closes back to Home (`AppExtensions.noteClosedToHome`), once notes were opened on three different days; once a version and 120 days apart, and iOS may still show nothing. Never for a note just deleted, in a debug launch, or while a free reader's tracking prompt is still to come. A build from Xcode always shows it; TestFlight never does | built; unverified on device | `Pro/Store/ReviewPrompt.swift` (private) |
 | Group notes, sign-in | Needs a server; nothing else in the app does | idea | ROADMAP |
 
 ## 10. Editions and tooling
@@ -199,9 +187,8 @@ code, see AGENTS.md › How a feature plugs in.
 
 | Feature | How it works | Status | Detail |
 |---|---|---|---|
-| App Store edition | `Pro/AppStoreEdition.swift` is the `@main`; it hands `NoteCodeScene` `AppExtensions.appStore` (Pro, Run, assistant, ads, tip jar), built by `NoteCodeAppStore.xcodeproj` | built | `AGENTS.md`, `refactor/2X-seam.md` (private) |
 | Open-source edition | `OpenSource/OpenSourceEdition.swift` is the `@main` with `AppExtensions.none`, built by `NoteCode.xcodeproj` from `NoteCode/` and `OpenSource/` (since S2, 17 Nov). Run opens a compiler site. `scripts/export-public.sh` (private) copies what `scripts/public-paths.txt` (private) allows into a folder and scans it; a fresh clone of that export builds and passes `check.sh` (17 Nov) | built; the public repository is planned | `docs/refactor/` (private) |
-| The seam | No file outside `Pro/` names a `Pro/` type; `check-seam.sh` counts breaches (0) | built | `AGENTS.md` |
-| Editor features | `EditorFeature` adds actions, a top-bar item, a side panel and Run to a note's editor; Run and the assistant are the two | built | `NotePage/EditorFeature.swift` |
+| The seam | General code names no edition's types; `check-seam.sh` counts breaches in an edition's tree (0; with no `Pro/` folder here there is nothing to count) | built | `AGENTS.md` |
+| Editor features | `EditorFeature` adds actions, a top-bar item, a side panel and Run to a note's editor; this edition installs none | built | `NotePage/EditorFeature.swift` |
 | Pure core | `Text/Core` compiles alone with `swift test` (`Package.swift`, `scripts/core-test.sh`) | built | `refactor/T11-core-package.md` (private), `decisions.md` (6 Nov) |
 | Checks | `check.sh` (lint, seam, core tests, build, tests, warning ratchet), `lint-traps.sh`, `perf.sh`, `verify-move.sh` | built | `AGENTS.md` › Scripts |

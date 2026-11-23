@@ -8,13 +8,15 @@ the reason, and the reversal with its reason when there was one.
 A reversal gets a new line; the old one stays and points to it. "Why then"
 is what was true when it was decided; "why now" is what changed. A line
 with "reason not recorded" is a debt: fill it from memory if you can.
+Decisions about the App Store edition (Pro, Run in the app, ads, releases)
+are kept in its own repository, not here (moved 23 Nov 2026).
 A decision that needs more than a line gets an entry under
 [Entries](#entries), newest first, and its row points there.
 
 | Date | Decision | Why | Status |
 |---|---|---|---|
 | 25 Jul 2026 | TextKit 2 editor, SwiftData, one continuous page with ink over it | The spec: an Obsidian-style page, not blocks | standing |
-| 29 Aug 2026 | Run cut from the MVP | Every route was a paid API, a VPS running untrusted code or a multi-MB WASM runtime with a 4s cold start; nobody runs code in a lecture | reversed 26 Oct |
+| 29 Aug 2026 | Run cut from the MVP | Every route was a paid API, a VPS running untrusted code or a multi-MB WASM runtime with a 4s cold start; nobody runs code in a lecture | reversed 26 Oct for the App Store edition (its own decisions); here Run opens a compiler site |
 | 19 Sep 2026 | PaperKit over a bare `PKCanvasView` | Shapes, images and text boxes on the same canvas; PencilKit tools still drive it (`archive/phase-drawing-layer.md`) | standing |
 | 19 Sep 2026 | iOS and macOS 27.0 only; visionOS dropped | PaperKit's floor; one less platform to verify | standing |
 | 13 Sep 2026 | The toggle switches input ownership, not visibility | Both layers always drawn; one takes touches (AGENTS.md) | standing |
@@ -22,21 +24,14 @@ A decision that needs more than a line gets an entry under
 | 15 Oct 2026 | No old notes kept working before the release | No users yet; migrations and legacy paths cost sessions | expired 1 Nov (version 1 shipped) |
 | 17 Oct 2026 | Model frozen as version 1, pinned by `ModelFreezeTests` | Shipping it; any attribute change is a new schema version (`design/the-model.md`) | standing |
 | 18 Oct 2026 | Text behaves as in Obsidian; any text resizable | Marcus, from using the app | standing |
-| 26 Oct 2026 | Run returns, Pro only, on hosted Judge0 through our Cloudflare proxy, never on the device | The 1.0 plan records how (decisions 4, 6, 7) and not why the 29 Aug reasons stopped applying. Fill in: was it the paywall needing a feature, or the cost question being answered by Judge0's pay-per-run? | standing; reason incomplete |
-| 26 Oct 2026 | Free is the whole notes app; Pro is no ads, Run and AI; one monthly subscription, no trial | `archive/release-1.0/README.md` 7, 8 (private) | standing |
-| 30 Oct 2026 | No choice of where code runs; a compiler site is only the panel's way out | One path to verify; the choice confused the privacy story (#118) | standing |
 | 31 Oct 2026 | Paper styles removed; text alignment later instead | Built 13 Oct and 24 Oct, removed 15 Oct and 31 Oct; the offset in compressed and print layout was never explained (`design/paper-styles.md`) | standing; see the queue |
 | 31 Oct 2026 | iPhone and the Duo in the first release | Device family widened; the layouts existed since 17 Oct | standing |
 | 2 Nov 2026 | Two updates (1.1.1, 1.2.0), then a public Apache-2.0 `NoteCode` with fresh history and a private `NoteCode-AppStore` | `refactor/README.md` › Decisions | standing; the two updates became one, 7 Nov |
-| 3 Nov 2026 | Pro access for testers is handled in the App Store layer, not by a key in the app | No code and no review risk; detail in `process.md` (private) | proposed |
 | 3 Nov 2026 | Apple accounts (Sign in with Apple) wait for a feature that needs a server (group notes, comments) | iCloud sync needs no sign-in and gives the user what "an account" feels like | proposed |
-| 3 Nov 2026 | One live plan at a time, with an appetite and a cut line; a weekly check (`/weekly`) | `retrospective-2026-11.md` (private) | proposed |
 | 6 Nov 2026 | `Text/Core` gets a test-only Swift package, not a real one | Pure tests in seconds with `swift test`, with no `public` and no project edit ([entry](#6-nov-2026-textcore-gets-a-test-only-package-not-a-real-one-accepted-built)) | standing |
 | 6 Nov 2026 | 2P4 gets an app seam (`NoteNavigation`), not a UI test | Unit tests in the Fast plan; a UI test runs only under `--full` ([entry](#6-nov-2026-2p4-gets-an-app-seam-not-a-ui-test)) | standing |
 | 7 Nov 2026 | In print layout, ink stays clipped to each sheet's body | Print layout previews paper; the PDF matches ([entry](#7-nov-2026-in-print-layout-ink-stays-clipped-to-each-sheets-body)) | standing |
 | 7 Nov 2026 | Page breaks push whole paragraphs; existing ink may drift | Typing ~100ms → ~5ms a keystroke; few notes affected a day after launch ([entry](#7-nov-2026-page-breaks-push-whole-paragraphs-existing-ink-may-drift)) | standing; release-notes line |
-| 7 Nov 2026 | The next upload is 1.2.0, build 5; 1.1.1 is never released | 1.1.1 never shipped alone, and everything planned for 1.1.1 and 1.2.0 is on `main`, so one update carries both. The live build is tagged `v1.1.0-4` | standing |
-| 10 Nov 2026 | Keep Google's IDFA explainer: outside the EEA/UK, ATT comes on the first Home visit from UMP's flow; in the EEA/UK ATT stays on the second visit | Google says the explainer raises opt-in; it needs no code or build change; reversible by unpublishing it in AdMob › Privacy & messaging (`design/shipping.md` › Ads, private) | standing |
 
 ## Entries
 
