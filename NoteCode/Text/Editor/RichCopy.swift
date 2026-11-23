@@ -213,7 +213,7 @@ enum RichCopy {
         if let link = style.link {
             if let url = LinkTarget.url(for: link.address ?? text) { attributes[.link] = url }
         } else if let colour = style.colour {
-            let hex = AccentPalette.textHex(for: colour, isDark: false)
+            let hex = AccentPalette.textColourHex(for: colour, isDark: false)
             attributes[.foregroundColor] = UIColor(
                 red: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255,
                 blue: CGFloat(hex & 0xFF) / 255, alpha: 1

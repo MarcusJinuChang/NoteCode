@@ -272,7 +272,7 @@ struct TextColourLayoutTests {
         var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
         resolved.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
         func byte(_ value: CGFloat) -> Int { Int((value * 255).rounded()) }
-        #expect((byte(red) << 16 | byte(green) << 8 | byte(blue)) == AccentPalette.textHex(for: Self.red, isDark: style == .dark))
+        #expect((byte(red) << 16 | byte(green) << 8 | byte(blue)) == AccentPalette.textColourHex(for: Self.red, isDark: style == .dark))
 
         // Plain text beside it is not.
         let plain = try #require(textView.textStorage.attribute(.foregroundColor, at: 2, effectiveRange: nil) as? UIColor)

@@ -88,6 +88,13 @@ nonisolated enum AccentPalette {
         return mixed(hex, toward: target, by: min(amount, 1))
     }
 
+    /// A coloured run's text on the page: the palette's own pair for one of
+    /// `TextColour`'s, otherwise `textHex`.
+    static func textColourHex(for hex: Int, isDark: Bool) -> Int {
+        if let colour = TextColour(rawValue: hex) { return isDark ? colour.drawn.dark : colour.drawn.light }
+        return textHex(for: hex, isDark: isDark)
+    }
+
     /// The link colour for the stored accent.
     static func linkHex(isDark: Bool, in defaults: UserDefaults = .standard) -> Int {
         textHex(for: hex(in: defaults), isDark: isDark)

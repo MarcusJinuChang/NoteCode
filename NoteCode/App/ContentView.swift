@@ -58,6 +58,18 @@ struct ContentView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// Whether the split view has Home's style (`.balanced`, the list a
+    /// column) rather than a note's (`.prominentDetail`). Follows the
+    /// selection, but going Home it changes only once the note has shrunk
+    /// away: the two styles are two split views, and switching swaps the
+    /// whole window, so switching as the note closed cross-faded a full-size
+    /// note into Home and the shrink never played (simulator, 21 Nov).
+    @State private var splitIsBalanced: Bool
+
+    /// Whether the open note is shrinking into Home (`goHome`). Home is drawn
+    /// under it meanwhile, and the note is closed when the shrink is done.
+    @State private var closingNote = false
+
     /// The Home card the open note came from, for the way back (W3).
     @State private var homeLaunch: HomeLaunch?
 
@@ -138,6 +150,7 @@ struct ContentView: View {
 #elseif DEBUG
         opensDebugNote = openedPage != nil
 #endif
+        _splitIsBalanced = State(initialValue: openedPage == nil)
         launch = LaunchCoordinator(storageIsEphemeral: storageIsEphemeral, opensDebugNote: opensDebugNote)
         // The list is away for the first layout and comes in right after it
         // (`SidebarPlan.launchDelay`), on Home, or over a note when storage
@@ -214,11 +227,12 @@ struct ContentView: View {
             if let selection {
                 NoteMemory().rememberOpened(selection)
                 ReviewPrompt().noteOpened()
+                splitIsBalanced = false
                 withAnimation { columnVisibility = .detailOnly }
             } else {
-                // A note closed: Home, with the list beside it, on the curve
-                // the note shrinks on (`goHome`), not the default's.
-                withAnimation(Self.homeAnimation) { columnVisibility = .all }
+                // A note closed: it shrinks into Home first, in the note's
+                // split view, then Home takes its own and the list comes in.
+                settleHome()
                 askForReviewIfDue(closing: closed)
             }
             if isCompact { syncCompactPath(toSelection: selection) }
@@ -247,7 +261,7 @@ struct ContentView: View {
         if isCompact {
             compactStack
         } else {
-            if selection == nil {
+            if splitIsBalanced {
                 // Home: the list is a column beside it, as in any split view.
                 splitView.navigationSplitViewStyle(.balanced)
             } else {
@@ -264,13 +278,18 @@ struct ContentView: View {
                 // The joined control carries the list button, in a note.
                 .toolbar(removing: selection == nil || isCompact ? nil : .sidebarToggle)
         } detail: {
-            Group {
-                if selection != nil {
-                    noteDetail
-                        // Home's card is where the note shrinks to.
-                        .transition(.noteToHome(homeLaunch, reduceMotion: reduceMotion))
-                } else {
+            ZStack {
+                // Under the note while it shrinks into it.
+                if selection == nil || closingNote {
                     home
+                }
+                if selection != nil {
+                    // Home's card is where the note shrinks to. A modifier
+                    // the close animates, not a transition: the detail
+                    // column didn't play the transition, and the note only
+                    // faded (simulator, 21 Nov).
+                    noteDetail
+                        .modifier(NoteClosing(isClosing: closingNote, launch: homeLaunch, reduceMotion: reduceMotion))
                 }
             }
             .overlay(alignment: .bottom) {
@@ -379,6 +398,7 @@ struct ContentView: View {
                 noteOpen: selection != nil
             )
         } else {
+            splitIsBalanced = selection == nil
             columnVisibility = SidebarPlan.showsList(unfoldingFrom: compactPath, noteOpen: selection != nil) ? .all : .detailOnly
         }
     }
@@ -476,22 +496,53 @@ struct ContentView: View {
     /// Closes the open note and shows Home, with the list beside it: the
     /// house in a note's header, and ⇧⌘H.
     ///
-    /// **One animation for all of it** (31 Oct). The note's shrinking, the
-    /// list coming in and the split view's change of style used to start on
-    /// three transactions, two of them on the default spring, and the list
-    /// popped in against a note still shrinking. Now the selection and the
-    /// column change in one transaction, and `onChange(of: selection)`
-    /// repeats the same column change on the same curve.
+    /// **In two steps** (21 Nov). The note shrinks into its card over Home
+    /// (`closingNote`, `NoteClosing`), in the note's split view; when that
+    /// is done it closes, and `settleHome` swaps in Home's split view, which
+    /// looks the same with the list away, and slides the list in. On 31 Oct
+    /// all of it was one transaction, and the change of split view in it
+    /// replaced the window wholesale: a full-size note cross-faded into Home
+    /// with the list already out, and the shrink never showed.
     private func goHome() {
-        withAnimation(Self.homeAnimation) {
-            selection = nil
-            columnVisibility = .all
-        }
         compactPath = []
+        guard selection != nil, !isCompact, !closingNote else {
+            withAnimation(Self.homeAnimation) { selection = nil }
+            return
+        }
+        withAnimation(Self.homeAnimation) {
+            closingNote = true
+        } completion: {
+            var close = Transaction()
+            close.disablesAnimations = true
+            withTransaction(close) {
+                closingNote = false
+                selection = nil
+            }
+        }
     }
 
-    /// The curve of the note shrinking to Home, and the list coming in with it.
+    /// Home's split view and the list beside it, once the note is gone:
+    /// the swap without animation, as nothing on screen changes, then, a
+    /// moment later so Home is laid out in its new split view first, the
+    /// list on the same curve. Not if a note opened meanwhile.
+    private func settleHome() {
+        if !splitIsBalanced {
+            var swap = Transaction()
+            swap.disablesAnimations = true
+            withTransaction(swap) { splitIsBalanced = true }
+        }
+        Task { @MainActor in
+            try? await debounceClock.sleep(for: Self.homeSettle)
+            guard selection == nil else { return }
+            withAnimation(Self.homeAnimation) { columnVisibility = .all }
+        }
+    }
+
+    /// The curve of the note shrinking to Home, and of the list coming in
+    /// after it.
     static let homeAnimation: Animation = .smooth(duration: 0.38)
+    /// From Home's split view going in to the list starting to come in.
+    static let homeSettle: Duration = .milliseconds(50)
 
     /// Home's Show All: the list over Home.
     private func showList() {

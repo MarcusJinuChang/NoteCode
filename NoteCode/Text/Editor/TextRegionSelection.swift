@@ -84,12 +84,17 @@ nonisolated extension TextColour {
         // Greys, black and white have no hue to speak of.
         if top - bottom < 0.15 { return nil }
         var best: (colour: TextColour, distance: Double)?
+        // Against the stored hex and both drawn ones: an ink picked to match
+        // the text on the page (a bright yellow on a dark page) is nearest
+        // the colour that drew it, not a neighbour's stored hex.
         for colour in TextColour.allCases {
-            let r = Double((colour.hex >> 16) & 0xFF) / 255
-            let g = Double((colour.hex >> 8) & 0xFF) / 255
-            let b = Double(colour.hex & 0xFF) / 255
-            let distance = (r - red) * (r - red) + (g - green) * (g - green) + (b - blue) * (b - blue)
-            if best == nil || distance < best!.distance { best = (colour, distance) }
+            for hex in [colour.hex, colour.drawn.light, colour.drawn.dark] {
+                let r = Double((hex >> 16) & 0xFF) / 255
+                let g = Double((hex >> 8) & 0xFF) / 255
+                let b = Double(hex & 0xFF) / 255
+                let distance = (r - red) * (r - red) + (g - green) * (g - green) + (b - blue) * (b - blue)
+                if best == nil || distance < best!.distance { best = (colour, distance) }
+            }
         }
         return best?.colour
     }

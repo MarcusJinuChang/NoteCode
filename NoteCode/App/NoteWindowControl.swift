@@ -38,16 +38,21 @@ struct HomeLaunch: Equatable {
     }
 }
 
-extension AnyTransition {
-    /// The note leaving for Home: it shrinks into its card and fades. With
-    /// Reduce Motion, a cross-fade and nothing moves.
-    static func noteToHome(_ launch: HomeLaunch?, reduceMotion: Bool) -> AnyTransition {
-        if reduceMotion { return .opacity }
+/// The note going Home: it shrinks into its card and fades. With Reduce
+/// Motion it only fades. A modifier the close animates (`ContentView.goHome`)
+/// rather than a removal transition, which the split view's detail column
+/// didn't play: the note faded at full size (simulator, 21 Nov).
+struct NoteClosing: ViewModifier {
+    var isClosing: Bool
+    var launch: HomeLaunch?
+    var reduceMotion: Bool
+
+    func body(content: Content) -> some View {
         let launch = launch ?? .centre
-        return .asymmetric(
-            insertion: .opacity,
-            removal: .scale(scale: launch.scale, anchor: launch.anchor).combined(with: .opacity)
-        )
+        content
+            .scaleEffect(isClosing && !reduceMotion ? launch.scale : 1, anchor: launch.anchor)
+            .opacity(isClosing ? 0 : 1)
+            .allowsHitTesting(!isClosing)
     }
 }
 

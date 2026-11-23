@@ -177,6 +177,14 @@ v3 phase 6 (14 Oct, `docs/archive/ui-design-v3-implementation.md`).
   indent, + Output and Explain. The row's face is an opaque `systemBackground`
   capsule with a hairline, no glass (the ink row's is W4's). Not checked on a
   device or at 11-inch portrait; the row scrolls along the bar if it is too long.
+- **Icons, not words, and one Formula slot (21 Nov, Marcus).** The code
+  row's "+ Output" and "Explain" became icon buttons (`terminal`, and the
+  edition action's own `symbol`, sparkles), like every other control on the
+  row; the language name stays a word, as the size stays a number: it is a
+  value, not an action. The hotbar's Inline Formula and Display Formula
+  buttons (`function`, `x.squareroot`) read as two unrelated things and are
+  one Formula menu now; Link (from More ▾) takes the freed slot, so the bar,
+  and the text row capped to it (`RowLimit`), keep their length.
 
 - **Hotbar layout (31 Oct, review; `TextBarLayoutTests`).**
   - **The row reads Size, Bold/Italic/Underline/Strikethrough, colour and
