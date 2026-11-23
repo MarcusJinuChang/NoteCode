@@ -173,7 +173,8 @@ here, and a new door can be added here when a feature needs one.
 
 - **Where an edition adds app-level things:** a member of `AppExtensions`
   (`start`, `root`, `homeFooter`, `listFootRows`, `aboutRows`,
-  `settingsSections`, `mayAskForReview`, `runLines`, and under `#if DEBUG`
+  `settingsSections`, `noteOpened`, `noteClosedToHome`, `runLines`, and
+  under `#if DEBUG`
   `debugResetKeys` and `debugRoot`). A member is added only because the
   general code calls it; its default does nothing.
 - **Where it adds things to a note's editor:** an `EditorFeature`

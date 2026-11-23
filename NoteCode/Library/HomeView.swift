@@ -46,10 +46,10 @@ struct HomeView: View {
     /// Makes a Welcome note and opens it, for an empty Home.
     var onOpenWelcomeNote: () -> Void
 
-    /// Whether Home is really in front of the reader (`ConsentGate`): consent
-    /// and so the tracking prompt wait for it, not for Home's first
+    /// Whether Home is really in front of the reader (`HomeGate`): the
+    /// edition's `homeAppeared` waits for it, not for Home's first
     /// appearance, which a first launch's title screen covers.
-    var consentMayStart = true
+    var isInFront = true
 
     // The notes that are not in Recently Deleted (F8).
     @Query(filter: Page.livePredicate, sort: \Page.modifiedAt, order: .reverse) private var pages: [Page]
@@ -103,8 +103,8 @@ struct HomeView: View {
             }
             extensions.homeFooter()
         }
-        .task(id: consentMayStart) {
-            guard consentMayStart else { return }
+        .task(id: isInFront) {
+            guard isInFront else { return }
             await extensions.homeAppeared()
         }
         .coordinateSpace(.named("home"))

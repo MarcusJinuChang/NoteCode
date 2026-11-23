@@ -55,10 +55,6 @@ struct SettingsTests {
         #expect(WelcomeScreen.shownKey == "welcomeScreenShown")
         #expect(NoteMemory.placesKey == "notePlaces")
         #expect(NoteMemory.lastOpenedKey == "lastOpenedNote")
-        #expect(ReviewPrompt.daysKey == "reviewPromptDays")
-        #expect(ReviewPrompt.lastDayKey == "reviewPromptLastDay")
-        #expect(ReviewPrompt.askedVersionKey == "reviewPromptAskedVersion")
-        #expect(ReviewPrompt.askedAtKey == "reviewPromptAskedAt")
     }
 
     @Test("Each setting's default is what a fresh install shows")
@@ -94,7 +90,6 @@ struct SettingsTests {
         #expect(defaults.bool(forKey: WelcomeScreen.shownKey) == false)
         #expect(defaults.object(forKey: NoteMemory.placesKey) == nil)
         #expect(defaults.object(forKey: NoteMemory.lastOpenedKey) == nil)
-        #expect(ReviewPrompt(defaults: defaults).days == 0)
     }
 
     @Test("Appearance round-trips through its stored text, and system is the default")
@@ -104,30 +99,6 @@ struct SettingsTests {
         }
         #expect(AppAppearance(rawValue: "sepia") == nil)
         #expect(AppAppearance.default == .system)
-    }
-
-    @Test("Send Feedback needs an address, and Privacy Policy a page")
-    func rowsWaitForTheirTargets() {
-        // The support address is set, so About and the list's foot show both
-        // mail rows.
-        #expect(AppInfo.feedbackURL() != nil)
-        #expect(AppInfo.featureRequestURL() != nil)
-        #expect(AppInfo.feedbackURL(address: nil) == nil)
-        #expect(AppInfo.feedbackURL(address: "") == nil)
-        let url = AppInfo.feedbackURL(address: "hello@example.com")
-        #expect(url?.scheme == "mailto")
-        #expect(url?.absoluteString.hasPrefix("mailto:hello@example.com") == true)
-    }
-
-    @Test("Rate and Share link to the App Store page only with a numeric id")
-    func appStoreLinks() {
-        #expect(AppInfo.appStorePage(id: "1234567890")?.absoluteString == "https://apps.apple.com/app/id1234567890")
-        #expect(AppInfo.writeReviewURL(id: "1234567890")?.absoluteString
-            == "https://apps.apple.com/app/id1234567890?action=write-review")
-        for id in [nil, "", "id123", "12 34", "../x"] as [String?] {
-            #expect(AppInfo.appStorePage(id: id) == nil, "\(String(describing: id))")
-            #expect(AppInfo.writeReviewURL(id: id) == nil, "\(String(describing: id))")
-        }
     }
 
     @Test("The version reads as the store shows it: version, then build")

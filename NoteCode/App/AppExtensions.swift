@@ -25,13 +25,16 @@ struct AppExtensions: Sendable {
     /// Under Home's page, where its scroll view ends (the App Store's ad strip).
     var homeFooter: @MainActor @Sendable () -> AnyView = { AnyView(EmptyView()) }
 
-    /// Home is in front of the reader (`ConsentGate`). Called from Home's own
-    /// `.task`, not from the footer's view, which a Pro reader never sees.
+    /// Home is in front of the reader (`HomeGate`): after the launch has
+    /// decided about the title screen, and while it is not up. Called from
+    /// Home's own `.task`, not from the footer's view, which an edition may
+    /// hide (the App Store's: ad consent).
     var homeAppeared: @MainActor @Sendable () async -> Void = {}
 
-    /// The list foot's first rows, before the general ones (the App Store's:
-    /// the ad, then Tip Jar). Only rows that show: an empty one would still
-    /// be a blank row. `present` hands the note list a sheet to show.
+    /// The list foot's rows, above the mark and the version (the App
+    /// Store's: the ad, Tip Jar, Feature Request, Send Feedback and Privacy
+    /// Policy). Only rows that show: an empty one would still be a blank row.
+    /// `present` hands the note list a sheet to show.
     var listFootRows: @MainActor @Sendable (_ present: @escaping @MainActor (ExtensionSheet) -> Void) -> [ExtensionRow] = { _ in [] }
 
     /// The list foot appeared. The App Store's asks the store for tips again
@@ -39,16 +42,24 @@ struct AppExtensions: Sendable {
     /// until the next launch.
     var listFootAppeared: @MainActor @Sendable () -> Void = {}
 
-    /// Rows in Help and About, after Privacy Policy (Ad Privacy Options).
+    /// Rows in Help and About, after Welcome Screen (the App Store's:
+    /// Feature Request, Send Feedback, Privacy Policy, Rate and Share
+    /// NoteCode, Ad Privacy Options).
     var aboutRows: @MainActor @Sendable () -> [ExtensionRow] = { [] }
 
     /// Help and About appeared.
     var settingsAppeared: @MainActor @Sendable () async -> Void = {}
 
-    /// Whether the rating prompt may be asked now. The App Store's waits
-    /// while a free reader's tracking prompt is still to come, so the two
-    /// system prompts never land on the same Home visit.
-    var mayAskForReview: @MainActor @Sendable () -> Bool = { true }
+    /// A note was opened (the App Store's counts the day for its rating
+    /// prompt).
+    var noteOpened: @MainActor @Sendable () -> Void = {}
+
+    /// A live note closed back to Home: a piece of work finished (the App
+    /// Store's may ask for a rating). Not for a note just moved to Recently
+    /// Deleted, nor in a debug launch. `isStillHome` says whether the reader
+    /// is still on Home rather than in the next note, for anything that
+    /// waits first.
+    var noteClosedToHome: @MainActor @Sendable (_ isStillHome: @escaping @MainActor () -> Bool) -> Void = { _ in }
 
     /// Rows and sections in Settings, each with its place (`SettingsSection`).
     var settingsSections: @MainActor @Sendable () -> [SettingsSection] = { [] }

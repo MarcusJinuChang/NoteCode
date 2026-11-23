@@ -5,7 +5,6 @@
 
 import SwiftUI
 import SwiftData
-import StoreKit
 import UniformTypeIdentifiers
 
 struct ContentView: View {
@@ -53,7 +52,7 @@ struct ContentView: View {
     /// and by Settings › Help and About › Welcome Screen.
     @State private var showsWelcomeScreen = false
     /// Whether the launch has decided about the title screen, which it does
-    /// after the sidebar's launch delay. Consent waits for it (`ConsentGate`).
+    /// after the sidebar's launch delay. Home's `homeAppeared` waits for it (`HomeGate`).
     @State private var launchSettled = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -127,9 +126,8 @@ struct ContentView: View {
 #endif
 
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.requestReview) private var requestReview
     @Environment(\.appExtensions) private var extensions
-    /// What the launch delay and the rating prompt's wait are measured on.
+    /// What the launch delay and Home's settling are measured on.
     @Environment(\.debounceClock) private var debounceClock
 
     /// What the launch does once (`LaunchCoordinator`).
@@ -226,14 +224,14 @@ struct ContentView: View {
             syncOpenNoteClaim()
             if let selection {
                 NoteMemory().rememberOpened(selection)
-                ReviewPrompt().noteOpened()
+                extensions.noteOpened()
                 splitIsBalanced = false
                 withAnimation { columnVisibility = .detailOnly }
             } else {
                 // A note closed: it shrinks into Home first, in the note's
                 // split view, then Home takes its own and the list comes in.
                 settleHome()
-                askForReviewIfDue(closing: closed)
+                noteClosedToHome(closed)
             }
             if isCompact { syncCompactPath(toSelection: selection) }
         }
@@ -377,7 +375,7 @@ struct ContentView: View {
             onSearch: { ask(.searchNotes) },
             onShowSettings: { showsSettings = true },
             onOpenWelcomeNote: openWelcomeNote,
-            consentMayStart: ConsentGate.isOpen(launchSettled: launchSettled, titleScreenUp: showsWelcomeScreen)
+            isInFront: HomeGate.isOpen(launchSettled: launchSettled, titleScreenUp: showsWelcomeScreen)
         )
     }
 
@@ -596,28 +594,16 @@ struct ContentView: View {
         withAnimation { showsWelcomeScreen = false }
     }
 
-    /// A note closed back to Home: the one moment the app asks for a rating,
-    /// when `ReviewPrompt` says it's due. Not for a note just moved to Recently
-    /// Deleted, not in a debug launch (a UI test would meet the sheet), and not
-    /// while a free reader's tracking prompt is still to come, so the two
-    /// system prompts never land on the same Home visit.
-    private func askForReviewIfDue(closing note: Page?) {
+    /// A note closed back to Home: tells the edition, which may ask for a
+    /// rating then (`AppExtensions.noteClosedToHome`). Not for a note just
+    /// moved to Recently Deleted, and not in a debug launch (a UI test would
+    /// meet whatever the edition shows).
+    private func noteClosedToHome(_ note: Page?) {
         guard let note, note.modelContext != nil, !note.isDeleted, note.isLive else { return }
 #if DEBUG && canImport(UIKit)
         if DebugSession.shared.options.isActive { return }
 #endif
-        guard extensions.mayAskForReview() else { return }
-        let prompt = ReviewPrompt()
-        let version = ReviewPrompt.version()
-        guard prompt.isDue(version: version) else { return }
-        Task { [debounceClock] in
-            // Once the note has shrunk back into Home, and only if the reader
-            // is still there rather than in the next note.
-            try? await debounceClock.sleep(for: .seconds(1))
-            guard selection == nil else { return }
-            prompt.markAsked(version: version)
-            requestReview()
-        }
+        extensions.noteClosedToHome { selection == nil }
     }
 
     /// How far above the page's bottom edge a toast sits: clear of the hotbar
